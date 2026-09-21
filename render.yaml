@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: x402-doctor
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
