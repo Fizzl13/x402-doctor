@@ -1,0 +1,16 @@
+{
+  "name": "x402-doctor",
+  "version": "1.0.0",
+  "description": "Diagnoses why an x402-payable endpoint's payment flow is broken, without needing a funded wallet.",
+  "main": "server.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}

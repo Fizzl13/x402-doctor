@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>x402 Doctor — diagnose a broken x402 payment flow</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --line: #30363d; --text: #e6edf3; --text-soft: #8b949e;
+    --pass: #3fb950; --warn: #d29922; --fail: #f85149; --accent: #58a6ff;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: -apple-system, 'Segoe UI', sans-serif; line-height: 1.5; }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 48px 20px 80px; }
+  h1 { font-size: 1.6rem; margin: 0 0 8px; }
+  .sub { color: var(--text-soft); margin: 0 0 32px; font-size: 0.95rem; }
+  .field-row { display: flex; gap: 8px; margin-bottom: 24px; }
+  input[type=text] {
+    flex: 1; font-family: 'SF Mono', Consolas, monospace; font-size: 14px;
+    background: var(--panel); color: var(--text); border: 1px solid var(--line);
+    border-radius: 8px; padding: 12px 14px;
+  }
+  button {
+    font-family: inherit; font-weight: 600; font-size: 14px;
+    background: var(--accent); color: #0d1117; border: none;
+    border-radius: 8px; padding: 12px 20px; cursor: pointer;
+  }
+  button:disabled { opacity: 0.5; cursor: default; }
+  .overall { display: none; padding: 14px 16px; border-radius: 8px; margin-bottom: 16px; font-weight: 600; }
+  .overall.visible { display: block; }
+  .overall.pass { background: rgba(63,185,80,0.12); color: var(--pass); border: 1px solid var(--pass); }
+  .overall.warn { background: rgba(210,153,34,0.12); color: var(--warn); border: 1px solid var(--warn); }
+  .overall.fail { background: rgba(248,81,73,0.12); color: var(--fail); border: 1px solid var(--fail); }
+  .checks { display: flex; flex-direction: column; gap: 8px; }
+  .check { display: flex; gap: 10px; padding: 12px 14px; border-radius: 8px; background: var(--panel); border: 1px solid var(--line); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 6px; flex-shrink: 0; }
+  .dot.pass { background: var(--pass); }
+  .dot.warn { background: var(--warn); }
+  .dot.fail { background: var(--fail); }
+  .check-body .id { font-family: 'SF Mono', Consolas, monospace; font-size: 12px; color: var(--text-soft); margin-bottom: 2px; }
+  .check-body .message { font-size: 14px; }
+  .error-box { display: none; background: rgba(248,81,73,0.12); color: var(--fail); border: 1px solid var(--fail); border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; }
+  footer { margin-top: 40px; color: var(--text-soft); font-size: 12.5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>x402 Doctor</h1>
+  <p class="sub">Paste an x402-payable endpoint URL. Read-only diagnostics — no wallet, no payment, no risk.</p>
+
+  <div class="field-row">
+    <input type="text" id="urlInput" placeholder="https://api.example.com/paid-endpoint">
+    <button id="diagnoseBtn">Diagnose →</button>
+  </div>
+
+  <div class="error-box" id="errorBox"></div>
+  <div class="overall" id="overallBox"></div>
+  <div class="checks" id="checksList"></div>
+
+  <footer>
+    Checks: /openapi.json discovery, 402 response, protocol version (v1 vs v2), envelope shape, network/payTo/asset/amount validity in accepts[].
+  </footer>
+</div>
+
+<script>
+const urlInput = document.getElementById('urlInput');
+const diagnoseBtn = document.getElementById('diagnoseBtn');
+const errorBox = document.getElementById('errorBox');
+const overallBox = document.getElementById('overallBox');
+const checksList = document.getElementById('checksList');
+
+function renderChecks(checks) {
+  checksList.innerHTML = checks.map(c => `
+    <div class="check">
+      <div class="dot ${c.status}"></div>
+      <div class="check-body">
+        <div class="id">${c.id}</div>
+        <div class="message">${c.message}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+diagnoseBtn.onclick = async () => {
+  const url = urlInput.value.trim();
+  errorBox.style.display = 'none';
+  overallBox.className = 'overall';
+  checksList.innerHTML = '';
+  if (!url) {
+    errorBox.textContent = 'Enter a URL first.';
+    errorBox.style.display = 'block';
+    return;
+  }
+
+  diagnoseBtn.disabled = true;
+  diagnoseBtn.textContent = 'Diagnosing...';
+
+  try {
+    const res = await fetch('/api/diagnose', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      errorBox.textContent = data.error || 'Something went wrong.';
+      errorBox.style.display = 'block';
+      if (data.checks) renderChecks(data.checks);
+      return;
+    }
+
+    const labels = { pass: 'All checks passed', warn: 'Passes, with warnings', fail: 'Failed — not a valid x402 resource' };
+    overallBox.textContent = labels[data.overall] || data.overall;
+    overallBox.className = `overall visible ${data.overall}`;
+    renderChecks(data.checks);
+  } catch (err) {
+    errorBox.textContent = err.message;
+    errorBox.style.display = 'block';
+  } finally {
+    diagnoseBtn.disabled = false;
+    diagnoseBtn.textContent = 'Diagnose →';
+  }
+};
+
+urlInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') diagnoseBtn.click();
+});
+</script>
+</body>
+</html>
