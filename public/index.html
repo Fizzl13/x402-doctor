@@ -4,129 +4,195 @@
 <meta charset="UTF-8">
 <title>x402 Doctor — diagnose a broken x402 payment flow</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Paste an x402 endpoint URL and see exactly which part of its payment flow is broken. Read-only: no wallet, no payment.">
 <style>
   :root {
     --bg: #0d1117; --panel: #161b22; --line: #30363d; --text: #e6edf3; --text-soft: #8b949e;
-    --pass: #3fb950; --warn: #d29922; --fail: #f85149; --accent: #58a6ff;
+    --pass: #3fb950; --warn: #d29922; --fail: #f85149; --info: #58a6ff; --accent: #58a6ff;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --bg: #f6f8fa; --panel: #ffffff; --line: #d0d7de; --text: #1f2328; --text-soft: #57606a;
+      --pass: #1a7f37; --warn: #9a6700; --fail: #cf222e; --info: #0969da; --accent: #0969da; }
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text); font-family: -apple-system, 'Segoe UI', sans-serif; line-height: 1.5; }
-  .wrap { max-width: 720px; margin: 0 auto; padding: 48px 20px 80px; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 48px 16px 80px; }
   h1 { font-size: 1.6rem; margin: 0 0 8px; }
-  .sub { color: var(--text-soft); margin: 0 0 32px; font-size: 0.95rem; }
-  .field-row { display: flex; gap: 8px; margin-bottom: 24px; }
-  input[type=text] {
-    flex: 1; font-family: 'SF Mono', Consolas, monospace; font-size: 14px;
-    background: var(--panel); color: var(--text); border: 1px solid var(--line);
-    border-radius: 8px; padding: 12px 14px;
+  .sub { color: var(--text-soft); margin: 0 0 28px; font-size: 0.95rem; }
+  form { display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; }
+  input[type=url] {
+    flex: 1 1 320px; min-width: 0; font-family: 'SF Mono', Consolas, monospace; font-size: 14px;
+    background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px;
   }
-  button {
-    font-family: inherit; font-weight: 600; font-size: 14px;
-    background: var(--accent); color: #0d1117; border: none;
-    border-radius: 8px; padding: 12px 20px; cursor: pointer;
-  }
+  select { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 0 10px; font: inherit; }
+  button { font: inherit; font-weight: 600; font-size: 14px; background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 12px 20px; cursor: pointer; }
   button:disabled { opacity: 0.5; cursor: default; }
-  .overall { display: none; padding: 14px 16px; border-radius: 8px; margin-bottom: 16px; font-weight: 600; }
-  .overall.visible { display: block; }
-  .overall.pass { background: rgba(63,185,80,0.12); color: var(--pass); border: 1px solid var(--pass); }
-  .overall.warn { background: rgba(210,153,34,0.12); color: var(--warn); border: 1px solid var(--warn); }
-  .overall.fail { background: rgba(248,81,73,0.12); color: var(--fail); border: 1px solid var(--fail); }
+  .overall { padding: 14px 16px; border-radius: 8px; margin-bottom: 20px; font-weight: 600; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .overall.pass { background: color-mix(in srgb, var(--pass) 12%, transparent); color: var(--pass); border: 1px solid var(--pass); }
+  .overall.warn { background: color-mix(in srgb, var(--warn) 12%, transparent); color: var(--warn); border: 1px solid var(--warn); }
+  .overall.fail { background: color-mix(in srgb, var(--fail) 12%, transparent); color: var(--fail); border: 1px solid var(--fail); }
+  .overall a { color: inherit; font-weight: 500; font-size: 13px; }
+  h2 { font-size: 0.8rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-soft); margin: 22px 0 8px; }
   .checks { display: flex; flex-direction: column; gap: 8px; }
   .check { display: flex; gap: 10px; padding: 12px 14px; border-radius: 8px; background: var(--panel); border: 1px solid var(--line); }
-  .dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 6px; flex-shrink: 0; }
-  .dot.pass { background: var(--pass); }
-  .dot.warn { background: var(--warn); }
-  .dot.fail { background: var(--fail); }
-  .check-body .id { font-family: 'SF Mono', Consolas, monospace; font-size: 12px; color: var(--text-soft); margin-bottom: 2px; }
-  .check-body .message { font-size: 14px; }
-  .error-box { display: none; background: rgba(248,81,73,0.12); color: var(--fail); border: 1px solid var(--fail); border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 7px; flex-shrink: 0; }
+  .dot.pass { background: var(--pass); } .dot.warn { background: var(--warn); } .dot.fail { background: var(--fail); } .dot.info { background: var(--info); }
+  .check-body { min-width: 0; }
+  .check-body .id { font-family: 'SF Mono', Consolas, monospace; font-size: 12px; color: var(--text-soft); }
+  .check-body .message { font-size: 14px; overflow-wrap: anywhere; }
+  .check-body .hint { font-size: 13px; color: var(--text-soft); margin-top: 4px; overflow-wrap: anywhere; }
+  .check-body .hint::before { content: '→ '; }
+  details { margin-top: 20px; }
+  summary { cursor: pointer; color: var(--text-soft); font-size: 14px; }
+  pre { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; overflow-x: auto; font-size: 12px; }
+  .error-box { background: color-mix(in srgb, var(--fail) 12%, transparent); color: var(--fail); border: 1px solid var(--fail); border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; overflow-wrap: anywhere; }
   footer { margin-top: 40px; color: var(--text-soft); font-size: 12.5px; }
+  footer a, footer code { color: var(--accent); }
+  [hidden] { display: none !important; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>x402 Doctor</h1>
-  <p class="sub">Paste an x402-payable endpoint URL. Read-only diagnostics — no wallet, no payment, no risk.</p>
+  <p class="sub">Paste an x402-payable endpoint URL. Read-only diagnostics: no wallet, no payment, no risk.</p>
 
-  <div class="field-row">
-    <input type="text" id="urlInput" value="https://smartcontractexplainer.onrender.com/api/check-wallet" placeholder="https://api.example.com/paid-endpoint">
-    <button id="diagnoseBtn">Diagnose →</button>
-  </div>
+  <form id="form">
+    <input type="url" id="urlInput" required value="https://smartcontractexplainer.onrender.com/api/check-wallet" placeholder="https://api.example.com/paid-endpoint" aria-label="Endpoint URL">
+    <select id="methodInput" aria-label="HTTP method">
+      <option value="">Auto</option>
+      <option>GET</option>
+      <option>POST</option>
+    </select>
+    <button id="diagnoseBtn" type="submit">Diagnose →</button>
+  </form>
 
-  <div class="error-box" id="errorBox"></div>
-  <div class="overall" id="overallBox"></div>
-  <div class="checks" id="checksList"></div>
+  <div class="error-box" id="errorBox" hidden></div>
+  <div class="overall" id="overallBox" hidden><span id="overallText"></span><a id="shareLink" href="#">Copy link to this report</a></div>
+  <div id="results"></div>
+  <details id="challengeBox" hidden><summary>Decoded challenge</summary><pre id="challengeJson"></pre></details>
 
   <footer>
-    Checks: /openapi.json discovery, 402 response, protocol version (v1 vs v2), envelope shape, network/payTo/asset/amount validity in accepts[].
+    Checks the 402 challenge and its envelope, protocol version, every <code>accepts[]</code> option (network, asset, amount,
+    payee, fee payer, EIP-712 domain), the resource URL and metadata, the Solana payout token account and facilitator,
+    Bazaar discovery (including replaying the declared example), <code>/openapi.json</code> and the browser paywall.
     <br><br>
-    Built while shipping <a href="https://smartcontractexplainer.onrender.com" style="color: var(--accent);">PlainText</a>, a real x402-payable wallet safety checker — every check here traces back to a bug that broke it.
+    In CI or a terminal: <code>npx x402-doctor &lt;url&gt;</code> (exits 1 on failures).
+    <br><br>
+    Built while shipping <a href="https://smartcontractexplainer.onrender.com">PlainText</a> and
+    <a href="https://ichimoku-signal.onrender.com">Ichimoku Signal</a> — every check traces back to a bug that broke one of them.
   </footer>
 </div>
 
 <script>
-const urlInput = document.getElementById('urlInput');
-const diagnoseBtn = document.getElementById('diagnoseBtn');
-const errorBox = document.getElementById('errorBox');
-const overallBox = document.getElementById('overallBox');
-const checksList = document.getElementById('checksList');
+const $ = (id) => document.getElementById(id);
+const GROUPS = {
+  challenge: '402 challenge', accepts: 'Payment options', resource: 'Resource',
+  settlement: 'Settlement', discovery: 'Discovery', browser: 'Browser'
+};
+const LABELS = { pass: 'All checks passed', warn: 'Works, with warnings', fail: 'Broken — payments will fail or the resource is not valid x402' };
 
-function renderChecks(checks) {
-  checksList.innerHTML = checks.map(c => `
-    <div class="check">
-      <div class="dot ${c.status}"></div>
-      <div class="check-body">
-        <div class="id">${c.id}</div>
-        <div class="message">${c.message}</div>
-      </div>
-    </div>
-  `).join('');
+// Everything below comes from the diagnosed endpoint, so it is only ever
+// inserted as text, never as HTML.
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
 }
 
-diagnoseBtn.onclick = async () => {
-  const url = urlInput.value.trim();
-  errorBox.style.display = 'none';
-  overallBox.className = 'overall';
-  checksList.innerHTML = '';
-  if (!url) {
-    errorBox.textContent = 'Enter a URL first.';
-    errorBox.style.display = 'block';
-    return;
+function renderChecks(checks) {
+  const results = $('results');
+  results.replaceChildren();
+  let current = null;
+  let list = null;
+  for (const c of checks) {
+    const group = c.group || 'other';
+    if (group !== current) {
+      current = group;
+      results.append(el('h2', null, GROUPS[group] || group));
+      list = el('div', 'checks');
+      results.append(list);
+    }
+    const row = el('div', 'check');
+    row.append(el('div', `dot ${['pass', 'warn', 'fail', 'info'].includes(c.status) ? c.status : 'info'}`));
+    const body = el('div', 'check-body');
+    body.append(el('div', 'id', c.id), el('div', 'message', c.message));
+    if (c.hint && c.status !== 'pass') body.append(el('div', 'hint', c.hint));
+    row.append(body);
+    list.append(row);
   }
+}
 
-  diagnoseBtn.disabled = true;
-  diagnoseBtn.textContent = 'Diagnosing...';
+function showError(message) {
+  $('errorBox').textContent = message;
+  $('errorBox').hidden = false;
+}
+
+async function diagnose(url, method) {
+  $('errorBox').hidden = true;
+  $('overallBox').hidden = true;
+  $('challengeBox').hidden = true;
+  $('results').replaceChildren();
+  $('diagnoseBtn').disabled = true;
+  $('diagnoseBtn').textContent = 'Diagnosing…';
+
+  const share = new URL(location.href);
+  share.search = '';
+  share.searchParams.set('url', url);
+  if (method) share.searchParams.set('method', method);
+  history.replaceState(null, '', share);
 
   try {
     const res = await fetch('/api/diagnose', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url })
+      body: JSON.stringify(method ? { url, method } : { url })
     });
     const data = await res.json();
     if (!res.ok) {
-      errorBox.textContent = data.error || 'Something went wrong.';
-      errorBox.style.display = 'block';
+      showError(data.error || `Request failed (HTTP ${res.status}).`);
       if (data.checks) renderChecks(data.checks);
       return;
     }
-
-    const labels = { pass: 'All checks passed', warn: 'Passes, with warnings', fail: 'Failed — not a valid x402 resource' };
-    overallBox.textContent = labels[data.overall] || data.overall;
-    overallBox.className = `overall visible ${data.overall}`;
+    const counts = ['pass', 'warn', 'fail'].map((s) => data.checks.filter((c) => c.status === s).length);
+    $('overallText').textContent = `${LABELS[data.overall] || data.overall} · ${counts[0]} passed, ${counts[1]} warnings, ${counts[2]} failed`;
+    $('overallBox').className = `overall ${data.overall}`;
+    $('overallBox').hidden = false;
     renderChecks(data.checks);
+    if (data.challenge) {
+      $('challengeJson').textContent = JSON.stringify(data.challenge, null, 2);
+      $('challengeBox').hidden = false;
+    }
   } catch (err) {
-    errorBox.textContent = err.message;
-    errorBox.style.display = 'block';
+    showError(err.message);
   } finally {
-    diagnoseBtn.disabled = false;
-    diagnoseBtn.textContent = 'Diagnose →';
+    $('diagnoseBtn').disabled = false;
+    $('diagnoseBtn').textContent = 'Diagnose →';
   }
-};
+}
 
-urlInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') diagnoseBtn.click();
+$('form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const url = $('urlInput').value.trim();
+  if (url) diagnose(url, $('methodInput').value);
 });
+
+$('shareLink').addEventListener('click', async (e) => {
+  e.preventDefault();
+  try {
+    await navigator.clipboard.writeText(location.href);
+    $('shareLink').textContent = 'Link copied';
+  } catch {
+    $('shareLink').textContent = location.href;
+  }
+});
+
+const params = new URLSearchParams(location.search);
+if (params.get('url')) {
+  $('urlInput').value = params.get('url');
+  if (['GET', 'POST'].includes(params.get('method'))) $('methodInput').value = params.get('method');
+  diagnose(params.get('url'), $('methodInput').value);
+}
 </script>
 </body>
 </html>

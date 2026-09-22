@@ -1,16 +1,27 @@
 {
   "name": "x402-doctor",
-  "version": "1.0.0",
-  "description": "Diagnoses why an x402-payable endpoint's payment flow is broken, without needing a funded wallet.",
+  "version": "2.0.0",
+  "description": "Diagnoses why an x402-payable endpoint's payment flow is broken, without needing a funded wallet. Web app and CLI.",
   "main": "server.js",
   "engines": {
-    "node": ">=18"
+    "node": ">=20.18.1"
   },
   "scripts": {
     "start": "node server.js",
     "test": "node --test"
   },
   "dependencies": {
-    "express": "^4.19.2"
-  }
+    "@x402/extensions": "^2.27.0",
+    "express": "^4.19.2",
+    "undici": "^7.29.1"
+  },
+  "bin": {
+    "x402-doctor": "bin/x402-doctor.js"
+  },
+  "files": [
+    "server.js",
+    "lib/",
+    "bin/",
+    "public/"
+  ]
 }

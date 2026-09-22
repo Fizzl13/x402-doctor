@@ -36,7 +36,7 @@ test('checkEnvelope reads header-based v2 challenge and body mirror', async () =
     },
   };
 
-  const accepts = await checkEnvelope({ res }, checks);
+  const { accepts } = await checkEnvelope({ res }, checks);
 
   assert.ok(Array.isArray(accepts));
   assert.equal(accepts.length, 1);
