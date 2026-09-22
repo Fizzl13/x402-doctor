@@ -58,3 +58,21 @@ test('checkAccepts flags malformed accepts entries and accepts valid CAIP-2 netw
   assert.equal(checks.some((check) => check.id === 'accepts[1]-payto' && check.status === 'fail'), true);
   assert.equal(checks.some((check) => check.id === 'accepts[1]-amount' && check.status === 'warn'), true);
 });
+
+test('checkAccepts validates payTo/asset as base58 for Solana entries, not EVM hex', () => {
+  const checks = [];
+  const accepts = [
+    {
+      network: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp',
+      payTo: 'ATWJ82T8nRdQwZnaysB68N5EpaSvLRsQP4h6eWmaJBH9',
+      asset: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+      amount: '20000',
+    },
+  ];
+
+  checkAccepts(accepts, checks);
+
+  assert.equal(checks.some((check) => check.id === 'accepts[0]-network' && check.status === 'pass'), true);
+  assert.equal(checks.some((check) => check.id === 'accepts[0]-payto' && check.status === 'pass'), true);
+  assert.equal(checks.some((check) => check.id === 'accepts[0]-asset' && check.status === 'warn'), false);
+});

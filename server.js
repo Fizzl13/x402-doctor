@@ -214,16 +214,22 @@ function checkAccepts(accepts, checks) {
       addCheck(checks, `${p}-network`, 'warn', `${p}: network "${accept.network}" doesn't look like CAIP-2 format (e.g. "eip155:8453" for Base). x402 v2 tooling and registries expect CAIP-2 network ids.`);
     }
 
+    const isSolana = typeof accept.network === 'string' && accept.network.startsWith('solana:');
+    const EVM_ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
+    const SOLANA_ADDRESS_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/; // base58, no 0OIl
+
     const payTo = accept.payTo;
-    if (!payTo || !/^0x[a-fA-F0-9]{40}$/.test(payTo)) {
-      addCheck(checks, `${p}-payto`, 'fail', `${p}: "payTo" is missing or not a valid EVM address.`);
+    const payToValid = isSolana ? SOLANA_ADDRESS_RE.test(payTo || '') : EVM_ADDRESS_RE.test(payTo || '');
+    if (!payTo || !payToValid) {
+      addCheck(checks, `${p}-payto`, 'fail', `${p}: "payTo" is missing or not a valid ${isSolana ? 'Solana' : 'EVM'} address.`);
     } else {
       addCheck(checks, `${p}-payto`, 'pass', `${p}: payTo is a valid address.`);
     }
 
     const asset = accept.asset;
-    if (!asset || !/^0x[a-fA-F0-9]{40}$/.test(asset)) {
-      addCheck(checks, `${p}-asset`, 'warn', `${p}: "asset" is missing or not a valid contract address.`);
+    const assetValid = isSolana ? SOLANA_ADDRESS_RE.test(asset || '') : EVM_ADDRESS_RE.test(asset || '');
+    if (!asset || !assetValid) {
+      addCheck(checks, `${p}-asset`, 'warn', `${p}: "asset" is missing or not a valid ${isSolana ? 'token mint' : 'contract'} address.`);
     }
 
     const amount = accept.amount ?? accept.maxAmountRequired;
