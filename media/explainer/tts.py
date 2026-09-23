@@ -11,10 +11,24 @@ the working directory; the workflow downloads them.
 import argparse
 import json
 import os
+import re
 import wave
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SAMPLE_RATE = 24000
+
+# How the voice should say things the captions write differently. The x402
+# community says "four-oh-two"; a TTS engine reads "402" as "four hundred two".
+PRONUNCIATION = [
+    (r"\bx402\b", "ex four oh two"),
+    (r"\b402\b", "four oh two"),
+]
+
+
+def spoken(text):
+    for pattern, replacement in PRONUNCIATION:
+        text = re.sub(pattern, replacement, text)
+    return text
 
 
 def write_wav(path, samples, rate):
@@ -52,7 +66,7 @@ def main():
     durations = {}
     for seg in segments:
         if kokoro:
-            samples, rate = kokoro.create(seg["text"], voice=args.voice, speed=args.speed, lang="en-us")
+            samples, rate = kokoro.create(spoken(seg["text"]), voice=args.voice, speed=args.speed, lang="en-us")
         else:
             # ~2.6 words per second, the pace of the real voice.
             rate = SAMPLE_RATE
