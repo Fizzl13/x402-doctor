@@ -88,7 +88,7 @@ function openApi(origin, payment) {
   spec.paths[PAID_ROUTE] = {
     get: {
       operationId: 'diagnoseX402Endpoint',
-      summary: 'Diagnose an x402 endpoint',
+      summary: 'Check an x402 endpoint for payment problems',
       tags: ['x402', 'developer-tools'],
       'x-payment-info': {
         protocols: ['x402'],
