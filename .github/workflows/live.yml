@@ -34,6 +34,16 @@ jobs:
         run: node bin/x402-doctor.js "$SERVICE/api/v1/diagnose"
         env:
           SOLANA_RPC_URL: ${{ secrets.SOLANA_RPC_URL }}
+      - name: Trust Index loaded
+        run: |
+          for i in 1 2 3 4 5 6; do
+            code=$(curl -s -o summary.json -w '%{http_code}' "$SERVICE/api/trust/summary")
+            [ "$code" = 200 ] && break
+            sleep 10
+          done
+          cat summary.json; echo
+          node -e 'const s=require("./summary.json"); if(!(s.resources>0)){console.error("trust index not loaded"); process.exit(1)} console.log(`trust index: ${s.resources} resources, updated ${s.updated}`)'
+          curl -sf "$SERVICE/trust" -o /dev/null
       - name: Diagnose the pre-payment check route
         run: node bin/x402-doctor.js "$SERVICE/api/v1/preflight"
         env:
