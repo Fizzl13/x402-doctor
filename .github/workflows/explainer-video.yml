@@ -16,6 +16,9 @@ on:
         required: false
         default: "1.0"
 
+permissions:
+  contents: write
+
 jobs:
   video:
     runs-on: ubuntu-latest
@@ -55,6 +58,24 @@ jobs:
         run: |
           command -v ffmpeg || (sudo apt-get update -q && sudo apt-get install -y -q ffmpeg)
           python build.py
+      - name: Contact sheet (one frame per scene)
+        run: |
+          i=0; list=""
+          for t in $(python -c "import json;t=json.load(open('out/timeline.json'));print(' '.join(str(round(s['start']+s['duration']*0.75,1)) for s in t['segments']))"); do
+            ffmpeg -loglevel error -y -ss "$t" -i out/x402-doctor-explainer.mp4 -frames:v 1 -update 1 -vf scale=640:-1 "out/f$i.jpg"; list="$list -i out/f$i.jpg"; i=$((i+1))
+          done
+          ffmpeg -loglevel error -y $list -i out/f0.jpg -filter_complex "xstack=inputs=12:layout=0_0|w0_0|w0+w1_0|0_h0|w0_h0|w0+w1_h0|0_h0+h3|w0_h0+h3|w0+w1_h0+h3|0_h0+h3+h6|w0_h0+h3+h6|w0+w1_h0+h3+h6" -update 1 out/contact.jpg
+      - name: Publish to the explainer-video branch
+        run: |
+          mkdir -p ../publish && cp out/x402-doctor-explainer.mp4 out/x402-doctor-explainer.srt out/poster.jpg out/contact.jpg ../publish/
+          cd ../publish
+          printf '# x402 Doctor explainer video\n\nProduced by explainer-video.yml. Voice: %s.\n' "${{ github.event.inputs.voice || 'af_heart' }}" > README.md
+          git init -q -b explainer-video
+          git add .
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -qm "Explainer video $(date -u +%F)"
+          git push -qf "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" explainer-video
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/upload-artifact@v4
         with:
           name: explainer-video

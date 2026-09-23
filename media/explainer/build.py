@@ -62,7 +62,7 @@ def main():
         "-c:v", "libx264", "-preset", "slow", "-crf", "20", "-profile:v", "high",
         "-c:a", "aac", "-b:a", "160k", "-t", f"{total:.3f}", "-movflags", "+faststart", mp4,
     ])
-    run([args.ffmpeg, "-y", "-ss", "1.5", "-i", mp4, "-frames:v", "1", "-q:v", "2", os.path.join(out, "poster.jpg")])
+    run([args.ffmpeg, "-y", "-ss", "1.5", "-i", mp4, "-frames:v", "1", "-update", "1", "-q:v", "2", os.path.join(out, "poster.jpg")])
 
     with open(os.path.join(out, "x402-doctor-explainer.srt"), "w") as f:
         for i, seg in enumerate(segments, 1):
