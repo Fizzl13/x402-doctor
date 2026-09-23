@@ -74,7 +74,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
 
 function openApi(origin, payment) {
   const spec = {
-    openapi: '3.0.3',
+    openapi: '3.1.0',
     info: {
       title: 'x402 Doctor',
       version: '2.1.0',
