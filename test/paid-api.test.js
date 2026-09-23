@@ -249,3 +249,29 @@ test('/demo/broken: always 402, broken on purpose (decimal amount, missing Solan
   assert.match(byId['accepts[1]-extra'].message, /feePayer/);
   assert.equal(byId['resource-url'].status, 'pass');
 });
+
+test('/media: redirects to GitHub until the file is cached, then serves it with byte ranges', async () => {
+  const { createMediaCache } = require('../lib/media');
+  const os = require('os');
+  const path = require('path');
+  const fs = require('fs');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'media-test-'));
+  const body = Buffer.from('0123456789');
+  const media = createMediaCache({ base: 'https://raw.test/branch', dir, fetchImpl: async () => ({ ok: true, arrayBuffer: async () => body }) });
+  const app = createApp({ allowPrivate: true, env: {}, trustIndex: { lookup: async () => null, refresh: () => Promise.resolve(), summary: () => null }, media });
+  const base = await new Promise((resolve) => {
+    const server = app.listen(0, '127.0.0.1', () => resolve(`http://127.0.0.1:${server.address().port}`));
+    servers.push(server);
+  });
+  const first = await fetch(`${base}/media/explainer.mp4`, { redirect: 'manual' });
+  assert.equal(first.status, 302);
+  assert.equal(first.headers.get('location'), 'https://raw.test/branch/x402-doctor-explainer.mp4');
+  await media.warm();
+  const ranged = await fetch(`${base}/media/explainer.mp4`, { headers: { range: 'bytes=2-5' } });
+  assert.equal(ranged.status, 206);
+  assert.equal(ranged.headers.get('content-type'), 'video/mp4');
+  assert.equal(await ranged.text(), '2345');
+  assert.equal((await fetch(`${base}/media/other.mp4`)).status, 404);
+  const home = await (await fetch(`${base}/`)).text();
+  assert.match(home, /<video[^>]+poster="\/media\/explainer.jpg"/);
+});

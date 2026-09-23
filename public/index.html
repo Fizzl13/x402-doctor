@@ -48,6 +48,8 @@
   .error-box { background: color-mix(in srgb, var(--fail) 12%, transparent); color: var(--fail); border: 1px solid var(--fail); border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; overflow-wrap: anywhere; }
   footer { margin-top: 40px; color: var(--text-soft); font-size: 12.5px; }
   footer a, footer code { color: var(--accent); }
+  .video { margin-top: 40px; }
+  .video video { display: block; width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--line); background: #000; }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -70,6 +72,14 @@
   <div class="overall" id="overallBox" hidden><span id="overallText"></span><a id="shareLink" href="#">Copy link to this report</a></div>
   <div id="results"></div>
   <details id="challengeBox" hidden><summary>Decoded challenge</summary><pre id="challengeJson"></pre></details>
+
+  <section class="video" aria-labelledby="videoTitle">
+    <h2 id="videoTitle">See it in 70 seconds</h2>
+    <video controls playsinline preload="none" poster="/media/explainer.jpg" width="1920" height="1080">
+      <source src="/media/explainer.mp4" type="video/mp4">
+      <a href="/media/explainer.mp4">Watch the explainer video</a>
+    </video>
+  </section>
 
   <footer>
     Checks the 402 challenge and its envelope, protocol version, every <code>accepts[]</code> option (network, asset, amount,

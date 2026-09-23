@@ -7,6 +7,11 @@ to fix it. Every check traces back to a real bug hit while shipping
 [PlainText](https://smartcontractexplainer.onrender.com) and
 [Ichimoku Signal](https://ichimoku-signal.onrender.com).
 
+[![x402 Doctor in 70 seconds](https://raw.githubusercontent.com/Fizzl13/x402-doctor/explainer-video/poster.jpg)](https://x402-doctor.onrender.com/media/explainer.mp4)
+
+▶ **[Watch the 70-second explainer](https://x402-doctor.onrender.com/media/explainer.mp4)** (with voice and captions):
+diagnosing a broken endpoint, the pre-payment check for agents, and the daily Trust Index.
+
 ## What it checks
 
 | Group | Check | Catches |
@@ -159,6 +164,8 @@ lib/trust-scan.js      Trust Index scan: catalog, polite fetch, 30-day history
 lib/trust-index.js     Reads the published index for preflight and /api/trust
 scripts/trust-scan.js  Daily scan entry point (trust-scan.yml)
 public/trust.html      /trust page
+lib/media.js           Serves the explainer video from the explainer-video branch (/media/explainer.mp4)
+media/explainer/       Explainer video pipeline (script, voice, recording, encoding)
 lib/diagnose.js        The checks
 lib/networks.js        Known networks, USDC per network, address validation
 lib/safe-fetch.js      SSRF-safe fetch (connect-time IP check, redirects, size cap, timeout)
