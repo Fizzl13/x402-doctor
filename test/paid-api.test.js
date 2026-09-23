@@ -199,7 +199,7 @@ test('health reports the facilitator: PayAI by default, CDP first when CDP keys 
   const health = await (await fetch(`${api}/api/health`)).json();
   assert.equal(health.paid.facilitator, 'payai');
   const { createPaidApi } = require('../lib/paid-api');
-  const withCdp = createPaidApi({ env: { AGENT_PAYOUT_WALLET: PAY_TO_BASE, CDP_API_KEY_ID: 'id', CDP_API_KEY_SECRET: 'c2VjcmV0' } });
+  const withCdp = createPaidApi({ env: { AGENT_PAYOUT_WALLET: PAY_TO_BASE, CDP_API_KEY_ID: 'id', CDP_API_KEY_SECRET: 'c2VjcmV0', DOCTOR_WARM_BAZAAR_INDEX: '0' } });
   assert.equal(withCdp.paymentInfo.facilitator, 'cdp, payai fallback');
 });
 
