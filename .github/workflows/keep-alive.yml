@@ -1,0 +1,15 @@
+name: Keep Render instance alive
+
+on:
+  schedule:
+    # Render's free tier spins down after ~15 min of inactivity; ping every 10
+    # so agents (and registry probes) don't hit a ~50 s cold start.
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping health endpoint
+        run: curl -sf -o /dev/null --max-time 90 -w "HTTP %{http_code}\n" https://x402-doctor.onrender.com/api/health
