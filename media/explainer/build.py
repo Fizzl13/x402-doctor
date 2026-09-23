@@ -58,7 +58,9 @@ def main():
     run([
         args.ffmpeg, "-y", "-i", os.path.join(out, "screen.webm"), "-i", narration,
         "-vf", f"fps=30,format=yuv420p,fade=t=in:st=0:d=0.5,fade=t=out:st={fade_out:.2f}:d=0.8",
-        "-af", f"afade=t=out:st={fade_out:.2f}:d=0.8",
+        # Loudness for phones and social platforms: -16 LUFS integrated, -1.5 dBTP peaks.
+        "-af", f"loudnorm=I=-16:TP=-1.5:LRA=11,afade=t=out:st={fade_out:.2f}:d=0.8",
+        "-ar", "48000",
         "-c:v", "libx264", "-preset", "slow", "-crf", "20", "-profile:v", "high",
         "-c:a", "aac", "-b:a", "160k", "-t", f"{total:.3f}", "-movflags", "+faststart", mp4,
     ])
