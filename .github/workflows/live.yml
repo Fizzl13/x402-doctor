@@ -58,8 +58,7 @@ jobs:
               for (const t of targets) {
                 const hit = found.get(t);
                 if (!hit) { console.log(`::notice::${t} is not in the CDP Bazaar yet (needs CDP keys and one settled payment)`); continue; }
-                const schema = hit.accepts?.some((a) => a.outputSchema || a.extra) || hit.extensions?.bazaar || hit.metadata;
-                console.log(`listed in the CDP Bazaar: ${hit.resource}${schema ? "" : " (no discovery metadata yet)"}`);
+                console.log(`listed in the CDP Bazaar: ${hit.resource}`);
               }
             })();
           '
