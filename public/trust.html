@@ -77,13 +77,16 @@
 </div>
 <script>
   const $ = (id) => document.getElementById(id);
-  fetch('/api/trust/summary').then((r) => r.ok ? r.json() : null).then((s) => {
+  // The index may still be loading right after the service wakes up: retry.
+  const loadSummary = (tries) => fetch('/api/trust/summary').then((r) => r.ok ? r.json() : null).catch(() => null).then((s) => {
+    if (!s && tries > 0) return setTimeout(() => loadSummary(tries - 1), 3000);
     if (!s) { ['s-total', 's-go', 's-caution', 's-nogo'].forEach((id) => { $(id).textContent = '—'; }); return; }
     $('s-total').textContent = s.resources.toLocaleString();
     $('s-go').textContent = s.latest.go.toLocaleString();
     $('s-caution').textContent = s.latest.caution.toLocaleString();
     $('s-nogo').textContent = (s.latest.no_go + s.latest.unreachable).toLocaleString();
-  }).catch(() => {});
+  });
+  loadSummary(10);
 
   const label = { g: 'go', c: 'caution', n: 'no-go', x: 'unreachable', '-': 'not scanned' };
   $('form').addEventListener('submit', async (e) => {
