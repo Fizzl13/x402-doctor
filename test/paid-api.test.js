@@ -160,6 +160,23 @@ test('discovery: OpenAPI with x-payment-info and /.well-known/x402 listing the r
   assert.deepEqual(wellKnown.resources, [`${api}/api/v1/diagnose`]);
 });
 
+test('browsers get a wallet paywall (mainnet, Base first) instead of the bare 402', async () => {
+  const res = await fetch(diagnoseUrl(targetUrl), { headers: { accept: 'text/html', 'user-agent': 'Mozilla/5.0' } });
+  assert.equal(res.status, 402);
+  const html = await res.text();
+  assert.match(html, /window\.x402/);
+  assert.match(html, /eip155:8453/);
+  assert.doesNotMatch(html, /"testnet":\s*true/);
+});
+
+test('health reports the facilitator: PayAI by default, CDP first when CDP keys are set', async () => {
+  const health = await (await fetch(`${api}/api/health`)).json();
+  assert.equal(health.paid.facilitator, 'payai');
+  const { createPaidApi } = require('../lib/paid-api');
+  const withCdp = createPaidApi({ env: { AGENT_PAYOUT_WALLET: PAY_TO_BASE, CDP_API_KEY_ID: 'id', CDP_API_KEY_SECRET: 'c2VjcmV0' } });
+  assert.equal(withCdp.paymentInfo.facilitator, 'cdp, payai fallback');
+});
+
 test('free web API still works and the paid route is off without payout wallets', async () => {
   const app = createApp({ allowPrivate: true, env: {} });
   const base = await new Promise((resolve) => {

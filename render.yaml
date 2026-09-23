@@ -12,3 +12,7 @@ services:
         sync: false
       - key: AGENT_PAYOUT_WALLET_SOLANA
         sync: false
+      - key: CDP_API_KEY_ID
+        sync: false
+      - key: CDP_API_KEY_SECRET
+        sync: false
