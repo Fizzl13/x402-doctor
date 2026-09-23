@@ -1,94 +1,17 @@
 name: Live check
-
-# Dogfooding: x402-doctor diagnoses its own paid API on Render, plus the
-# discovery documents. Read-only; it never pays.
+# Temporary research branch: one-off x402 market data pull. Not for merge.
 on:
-  schedule:
-    - cron: "37 6 * * *" # daily, 06:37 UTC
   workflow_dispatch: {}
-
-env:
-  SERVICE: https://x402-doctor.onrender.com
-
 jobs:
-  live:
+  research:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
           node-version: 22
-          cache: npm
-      - run: npm ci
-      # Render's free tier may be asleep; wake it before checking.
-      - run: curl -s -o /dev/null --retry 5 --retry-delay 10 --max-time 90 "$SERVICE/api/health"
-      - name: Paid API configured
-        run: |
-          curl -sf "$SERVICE/api/health" | tee health.json
-          node -e 'const h=require("./health.json"); if(!h.paid) { console.error("paid API not configured: set AGENT_PAYOUT_WALLET / AGENT_PAYOUT_WALLET_SOLANA"); process.exit(1) } console.log("\npaid:", JSON.stringify(h.paid))'
-      - name: Discovery documents
-        run: |
-          curl -sf "$SERVICE/.well-known/x402"; echo
-          curl -sf "$SERVICE/openapi.json" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const op=JSON.parse(s).paths["/api/v1/diagnose"]?.get; if(!op?.["x-payment-info"]) {console.error("no x-payment-info"); process.exit(1)} console.log("openapi ok:", JSON.stringify(op["x-payment-info"]))})'
-      - name: Diagnose the paid API with x402-doctor itself
-        run: node bin/x402-doctor.js "$SERVICE/api/v1/diagnose"
-        env:
-          SOLANA_RPC_URL: ${{ secrets.SOLANA_RPC_URL }}
-      # Informational: is the route in the CDP Bazaar yet? It appears after the
-      # first payment settled through the CDP facilitator.
-      - name: CDP Bazaar listing
-        continue-on-error: true
-        run: |
-          node -e '
-            // x402 Doctor, plus PlainText (also settles through CDP).
-            const targets = [
-              process.env.SERVICE + "/api/v1/diagnose",
-              "https://smartcontractexplainer.onrender.com/api/check-wallet",
-              "https://smartcontractexplainer.onrender.com/api/explain",
-            ];
-            (async () => {
-              const found = new Map();
-              for (let offset = 0; offset < 20000; offset += 500) {
-                const res = await fetch(`https://api.cdp.coinbase.com/platform/v2/x402/discovery/resources?type=http&limit=500&offset=${offset}`);
-                if (!res.ok) { console.log(`::warning::CDP discovery API -> HTTP ${res.status}`); return; }
-                const items = (await res.json()).items || [];
-                for (const i of items) for (const t of targets) if (String(i.resource || "").startsWith(t)) found.set(t, i);
-                if (items.length < 500) break;
-              }
-              for (const t of targets) {
-                const hit = found.get(t);
-                if (!hit) { console.log(`::notice::${t} is not in the CDP Bazaar yet (needs CDP keys and one settled payment)`); continue; }
-                console.log(`listed in the CDP Bazaar: ${hit.resource}`);
-              }
-            })();
-          '
-
-  # The other agents in the fleet, diagnosed by the same doctor. A failure here
-  # means that agent needs attention, not this service.
-  agents:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: Ichimoku Signal
-            url: https://ichimoku-signal.onrender.com/signal/BTC-USDT
-            method: GET
-          - name: PlainText wallet check
-            url: https://smartcontractexplainer.onrender.com/api/check-wallet
-            method: POST
-          - name: PlainText explain
-            url: https://smartcontractexplainer.onrender.com/api/explain
-            method: POST
-    name: ${{ matrix.name }}
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - run: node scripts/market-research.mjs
+      - uses: actions/upload-artifact@v4
         with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: curl -s -o /dev/null --retry 5 --retry-delay 10 --max-time 90 "$(node -e 'console.log(new URL(process.argv[1]).origin)' "${{ matrix.url }}")/"
-      - run: node bin/x402-doctor.js "${{ matrix.url }}" --method "${{ matrix.method }}"
-        env:
-          SOLANA_RPC_URL: ${{ secrets.SOLANA_RPC_URL }}
+          name: research
+          path: research-out
