@@ -1,7 +1,7 @@
 {
   "name": "x402-doctor",
-  "version": "2.0.0",
-  "description": "Diagnoses why an x402-payable endpoint's payment flow is broken, without needing a funded wallet. Web app and CLI.",
+  "version": "2.1.0",
+  "description": "Diagnoses why an x402-payable endpoint's payment flow is broken, without needing a funded wallet. Free web app and CLI, paid x402 API for agents.",
   "main": "server.js",
   "engines": {
     "node": ">=20.18.1"
@@ -11,7 +11,11 @@
     "test": "node --test"
   },
   "dependencies": {
+    "@x402/core": "^2.27.0",
+    "@x402/evm": "^2.27.0",
+    "@x402/express": "^2.27.0",
     "@x402/extensions": "^2.27.0",
+    "@x402/svm": "^2.27.0",
     "express": "^4.19.2",
     "undici": "^7.29.1"
   },
@@ -23,5 +27,9 @@
     "lib/",
     "bin/",
     "public/"
-  ]
+  ],
+  "devDependencies": {
+    "@x402/fetch": "^2.27.0",
+    "viem": "^2.56.8"
+  }
 }
