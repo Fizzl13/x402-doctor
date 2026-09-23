@@ -41,6 +41,24 @@ Reports are shareable: `https://<host>/?url=<endpoint>&method=GET` runs the diag
 API: `POST /api/diagnose` with `{ "url": "...", "method": "GET" | "POST" }` (method optional) returns
 `{ url, method, overall, checks[], challenge }`. Rate-limited to 10 diagnoses per minute per IP.
 
+## Paid API for agents (x402)
+
+`GET /api/v1/diagnose?url=<endpoint>&method=GET|POST` returns the same report, **$0.01 USDC per call** on Base or
+Solana via x402, with no rate limit. It is meant for agents and CI pipelines; the web page stays free.
+
+- Unpaid requests get the x402 challenge (`PAYMENT-REQUIRED` header, mirrored in the body) with a Bazaar input and
+  output schema.
+- Invalid input (bad URL, non-http(s), unknown method) gets a 400 **before** payment. The bare route without `url`
+  answers 402, so indexers such as x402scan can register it. Paying without a `url` returns a 400.
+- The x402 middleware settles only after a 2xx response, so a diagnosis that errors out is never charged.
+- Discovery: `/openapi.json` (with `x-payment-info`) and `/.well-known/x402`.
+
+```bash
+# pay-per-call from Node with @x402/fetch
+const paidFetch = wrapFetchWithPayment(fetch, client);   // client with an EVM or SVM signer
+const report = await (await paidFetch("https://<host>/api/v1/diagnose?url=https://api.example.com/paid")).json();
+```
+
 ## CLI
 
 ```bash
@@ -63,6 +81,12 @@ In GitHub Actions:
 |----------|---------|
 | `PORT` | Web server port (default `3001`) |
 | `SOLANA_RPC_URL` | RPC for the Solana payout-account check (default: public mainnet RPC, which rate-limits) |
+| `AGENT_PAYOUT_WALLET` | Base address that receives paid-API payments (or `DOCTOR_PAYOUT_WALLET`) |
+| `AGENT_PAYOUT_WALLET_SOLANA` | Solana address that receives paid-API payments (or `DOCTOR_PAYOUT_WALLET_SOLANA`); needs a USDC token account |
+| `DOCTOR_PRICE` | Price per paid diagnosis (default `$0.01`) |
+| `FACILITATOR_URL` | x402 facilitator (default PayAI, `https://facilitator.payai.network`) |
+
+Without either payout wallet the paid route answers 503 and the rest of the app works as before.
 
 ## Safety
 
@@ -72,16 +96,17 @@ The web app fetches user-submitted URLs server-side:
   metadata, CGNAT, IPv6 ULA/link-local, IPv4-mapped IPv6 in any notation) **at connect time**, so DNS rebinding
   cannot slip past a separate lookup. Redirects are followed manually and each hop is re-checked.
 - Responses are capped at 2 MB and every request times out after 8 s.
-- `/api/diagnose` is rate-limited per IP.
+- `/api/diagnose` (free) is rate-limited per IP; `/api/v1/diagnose` is paid per call and uses the same guards.
 - Everything taken from the diagnosed endpoint is rendered as text, never as HTML.
 
-It never pays: no wallet, no signatures, zero financial risk. A paid probe (sign and settle one minimal payment
+It never pays the endpoint it diagnoses: no wallet, no signatures, zero financial risk. A paid probe (sign and settle one minimal payment
 to trace verify/settle failures) is deliberately out of scope here.
 
 ## Project structure
 
 ```
-server.js              Express app: /api/diagnose, rate limit, static frontend
+server.js              Express app: /api/diagnose (free), paid API, /openapi.json, /.well-known/x402, static frontend
+lib/paid-api.js        GET /api/v1/diagnose behind x402 (Base + Solana USDC via PayAI)
 lib/diagnose.js        The checks
 lib/networks.js        Known networks, USDC per network, address validation
 lib/safe-fetch.js      SSRF-safe fetch (connect-time IP check, redirects, size cap, timeout)

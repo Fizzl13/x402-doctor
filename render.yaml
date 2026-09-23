@@ -8,3 +8,7 @@ services:
     envVars:
       - key: SOLANA_RPC_URL
         sync: false
+      - key: AGENT_PAYOUT_WALLET
+        sync: false
+      - key: AGENT_PAYOUT_WALLET_SOLANA
+        sync: false
