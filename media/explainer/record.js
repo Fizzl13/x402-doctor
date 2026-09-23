@@ -89,7 +89,17 @@ async function realPreflight() {
   return preflight(GREEN_URL, { safeFetch: createSafeFetch({ allowPrivate: process.env.ALLOW_PRIVATE === '1' }), maxUsd: 0.05 });
 }
 
+// Warm the live services (Render free tier) and the endpoints the video
+// diagnoses, so on-screen diagnoses take a second instead of a cold start.
+async function warmUp() {
+  for (const url of [BROKEN_URL, GREEN_URL]) {
+    await fetch(`${DOCTOR}/api/diagnose`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url }) }).catch(() => {});
+  }
+  await fetch(`${DOCTOR}/api/trust/summary`).catch(() => {});
+}
+
 async function main() {
+  await warmUp();
   const pf = await realPreflight();
   const best = pf.recommended_option === null ? null : pf.options[pf.recommended_option];
   const shortUrl = GREEN_URL.replace(/^https?:\/\//, '');
@@ -166,14 +176,24 @@ async function main() {
         await sleep(Math.max(1200, ms / Math.max(1, targets.length)));
       }
     },
-    async 'home-green'() {
+    async 'home-rerun'() {
       await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
-      await sleep(500);
+      await sleep(300);
       await page.fill('#urlInput', '');
-      await page.type('#urlInput', GREEN_URL, { delay: 22 });
+      await page.type('#urlInput', GREEN_URL, { delay: 14 });
       await page.click('#diagnoseBtn');
+    },
+    // The green line is only spoken once the green result is on screen.
+    async 'prepare:home-green-hold'() {
       await page.waitForSelector('#overallBox:not([hidden]):not(.fail)', { timeout: 60000 });
-      await sleep(1600);
+    },
+    async 'home-green-hold'(seg, ms) {
+      await page.evaluate(() => {
+        const box = document.getElementById('overallBox');
+        box.style.transition = 'box-shadow .3s';
+        box.style.boxShadow = '0 0 0 8px rgba(63,185,80,.25)';
+      });
+      await sleep(Math.max(ms, 1800));
     },
     async 'prepare:terminal-call'() {
       await page.setContent(terminalHtml(terminalLines));
