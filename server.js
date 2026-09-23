@@ -7,6 +7,9 @@ const { PREFLIGHT_SCHEMA } = require('./lib/preflight');
 const { createTrustIndex } = require('./lib/trust-index');
 
 const PORT = process.env.PORT || 3001;
+// Payout addresses shown by /demo/broken (it never settles, so nothing is paid).
+const DEMO_PAY_TO_BASE = '0x6B0F4651eD42893ab58139938175E4a69f175F25';
+const DEMO_PAY_TO_SOLANA = 'ATWJ82T8nRdQwZnaysB68N5EpaSvLRsQP4h6eWmaJBH9';
 const RATE_LIMIT = { windowMs: 60 * 1000, max: 10 };
 
 // Tiny per-IP limiter: every diagnosis makes several outbound requests, so
@@ -69,6 +72,28 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     res.json({ url: parsed.href, ...record });
   });
   app.get('/trust', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'trust.html')));
+
+  // Intentionally broken x402 endpoint for demos and videos: a price written
+  // as dollars instead of atomic units, and a Solana option without a fee
+  // payer. It always answers 402 and never accepts or settles a payment.
+  app.all('/demo/broken', (req, res) => {
+    const resourceUrl = `${req.protocol}://${req.get('host')}/demo/broken`;
+    const challenge = {
+      x402Version: 2,
+      error: 'Payment required',
+      resource: { url: resourceUrl, description: 'Intentionally broken x402 endpoint for demos (never accepts payment)', mimeType: 'application/json' },
+      accepts: [
+        // Mistake 1: "0.01" is dollars; x402 amounts are atomic units ("10000" = $0.01 USDC).
+        { scheme: 'exact', network: 'eip155:8453', amount: '0.01', asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', payTo: DEMO_PAY_TO_BASE, maxTimeoutSeconds: 60, extra: { name: 'USD Coin', version: '2' } },
+        // Mistake 2: no extra.feePayer, so Solana clients cannot build the transaction.
+        { scheme: 'exact', network: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp', amount: '10000', asset: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', payTo: DEMO_PAY_TO_SOLANA, maxTimeoutSeconds: 60, extra: {} },
+      ],
+    };
+    res.set('X-Demo', 'intentionally broken x402 endpoint; never accepts payment');
+    res.set('Cache-Control', 'no-store');
+    res.set('PAYMENT-REQUIRED', Buffer.from(JSON.stringify(challenge)).toString('base64'));
+    res.status(402).json(challenge);
+  });
   app.get('/api/trust/summary', trustLimit, (_req, res) => {
     const summary = trustIndex.summary();
     if (!summary) {
