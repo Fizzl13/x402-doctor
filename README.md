@@ -52,6 +52,9 @@ Solana via x402, with no rate limit. It is meant for agents and CI pipelines; th
   answers 402, so indexers such as x402scan can register it. Paying without a `url` returns a 400.
 - The x402 middleware settles only after a 2xx response, so a diagnosis that errors out is never charged.
 - Discovery: `/openapi.json` (with `x-payment-info`) and `/.well-known/x402`.
+- Browsers opening the route get a wallet paywall (Base first: MetaMask, Coinbase Wallet) instead of the bare 402.
+- Bazaar: a facilitator lists a route after the first payment it settles for it. With the CDP keys set, one paid
+  call (e.g. from the browser paywall) puts the route in the CDP Bazaar that agents search.
 
 ```bash
 # pay-per-call from Node with @x402/fetch
@@ -85,6 +88,7 @@ In GitHub Actions:
 | `AGENT_PAYOUT_WALLET_SOLANA` | Solana address that receives paid-API payments (or `DOCTOR_PAYOUT_WALLET_SOLANA`); needs a USDC token account |
 | `DOCTOR_PRICE` | Price per paid diagnosis (default `$0.01`) |
 | `FACILITATOR_URL` | x402 facilitator (default PayAI, `https://facilitator.payai.network`) |
+| `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET` | Use Coinbase's CDP facilitator first (PayAI stays the fallback). Payments settled through CDP get the route listed in the CDP Bazaar |
 
 Without either payout wallet the paid route answers 503 and the rest of the app works as before.
 

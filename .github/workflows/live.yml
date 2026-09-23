@@ -34,3 +34,22 @@ jobs:
         run: node bin/x402-doctor.js "$SERVICE/api/v1/diagnose"
         env:
           SOLANA_RPC_URL: ${{ secrets.SOLANA_RPC_URL }}
+      # Informational: is the route in the CDP Bazaar yet? It appears after the
+      # first payment settled through the CDP facilitator.
+      - name: CDP Bazaar listing
+        continue-on-error: true
+        run: |
+          node -e '
+            const target = process.env.SERVICE + "/api/v1/diagnose";
+            (async () => {
+              for (let offset = 0; offset < 20000; offset += 500) {
+                const res = await fetch(`https://api.cdp.coinbase.com/platform/v2/x402/discovery/resources?type=http&limit=500&offset=${offset}`);
+                if (!res.ok) { console.log(`::warning::CDP discovery API -> HTTP ${res.status}`); return; }
+                const items = (await res.json()).items || [];
+                const hit = items.find((i) => String(i.resource || "").startsWith(target));
+                if (hit) { console.log(`listed in the CDP Bazaar: ${hit.resource}`); return; }
+                if (items.length < 500) break;
+              }
+              console.log(`::notice::${target} is not in the CDP Bazaar yet (needs CDP keys and one settled payment)`);
+            })();
+          '
