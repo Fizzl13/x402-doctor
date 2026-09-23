@@ -86,7 +86,7 @@ test.before(async () => {
   });
 
   const env = { AGENT_PAYOUT_WALLET: PAY_TO_BASE, AGENT_PAYOUT_WALLET_SOLANA: PAY_TO_SOLANA, FACILITATOR_URL: facilitatorUrl };
-  const app = createApp({ allowPrivate: true, env });
+  const app = createApp({ allowPrivate: true, env, bazaarIndex: { lookup: async () => ({ resource: false, origin: false }) } });
   api = await new Promise((resolve) => {
     const server = app.listen(0, '127.0.0.1', () => resolve(`http://127.0.0.1:${server.address().port}`));
     servers.push(server);
@@ -150,6 +150,30 @@ test('paid request without url: 400 and nothing is settled', async () => {
   assert.equal(state.settle, 0);
 });
 
+test('preflight: unpaid 402 at $0.001; a paid call returns the verdict (no_go: the target lacks the EIP-712 domain)', async () => {
+  const unpaid = await fetch(`${api}/api/v1/preflight?url=${encodeURIComponent(targetUrl)}`);
+  assert.equal(unpaid.status, 402);
+  const challenge = await unpaid.json();
+  for (const a of challenge.accepts) assert.equal(a.amount, '1000');
+  const header = JSON.parse(Buffer.from(unpaid.headers.get('payment-required'), 'base64').toString('utf8'));
+  assert.equal(header.extensions.bazaar.info.input.queryParams.url, 'https://ichimoku-signal.onrender.com/signal/BTC-USDT');
+
+  assert.equal((await fetch(`${api}/api/v1/preflight?url=${encodeURIComponent(targetUrl)}&max_usd=abc`)).status, 400);
+  assert.equal((await fetch(`${api}/api/v1/preflight?url=${encodeURIComponent(targetUrl)}&network=base`)).status, 400);
+
+  const account = privateKeyToAccount(generatePrivateKey());
+  const client = new x402Client((_version, accepts) => accepts.find((a) => a.network === BASE));
+  client.register(BASE, new ExactEvmScheme(account));
+  const res = await wrapFetchWithPayment(fetch, client)(`${api}/api/v1/preflight?url=${encodeURIComponent(targetUrl)}&max_usd=0.05`);
+  const report = await res.json();
+  assert.equal(res.status, 200, JSON.stringify(report));
+  // The fixture seller omits extra.name/version, so a Base payment to it could not be signed.
+  assert.equal(report.verdict, 'no_go', JSON.stringify(report.reasons));
+  assert.equal(report.options[0].usd, 0.01);
+  assert.match(report.options[0].problems.join(' '), /EIP-712 domain/);
+  assert.equal(state.settle, 1);
+});
+
 test('discovery: OpenAPI with x-payment-info and /.well-known/x402 listing the route', async () => {
   const spec = await (await fetch(`${api}/openapi.json`)).json();
   const op = spec.paths['/api/v1/diagnose'].get;
@@ -157,7 +181,9 @@ test('discovery: OpenAPI with x-payment-info and /.well-known/x402 listing the r
   assert.ok(op.responses['402']);
   const wellKnown = await (await fetch(`${api}/.well-known/x402`)).json();
   assert.equal(wellKnown.version, 1);
-  assert.deepEqual(wellKnown.resources, [`${api}/api/v1/diagnose`]);
+  assert.deepEqual(wellKnown.resources, [`${api}/api/v1/diagnose`, `${api}/api/v1/preflight`]);
+  const preflightOp = spec.paths['/api/v1/preflight'].get;
+  assert.deepEqual(preflightOp['x-payment-info'].price, { mode: 'fixed', currency: 'USD', amount: '0.001' });
 });
 
 test('browsers get a wallet paywall (mainnet, Base first) instead of the bare 402', async () => {

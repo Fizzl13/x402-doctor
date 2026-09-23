@@ -34,6 +34,10 @@ jobs:
         run: node bin/x402-doctor.js "$SERVICE/api/v1/diagnose"
         env:
           SOLANA_RPC_URL: ${{ secrets.SOLANA_RPC_URL }}
+      - name: Diagnose the pre-payment check route
+        run: node bin/x402-doctor.js "$SERVICE/api/v1/preflight"
+        env:
+          SOLANA_RPC_URL: ${{ secrets.SOLANA_RPC_URL }}
       # Informational: is the route in the CDP Bazaar yet? It appears after the
       # first payment settled through the CDP facilitator.
       - name: CDP Bazaar listing
@@ -43,6 +47,7 @@ jobs:
             // x402 Doctor, plus PlainText (also settles through CDP).
             const targets = [
               process.env.SERVICE + "/api/v1/diagnose",
+              process.env.SERVICE + "/api/v1/preflight",
               "https://smartcontractexplainer.onrender.com/api/check-wallet",
               "https://smartcontractexplainer.onrender.com/api/explain",
             ];

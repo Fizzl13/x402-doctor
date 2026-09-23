@@ -62,6 +62,33 @@ const paidFetch = wrapFetchWithPayment(fetch, client);   // client with an EVM o
 const report = await (await paidFetch("https://<host>/api/v1/diagnose?url=https://api.example.com/paid")).json();
 ```
 
+### Pre-payment check for buyers: `GET /api/v1/preflight`
+
+`GET /api/v1/preflight?url=<endpoint>&max_usd=0.05&network=<caip2>&method=GET|POST`, **$0.001 USDC per call**:
+call it before your agent pays an x402 endpoint it has not used before. It never pays the endpoint.
+
+```json
+{
+  "verdict": "go",                     // go | caution | no_go
+  "safe_to_pay": true,
+  "summary": "OK to pay: $0.02 on Solana.",
+  "recommended_option": 1,             // index into the endpoint's accepts[]
+  "options": [{ "network": "eip155:8453", "asset_symbol": "USDC", "usd": 0.02, "payable": true, "problems": [] }, …],
+  "signals": { "https": true, "advertised_price_usd": 0.02, "listed_in_cdp_bazaar": true },
+  "reasons": [],                       // [{ level: no_go | caution | info, code, message }]
+  "cached": false
+}
+```
+
+| Verdict | When |
+|---|---|
+| `no_go` | No 402 or no valid challenge; every option would fail to settle (bad payTo/amount, missing fee payer or EIP-712 domain, Solana payout wallet without a token account); cheapest option above `max_usd`; no payable option on the requested `network` |
+| `caution` | Charges more than its OpenAPI advertises; not HTTPS; not a known USDC contract; decimal amount; resource URL differs from the requested URL; testnet only |
+| `go` | None of the above. `recommended_option` is the cheapest payable USDC option (on `network` if given) |
+
+Not being listed in the CDP Bazaar is reported as `info` only. Results are cached for 10 minutes per URL, budget
+and network (`cached: true`), so checking before every payment stays fast.
+
 ## CLI
 
 ```bash
@@ -87,6 +114,7 @@ In GitHub Actions:
 | `AGENT_PAYOUT_WALLET` | Base address that receives paid-API payments (or `DOCTOR_PAYOUT_WALLET`) |
 | `AGENT_PAYOUT_WALLET_SOLANA` | Solana address that receives paid-API payments (or `DOCTOR_PAYOUT_WALLET_SOLANA`); needs a USDC token account |
 | `DOCTOR_PRICE` | Price per paid diagnosis (default `$0.01`) |
+| `DOCTOR_PREFLIGHT_PRICE` | Price per pre-payment check (default `$0.001`) |
 | `FACILITATOR_URL` | x402 facilitator (default PayAI, `https://facilitator.payai.network`) |
 | `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET` | Use Coinbase's CDP facilitator first (PayAI stays the fallback). Payments settled through CDP get the route listed in the CDP Bazaar |
 
@@ -110,7 +138,9 @@ to trace verify/settle failures) is deliberately out of scope here.
 
 ```
 server.js              Express app: /api/diagnose (free), paid API, /openapi.json, /.well-known/x402, static frontend
-lib/paid-api.js        GET /api/v1/diagnose behind x402 (Base + Solana USDC via PayAI)
+lib/paid-api.js        GET /api/v1/diagnose and /api/v1/preflight behind x402 (Base + Solana USDC)
+lib/preflight.js       Pre-payment check: verdict, recommended option, reasons (cached)
+lib/bazaar-index.js    Cached CDP Bazaar index (listing signal for preflight)
 lib/diagnose.js        The checks
 lib/networks.js        Known networks, USDC per network, address validation
 lib/safe-fetch.js      SSRF-safe fetch (connect-time IP check, redirects, size cap, timeout)
