@@ -233,3 +233,19 @@ test('free web API still works and the paid route is off without payout wallets'
   assert.equal(free.status, 200);
   assert.deepEqual((await (await fetch(`${base}/.well-known/x402`)).json()).resources, []);
 });
+
+test('/demo/broken: always 402, broken on purpose (decimal amount, missing Solana fee payer), never settles', async () => {
+  const { diagnose } = require('../lib/diagnose');
+  const { createSafeFetch } = require('../lib/safe-fetch');
+  const withPayment = await fetch(`${api}/demo/broken`, { headers: { 'PAYMENT-SIGNATURE': 'eyJ4IjoxfQ==' } });
+  assert.equal(withPayment.status, 402, 'a payment header changes nothing');
+  assert.equal(state.verify, 0);
+  const report = await diagnose(`${api}/demo/broken`, { safeFetch: createSafeFetch({ allowPrivate: true }), rpcUrl: 'http://127.0.0.1:1' });
+  assert.equal(report.overall, 'fail');
+  const byId = Object.fromEntries(report.checks.map((c) => [c.id, c]));
+  assert.equal(byId['accepts[0]-amount'].status, 'warn');
+  assert.match(byId['accepts[0]-amount'].hint, /smallest unit/);
+  assert.equal(byId['accepts[1]-extra'].status, 'fail');
+  assert.match(byId['accepts[1]-extra'].message, /feePayer/);
+  assert.equal(byId['resource-url'].status, 'pass');
+});
