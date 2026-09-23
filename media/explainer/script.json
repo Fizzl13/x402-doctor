@@ -1,0 +1,27 @@
+{
+  "title": "x402 Doctor — explainer",
+  "segments": [
+    { "id": "hook", "scene": "card", "card": { "title": "Agents can't pay your API.", "sub": "And nothing tells you why." },
+      "text": "You launched a paid API for AI agents. It looks fine. But agents can't pay it, and nothing tells you why." },
+    { "id": "diagnose", "scene": "home-type-broken",
+      "text": "x402 Doctor checks your endpoint the way a paying agent would, without spending a cent." },
+    { "id": "checks", "scene": "home-scroll",
+      "text": "In seconds you see every check: the 402 challenge, each payment option, the Solana payout account, discovery." },
+    { "id": "hints", "scene": "home-hints",
+      "text": "And for every problem, exactly what to change. Here, the price is written as dollars instead of token units, and the Solana option is missing its fee payer." },
+    { "id": "green", "scene": "home-green",
+      "text": "Fix it, run it again: green." },
+    { "id": "buyers", "scene": "card", "card": { "title": "For agents that pay", "sub": "A pre-payment check for $0.001" },
+      "text": "That's for sellers. For buyers, there's something new." },
+    { "id": "preflight", "scene": "terminal-call",
+      "text": "Before your agent pays an unknown API, it asks the Doctor first, for a tenth of a cent." },
+    { "id": "verdict", "scene": "terminal-verdict",
+      "text": "Go, caution, or no-go. Plus the cheapest payment option that will actually settle." },
+    { "id": "trust", "scene": "trust-stats",
+      "text": "And every day, we check every x402 endpoint in the Coinbase Bazaar. Over sixteen thousand." },
+    { "id": "record", "scene": "trust-lookup",
+      "text": "Each one gets a thirty-day track record, so agents know who's reliable, and sellers can see their own score." },
+    { "id": "end", "scene": "card", "card": { "title": "x402 Doctor", "sub": "x402-doctor.onrender.com", "note": "Free diagnosis · $0.001 pre-payment check · daily Trust Index" },
+      "text": "x402 Doctor. Free on the web, pay-per-call for agents." }
+  ]
+}
