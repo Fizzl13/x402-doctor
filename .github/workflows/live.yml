@@ -40,16 +40,55 @@ jobs:
         continue-on-error: true
         run: |
           node -e '
-            const target = process.env.SERVICE + "/api/v1/diagnose";
+            // x402 Doctor, plus PlainText (also settles through CDP).
+            const targets = [
+              process.env.SERVICE + "/api/v1/diagnose",
+              "https://smartcontractexplainer.onrender.com/api/check-wallet",
+              "https://smartcontractexplainer.onrender.com/api/explain",
+            ];
             (async () => {
+              const found = new Map();
               for (let offset = 0; offset < 20000; offset += 500) {
                 const res = await fetch(`https://api.cdp.coinbase.com/platform/v2/x402/discovery/resources?type=http&limit=500&offset=${offset}`);
                 if (!res.ok) { console.log(`::warning::CDP discovery API -> HTTP ${res.status}`); return; }
                 const items = (await res.json()).items || [];
-                const hit = items.find((i) => String(i.resource || "").startsWith(target));
-                if (hit) { console.log(`listed in the CDP Bazaar: ${hit.resource}`); return; }
+                for (const i of items) for (const t of targets) if (String(i.resource || "").startsWith(t)) found.set(t, i);
                 if (items.length < 500) break;
               }
-              console.log(`::notice::${target} is not in the CDP Bazaar yet (needs CDP keys and one settled payment)`);
+              for (const t of targets) {
+                const hit = found.get(t);
+                if (!hit) { console.log(`::notice::${t} is not in the CDP Bazaar yet (needs CDP keys and one settled payment)`); continue; }
+                console.log(`listed in the CDP Bazaar: ${hit.resource}`);
+              }
             })();
           '
+
+  # The other agents in the fleet, diagnosed by the same doctor. A failure here
+  # means that agent needs attention, not this service.
+  agents:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Ichimoku Signal
+            url: https://ichimoku-signal.onrender.com/signal/BTC-USDT
+            method: GET
+          - name: PlainText wallet check
+            url: https://smartcontractexplainer.onrender.com/api/check-wallet
+            method: POST
+          - name: PlainText explain
+            url: https://smartcontractexplainer.onrender.com/api/explain
+            method: POST
+    name: ${{ matrix.name }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: curl -s -o /dev/null --retry 5 --retry-delay 10 --max-time 90 "$(node -e 'console.log(new URL(process.argv[1]).origin)' "${{ matrix.url }}")/"
+      - run: node bin/x402-doctor.js "${{ matrix.url }}" --method "${{ matrix.method }}"
+        env:
+          SOLANA_RPC_URL: ${{ secrets.SOLANA_RPC_URL }}
