@@ -86,7 +86,12 @@ test.before(async () => {
   });
 
   const env = { AGENT_PAYOUT_WALLET: PAY_TO_BASE, AGENT_PAYOUT_WALLET_SOLANA: PAY_TO_SOLANA, FACILITATOR_URL: facilitatorUrl };
-  const app = createApp({ allowPrivate: true, env, bazaarIndex: { lookup: async () => ({ resource: false, origin: false }) } });
+  const trustIndex = {
+    lookup: async (u) => (u.startsWith(targetUrl) ? { days_checked: 5, days_payable: 1, payable_ratio: 0.2, history: 'nnngn', last: 'n', streak: 1 } : null),
+    refresh: () => Promise.resolve(),
+    summary: () => ({ updated: '2026-09-23T03:00:00Z', days: 5, resources: 1, latest: { go: 0, caution: 0, no_go: 1, unreachable: 0 } }),
+  };
+  const app = createApp({ allowPrivate: true, env, bazaarIndex: { lookup: async () => ({ resource: false, origin: false }) }, trustIndex });
   api = await new Promise((resolve) => {
     const server = app.listen(0, '127.0.0.1', () => resolve(`http://127.0.0.1:${server.address().port}`));
     servers.push(server);
@@ -171,7 +176,21 @@ test('preflight: unpaid 402 at $0.001; a paid call returns the verdict (no_go: t
   assert.equal(report.verdict, 'no_go', JSON.stringify(report.reasons));
   assert.equal(report.options[0].usd, 0.01);
   assert.match(report.options[0].problems.join(' '), /EIP-712 domain/);
+  // Track record from the trust index: payable on 1 of 5 days -> caution reason and signal.
+  assert.ok(report.reasons.some((r) => r.code === 'unreliable_history' && /1 of the last 5/.test(r.message)));
+  assert.equal(report.signals.track_record.history, 'nnngn');
   assert.equal(state.settle, 1);
+});
+
+test('free trust lookup: track record for a scanned URL, 404 for an unknown one, 400 without url, summary', async () => {
+  const known = await fetch(`${api}/api/trust?url=${encodeURIComponent(targetUrl)}`);
+  assert.equal(known.status, 200);
+  assert.equal((await known.json()).payable_ratio, 0.2);
+  const unknown = await fetch(`${api}/api/trust?url=${encodeURIComponent('https://nobody.example/x')}`);
+  assert.equal(unknown.status, 404);
+  assert.equal((await unknown.json()).index.resources, 1);
+  assert.equal((await fetch(`${api}/api/trust`)).status, 400);
+  assert.equal((await (await fetch(`${api}/api/trust/summary`)).json()).latest.no_go, 1);
 });
 
 test('discovery: OpenAPI with x-payment-info and /.well-known/x402 listing the route', async () => {
@@ -204,7 +223,7 @@ test('health reports the facilitator: PayAI by default, CDP first when CDP keys 
 });
 
 test('free web API still works and the paid route is off without payout wallets', async () => {
-  const app = createApp({ allowPrivate: true, env: {} });
+  const app = createApp({ allowPrivate: true, env: {}, trustIndex: { lookup: async () => null, refresh: () => Promise.resolve(), summary: () => null } });
   const base = await new Promise((resolve) => {
     const server = app.listen(0, '127.0.0.1', () => resolve(`http://127.0.0.1:${server.address().port}`));
     servers.push(server);
