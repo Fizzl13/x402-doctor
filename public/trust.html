@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>x402 Trust Index</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="A daily, read-only check of every x402 resource in the CDP Bazaar: would a payment settle today, and how often did it over the last 30 days.">
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --line: #30363d; --text: #e6edf3; --text-soft: #8b949e;
+    --go: #3fb950; --caution: #d29922; --nogo: #f85149; --none: #484f58; --accent: #58a6ff;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --bg: #f6f8fa; --panel: #ffffff; --line: #d0d7de; --text: #1f2328; --text-soft: #57606a;
+      --go: #1a7f37; --caution: #9a6700; --nogo: #cf222e; --none: #d0d7de; --accent: #0969da; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: -apple-system, 'Segoe UI', sans-serif; line-height: 1.55; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 48px 16px 80px; }
+  h1 { font-size: 1.6rem; margin: 0 0 8px; }
+  h2 { font-size: 0.8rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-soft); margin: 32px 0 10px; }
+  .sub { color: var(--text-soft); margin: 0 0 24px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+  .stat .n { font-size: 1.4rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .stat .l { font-size: 12.5px; color: var(--text-soft); }
+  form { display: flex; gap: 8px; flex-wrap: wrap; }
+  input[type=url] { flex: 1 1 320px; min-width: 0; font-family: 'SF Mono', Consolas, monospace; font-size: 14px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+  button { font: inherit; font-weight: 600; font-size: 14px; background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 12px 20px; cursor: pointer; }
+  .result { margin-top: 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; overflow-wrap: anywhere; }
+  .days { display: flex; gap: 3px; margin: 10px 0 6px; flex-wrap: wrap; }
+  .day { width: 14px; height: 22px; border-radius: 3px; background: var(--none); }
+  .day.g { background: var(--go); } .day.c { background: var(--caution); } .day.n, .day.x { background: var(--nogo); }
+  .legend { font-size: 12.5px; color: var(--text-soft); }
+  ul { padding-left: 20px; } li { margin: 4px 0; }
+  code { font-family: 'SF Mono', Consolas, monospace; font-size: 13px; }
+  a { color: var(--accent); }
+  footer { margin-top: 40px; color: var(--text-soft); font-size: 12.5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>x402 Trust Index</h1>
+  <p class="sub">Once a day, x402 Doctor checks every resource listed in the CDP Bazaar the way a paying agent would, and stops at the 402 challenge. Would a payment settle today, and how often did it over the last 30 days?</p>
+
+  <div class="stats" id="stats" aria-live="polite">
+    <div class="stat"><div class="n" id="s-total">…</div><div class="l">resources scanned</div></div>
+    <div class="stat"><div class="n" id="s-go">…</div><div class="l">go today</div></div>
+    <div class="stat"><div class="n" id="s-caution">…</div><div class="l">caution today</div></div>
+    <div class="stat"><div class="n" id="s-nogo">…</div><div class="l">no-go today</div></div>
+  </div>
+
+  <h2>Look up a resource</h2>
+  <form id="form">
+    <input type="url" id="url" required placeholder="https://api.example.com/paid" value="https://x402-doctor.onrender.com/api/v1/preflight" aria-label="Resource URL">
+    <button type="submit">Look up</button>
+  </form>
+  <div class="result" id="result" hidden></div>
+
+  <h2>What the scan checks</h2>
+  <ul>
+    <li>The endpoint answers <code>402</code> with a valid x402 challenge.</li>
+    <li>At least one payment option would settle: valid payTo and amount, the fee payer or EIP-712 domain, and for Solana a USDC token account at the payout wallet.</li>
+    <li>The price matches what its OpenAPI advertises, it is served over HTTPS, and it charges in a known USDC contract.</li>
+  </ul>
+  <p>Agents get this track record in every <a href="/openapi.json">pre-payment check</a> (<code>GET /api/v1/preflight</code>, $0.001): a seller that was payable on fewer than half of its scanned days gets a <em>caution</em>.</p>
+
+  <h2>For sellers</h2>
+  <ul>
+    <li>The scan sends one request (GET, or POST when you declared POST) per resource per day, plus one <code>/openapi.json</code> per origin, with at most two requests to your host at a time. It never pays and never sends a payment header.</li>
+    <li>User-Agent: <code>x402-doctor-trust-scan/1.0 (+https://x402-doctor.onrender.com/trust; …)</code></li>
+    <li>Found a problem? <a href="/">Diagnose your endpoint</a> for free on the web page, and see every check with a fix hint.</li>
+    <li>Want your origin left out of the scan? <a href="https://github.com/Fizzl13/x402-doctor/issues">Open an issue</a>.</li>
+  </ul>
+
+  <footer>Data: <code>GET /api/trust?url=…</code> (free, rate-limited) and <code>GET /api/trust/summary</code>. The full daily index is public on the <a href="https://github.com/Fizzl13/x402-doctor/tree/trust-data">trust-data</a> branch.</footer>
+</div>
+<script>
+  const $ = (id) => document.getElementById(id);
+  fetch('/api/trust/summary').then((r) => r.ok ? r.json() : null).then((s) => {
+    if (!s) { ['s-total', 's-go', 's-caution', 's-nogo'].forEach((id) => { $(id).textContent = '—'; }); return; }
+    $('s-total').textContent = s.resources.toLocaleString();
+    $('s-go').textContent = s.latest.go.toLocaleString();
+    $('s-caution').textContent = s.latest.caution.toLocaleString();
+    $('s-nogo').textContent = (s.latest.no_go + s.latest.unreachable).toLocaleString();
+  }).catch(() => {});
+
+  const label = { g: 'go', c: 'caution', n: 'no-go', x: 'unreachable', '-': 'not scanned' };
+  $('form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const box = $('result');
+    box.hidden = false;
+    box.textContent = 'Looking up…';
+    const res = await fetch('/api/trust?url=' + encodeURIComponent($('url').value));
+    const data = await res.json();
+    box.textContent = '';
+    if (!res.ok) { box.textContent = data.error || 'Not found.'; return; }
+    const head = document.createElement('div');
+    head.textContent = `Payable on ${data.days_payable} of ${data.days_checked} scanned days (${Math.round(data.payable_ratio * 100)}%). Latest: ${label[data.last]}${data.last_scan && data.last_scan.price_usd != null ? `, $${data.last_scan.price_usd}` : ''}.`;
+    const days = document.createElement('div');
+    days.className = 'days';
+    [...data.history].forEach((c, i) => {
+      const d = document.createElement('span');
+      d.className = 'day ' + c;
+      d.title = `${data.days[i]}: ${label[c]}`;
+      days.append(d);
+    });
+    const legend = document.createElement('div');
+    legend.className = 'legend';
+    legend.textContent = 'Last 30 days, oldest left. Green: go · amber: caution · red: no-go or unreachable · grey: not scanned.';
+    box.append(head, days, legend);
+    if (data.last_scan && data.last_scan.codes && data.last_scan.codes.length) {
+      const codes = document.createElement('div');
+      codes.className = 'legend';
+      codes.textContent = 'Latest reasons: ' + data.last_scan.codes.join(', ');
+      box.append(codes);
+    }
+  });
+</script>
+</body>
+</html>

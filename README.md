@@ -89,6 +89,20 @@ call it before your agent pays an x402 endpoint it has not used before. It never
 Not being listed in the CDP Bazaar is reported as `info` only. Results are cached for 10 minutes per URL, budget
 and network (`cached: true`), so checking before every payment stays fast.
 
+### x402 Trust Index
+
+Once a day, [`trust-scan.yml`](.github/workflows/trust-scan.yml) runs the pre-payment check against every resource in
+the CDP Bazaar (read-only: it stops at the 402 challenge, at most two requests per host at a time, one
+`/openapi.json` per origin, a User-Agent that links to `/trust`). The results roll into a 30-day history per resource,
+one letter per day (`g` go, `c` caution, `n` no-go, `x` unreachable, `-` not scanned), published as
+`index.json` + `summary.json` on the `trust-data` branch.
+
+- The pre-payment check adds `signals.track_record` and a `caution` (`unreliable_history`) when a seller was
+  payable on fewer than half of at least 3 scanned days.
+- `GET /api/trust?url=<resource>` (free, 30/min per IP): the track record of one resource.
+  `GET /api/trust/summary`: totals of the latest scan. `/trust`: the public page, with lookup and the scan's rules.
+- Run it yourself: `node scripts/trust-scan.js --out trust-data --limit 200`.
+
 ## CLI
 
 ```bash
@@ -141,6 +155,10 @@ server.js              Express app: /api/diagnose (free), paid API, /openapi.jso
 lib/paid-api.js        GET /api/v1/diagnose and /api/v1/preflight behind x402 (Base + Solana USDC)
 lib/preflight.js       Pre-payment check: verdict, recommended option, reasons (cached)
 lib/bazaar-index.js    Cached CDP Bazaar index (listing signal for preflight)
+lib/trust-scan.js      Trust Index scan: catalog, polite fetch, 30-day history
+lib/trust-index.js     Reads the published index for preflight and /api/trust
+scripts/trust-scan.js  Daily scan entry point (trust-scan.yml)
+public/trust.html      /trust page
 lib/diagnose.js        The checks
 lib/networks.js        Known networks, USDC per network, address validation
 lib/safe-fetch.js      SSRF-safe fetch (connect-time IP check, redirects, size cap, timeout)

@@ -4,6 +4,7 @@ const { createSafeFetch, isPrivateIp } = require('./lib/safe-fetch');
 const diagnoseLib = require('./lib/diagnose');
 const { createPaidApi, ROUTE: PAID_ROUTE, PREFLIGHT_ROUTE, REPORT_SCHEMA } = require('./lib/paid-api');
 const { PREFLIGHT_SCHEMA } = require('./lib/preflight');
+const { createTrustIndex } = require('./lib/trust-index');
 
 const PORT = process.env.PORT || 3001;
 const RATE_LIMIT = { windowMs: 60 * 1000, max: 10 };
@@ -29,10 +30,10 @@ function rateLimit({ windowMs, max }) {
 
 // allowPrivate is only for tests and local CLI use; the web service never
 // diagnoses internal addresses.
-function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex } = {}) {
+function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, trustIndex = createTrustIndex() } = {}) {
   const app = express();
   const safeFetch = createSafeFetch({ allowPrivate });
-  const paidApi = createPaidApi({ safeFetch, env, ...(bazaarIndex ? { bazaarIndex } : {}) });
+  const paidApi = createPaidApi({ safeFetch, env, trustIndex, ...(bazaarIndex ? { bazaarIndex } : {}) });
 
   app.set('trust proxy', 1);
   app.use(express.json({ limit: '4kb' }));
@@ -50,6 +51,31 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
       description: 'Checks x402 endpoints: a $0.001 pre-payment check for buyers (go / caution / no_go) and a $0.01 full diagnosis with a fix hint per check.',
       openapi: `${origin}/openapi.json`,
     });
+  });
+
+  // x402 Trust Index (free): the 30-day track record of a scanned resource,
+  // from the daily scan of the CDP Bazaar. Sellers can look up their own.
+  const trustLimit = rateLimit({ windowMs: 60 * 1000, max: 30 });
+  app.get('/api/trust', trustLimit, async (req, res) => {
+    const target = req.query.url;
+    let parsed;
+    try {
+      parsed = new URL(String(target));
+    } catch {
+      return res.status(400).json({ error: 'url is required, e.g. /api/trust?url=https://api.example.com/paid' });
+    }
+    const record = await trustIndex.lookup(parsed.href, { waitMs: 5000 });
+    if (!record) return res.status(404).json({ url: parsed.href, error: 'not in the trust index (only resources listed in the CDP Bazaar are scanned, once a day)', index: trustIndex.summary() });
+    res.json({ url: parsed.href, ...record });
+  });
+  app.get('/trust', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'trust.html')));
+  app.get('/api/trust/summary', trustLimit, (_req, res) => {
+    const summary = trustIndex.summary();
+    if (!summary) {
+      trustIndex.refresh();
+      return res.status(503).json({ error: 'trust index loading, try again shortly' });
+    }
+    res.json(summary);
   });
 
   app.post('/api/diagnose', rateLimit(limits), async (req, res) => {
@@ -78,7 +104,7 @@ function openApi(origin, payment) {
     openapi: '3.1.0',
     info: {
       title: 'x402 Doctor',
-      version: '2.2.0',
+      version: '2.3.0',
       description: "Diagnoses why an x402-payable endpoint's payment flow is broken, without a funded wallet: challenge format, accepts[], resource URL, Solana settlement readiness, discovery and browser paywall.",
       'x-guidance': 'Before paying an unknown x402 endpoint, call GET /api/v1/preflight?url=<endpoint>&max_usd=<budget> ($0.001): it answers go, caution or no_go with the recommended payment option and the reasons. To debug your own endpoint, call GET /api/v1/diagnose?url=<endpoint> ($0.01): every check with pass/warn/fail and a fix hint. Neither ever pays the endpoint.',
     },
