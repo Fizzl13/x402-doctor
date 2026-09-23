@@ -5,6 +5,7 @@ const diagnoseLib = require('./lib/diagnose');
 const { createPaidApi, ROUTE: PAID_ROUTE, PREFLIGHT_ROUTE, REPORT_SCHEMA } = require('./lib/paid-api');
 const { PREFLIGHT_SCHEMA } = require('./lib/preflight');
 const { createTrustIndex } = require('./lib/trust-index');
+const { createMediaCache } = require('./lib/media');
 
 const PORT = process.env.PORT || 3001;
 // Payout addresses shown by /demo/broken (it never settles, so nothing is paid).
@@ -33,7 +34,7 @@ function rateLimit({ windowMs, max }) {
 
 // allowPrivate is only for tests and local CLI use; the web service never
 // diagnoses internal addresses.
-function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, trustIndex = createTrustIndex() } = {}) {
+function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, trustIndex = createTrustIndex(), media = createMediaCache() } = {}) {
   const app = express();
   const safeFetch = createSafeFetch({ allowPrivate });
   const paidApi = createPaidApi({ safeFetch, env, trustIndex, ...(bazaarIndex ? { bazaarIndex } : {}) });
@@ -72,6 +73,9 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     res.json({ url: parsed.href, ...record });
   });
   app.get('/trust', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'trust.html')));
+  // Explainer video, poster and subtitles (see lib/media.js).
+  app.get('/media/:name', media.handler);
+  app.media = media;
 
   // Intentionally broken x402 endpoint for demos and videos: a price written
   // as dollars instead of atomic units, and a Solana option without a fee
@@ -191,6 +195,7 @@ const app = createApp();
 if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`x402 Doctor running on port ${PORT}`);
+    app.media.warm();
   });
 }
 
