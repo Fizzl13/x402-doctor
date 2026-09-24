@@ -103,8 +103,8 @@ async function realFix() {
   try {
     const res = await fetch(`${DOCTOR}/api/v1/fix?url=${encodeURIComponent(BROKEN_URL)}`);
     const challenge = JSON.parse(Buffer.from(res.headers.get('payment-required') || '', 'base64').toString());
-    const names = { 'eip155:8453': 'Base', 'solana:5eykt4UsFv8P1NJdTREpY1vzqKqZKvdp': 'Solana' };
-    const nets = challenge.accepts.map((a) => names[a.network] || a.network);
+    const name = (n) => (n === 'eip155:8453' ? 'Base' : n.startsWith('solana:') ? 'Solana' : n);
+    const nets = challenge.accepts.map((a) => name(a.network));
     offer = `$${(Number(challenge.accepts[0].amount) / 1e6).toFixed(2)} USDC (${nets.join(' or ')})`;
   } catch {
     // Keep the default: the route's configured price.
