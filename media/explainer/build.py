@@ -1,10 +1,11 @@
 """Mixes the narration onto the recorded screen and writes the deliverables.
 
-    python build.py [--ffmpeg /path/to/ffmpeg] [--out out]
+    python build.py [--ffmpeg /path/to/ffmpeg] [--out out] [--script fix.json]
 
 Reads out/screen.webm, out/timeline.json and out/audio/<id>.wav. Writes
-out/x402-doctor-explainer.mp4 (1920x1080 H.264 + AAC, fade in/out),
-out/x402-doctor-explainer.srt and out/poster.jpg.
+out/<output>.mp4 (1920x1080 H.264 + AAC, fade in/out), out/<output>.srt and
+out/poster.jpg, where <output> comes from the script (default
+x402-doctor-explainer).
 """
 
 import argparse
@@ -32,11 +33,14 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--ffmpeg", default="ffmpeg")
     parser.add_argument("--out", default=os.path.join(HERE, "out"))
+    parser.add_argument("--script", default=os.environ.get("SCRIPT", "script.json"))
     args = parser.parse_args()
     out = args.out
 
-    with open(os.path.join(HERE, "script.json")) as f:
-        texts = {s["id"]: s["text"] for s in json.load(f)["segments"]}
+    with open(os.path.join(HERE, args.script)) as f:
+        script = json.load(f)
+    texts = {s["id"]: s["text"] for s in script["segments"]}
+    name = script.get("output", "x402-doctor-explainer")
     with open(os.path.join(out, "timeline.json")) as f:
         timeline = json.load(f)
     total = timeline["total"]
@@ -53,7 +57,7 @@ def main():
     narration = os.path.join(out, "narration.wav")
     run([args.ffmpeg, "-y", *inputs, "-filter_complex", ";".join(filters), "-map", "[mix]", "-ac", "2", narration])
 
-    mp4 = os.path.join(out, "x402-doctor-explainer.mp4")
+    mp4 = os.path.join(out, f"{name}.mp4")
     fade_out = max(0.0, total - 0.8)
     run([
         args.ffmpeg, "-y", "-i", os.path.join(out, "screen.webm"), "-i", narration,
@@ -66,7 +70,7 @@ def main():
     ])
     run([args.ffmpeg, "-y", "-ss", "1.5", "-i", mp4, "-frames:v", "1", "-update", "1", "-q:v", "2", os.path.join(out, "poster.jpg")])
 
-    with open(os.path.join(out, "x402-doctor-explainer.srt"), "w") as f:
+    with open(os.path.join(out, f"{name}.srt"), "w") as f:
         for i, seg in enumerate(segments, 1):
             f.write(f"{i}\n{srt_time(seg['start'])} --> {srt_time(seg['start'] + seg['duration'])}\n{texts[seg['id']]}\n\n")
     print(f"done: {mp4} ({total:.1f} s)")

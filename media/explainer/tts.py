@@ -48,11 +48,12 @@ def main():
     parser.add_argument("--voice", default="am_michael")
     parser.add_argument("--speed", type=float, default=1.0)
     parser.add_argument("--out", default=os.path.join(HERE, "out"))
+    parser.add_argument("--script", default=os.environ.get("SCRIPT", "script.json"))
     args = parser.parse_args()
 
     import numpy as np
 
-    with open(os.path.join(HERE, "script.json")) as f:
+    with open(os.path.join(HERE, args.script)) as f:
         segments = json.load(f)["segments"]
     audio_dir = os.path.join(args.out, "audio")
     os.makedirs(audio_dir, exist_ok=True)
