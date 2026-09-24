@@ -2,7 +2,8 @@ const express = require('express');
 const path = require('path');
 const { createSafeFetch, isPrivateIp } = require('./lib/safe-fetch');
 const diagnoseLib = require('./lib/diagnose');
-const { createPaidApi, ROUTE: PAID_ROUTE, PREFLIGHT_ROUTE, REPORT_SCHEMA } = require('./lib/paid-api');
+const { createPaidApi, ROUTE: PAID_ROUTE, PREFLIGHT_ROUTE, FIX_ROUTE, REPORT_SCHEMA, FIX_SCHEMA } = require('./lib/paid-api');
+const { STACKS } = require('./lib/stack');
 const { PREFLIGHT_SCHEMA } = require('./lib/preflight');
 const { createTrustIndex } = require('./lib/trust-index');
 const { createMediaCache } = require('./lib/media');
@@ -45,6 +46,9 @@ function describeDoctorCall(req, _res, body) {
   }
   if (req.method === 'GET' && req.path === PAID_ROUTE) {
     return { route: 'diagnose', via: 'api', input: { url: req.query.url, method: req.query.method }, result: { overall: b.overall, error: b.error } };
+  }
+  if (req.method === 'GET' && req.path === FIX_ROUTE) {
+    return { route: 'fix', via: 'api', input: { url: req.query.url, method: req.query.method, stack: req.query.stack }, result: { stack: b.stack && b.stack.id, fixes: Array.isArray(b.fixes) ? b.fixes.map((f) => f.recipe).join(', ') || 'none' : undefined, error: b.error } };
   }
   if (req.method === 'GET' && req.path === PREFLIGHT_ROUTE) {
     return { route: 'preflight', via: 'api', input: { url: req.query.url, max_usd: req.query.max_usd, network: req.query.network }, result: { verdict: b.verdict, error: b.error } };
@@ -105,7 +109,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     const origin = `${req.protocol}://${req.get('host')}`;
     res.json({
       version: 1,
-      resources: paidApi.paymentInfo ? [`${origin}${PAID_ROUTE}`, `${origin}${PREFLIGHT_ROUTE}`] : [],
+      resources: paidApi.paymentInfo ? [`${origin}${PAID_ROUTE}`, `${origin}${PREFLIGHT_ROUTE}`, `${origin}${FIX_ROUTE}`] : [],
       name: 'x402 Doctor',
       description: 'Checks x402 endpoints: a $0.001 pre-payment check for buyers (go / caution / no_go) and a $0.01 full diagnosis with a fix hint per check.',
       openapi: `${origin}/openapi.json`,
@@ -190,7 +194,7 @@ function openApi(origin, payment) {
       title: 'x402 Doctor',
       version: '2.3.0',
       description: "Diagnoses why an x402-payable endpoint's payment flow is broken, without a funded wallet: challenge format, accepts[], resource URL, Solana settlement readiness, discovery and browser paywall.",
-      'x-guidance': 'Before paying an unknown x402 endpoint, call GET /api/v1/preflight?url=<endpoint>&max_usd=<budget> ($0.001): it answers go, caution or no_go with the recommended payment option and the reasons. To debug your own endpoint, call GET /api/v1/diagnose?url=<endpoint> ($0.01): every check with pass/warn/fail and a fix hint. Neither ever pays the endpoint.',
+      'x-guidance': 'Before paying an unknown x402 endpoint, call GET /api/v1/preflight?url=<endpoint>&max_usd=<budget> ($0.001): it answers go, caution or no_go with the recommended payment option and the reasons. To debug your own endpoint, call GET /api/v1/diagnose?url=<endpoint> ($0.01): every check with pass/warn/fail and a fix hint. To get the code that fixes it, call GET /api/v1/fix?url=<endpoint> ($0.05): per problem the concrete change for your stack, filled in with your own values. None of them ever pays the endpoint.',
     },
     servers: [{ url: origin }],
     paths: {},
@@ -237,6 +241,29 @@ function openApi(origin, payment) {
       ],
       responses: {
         200: { description: 'Verdict (go / caution / no_go), recommended option and reasons', content: { 'application/json': { schema: PREFLIGHT_SCHEMA } } },
+        400: { description: 'Invalid input (rejected before payment)' },
+        402: { description: 'Payment required (x402 challenge in the PAYMENT-REQUIRED header, mirrored in the body)' },
+      },
+    },
+  };
+  spec.paths[FIX_ROUTE] = {
+    get: {
+      operationId: 'fixX402Endpoint',
+      summary: 'Get the code that fixes an x402 endpoint',
+      tags: ['x402', 'developer-tools'],
+      'x-payment-info': {
+        protocols: ['x402'],
+        price: { mode: 'fixed', currency: 'USD', amount: payment.fix.price.replace(/^\$/, '') },
+        networks: payment.networks,
+        asset: 'USDC',
+      },
+      parameters: [
+        { name: 'url', in: 'query', required: true, example: 'https://x402-doctor.onrender.com/demo/broken', schema: { type: 'string', format: 'uri' }, description: 'Your x402 endpoint' },
+        { name: 'method', in: 'query', required: false, schema: { type: 'string', enum: ['GET', 'POST'] }, description: 'Endpoint method; default tries GET then POST' },
+        { name: 'stack', in: 'query', required: false, schema: { type: 'string', enum: Object.keys(STACKS) }, description: 'Your stack, if detection from the response headers is wrong' },
+      ],
+      responses: {
+        200: { description: 'Per problem: why, steps and code for your stack', content: { 'application/json': { schema: FIX_SCHEMA } } },
         400: { description: 'Invalid input (rejected before payment)' },
         402: { description: 'Payment required (x402 challenge in the PAYMENT-REQUIRED header, mirrored in the body)' },
       },
