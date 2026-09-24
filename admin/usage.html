@@ -61,6 +61,7 @@
   .top li { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; font-size: 13.5px; margin: 0 0 7px; }
   .top .lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: 'SF Mono', Consolas, monospace; font-size: 12.5px; }
   .top .n { font-variant-numeric: tabular-nums; text-align: right; }
+  .top .rejected { margin-top: 8px; font-size: 12.5px; color: var(--text-soft); }
   .top .bar { grid-column: 1 / -1; height: 4px; border-radius: 0 4px 4px 0; background: var(--c); min-width: 2px; }
   .empty { color: var(--text-soft); font-size: 13.5px; }
   .scroll { overflow-x: auto; }
@@ -355,17 +356,26 @@
   function renderTops(events) {
     const shown = SERVICES.filter((s) => state.services.has(s.id));
     $('tops').replaceChildren(...shown.map((s) => {
+      // Only calls that were answered: rejected input (e.g. a crawler asking for
+      // the /signal/:pair template, or pair "1") is counted apart, not ranked.
       const counts = new Map();
-      for (const e of events) if (e.service === s.id) { const k = topic(e); counts.set(k, (counts.get(k) || 0) + 1); }
+      let rejected = 0;
+      for (const e of events) {
+        if (e.service !== s.id) continue;
+        if (e.status >= 400) { rejected++; continue; }
+        const k = topic(e);
+        counts.set(k, (counts.get(k) || 0) + 1);
+      }
       const list = [...counts].sort((a, b) => b[1] - a[1]).slice(0, 6);
       const max = list.length ? list[0][1] : 1;
       const box = el('div', { className: 'panel top' }, el('h3', {}, swatch(s.id), s.name));
       box.style.setProperty('--c', color(s.id));
-      if (!list.length) box.append(el('div', { className: 'empty', textContent: 'No calls in this range.' }));
+      if (!list.length) box.append(el('div', { className: 'empty', textContent: rejected ? 'No answered calls in this range.' : 'No calls in this range.' }));
       else box.append(el('ol', {}, ...list.map(([k, v]) => {
         const bar = el('span', { className: 'bar' }); bar.style.width = `${(v / max) * 100}%`;
         return el('li', {}, el('span', { className: 'lbl', textContent: k, title: k }), el('span', { className: 'n', textContent: String(v) }), bar);
       })));
+      if (rejected) box.append(el('div', { className: 'rejected', textContent: `+ ${rejected} rejected (invalid or unknown input, not charged)` }));
       return box;
     }));
   }
