@@ -4,9 +4,13 @@ name: Trust Index scan
 # pre-payment check. Results roll into a 30-day history, published as a
 # single commit on the trust-data branch (rewritten each day, so the repo does
 # not grow). The Doctor reads it for /api/trust and preflight's track record.
+#
+# GitHub drops scheduled runs when it is busy (on 24 Sep the 03:17 run never
+# started), so the schedule fires four times a day and a scheduled run stops
+# early once today's scan is published. A manual run always scans.
 on:
   schedule:
-    - cron: "17 3 * * *" # daily, 03:17 UTC
+    - cron: "17 3,9,15,21 * * *" # 03:17, 09:17, 15:17, 21:17 UTC; the first that runs does the day
   workflow_dispatch:
     inputs:
       limit:
@@ -27,12 +31,24 @@ jobs:
     timeout-minutes: 180
     steps:
       - uses: actions/checkout@v5
+      - name: Already scanned today?
+        id: today
+        run: |
+          done=$(git fetch --depth 1 origin trust-data 2>/dev/null && git show FETCH_HEAD:summary.json 2>/dev/null | jq -r '.date // empty' || true)
+          echo "latest scan: ${done:-none}, today: $(date -u +%F)"
+          if [ "${{ github.event_name }}" = "schedule" ] && [ "$done" = "$(date -u +%F)" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Today's scan is already published; nothing to do." >> "$GITHUB_STEP_SUMMARY"
+          fi
       - uses: actions/setup-node@v5
+        if: steps.today.outputs.skip != 'true'
         with:
           node-version: 22
           cache: npm
       - run: npm ci
+        if: steps.today.outputs.skip != 'true'
       - name: Previous index
+        if: steps.today.outputs.skip != 'true'
         run: |
           mkdir -p trust-data
           if git fetch --depth 1 origin trust-data 2>/dev/null; then
@@ -40,10 +56,12 @@ jobs:
           fi
           ls -la trust-data
       - name: Scan
+        if: steps.today.outputs.skip != 'true'
         run: node scripts/trust-scan.js --out trust-data --limit "${{ github.event.inputs.limit || '0' }}"
         env:
           SOLANA_RPC_URL: ${{ secrets.SOLANA_RPC_URL }}
       - name: Publish to the trust-data branch
+        if: steps.today.outputs.skip != 'true'
         run: |
           cd trust-data
           cat > README.md <<'MD'
@@ -60,6 +78,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Summary
+        if: steps.today.outputs.skip != 'true'
         run: |
           echo '```json' >> "$GITHUB_STEP_SUMMARY"
           cat trust-data/summary.json >> "$GITHUB_STEP_SUMMARY"
