@@ -163,7 +163,27 @@ test('healthy v2 service: no failures, every group covered', async () => {
   // PayAI settles Solana here, so Phantom users are warned about
   assert.deepEqual(statusOf(report, 'solana-wallets'), ['warn']);
   assert.equal(report.overall, 'warn');
-  assert.deepEqual([...new Set(report.checks.map((c) => c.group))], ['challenge', 'accepts', 'resource', 'settlement', 'discovery', 'browser']);
+  assert.deepEqual([...new Set(report.checks.map((c) => c.group))], ['challenge', 'accepts', 'resource', 'settlement', 'wallets', 'discovery', 'browser']);
+
+  // Who can pay: EVM wallets on Base, Phantom on Base but not on Solana (PayAI)
+  const wallet = (name) => report.wallets.find((w) => w.wallet === name);
+  assert.deepEqual(wallet('MetaMask'), { wallet: 'MetaMask', agent: false, yes: ['Base'], no: [] });
+  assert.deepEqual(wallet('Phantom').yes, ['Base']);
+  assert.deepEqual(wallet('Phantom').no, [{ network: 'Solana', reason: 'PayAI rejects Phantom transactions' }]);
+  assert.deepEqual(wallet('Solflare').yes, ['Solana']);
+  assert.deepEqual(wallet('x402 agents').yes, ['Base', 'Solana']);
+  const summary = byId(report).wallets[0];
+  assert.equal(summary.status, 'info');
+  assert.match(summary.message, /^Who can pay: .*Phantom ✓ Base, ✗ Solana/);
+  assert.equal(summary.hint, undefined);
+});
+
+test('broken service: nobody can pay, and the wallet summary says so', async () => {
+  const report = await diagnose(`${brokenUrl}/signal/BTC-USDT`, { safeFetch, rpcUrl });
+  const agents = report.wallets.find((w) => w.wallet === 'x402 agents');
+  assert.deepEqual(agents.yes, []);
+  assert.ok(agents.no.some((n) => n.reason === 'the option has errors (see above)'));
+  assert.match((byId(report).wallets || [])[0].message, /^Nobody can pay yet/);
 });
 
 test('broken service: each known mistake is reported with a hint', async () => {
