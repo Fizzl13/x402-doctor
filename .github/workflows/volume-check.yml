@@ -8,10 +8,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/checkout@v5
-        with: { ref: master, path: doctor }
       - uses: actions/setup-node@v5
         with: { node-version: 22 }
-      - run: npm ci --omit=dev
-        working-directory: doctor
       - run: node scripts/fetch-page.mjs
