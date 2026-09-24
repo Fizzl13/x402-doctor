@@ -1,17 +1,26 @@
-// One-off: is /api/v1/fix in the CDP Bazaar after the first paid call? Retries ~10 minutes.
-for (let round = 0; round < 10; round++) {
-  const hits = [];
-  let total = 0;
-  for (let offset = 0; offset < 40000; offset += 500) {
-    const res = await fetch(`https://api.cdp.coinbase.com/platform/v2/x402/discovery/resources?type=http&limit=500&offset=${offset}`);
-    if (!res.ok) { console.log(`CDP HTTP ${res.status}`); break; }
-    const items = (await res.json()).items || [];
-    total += items.length;
-    for (const it of items) if (/x402-doctor\.onrender\.com\/api\/v1\/fix/.test(JSON.stringify(it).slice(0, 3000))) hits.push(JSON.stringify(it).slice(0, 400));
-    if (items.length < 500) break;
+// One-off: x402 Doctor + fix engine on pg1-ai-agent after the opt-in free tier change.
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const { diagnose } = require('../doctor/lib/diagnose.js');
+const { createSafeFetch } = require('../doctor/lib/safe-fetch.js');
+const { buildFixes } = require('../doctor/lib/recipes.js');
+const safeFetch = createSafeFetch({});
+for (const [url, method] of [['https://pg1-ai-agent.vercel.app/api/mcp', 'POST'], ['https://pg1-ai-agent.vercel.app/api/ioc', 'GET']]) {
+  const report = await diagnose(url, { safeFetch, method });
+  console.log(`\n=================== ${method} ${url}\nOVERALL ${report.overall}`);
+  for (const c of report.checks) console.log(`  [${c.status}] ${c.id}: ${c.message}${c.hint && c.status !== 'pass' ? `\n        → ${c.hint}` : ''}`);
+  if (report.challenge) console.log('challenge:', JSON.stringify(report.challenge).slice(0, 1500));
+  console.log('probes:', JSON.stringify(report.probes));
+  const out = buildFixes(report);
+  console.log(`FIXES: ${out.summary} (${out.stack.name}, ${out.stack.detected_from})`);
+  for (const f of out.fixes) {
+    console.log(`\n## [${f.severity}] ${f.title}  (${f.checks.join(', ')})\n${f.why}\n- ${f.steps.join('\n- ')}`);
+    for (const c of f.code) console.log(`--- ${c.label} (${c.stack})\n${c.snippet}`);
   }
-  console.log(`round ${round}: catalog ${total}, fix entries: ${hits.length}`);
-  for (const h of hits) console.log('  ' + h);
-  if (hits.length) break;
-  await new Promise((r) => setTimeout(r, 60000));
+  if (out.unfixed.length) console.log('unfixed:', JSON.stringify(out.unfixed));
 }
+// With the opt-in header: does the free tier still answer?
+const r = await fetch('https://pg1-ai-agent.vercel.app/api/ioc?limit=1', { headers: { 'x-free-tier': '1' } });
+console.log(`\nGET /api/ioc with x-free-tier: 1 -> ${r.status} ${(await r.text()).slice(0, 200)}`);
+const m = await fetch('https://pg1-ai-agent.vercel.app/api/mcp', { method: 'OPTIONS', headers: { origin: 'https://example.com', 'access-control-request-method': 'POST', 'access-control-request-headers': 'content-type,payment-signature,x-free-tier' } });
+console.log(`OPTIONS /api/mcp -> ${m.status} allow-headers: ${m.headers.get('access-control-allow-headers')} expose: ${m.headers.get('access-control-expose-headers')}`);
