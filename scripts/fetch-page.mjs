@@ -1,4 +1,4 @@
-// One-off: presign-guard after PR #1 (waits for the deploy), then x402 Doctor on both paid routes.
+// One-off: presign-guard after PR #1 and the PAY_TO fix (waits for the deploy), then x402 Doctor on both paid routes.
 import { execFileSync } from 'node:child_process';
 const SITE = 'https://presign-guard.onrender.com';
 for (let i = 0; i < 40; i++) {
