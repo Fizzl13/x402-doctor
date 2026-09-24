@@ -114,3 +114,18 @@ test('trust index lookup reads the published index', async () => {
   assert.equal(await trust.lookup('https://t.example/p'), null);
   assert.equal(trust.summary().latest.go, 1);
 });
+
+test('trust summary: failure reasons of the latest scan and one row per day', async () => {
+  const r = (key, verdict, codes = []) => ({ key: `https://${key}.example/p`, url: `https://${key}.example/p`, method: 'GET', verdict, codes, price_usd: 0.01, networks: [BASE], ms: 5 });
+  let index = mergeIndex(null, [r('a', 'go'), r('b', 'no_go', ['no_402'])], { date: '2026-09-23' });
+  index = mergeIndex(index, [r('a', 'caution', ['suspicious_amount']), r('b', 'no_go', ['no_402', 'testnet_only']), r('c', 'no_go', ['no_402'])], { date: '2026-09-24' });
+  const trust = createTrustIndex({ url: 'https://raw.test/index.json', fetchImpl: async () => ({ ok: true, json: async () => index }) });
+  await trust.lookup('https://a.example/p', { waitMs: 1000 });
+  const s = trust.summary();
+  assert.deepEqual(s.latest, { go: 0, caution: 1, no_go: 2, unreachable: 0 });
+  assert.deepEqual(s.reasons, [{ code: 'no_402', count: 2 }, { code: 'suspicious_amount', count: 1 }, { code: 'testnet_only', count: 1 }]);
+  assert.deepEqual(s.daily, [
+    { date: '2026-09-23', go: 1, caution: 0, no_go: 1, unreachable: 0 },
+    { date: '2026-09-24', go: 0, caution: 1, no_go: 2, unreachable: 0 },
+  ]);
+});

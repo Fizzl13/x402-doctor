@@ -217,11 +217,11 @@ async function main() {
     async 'prepare:trust-stats'() {
       await page.goto(`${DOCTOR}/trust`, { waitUntil: 'load', timeout: 90000 });
       await zoomPage(page);
-      await page.waitForFunction(() => /\d/.test(document.getElementById('s-total').textContent), null, { timeout: 60000 }).catch(() => {});
+      await page.waitForFunction(() => /\d/.test((document.getElementById('headline') || {}).textContent || ''), null, { timeout: 60000 }).catch(() => {});
     },
     async 'trust-stats'() {
       await page.evaluate(() => {
-        for (const el of document.querySelectorAll('.stat')) {
+        for (const el of document.querySelectorAll('.share-legend > div')) {
           el.style.transition = 'outline .3s';
           el.style.outline = '3px solid #58a6ff';
         }
