@@ -1,17 +1,23 @@
-// One-off: Ichimoku in the CDP Bazaar? (one round) + the Doctor's EOA note live.
-const hits = [];
-let total = 0;
-for (let offset = 0; offset < 40000; offset += 500) {
-  const res = await fetch(`https://api.cdp.coinbase.com/platform/v2/x402/discovery/resources?type=http&limit=500&offset=${offset}`);
-  if (!res.ok) { console.log(`CDP HTTP ${res.status}`); break; }
-  const items = (await res.json()).items || [];
-  total += items.length;
-  for (const it of items) if (/ichimoku/i.test(JSON.stringify(it).slice(0, 4000))) hits.push(JSON.stringify(it).slice(0, 700));
-  if (items.length < 500) break;
+// One-off: presign-guard after PR #1 (waits for the deploy), then x402 Doctor on both paid routes.
+import { execFileSync } from 'node:child_process';
+const SITE = 'https://presign-guard.onrender.com';
+for (let i = 0; i < 40; i++) {
+  try {
+    const r = await fetch(SITE + '/openapi.json', { signal: AbortSignal.timeout(90000) });
+    console.log(`wait ${i}: /openapi.json ${r.status}`);
+    if (r.ok) break;
+  } catch (e) { console.log(`wait ${i}: ${e.message}`); }
+  await new Promise((r) => setTimeout(r, 15000));
 }
-console.log(`catalog: ${total} resources, Ichimoku entries: ${hits.length}`);
-for (const h of hits) console.log('  ' + h);
-const d = await (await fetch('https://x402-doctor.onrender.com/api/diagnose', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: 'https://ichimoku-signal.onrender.com/signal/BTC-USDT' }) })).json();
-const eoa = d.checks.find((c) => c.id === 'evm-payto-eoa');
-console.log('doctor EOA note:', eoa ? eoa.message : 'none');
-console.log('who can pay:', (d.checks.find((c) => c.id === 'wallets') || {}).message);
+for (const p of ['/health', '/', '/openapi.json', '/.well-known/x402']) {
+  try {
+    const r = await fetch(SITE + p, { signal: AbortSignal.timeout(90000) });
+    console.log(`${p}: ${r.status} ${(await r.text()).slice(0, 400)}`);
+  } catch (e) { console.log(`${p}: ${e.message}`); }
+}
+for (const route of ['/v1/check', '/v1/check/explain']) {
+  let out = '';
+  try { out = execFileSync('node', ['doctor/bin/x402-doctor.js', SITE + route, '--method', 'POST'], { encoding: 'utf8', timeout: 120000 }); }
+  catch (e) { out = (e.stdout || '') + (e.stderr || ''); }
+  console.log(`\n===== Doctor: POST ${route}\n${out}`);
+}
