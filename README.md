@@ -27,6 +27,7 @@ diagnosing a broken endpoint, the pre-payment check for agents, and the daily Tr
 | | `resource-metadata` | Missing description / mimeType |
 | Settlement | `solana-payout-account` | Solana payout wallet without a token account for the asset: every settlement fails on-chain |
 | | `solana-wallets` | Solana settled by PayAI, which rejects Phantom (Lighthouse instructions before the transfer) |
+| Who can pay | `wallets` | Per wallet (MetaMask, Coinbase Wallet, Rabby, Phantom, Solflare, Backpack, x402 agents): the networks where payment works and where it fails, and why. Also in the JSON report as `wallets` |
 | Discovery | `bazaar`, `bazaar-output` | Missing or invalid Bazaar declaration, output example not matching its schema |
 | | `bazaar-replay` | The declared example request not answering 402, so the Bazaar cannot index it |
 | | `openapi-present`, `openapi-title`, `openapi-guidance` | Missing `/openapi.json`, `info.title`, `info.x-guidance` |

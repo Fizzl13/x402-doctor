@@ -34,6 +34,15 @@
   .overall a { color: inherit; font-weight: 500; font-size: 13px; }
   h2 { font-size: 0.8rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-soft); margin: 22px 0 8px; }
   .checks { display: flex; flex-direction: column; gap: 8px; }
+  .wallets { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .wallet-row { display: flex; gap: 12px; padding: 9px 14px; border-top: 1px solid var(--line); align-items: baseline; flex-wrap: wrap; }
+  .wallet-row:first-child { border-top: none; }
+  .wallet-name { width: 140px; flex: none; font-weight: 600; font-size: 14px; }
+  .wallet-nets { display: flex; gap: 6px; flex-wrap: wrap; align-items: baseline; min-width: 0; }
+  .net { font-size: 13px; padding: 2px 8px; border-radius: 999px; }
+  .net.yes { color: var(--pass); background: color-mix(in srgb, var(--pass) 12%, transparent); }
+  .net.no { color: var(--fail); background: color-mix(in srgb, var(--fail) 12%, transparent); }
+  .net-reason { font-size: 12.5px; color: var(--text-soft); }
   .check { display: flex; gap: 10px; padding: 12px 14px; border-radius: 8px; background: var(--panel); border: 1px solid var(--line); }
   .dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 7px; flex-shrink: 0; }
   .dot.pass { background: var(--pass); } .dot.warn { background: var(--warn); } .dot.fail { background: var(--fail); } .dot.info { background: var(--info); }
@@ -102,7 +111,7 @@
 const $ = (id) => document.getElementById(id);
 const GROUPS = {
   challenge: '402 challenge', accepts: 'Payment options', resource: 'Resource',
-  settlement: 'Settlement', discovery: 'Discovery', browser: 'Browser'
+  settlement: 'Settlement', wallets: 'Who can pay', discovery: 'Discovery', browser: 'Browser'
 };
 const LABELS = { pass: 'All checks passed', warn: 'Works, with warnings', fail: 'Broken — payments will fail or the resource is not valid x402' };
 
@@ -115,7 +124,26 @@ function el(tag, className, text) {
   return node;
 }
 
-function renderChecks(checks) {
+// One row per wallet: where payment works, and where it fails and why.
+function walletTable(wallets) {
+  const table = el('div', 'wallets');
+  for (const w of wallets) {
+    const row = el('div', 'wallet-row');
+    row.append(el('div', 'wallet-name', w.wallet));
+    const cells = el('div', 'wallet-nets');
+    for (const n of w.yes) cells.append(el('span', 'net yes', `✓ ${n}`));
+    for (const n of w.no) {
+      const chip = el('span', 'net no', `✗ ${n.network}`);
+      chip.title = n.reason;
+      cells.append(chip, el('span', 'net-reason', n.reason));
+    }
+    row.append(cells);
+    table.append(row);
+  }
+  return table;
+}
+
+function renderChecks(checks, wallets) {
   const results = $('results');
   results.replaceChildren();
   let current = null;
@@ -127,6 +155,11 @@ function renderChecks(checks) {
       results.append(el('h2', null, GROUPS[group] || group));
       list = el('div', 'checks');
       results.append(list);
+    }
+    if (c.id === 'wallets' && Array.isArray(wallets) && wallets.length) {
+      list.append(walletTable(wallets));
+      if (c.hint) list.append(el('div', 'hint', c.hint));
+      continue;
     }
     const row = el('div', 'check');
     row.append(el('div', `dot ${['pass', 'warn', 'fail', 'info'].includes(c.status) ? c.status : 'info'}`));
@@ -166,14 +199,14 @@ async function diagnose(url, method) {
     const data = await res.json();
     if (!res.ok) {
       showError(data.error || `Request failed (HTTP ${res.status}).`);
-      if (data.checks) renderChecks(data.checks);
+      if (data.checks) renderChecks(data.checks, data.wallets);
       return;
     }
     const counts = ['pass', 'warn', 'fail'].map((s) => data.checks.filter((c) => c.status === s).length);
     $('overallText').textContent = `${LABELS[data.overall] || data.overall} · ${counts[0]} passed, ${counts[1]} warnings, ${counts[2]} failed`;
     $('overallBox').className = `overall ${data.overall}`;
     $('overallBox').hidden = false;
-    renderChecks(data.checks);
+    renderChecks(data.checks, data.wallets);
     if (data.challenge) {
       $('challengeJson').textContent = JSON.stringify(data.challenge, null, 2);
       $('challengeBox').hidden = false;
