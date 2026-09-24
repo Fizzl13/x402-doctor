@@ -244,7 +244,27 @@ test('health reports the facilitator: PayAI by default, CDP first when CDP keys 
   assert.equal(health.paid.facilitator, 'payai');
   const { createPaidApi } = require('../lib/paid-api');
   const withCdp = createPaidApi({ env: { AGENT_PAYOUT_WALLET: PAY_TO_BASE, CDP_API_KEY_ID: 'id', CDP_API_KEY_SECRET: 'c2VjcmV0', DOCTOR_WARM_BAZAAR_INDEX: '0' } });
-  assert.equal(withCdp.paymentInfo.facilitator, 'cdp, payai fallback');
+  assert.equal(withCdp.paymentInfo.facilitator, 'cdp for base, payai for solana');
+  const cdpOnly = createPaidApi({ env: { AGENT_PAYOUT_WALLET: PAY_TO_BASE, CDP_API_KEY_ID: 'id', CDP_API_KEY_SECRET: 'c2VjcmV0', DOCTOR_SOLANA_FACILITATOR: 'cdp', DOCTOR_WARM_BAZAAR_INDEX: '0' } });
+  assert.equal(cdpOnly.paymentInfo.facilitator, 'cdp, payai fallback');
+});
+
+test('onlyNetworks: PayAI claims Solana only, verify and settle pass through', async () => {
+  const { onlyNetworks } = require('../lib/paid-api');
+  const calls = [];
+  const client = {
+    getSupported: async () => ({ kinds: [{ x402Version: 2, scheme: 'exact', network: 'eip155:8453' }, { x402Version: 2, scheme: 'exact', network: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp', extra: { feePayer: 'F' } }], signers: {} }),
+    verify: async (p, r) => { calls.push(['verify', p, r]); return { isValid: true }; },
+    settle: async (p, r) => { calls.push(['settle', p, r]); return { success: true }; },
+  };
+  const solanaOnly = onlyNetworks(client, (n) => n.startsWith('solana:'));
+  const supported = await solanaOnly.getSupported();
+  assert.deepEqual(supported.kinds.map((k) => k.network), ['solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp']);
+  assert.equal(supported.kinds[0].extra.feePayer, 'F');
+  assert.deepEqual(supported.signers, {});
+  assert.deepEqual(await solanaOnly.verify('p', 'r'), { isValid: true });
+  assert.deepEqual(await solanaOnly.settle('p', 'r'), { success: true });
+  assert.deepEqual(calls, [['verify', 'p', 'r'], ['settle', 'p', 'r']]);
 });
 
 test('free web API still works and the paid route is off without payout wallets', async () => {
