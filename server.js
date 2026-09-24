@@ -6,6 +6,9 @@ const { createPaidApi, ROUTE: PAID_ROUTE, PREFLIGHT_ROUTE, REPORT_SCHEMA } = req
 const { PREFLIGHT_SCHEMA } = require('./lib/preflight');
 const { createTrustIndex } = require('./lib/trust-index');
 const { createMediaCache } = require('./lib/media');
+const crypto = require('crypto');
+const { createUsageLog } = require('./lib/usage-log');
+const { createUsageReader } = require('./lib/usage-reader');
 
 const PORT = process.env.PORT || 3001;
 // Payout addresses shown by /demo/broken (it never settles, so nothing is paid).
@@ -34,13 +37,65 @@ function rateLimit({ windowMs, max }) {
 
 // allowPrivate is only for tests and local CLI use; the web service never
 // diagnoses internal addresses.
-function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, trustIndex = createTrustIndex(), media = createMediaCache() } = {}) {
+// What each Doctor call was about, for the usage log (null = not logged).
+function describeDoctorCall(req, _res, body) {
+  const b = body || {};
+  if (req.method === 'POST' && req.path === '/api/diagnose') {
+    return { route: 'diagnose', via: 'web', input: { url: req.body && req.body.url, method: req.body && req.body.method }, result: { overall: b.overall, error: b.error } };
+  }
+  if (req.method === 'GET' && req.path === PAID_ROUTE) {
+    return { route: 'diagnose', via: 'api', input: { url: req.query.url, method: req.query.method }, result: { overall: b.overall, error: b.error } };
+  }
+  if (req.method === 'GET' && req.path === PREFLIGHT_ROUTE) {
+    return { route: 'preflight', via: 'api', input: { url: req.query.url, max_usd: req.query.max_usd, network: req.query.network }, result: { verdict: b.verdict, error: b.error } };
+  }
+  if (req.method === 'GET' && req.path === '/api/trust') {
+    return { route: 'trust lookup', via: 'web', input: { url: req.query.url }, result: { found: Boolean(b.url && !b.error) } };
+  }
+  return null;
+}
+
+// HTTP Basic auth against ADMIN_PASSWORD (any user name). Without the
+// setting the admin pages do not exist.
+function adminAuth(env) {
+  return (req, res, next) => {
+    const password = env.ADMIN_PASSWORD;
+    if (!password) return res.status(404).send('Not found');
+    const header = req.get('authorization') || '';
+    const given = header.startsWith('Basic ') ? Buffer.from(header.slice(6), 'base64').toString('utf8').split(':').slice(1).join(':') : '';
+    const a = crypto.createHash('sha256').update(given).digest();
+    const b = crypto.createHash('sha256').update(password).digest();
+    if (given && crypto.timingSafeEqual(a, b)) return next();
+    res.set('WWW-Authenticate', 'Basic realm="Fizzl usage", charset="UTF-8"');
+    res.status(401).send('Password required');
+  };
+}
+
+function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, trustIndex = createTrustIndex(), media = createMediaCache(), usageLog = createUsageLog({ service: 'doctor', env }), usageReader = createUsageReader({ env }) } = {}) {
   const app = express();
   const safeFetch = createSafeFetch({ allowPrivate });
   const paidApi = createPaidApi({ safeFetch, env, trustIndex, ...(bazaarIndex ? { bazaarIndex } : {}) });
 
   app.set('trust proxy', 1);
   app.use(express.json({ limit: '4kb' }));
+  app.use(usageLog.middleware(describeDoctorCall));
+
+  // Usage dashboard for the owner: every call to the Fizzl services, from the usage log.
+  const admin = adminAuth(env);
+  app.get('/admin/usage', admin, (_req, res) => {
+    res.set('Cache-Control', 'no-store');
+    res.sendFile(path.join(__dirname, 'admin', 'usage.html'));
+  });
+  app.get('/admin/usage/data', admin, async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    const days = Math.min(365, Math.max(1, Number(req.query.days) || 30));
+    try {
+      res.json(await usageReader.load({ days }));
+    } catch (err) {
+      res.status(502).json({ error: err.message });
+    }
+  });
+
   app.use(express.static(path.join(__dirname, 'public')));
 
   // Paid agent API (x402). The web page below stays free and rate-limited.
