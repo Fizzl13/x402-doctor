@@ -44,19 +44,22 @@ jobs:
           cat summary.json; echo
           node -e 'const s=require("./summary.json"); if(!(s.resources>0)){console.error("trust index not loaded"); process.exit(1)} console.log(`trust index: ${s.resources} resources, updated ${s.updated}`)'
           curl -sf "$SERVICE/trust" -o /dev/null
-      - name: Explainer video served
+      - name: Explainer and paid-fix videos served
         run: |
-          curl -sf "$SERVICE/" | grep -q '/media/explainer.mp4'
-          # A byte-range request, the way iOS Safari fetches video. Right after a
-          # restart the file may still be downloading (302 to the raw file): retry.
-          for i in 1 2 3 4 5 6; do
-            got=$(curl -s -r 0-1023 -o /dev/null -w '%{http_code} %{content_type}' "$SERVICE/media/explainer.mp4")
-            echo "$got"
-            case "$got" in "206 video/mp4"*) break ;; esac
-            sleep 10
+          home=$(curl -sf "$SERVICE/")
+          for v in explainer fix; do
+            echo "$home" | grep -q "/media/$v.mp4"
+            # A byte-range request, the way iOS Safari fetches video. Right after a
+            # restart the file may still be downloading (302 to the raw file): retry.
+            for i in 1 2 3 4 5 6; do
+              got=$(curl -s -r 0-1023 -o /dev/null -w '%{http_code} %{content_type}' "$SERVICE/media/$v.mp4")
+              echo "$v: $got"
+              case "$got" in "206 video/mp4"*) break ;; esac
+              sleep 10
+            done
+            case "$got" in "206 video/mp4"*) ;; *) echo "$v video not served"; exit 1 ;; esac
+            curl -sfL "$SERVICE/media/$v.jpg" -o /dev/null
           done
-          case "$got" in "206 video/mp4"*) ;; *) echo "video not served"; exit 1 ;; esac
-          curl -sfL "$SERVICE/media/explainer.jpg" -o /dev/null
       - name: Diagnose the pre-payment check route
         run: node bin/x402-doctor.js "$SERVICE/api/v1/preflight"
         env:
