@@ -303,3 +303,25 @@ test('CLI: exit codes for healthy, broken and --strict, JSON output, usage error
   assert.equal(usage.code, 2);
   assert.match(usage.stderr, /usage: x402-doctor <url>/);
 });
+
+test('payout wallet upgraded to a smart account (EIP-7702) still counts as an EOA', async () => {
+  const { checkEvmPayTo } = require('../lib/diagnose');
+  const codes = {
+    '0x1111111111111111111111111111111111111111': '0xef010063c0c19a282a1b52b07dd5a65b58948a07dae32b',
+    '0x2222222222222222222222222222222222222222': '0x6080604052',
+  };
+  const rpc = await listen(async (req, res) => {
+    const body = JSON.parse(await readBody(req));
+    res.setHeader('content-type', 'application/json');
+    res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, result: codes[body.params[0]] || '0x' }));
+  });
+  const accepts = [
+    { scheme: 'exact', network: BASE, payTo: '0x1111111111111111111111111111111111111111' },
+    { scheme: 'exact', network: BASE, payTo: '0x2222222222222222222222222222222222222222' },
+  ];
+  const checks = [];
+  await checkEvmPayTo(accepts, checks, { evmRpcUrls: { [BASE]: rpc } });
+  assert.equal(checks.length, 1, 'the contract payout wallet gets no check');
+  assert.equal(checks[0].option, 0);
+  assert.match(checks[0].message, /EIP-7702/);
+});
