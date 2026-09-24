@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Usage: Fizzl services</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0d1117; --panel: #161b22; --line: #30363d; --grid: #21262d; --text: #e6edf3; --text-soft: #8b949e; --accent: #58a6ff;
+    --s-doctor: #3987e5; --s-plaintext: #d95926; --s-ichimoku: #199e70; --s-presign: #c98500;
+    --ok: #3fb950; --bad: #f85149;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { color-scheme: light;
+      --bg: #f6f8fa; --panel: #ffffff; --line: #d0d7de; --grid: #eaeef2; --text: #1f2328; --text-soft: #57606a; --accent: #0969da;
+      --s-doctor: #2a78d6; --s-plaintext: #eb6834; --s-ichimoku: #1baf7a; --s-presign: #eda100;
+      --ok: #1a7f37; --bad: #cf222e; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 -apple-system, 'Segoe UI', sans-serif; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 28px 16px 60px; }
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  h1 { font-size: 1.6rem; margin: 0; }
+  h2 { font-size: 0.8rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-soft); margin: 30px 0 10px; }
+  .sub { color: var(--text-soft); font-size: 13.5px; margin: 4px 0 18px; }
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .seg button, .chip, .ghost { font: inherit; font-size: 13.5px; background: var(--panel); color: var(--text); border: 0; padding: 7px 12px; cursor: pointer; }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button[aria-pressed="true"] { background: var(--text); color: var(--bg); }
+  .chip { border: 1px solid var(--line); border-radius: 999px; display: inline-flex; align-items: center; gap: 7px; }
+  .chip[aria-pressed="false"] { opacity: .45; }
+  .ghost { border: 1px solid var(--line); border-radius: 8px; }
+  .toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; color: var(--text-soft); margin-left: 4px; }
+  .sw { width: 10px; height: 10px; border-radius: 3px; display: inline-block; flex: none; }
+  .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 18px; }
+  .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .tile .k { color: var(--text-soft); font-size: 13px; }
+  .tile .v { font-size: 1.7rem; font-weight: 650; font-variant-numeric: tabular-nums; line-height: 1.2; margin-top: 2px; }
+  .tile .d { color: var(--text-soft); font-size: 12.5px; }
+  .services { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .svc { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; border-top: 3px solid var(--c); }
+  .svc .name { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+  .svc .big { font-size: 1.4rem; font-weight: 650; font-variant-numeric: tabular-nums; margin-top: 4px; }
+  .svc .row { color: var(--text-soft); font-size: 13px; font-variant-numeric: tabular-nums; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--text-soft); margin-bottom: 8px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; color: var(--text); }
+  svg text { fill: var(--text-soft); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .hit { fill: transparent; cursor: default; }
+  .hit:hover, .hit:focus { fill: var(--text); fill-opacity: .06; outline: none; }
+  #tip { position: fixed; z-index: 10; pointer-events: none; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 13px; box-shadow: 0 6px 20px rgba(0,0,0,.25); min-width: 170px; display: none; }
+  #tip .t { font-weight: 600; margin-bottom: 4px; }
+  #tip .r { display: flex; align-items: center; gap: 6px; justify-content: space-between; font-variant-numeric: tabular-nums; }
+  #tip .r span:first-child { display: inline-flex; align-items: center; gap: 6px; }
+  .tops { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .top h3 { margin: 0 0 8px; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+  .top ol { list-style: none; margin: 0; padding: 0; }
+  .top li { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; font-size: 13.5px; margin: 0 0 7px; }
+  .top .lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: 'SF Mono', Consolas, monospace; font-size: 12.5px; }
+  .top .n { font-variant-numeric: tabular-nums; text-align: right; }
+  .top .bar { grid-column: 1 / -1; height: 4px; border-radius: 0 4px 4px 0; background: var(--c); min-width: 2px; }
+  .empty { color: var(--text-soft); font-size: 13.5px; }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--text-soft); font-weight: 600; font-size: 12px; white-space: nowrap; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.mono { font-family: 'SF Mono', Consolas, monospace; font-size: 12px; overflow-wrap: anywhere; max-width: 360px; }
+  td.nowrap { white-space: nowrap; }
+  .svcname { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .pill { display: inline-block; font-size: 11.5px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--text-soft); }
+  .paid { color: var(--ok); font-weight: 600; }
+  .err { color: var(--bad); }
+  a { color: var(--accent); }
+  details { margin-top: 10px; font-size: 13.5px; } summary { cursor: pointer; color: var(--text-soft); }
+  .notice { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-top: 18px; }
+  @media (max-width: 760px) {
+    .tiles, .services { grid-template-columns: repeat(2, 1fr); }
+    .tops { grid-template-columns: 1fr; }
+    /* Recent calls as one card per call */
+    #calls thead { display: none; }
+    #calls, #calls tbody, #calls tr { display: block; }
+    #calls tr { padding: 10px 0; border-bottom: 1px solid var(--line); }
+    #calls td { display: inline-block; border: 0; padding: 2px 8px 2px 0; max-width: none; }
+    #calls td.mono { display: block; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Usage</h1>
+    <button class="ghost" id="refresh" type="button">Refresh</button>
+  </header>
+  <p class="sub" id="sub">Loading…</p>
+
+  <div class="filters" role="toolbar" aria-label="Filters">
+    <div class="seg" id="range" role="group" aria-label="Time range">
+      <button type="button" data-days="1">24 h</button>
+      <button type="button" data-days="7">7 days</button>
+      <button type="button" data-days="30" aria-pressed="true">30 days</button>
+      <button type="button" data-days="90">90 days</button>
+    </div>
+    <span id="chips" style="display:inline-flex;gap:6px;flex-wrap:wrap"></span>
+    <label class="toggle"><input type="checkbox" id="paidOnly"> Paid only</label>
+  </div>
+
+  <div id="notice"></div>
+
+  <div class="tiles" id="tiles"></div>
+
+  <h2>Per service</h2>
+  <div class="services" id="services"></div>
+
+  <h2>Calls per day</h2>
+  <div class="panel">
+    <div class="legend" id="legend"></div>
+    <div id="chart"></div>
+    <details><summary>Show as table</summary><div class="scroll"><table id="dayTable"></table></div></details>
+  </div>
+
+  <h2>What people asked</h2>
+  <div class="tops" id="tops"></div>
+
+  <h2>Recent calls</h2>
+  <div class="panel scroll"><table id="calls"></table><button class="ghost" id="more" type="button" style="margin-top:10px;display:none">Show more</button></div>
+</div>
+<div id="tip" role="tooltip"></div>
+
+<script>
+  const SERVICES = [
+    { id: 'doctor', name: 'x402 Doctor' },
+    { id: 'plaintext', name: 'PlainText' },
+    { id: 'ichimoku', name: 'Ichimoku Signal' },
+    { id: 'presign', name: 'presign-guard' },
+  ];
+  const NAME = Object.fromEntries(SERVICES.map((s) => [s.id, s.name]));
+  const color = (id) => `var(--s-${id}, var(--text-soft))`;
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, props = {}, ...kids) => {
+    const n = Object.assign(document.createElement(tag), props);
+    for (const k of kids) if (k !== null && k !== undefined) n.append(k);
+    return n;
+  };
+  const swatch = (id) => { const s = el('span', { className: 'sw' }); s.style.background = color(id); return s; };
+  // $0.00, $0.021, $12.50
+  const usd = (n) => (n > 0 && n < 1 ? `$${n.toFixed(3).replace(/0$/, '')}` : `$${n.toFixed(2)}`);
+  const shortAddr = (s) => String(s).replace(/\b(0x[a-fA-F0-9]{4})[a-fA-F0-9]{32}([a-fA-F0-9]{4})\b/g, '$1…$2').replace(/\b([1-9A-HJ-NP-Za-km-z]{4})[1-9A-HJ-NP-Za-km-z]{34,40}([1-9A-HJ-NP-Za-km-z]{4})\b/g, '$1…$2');
+  const ago = (iso) => {
+    const s = (Date.now() - Date.parse(iso)) / 1000;
+    if (s < 90) return 'just now';
+    if (s < 5400) return `${Math.round(s / 60)} min ago`;
+    if (s < 129600) return `${Math.round(s / 3600)} h ago`;
+    return `${Math.round(s / 86400)} days ago`;
+  };
+  const dayKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+  // "BTC-USDT · 4h", "0x6B0F…5F25 · base · token", the URL for Doctor calls.
+  function summary(obj) {
+    if (!obj || typeof obj !== 'object') return '';
+    return Object.entries(obj)
+      .filter(([, v]) => v !== undefined && v !== null && v !== '')
+      .map(([k, v]) => {
+        const text = typeof v === 'object' ? JSON.stringify(v) : String(v);
+        return ['url', 'pair', 'address', 'tool', 'type', 'verdict', 'overall', 'signal'].includes(k) ? text : `${k}: ${text}`;
+      })
+      .map(shortAddr)
+      .join(' · ');
+  }
+
+  // The thing asked about, for "What people asked".
+  function topic(e) {
+    const i = e.input || {};
+    if (i.tool) return i.tool;
+    if (i.url) { try { const u = new URL(i.url); return u.host + u.pathname; } catch { return String(i.url); } }
+    if (i.pair) return i.pair;
+    if (i.address) return shortAddr(i.address);
+    if (i.primaryType) return i.primaryType;
+    if (i.type) return i.type;
+    if (i.data) return 'pasted payload';
+    return e.route || 'call';
+  }
+
+  const state = { days: 30, services: new Set(SERVICES.map((s) => s.id)), paidOnly: false, data: null, rows: 25 };
+
+  async function load() {
+    $('sub').textContent = 'Loading…';
+    let data;
+    try {
+      const res = await fetch(`/admin/usage/data?days=${state.days}`, { cache: 'no-store' });
+      data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    } catch (err) {
+      $('sub').textContent = '';
+      $('notice').replaceChildren(el('div', { className: 'notice err' }, `Could not load the usage log: ${err.message}`));
+      return;
+    }
+    state.data = data;
+    render();
+  }
+
+  function filtered() {
+    return (state.data.events || []).filter((e) => state.services.has(e.service) && (!state.paidOnly || e.paid));
+  }
+
+  function render() {
+    const d = state.data;
+    $('notice').replaceChildren();
+    if (!d.configured) {
+      $('sub').textContent = '';
+      $('notice').replaceChildren(el('div', { className: 'notice' },
+        el('strong', { textContent: 'The usage log is not connected yet. ' }),
+        'Set USAGE_LOG_TOKEN (and USAGE_LOG_REPO if the repo is not Fizzl13/usage-log) on this service and on each service that should be counted.'));
+    }
+    const warn = [];
+    if (d.truncated) warn.push('Showing the latest 20,000 calls only.');
+    if (d.errors && d.errors.length) warn.push(`${d.errors.length} day file(s) could not be read.`);
+    $('sub').textContent = `Every call to your services, from the private log ${d.repo}. Updated ${new Date().toLocaleTimeString()}.${warn.length ? ' ' + warn.join(' ') : ''}`;
+
+    const events = filtered();
+    renderTiles(events);
+    renderServices(events);
+    renderChart(events);
+    renderTops(events);
+    renderCalls(events);
+  }
+
+  function renderTiles(events) {
+    const paid = events.filter((e) => e.paid);
+    const revenue = paid.reduce((s, e) => s + (Number(e.usd) || 0), 0);
+    const payers = new Set(paid.map((e) => e.payer).filter(Boolean));
+    const range = state.days === 1 ? 'last 24 hours' : `last ${state.days} days`;
+    const tile = (k, v, d) => el('div', { className: 'tile' }, el('div', { className: 'k', textContent: k }), el('div', { className: 'v', textContent: v }), el('div', { className: 'd', textContent: d }));
+    $('tiles').replaceChildren(
+      tile('Calls', events.length.toLocaleString(), range),
+      tile('Paid calls', paid.length.toLocaleString(), events.length ? `${Math.round((paid.length / events.length) * 100)}% of calls` : '–'),
+      tile('Revenue', usd(revenue), 'USDC, settled'),
+      tile('Paying wallets', payers.size.toLocaleString(), 'unique payers'),
+    );
+  }
+
+  function renderServices(events) {
+    const all = (state.data.events || []).filter((e) => !state.paidOnly || e.paid);
+    $('services').replaceChildren(...SERVICES.map((s) => {
+      const mine = all.filter((e) => e.service === s.id);
+      const paid = mine.filter((e) => e.paid);
+      const revenue = paid.reduce((t, e) => t + (Number(e.usd) || 0), 0);
+      const card = el('div', { className: 'svc' },
+        el('div', { className: 'name' }, swatch(s.id), s.name),
+        el('div', { className: 'big', textContent: `${mine.length.toLocaleString()} calls` }),
+        el('div', { className: 'row', textContent: `${paid.length} paid · ${usd(revenue)}` }),
+        el('div', { className: 'row', textContent: mine.length ? `last call ${ago(mine[0].t)}` : 'no calls yet' }));
+      card.style.setProperty('--c', color(s.id));
+      if (!state.services.has(s.id)) card.style.opacity = '.45';
+      return card;
+    }));
+  }
+
+  // Stacked bars, one per day, one segment per service (fixed order), 2px gaps.
+  function renderChart(events) {
+    const shown = SERVICES.filter((s) => state.services.has(s.id));
+    $('legend').replaceChildren(...shown.map((s) => el('span', {}, swatch(s.id), s.name)));
+
+    const days = [];
+    const start = new Date(); start.setHours(0, 0, 0, 0);
+    const n = Math.max(state.days, 1);
+    for (let i = n - 1; i >= 0; i--) { const d = new Date(start); d.setDate(d.getDate() - i); days.push(dayKey(d)); }
+    const counts = Object.fromEntries(days.map((k) => [k, { total: 0, usd: 0, by: {} }]));
+    for (const e of events) {
+      const k = dayKey(new Date(e.t));
+      if (!counts[k]) continue;
+      counts[k].total++;
+      counts[k].usd += e.paid ? Number(e.usd) || 0 : 0;
+      counts[k].by[e.service] = (counts[k].by[e.service] || 0) + 1;
+    }
+
+    const W = Math.max(320, $('chart').clientWidth || 700), H = 220, L = 34, R = 6, T = 10, B = 24;
+    const max = Math.max(1, ...days.map((k) => counts[k].total));
+    const step = niceStep(max);
+    const top = Math.ceil(max / step) * step;
+    const y = (v) => T + (H - T - B) * (1 - v / top);
+    const bw = (W - L - R) / days.length;
+    const barW = Math.max(2, Math.min(28, bw - 2));
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('width', '100%'); svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', `Calls per day over the last ${n} days, stacked by service`);
+    const add = (tag, attrs, text) => { const e = document.createElementNS(ns, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); if (text !== undefined) e.textContent = text; svg.append(e); return e; };
+
+    for (let v = 0; v <= top; v += step) {
+      add('line', { x1: L, x2: W - R, y1: y(v), y2: y(v), stroke: 'var(--grid)', 'stroke-width': 1 });
+      add('text', { x: L - 6, y: y(v) + 3.5, 'text-anchor': 'end' }, String(v));
+    }
+    const labelEvery = Math.ceil(days.length / Math.max(2, Math.min(8, Math.floor((W - L) / 64))));
+    days.forEach((k, i) => {
+      const x = L + i * bw + (bw - barW) / 2;
+      let base = 0;
+      const segs = shown.filter((s) => counts[k].by[s.id]);
+      segs.forEach((s, j) => {
+        const v = counts[k].by[s.id];
+        const y0 = y(base), y1 = y(base + v);
+        const gap = j > 0 ? 2 : 0;
+        const h = Math.max(1, y0 - y1 - gap);
+        const isTop = j === segs.length - 1;
+        const r = isTop ? Math.min(4, barW / 2, h) : 0;
+        const path = `M${x},${y1 + h + (j > 0 ? 0 : 0)} L${x},${y1 + r} Q${x},${y1} ${x + r},${y1} L${x + barW - r},${y1} Q${x + barW},${y1} ${x + barW},${y1 + r} L${x + barW},${y1 + h} Z`;
+        add('path', { d: path, fill: color(s.id) });
+        base += v;
+      });
+      const last = i === days.length - 1;
+      if ((i % labelEvery === 0 && (last || days.length - 1 - i >= labelEvery / 2 + 1)) || last) {
+        const d = new Date(k + 'T12:00:00');
+        add('text', last ? { x: W - R, y: H - 6, 'text-anchor': 'end' } : { x: L + i * bw + bw / 2, y: H - 6, 'text-anchor': i === 0 ? 'start' : 'middle' }, n === 1 ? 'today' : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }));
+      }
+      const hit = add('rect', { x: L + i * bw, y: T, width: bw, height: H - T - B, class: 'hit', tabindex: 0 });
+      hit.setAttribute('aria-label', `${k}: ${counts[k].total} calls`);
+      const show = (ev) => showTip(ev, k, counts[k], shown);
+      hit.addEventListener('mousemove', show); hit.addEventListener('focus', show);
+      hit.addEventListener('mouseleave', hideTip); hit.addEventListener('blur', hideTip);
+    });
+    add('line', { x1: L, x2: W - R, y1: y(0), y2: y(0), stroke: 'var(--line)', 'stroke-width': 1 });
+    $('chart').replaceChildren(svg);
+
+    const head = el('tr', {}, el('th', { textContent: 'Day' }), ...shown.map((s) => el('th', { className: 'num', textContent: s.name })), el('th', { className: 'num', textContent: 'Total' }), el('th', { className: 'num', textContent: 'Revenue' }));
+    const rows = days.slice().reverse().map((k) => el('tr', {}, el('td', { className: 'nowrap', textContent: k }), ...shown.map((s) => el('td', { className: 'num', textContent: String(counts[k].by[s.id] || 0) })), el('td', { className: 'num', textContent: String(counts[k].total) }), el('td', { className: 'num', textContent: usd(counts[k].usd) })));
+    $('dayTable').replaceChildren(el('thead', {}, head), el('tbody', {}, ...rows));
+  }
+
+  function niceStep(max) {
+    const raw = max / 4;
+    const p = Math.pow(10, Math.floor(Math.log10(raw)));
+    return Math.max(1, [1, 2, 5, 10].map((m) => m * p).find((s) => s >= raw));
+  }
+
+  function showTip(ev, key, c, shown) {
+    const tip = $('tip');
+    const d = new Date(key + 'T12:00:00');
+    tip.replaceChildren(
+      el('div', { className: 't', textContent: d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' }) }),
+      ...shown.filter((s) => c.by[s.id]).map((s) => el('div', { className: 'r' }, el('span', {}, swatch(s.id), s.name), el('span', { textContent: String(c.by[s.id]) }))),
+      el('div', { className: 'r' }, el('span', { textContent: 'Total' }), el('strong', { textContent: String(c.total) })),
+      ...(c.usd ? [el('div', { className: 'r' }, el('span', { textContent: 'Revenue' }), el('span', { textContent: usd(c.usd) }))] : []));
+    tip.style.display = 'block';
+    const r = ev.target.getBoundingClientRect();
+    const x = ev.clientX || r.left + r.width / 2;
+    const left = Math.min(window.innerWidth - tip.offsetWidth - 8, Math.max(8, x + 12));
+    tip.style.left = `${left}px`;
+    tip.style.top = `${Math.max(8, (ev.clientY || r.top) - tip.offsetHeight - 12)}px`;
+  }
+  function hideTip() { $('tip').style.display = 'none'; }
+
+  function renderTops(events) {
+    const shown = SERVICES.filter((s) => state.services.has(s.id));
+    $('tops').replaceChildren(...shown.map((s) => {
+      const counts = new Map();
+      for (const e of events) if (e.service === s.id) { const k = topic(e); counts.set(k, (counts.get(k) || 0) + 1); }
+      const list = [...counts].sort((a, b) => b[1] - a[1]).slice(0, 6);
+      const max = list.length ? list[0][1] : 1;
+      const box = el('div', { className: 'panel top' }, el('h3', {}, swatch(s.id), s.name));
+      box.style.setProperty('--c', color(s.id));
+      if (!list.length) box.append(el('div', { className: 'empty', textContent: 'No calls in this range.' }));
+      else box.append(el('ol', {}, ...list.map(([k, v]) => {
+        const bar = el('span', { className: 'bar' }); bar.style.width = `${(v / max) * 100}%`;
+        return el('li', {}, el('span', { className: 'lbl', textContent: k, title: k }), el('span', { className: 'n', textContent: String(v) }), bar);
+      })));
+      return box;
+    }));
+  }
+
+  function txLink(e) {
+    if (!e.tx) return null;
+    const base = e.network === 'solana' ? 'https://solscan.io/tx/' : e.network === 'base' ? 'https://basescan.org/tx/' : null;
+    return base ? el('a', { href: base + e.tx, target: '_blank', rel: 'noopener', textContent: 'tx' }) : null;
+  }
+
+  function renderCalls(events) {
+    const head = el('tr', {}, ...['Time', 'Service', 'Call', 'What was filled in', 'Result', 'Payment'].map((t) => el('th', { textContent: t })));
+    const latest = events.slice(0, state.rows);
+    $('more').style.display = events.length > state.rows ? 'inline-block' : 'none';
+    $('more').textContent = `Show more (${(events.length - state.rows).toLocaleString()} older)`;
+    const rows = latest.map((e) => {
+      const when = new Date(e.t);
+      const pay = e.paid
+        ? el('span', {}, el('span', { className: 'paid', textContent: e.usd ? usd(Number(e.usd)) : 'paid' }), ` ${e.network || ''} `, txLink(e))
+        : el('span', { className: 'pill', textContent: 'free' });
+      const status = e.status >= 400 ? el('span', { className: 'err', textContent: ` (HTTP ${e.status})` }) : null;
+      return el('tr', {},
+        el('td', { className: 'nowrap', title: e.t, textContent: when.toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) }),
+        el('td', {}, el('span', { className: 'svcname' }, swatch(e.service), NAME[e.service] || e.service)),
+        el('td', { className: 'nowrap' }, `${e.route || ''}`, e.via && e.via !== 'http' ? el('span', { className: 'pill', textContent: e.via, style: 'margin-left:6px' }) : null),
+        el('td', { className: 'mono', textContent: summary(e.input) || '–' }),
+        el('td', { className: 'mono' }, summary(e.result) || '–', status),
+        el('td', { className: 'nowrap' }, pay));
+    });
+    $('calls').replaceChildren(el('thead', {}, head), el('tbody', {}, ...(rows.length ? rows : [el('tr', {}, el('td', { colSpan: 6, className: 'empty', textContent: 'No calls in this range yet.' }))])));
+  }
+
+  // Filters: range (reloads), services and paid-only (re-render only).
+  for (const b of $('range').querySelectorAll('button')) {
+    b.addEventListener('click', () => {
+      for (const x of $('range').querySelectorAll('button')) x.setAttribute('aria-pressed', String(x === b));
+      state.days = Number(b.dataset.days);
+      load();
+    });
+  }
+  $('chips').replaceChildren(...SERVICES.map((s) => {
+    const c = el('button', { type: 'button', className: 'chip' }, swatch(s.id), s.name);
+    c.setAttribute('aria-pressed', 'true');
+    c.addEventListener('click', () => {
+      if (state.services.has(s.id) && state.services.size > 1) state.services.delete(s.id); else state.services.add(s.id);
+      c.setAttribute('aria-pressed', String(state.services.has(s.id)));
+      if (state.data) render();
+    });
+    return c;
+  }));
+  $('paidOnly').addEventListener('change', (e) => { state.paidOnly = e.target.checked; if (state.data) render(); });
+  $('refresh').addEventListener('click', load);
+  $('more').addEventListener('click', () => { state.rows += 50; renderCalls(filtered()); });
+  let resizeTimer;
+  window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => state.data && renderChart(filtered()), 150); });
+  load();
+</script>
+</body>
+</html>

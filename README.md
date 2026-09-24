@@ -139,7 +139,20 @@ In GitHub Actions:
 | `FACILITATOR_URL` | x402 facilitator (default PayAI, `https://facilitator.payai.network`) |
 | `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET` | Use Coinbase's CDP facilitator first (PayAI stays the fallback). Payments settled through CDP get the route listed in the CDP Bazaar |
 
+| `USAGE_LOG_TOKEN` | Fine-grained GitHub token with Contents read/write on the usage-log repo only. Every call is logged there (see below) |
+| `USAGE_LOG_REPO` | The private usage-log repo (default `Fizzl13/usage-log`) |
+| `ADMIN_PASSWORD` | Password for `/admin/usage` (any user name). Without it the admin pages do not exist |
+
 Without either payout wallet the paid route answers 503 and the rest of the app works as before.
+
+### Usage dashboard
+
+`/admin/usage` shows every call to the Fizzl services (x402 Doctor, PlainText, Ichimoku Signal, presign-guard):
+totals, revenue, paying wallets, calls per day per service, the most asked inputs and the latest calls with what
+was filled in, the result and the payment (with a Basescan/Solscan link). Each service appends one JSON line per
+call to `events/<service>/<YYYY-MM-DD>.jsonl` in the private usage-log repo (`lib/usage-log.js`, copied into
+each service); the dashboard reads it back (`lib/usage-reader.js`). 402 challenges, health checks and static
+files are not counted, and inputs are cut to 300 characters. Logging never delays or fails a request.
 
 ## Safety
 
