@@ -43,6 +43,7 @@
   .net.yes { color: var(--pass); background: color-mix(in srgb, var(--pass) 12%, transparent); }
   .net.no { color: var(--fail); background: color-mix(in srgb, var(--fail) 12%, transparent); }
   .net-reason { font-size: 12.5px; color: var(--text-soft); }
+  .net-reason.note { color: var(--warn); flex-basis: 100%; }
   .check { display: flex; gap: 10px; padding: 12px 14px; border-radius: 8px; background: var(--panel); border: 1px solid var(--line); }
   .dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 7px; flex-shrink: 0; }
   .dot.pass { background: var(--pass); } .dot.warn { background: var(--warn); } .dot.fail { background: var(--fail); } .dot.info { background: var(--info); }
@@ -137,6 +138,7 @@ function walletTable(wallets) {
       chip.title = n.reason;
       cells.append(chip, el('span', 'net-reason', n.reason));
     }
+    for (const note of w.notes || []) cells.append(el('span', 'net-reason note', `⚠ ${note}`));
     row.append(cells);
     table.append(row);
   }

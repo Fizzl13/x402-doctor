@@ -126,6 +126,8 @@ test.before(async () => {
   rpcUrl = await listen(async (req, res) => {
     const body = JSON.parse(await readBody(req));
     res.setHeader('content-type', 'application/json');
+    // Base: the healthy fixture's payout wallet is a regular wallet (no code).
+    if (body.method === 'eth_getCode') return res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, result: '0x' }));
     if (body.method === 'getTokenAccountsByOwner') {
       const value = body.params[0] === PAYOUT_WITH_ATA ? [{ pubkey: 'HDp3B6rtQV5X9FmMgCLabGkkk4LfzmlncraeLFoQEV4a', account: {} }] : [];
       return res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, result: { context: { slot: 1 }, value } }));
@@ -138,6 +140,7 @@ test.before(async () => {
     res.end(JSON.stringify({ kinds: [{ x402Version: 2, scheme: 'exact', network: SOLANA, extra: { feePayer: PAYAI_FEE_PAYER } }], extensions: [], signers: {} }));
   });
   process.env.PAYAI_SUPPORTED_URL = `${payai}/supported`;
+  process.env.BASE_RPC_URL = rpcUrl; // also reaches the CLI test through its env
 });
 
 test.after(() => servers.forEach((s) => s.close()));
@@ -167,14 +170,22 @@ test('healthy v2 service: no failures, every group covered', async () => {
 
   // Who can pay: EVM wallets on Base, Phantom on Base but not on Solana (PayAI)
   const wallet = (name) => report.wallets.find((w) => w.wallet === name);
-  assert.deepEqual(wallet('MetaMask'), { wallet: 'MetaMask', agent: false, yes: ['Base'], no: [] });
+  assert.deepEqual(wallet('MetaMask'), { wallet: 'MetaMask', agent: false, yes: ['Base'], no: [], notes: ['Base: may show a Blockaid "deceptive request" warning (payout wallet is an EOA)'] });
+  assert.equal(wallet('Rabby').notes, undefined);
+  // The payout wallet is a regular wallet: MetaMask's Blockaid check may warn
+  const eoa = byId(report)['evm-payto-eoa'];
+  assert.equal(eoa.length, 1);
+  assert.equal(eoa[0].status, 'info');
+  assert.equal(eoa[0].group, 'wallets');
+  assert.match(eoa[0].message, /regular wallet \(EOA\).*deceptive request/);
+  assert.match(eoa[0].hint, /Report an issue/);
   assert.deepEqual(wallet('Phantom').yes, ['Base']);
   assert.deepEqual(wallet('Phantom').no, [{ network: 'Solana', reason: 'PayAI rejects Phantom transactions' }]);
   assert.deepEqual(wallet('Solflare').yes, ['Solana']);
   assert.deepEqual(wallet('x402 agents').yes, ['Base', 'Solana']);
   const summary = byId(report).wallets[0];
   assert.equal(summary.status, 'info');
-  assert.match(summary.message, /^Who can pay: .*Phantom ✓ Base, ✗ Solana/);
+  assert.match(summary.message, /^Who can pay: MetaMask ✓ Base \(may warn\) .*Phantom ✓ Base, ✗ Solana/);
   assert.equal(summary.hint, undefined);
 });
 

@@ -1,6 +1,9 @@
 // Paid agent API (GET /api/v1/diagnose) against a mock PayAI facilitator that
 // really verifies the EIP-3009 signature, paid by a real x402 client.
 
+// No real Base RPC in tests: the payout-wallet lookup fails fast and is skipped.
+process.env.BASE_RPC_URL = 'http://127.0.0.1:1';
+
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
