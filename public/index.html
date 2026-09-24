@@ -66,6 +66,7 @@
   .fix-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
   .fix-row select { padding: 10px; }
   .fix-note { font-size: 12.5px; color: var(--text-soft); margin-top: 10px; }
+  .fix-note a { color: var(--accent); }
   .fix-status { font-size: 14px; margin-top: 10px; }
   .fix-status.error { color: var(--fail); }
   .fix { margin-top: 14px; padding: 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); }
@@ -113,7 +114,7 @@
       </select>
       <button id="fixBtn" type="button">Get the fix with MetaMask</button>
     </div>
-    <p class="fix-note" id="fixNote">You pay $0.05 in USDC on Base; your wallet shows a signature for exactly that amount to our payout wallet <code id="fixPayTo">0x6B0F…5F25</code>. MetaMask's security check may call that wallet "untrusted" because it is a regular wallet rather than a contract; that is normal for x402 payments, and the signature can only move this one amount, once. Agents: <code>GET /api/v1/fix?url=…</code></p>
+    <p class="fix-note" id="fixNote">You pay $0.05 in USDC on Base; your wallet shows a signature for exactly that amount to our payout wallet <code id="fixPayTo">0x6B0F…5F25</code>. MetaMask's security check may call that wallet "untrusted" because it is a regular wallet rather than a contract; that is normal for x402 payments, and the signature can only move this one amount, once. Want a second opinion before you sign? <a href="https://presign-guard.onrender.com">presign-guard</a> reads any signature request and tells you what it can move and to whom. Agents: <code>GET /api/v1/fix?url=…</code></p>
     <div class="fix-status" id="fixStatus" aria-live="polite"></div>
     <div id="fixes"></div>
   </div>
@@ -140,8 +141,12 @@
     For agents: <code>GET /api/v1/diagnose?url=&lt;endpoint&gt;</code>, $0.01 USDC per call via x402 on Base or Solana, no rate limit
     (<a href="/openapi.json">OpenAPI</a>).
     <br><br>
-    Built while shipping <a href="https://smartcontractexplainer.onrender.com">PlainText</a> and
-    <a href="https://ichimoku-signal.onrender.com">Ichimoku Signal</a> — every check traces back to a bug that broke one of them.
+    Built while shipping <a href="https://smartcontractexplainer.onrender.com">PlainText</a>,
+    <a href="https://ichimoku-signal.onrender.com">Ichimoku Signal</a> and
+    <a href="https://presign-guard.onrender.com">presign-guard</a> — every check traces back to a bug that broke one of them.
+    <br><br>
+    <a href="https://presign-guard.onrender.com">presign-guard</a>: before an agent or wallet signs a permit, approval or x402 payment,
+    it gives a green, orange or red verdict with the reasons: unlimited amounts, long-lived permissions, flagged spenders. From $0.01 per check via x402.
   </footer>
 </div>
 
