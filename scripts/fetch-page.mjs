@@ -1,18 +1,16 @@
-// One-off: Ichimoku on CDP for Base? 402 still fine? Doctor shows the EOA note?
-const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-let ok = false;
-for (let i = 0; i < 14; i++) {
+// One-off: why no evm-payto-eoa? Query Base RPC directly, then the Doctor again.
+const rpc = async (url) => {
   try {
-    const s = await (await fetch('https://ichimoku-signal.onrender.com/', { headers: { accept: 'application/json' } })).json();
-    console.log(`attempt ${i + 1}: facilitators ${JSON.stringify(s.payment && s.payment.facilitators)}`);
-    if (s.payment && s.payment.facilitators && s.payment.facilitators['eip155:8453'] === 'cdp') { ok = true; break; }
-  } catch (e) { console.log(`attempt ${i + 1}: ${e.message}`); }
-  await wait(30000);
+    const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_getCode', params: ['0x6B0F4651eD42893ab58139938175E4a69f175F25', 'latest'] }), signal: AbortSignal.timeout(8000) });
+    return `${r.status} ${(await r.text()).slice(0, 200)}`;
+  } catch (e) { return `error ${e.message}`; }
+};
+console.log('mainnet.base.org:', await rpc('https://mainnet.base.org'));
+console.log('base.llamarpc.com:', await rpc('https://base.llamarpc.com'));
+for (let i = 0; i < 10; i++) {
+  const d = await (await fetch('https://x402-doctor.onrender.com/api/diagnose', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: 'https://smartcontractexplainer.onrender.com/api/check-wallet' }) })).json();
+  const eoa = d.checks.find((c) => c.id === 'evm-payto-eoa');
+  console.log(`doctor attempt ${i + 1}:`, eoa ? eoa.message : 'no evm-payto-eoa check', '|', (d.checks.find((c) => c.id === 'wallets') || {}).message);
+  if (eoa) break;
+  await new Promise((r) => setTimeout(r, 30000));
 }
-const r = await fetch('https://ichimoku-signal.onrender.com/signal/BTC-USDT?interval=4h', { headers: { accept: 'application/json' } });
-const ch = r.headers.get('payment-required');
-console.log('402:', r.status, ch ? JSON.stringify(JSON.parse(Buffer.from(ch, 'base64').toString()).accepts.map((a) => ({ network: a.network, amount: a.amount, payTo: a.payTo, feePayer: a.extra && a.extra.feePayer }))) : 'no header');
-const d = await (await fetch('https://x402-doctor.onrender.com/api/diagnose', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: 'https://ichimoku-signal.onrender.com/signal/BTC-USDT' }) })).json();
-console.log('doctor overall:', d.overall);
-for (const c of d.checks) if (c.status !== 'pass') console.log(`  ${c.status} ${c.id}: ${c.message}`);
-process.exit(ok && r.status === 402 ? 0 : 1);
