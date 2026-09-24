@@ -1,16 +1,19 @@
-// One-off: why no evm-payto-eoa? Query Base RPC directly, then the Doctor again.
-const rpc = async (url) => {
-  try {
-    const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_getCode', params: ['0x6B0F4651eD42893ab58139938175E4a69f175F25', 'latest'] }), signal: AbortSignal.timeout(8000) });
-    return `${r.status} ${(await r.text()).slice(0, 200)}`;
-  } catch (e) { return `error ${e.message}`; }
-};
-console.log('mainnet.base.org:', await rpc('https://mainnet.base.org'));
-console.log('base.llamarpc.com:', await rpc('https://base.llamarpc.com'));
-for (let i = 0; i < 10; i++) {
-  const d = await (await fetch('https://x402-doctor.onrender.com/api/diagnose', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: 'https://smartcontractexplainer.onrender.com/api/check-wallet' }) })).json();
-  const eoa = d.checks.find((c) => c.id === 'evm-payto-eoa');
-  console.log(`doctor attempt ${i + 1}:`, eoa ? eoa.message : 'no evm-payto-eoa check', '|', (d.checks.find((c) => c.id === 'wallets') || {}).message);
-  if (eoa) break;
-  await new Promise((r) => setTimeout(r, 30000));
+// One-off: is Ichimoku in the CDP Bazaar? Look for its origin in the catalog.
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+for (let round = 0; round < 6; round++) {
+  const hits = [];
+  let total = 0;
+  for (let offset = 0; offset < 40000; offset += 500) {
+    const res = await fetch(`https://api.cdp.coinbase.com/platform/v2/x402/discovery/resources?type=http&limit=500&offset=${offset}`);
+    if (!res.ok) { console.log(`CDP HTTP ${res.status}`); break; }
+    const items = (await res.json()).items || [];
+    total += items.length;
+    for (const it of items) if (/ichimoku-signal\.onrender\.com/.test(it.resource || '')) hits.push(`${it.resource} (updated ${it.lastUpdated || '?'})`);
+    if (items.length < 500) break;
+  }
+  console.log(`round ${round + 1}: ${total} resources in the catalog, Ichimoku entries: ${hits.length}`);
+  for (const h of hits) console.log('  ' + h);
+  if (hits.length) process.exit(0);
+  await wait(60000);
 }
+process.exit(1);
