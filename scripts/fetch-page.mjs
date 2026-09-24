@@ -5,7 +5,7 @@ for (let i = 0; i < 40; i++) {
   try {
     const r = await fetch(SITE + '/openapi.json', { signal: AbortSignal.timeout(90000) });
     console.log(`wait ${i}: /openapi.json ${r.status}`);
-    if (r.ok && (await r.text()).includes('eip155:8453')) break;
+    if (r.ok && (await r.text()).includes('"eip155:8453"')) break;
   } catch (e) { console.log(`wait ${i}: ${e.message}`); }
   await new Promise((r) => setTimeout(r, 15000));
 }
