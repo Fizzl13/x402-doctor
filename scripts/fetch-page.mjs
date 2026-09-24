@@ -17,7 +17,7 @@ for (let offset = 0; offset < 40000; offset += 500) {
     for (const a of it.accepts || []) {
       options++;
       const key = String(a.asset || '').toLowerCase();
-      const name = known[key] || (a.extra && a.extra.name ? `${a.extra.name} ${a.asset}` : a.asset);
+      const name = String(known[key] || (a.extra && a.extra.name ? `${a.extra.name} ${a.asset}` : a.asset || '(no asset)'));
       assets.set(name, (assets.get(name) || 0) + 1);
       networks.set(a.network, (networks.get(a.network) || 0) + 1);
       names.add(name.startsWith('USDC') ? 'USDC (any)' : 'other');
