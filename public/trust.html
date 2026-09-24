@@ -20,10 +20,31 @@
   h1 { font-size: 1.6rem; margin: 0 0 8px; }
   h2 { font-size: 0.8rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-soft); margin: 32px 0 10px; }
   .sub { color: var(--text-soft); margin: 0 0 24px; }
-  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
-  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
-  .stat .n { font-size: 1.4rem; font-weight: 600; font-variant-numeric: tabular-nums; }
-  .stat .l { font-size: 12.5px; color: var(--text-soft); }
+  .headline { font-size: 17px; margin: 0 0 12px; }
+  .headline strong { font-variant-numeric: tabular-nums; }
+  .share { display: flex; gap: 2px; height: 34px; border-radius: 6px; overflow: hidden; background: var(--panel); }
+  .share .seg { min-width: 4px; height: 100%; cursor: default; outline-offset: 2px; }
+  .share .seg:focus-visible { outline: 2px solid var(--text); }
+  .seg.g { background: var(--go); } .seg.c { background: var(--caution); }
+  .seg.n { background: var(--nogo); background-image: repeating-linear-gradient(135deg, rgba(0,0,0,.28) 0 3px, transparent 3px 7px); }
+  .share-legend { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+  .share-legend > div { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+  .share-legend .k { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
+  .share-legend .sw { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+  .share-legend .v { font-size: 1.25rem; font-weight: 600; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .share-legend .p { color: var(--text-soft); font-size: 13px; font-weight: 400; margin-left: 4px; }
+  .reasons { display: flex; flex-direction: column; gap: 10px; }
+  .reason { display: grid; grid-template-columns: minmax(0, 1fr) 64px; gap: 2px 12px; align-items: center; outline-offset: 3px; border-radius: 4px; }
+  .reason:focus-visible { outline: 2px solid var(--text); }
+  .reason .t { font-size: 14px; grid-column: 1 / -1; }
+  .reason .track { height: 12px; }
+  .reason .bar { height: 100%; min-width: 3px; background: var(--accent); border-radius: 0 4px 4px 0; }
+  .reason .n { font-size: 13.5px; font-variant-numeric: tabular-nums; text-align: right; color: var(--text); }
+  .note { color: var(--text-soft); font-size: 12.5px; margin-top: 10px; }
+  details { margin-top: 10px; font-size: 13.5px; } summary { cursor: pointer; color: var(--text-soft); }
+  table { border-collapse: collapse; margin-top: 8px; width: 100%; font-size: 13.5px; }
+  td, th { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); } td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  #tip { position: fixed; z-index: 10; pointer-events: none; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 13px; box-shadow: 0 6px 20px rgba(0,0,0,.25); max-width: 280px; }
   form { display: flex; gap: 8px; flex-wrap: wrap; }
   input[type=url] { flex: 1 1 320px; min-width: 0; font-family: 'SF Mono', Consolas, monospace; font-size: 14px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
   button { font: inherit; font-weight: 600; font-size: 14px; background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 12px 20px; cursor: pointer; }
@@ -43,12 +64,15 @@
   <h1>x402 Trust Index</h1>
   <p class="sub">Once a day, x402 Doctor checks every resource listed in the CDP Bazaar the way a paying agent would, and stops at the 402 challenge. Would a payment settle today, and how often did it over the last 30 days?</p>
 
-  <div class="stats" id="stats" aria-live="polite">
-    <div class="stat"><div class="n" id="s-total">…</div><div class="l">resources scanned</div></div>
-    <div class="stat"><div class="n" id="s-go">…</div><div class="l">go today</div></div>
-    <div class="stat"><div class="n" id="s-caution">…</div><div class="l">caution today</div></div>
-    <div class="stat"><div class="n" id="s-nogo">…</div><div class="l">no-go today</div></div>
-  </div>
+  <h2>Can an AI agent pay?</h2>
+  <p class="headline" id="headline" aria-live="polite">Loading today's scan…</p>
+  <div class="share" id="share" role="img" aria-label="Share of x402 services an agent can pay"></div>
+  <div class="share-legend" id="shareLegend"></div>
+
+  <h2>What goes wrong</h2>
+  <div class="reasons" id="reasons"></div>
+  <p class="note">Reasons in the latest scan. A service can have more than one; "works, with warnings" services count here too.</p>
+  <details><summary>Show as a table</summary><table id="reasonsTable"><thead><tr><th>Reason</th><th>Code</th><th class="num">Services</th></tr></thead><tbody></tbody></table></details>
 
   <h2>Look up a resource</h2>
   <form id="form">
@@ -77,14 +101,97 @@
 </div>
 <script>
   const $ = (id) => document.getElementById(id);
+  // Reason codes in everyday words (codes from lib/preflight.js).
+  const REASON = {
+    suspicious_amount: 'The price looks wrong, e.g. dollars written instead of token units',
+    no_402: "Doesn't ask for payment at all (offline or broken)",
+    resource_mismatch: 'Charges for a different address than the one called',
+    testnet_only: 'Only accepts test money',
+    unknown_asset: 'Asks for an unknown token instead of USDC',
+    price_above_advertised: 'Charges more than it advertises',
+    no_payable_option: 'No payment option that works',
+    invalid_challenge: 'Sends a broken payment request',
+    over_budget: 'Costs more than the budget checked',
+    network_not_offered: 'Not payable on the network checked',
+    not_https: 'Not served over a secure (https) connection',
+    unreliable_history: 'Failed on most earlier days',
+  };
+  const fmt = (n) => n.toLocaleString('en-US');
+  const pct = (n, total) => `${total ? Math.round((n / total) * 100) : 0}%`;
+
+  // Hover and keyboard-focus tooltip for the chart marks.
+  const tip = document.createElement('div');
+  tip.id = 'tip'; tip.hidden = true; document.body.append(tip);
+  function withTip(el, text) {
+    const show = (x, y) => { tip.textContent = text; tip.hidden = false; tip.style.left = `${Math.min(x + 12, innerWidth - tip.offsetWidth - 8)}px`; tip.style.top = `${y + 14}px`; };
+    el.addEventListener('mousemove', (e) => show(e.clientX, e.clientY));
+    el.addEventListener('mouseleave', () => { tip.hidden = true; });
+    el.addEventListener('focus', () => { const r = el.getBoundingClientRect(); show(r.left, r.bottom - 10); });
+    el.addEventListener('blur', () => { tip.hidden = true; });
+    el.tabIndex = 0;
+    el.setAttribute('aria-label', text);
+  }
+
+  function renderShare(s) {
+    const total = s.resources;
+    const fail = s.latest.no_go + s.latest.unreachable;
+    $('headline').innerHTML = '';
+    $('headline').append('Of ', Object.assign(document.createElement('strong'), { textContent: fmt(total) }), ' paid x402 services checked, an agent could pay ',
+      Object.assign(document.createElement('strong'), { textContent: pct(s.latest.go + s.latest.caution, total) }), ' without a failed payment.');
+    const parts = [
+      { cls: 'g', icon: '✓', label: 'Works', n: s.latest.go, info: 'A payment would settle' },
+      { cls: 'c', icon: '!', label: 'Works, with warnings', n: s.latest.caution, info: 'Payable, but something looks off' },
+      { cls: 'n', icon: '✕', label: 'Would fail', n: fail, info: 'An agent paying now would fail or lose the payment' },
+    ];
+    $('share').replaceChildren(...parts.filter((p) => p.n > 0).map((p) => {
+      const seg = document.createElement('div');
+      seg.className = `seg ${p.cls}`;
+      seg.style.flex = `${p.n} 0 0`;
+      withTip(seg, `${p.icon} ${p.label}: ${fmt(p.n)} services (${pct(p.n, total)}). ${p.info}.`);
+      return seg;
+    }));
+    $('shareLegend').replaceChildren(...parts.map((p) => {
+      const box = document.createElement('div');
+      const k = document.createElement('div'); k.className = 'k';
+      const sw = document.createElement('span'); sw.className = `sw seg ${p.cls}`;
+      k.append(sw, `${p.icon} ${p.label}`);
+      const v = document.createElement('div'); v.className = 'v'; v.textContent = fmt(p.n);
+      const pc = document.createElement('span'); pc.className = 'p'; pc.textContent = pct(p.n, total);
+      v.append(pc);
+      box.append(k, v);
+      return box;
+    }));
+  }
+
+  function renderReasons(s) {
+    const list = (s.reasons || []).slice(0, 8);
+    const max = Math.max(1, ...list.map((r) => r.count));
+    $('reasons').replaceChildren(...list.map((r) => {
+      const row = document.createElement('div'); row.className = 'reason';
+      const t = document.createElement('div'); t.className = 't'; t.textContent = REASON[r.code] || r.code;
+      const track = document.createElement('div'); track.className = 'track';
+      const bar = document.createElement('div'); bar.className = 'bar'; bar.style.width = `${(r.count / max) * 100}%`;
+      track.append(bar);
+      const n = document.createElement('div'); n.className = 'n'; n.textContent = fmt(r.count);
+      row.append(t, track, n);
+      withTip(row, `${REASON[r.code] || r.code}: ${fmt(r.count)} services (${pct(r.count, s.resources)} of all checked). Code: ${r.code}`);
+      return row;
+    }));
+    $('reasonsTable').tBodies[0].replaceChildren(...list.map((r) => {
+      const tr = document.createElement('tr');
+      for (const [text, cls] of [[REASON[r.code] || r.code, ''], [r.code, ''], [fmt(r.count), 'num']]) {
+        const td = document.createElement('td'); td.textContent = text; if (cls) td.className = cls; tr.append(td);
+      }
+      return tr;
+    }));
+  }
+
   // The index may still be loading right after the service wakes up: retry.
   const loadSummary = (tries) => fetch('/api/trust/summary').then((r) => r.ok ? r.json() : null).catch(() => null).then((s) => {
     if (!s && tries > 0) return setTimeout(() => loadSummary(tries - 1), 3000);
-    if (!s) { ['s-total', 's-go', 's-caution', 's-nogo'].forEach((id) => { $(id).textContent = '—'; }); return; }
-    $('s-total').textContent = s.resources.toLocaleString();
-    $('s-go').textContent = s.latest.go.toLocaleString();
-    $('s-caution').textContent = s.latest.caution.toLocaleString();
-    $('s-nogo').textContent = (s.latest.no_go + s.latest.unreachable).toLocaleString();
+    if (!s) { $('headline').textContent = 'The index is not available right now. Try again in a minute.'; return; }
+    renderShare(s);
+    renderReasons(s);
   });
   loadSummary(10);
 
