@@ -1,12 +1,17 @@
-// One-off: after the deploy, does the Doctor settle Solana through PayAI?
-const payai = JSON.parse(await (await fetch('https://facilitator.payai.network/supported')).text());
-const signers = payai.kinds.filter((k) => k.network.startsWith('solana')).map((k) => k.extra && k.extra.feePayer);
+// One-off: is /signals live on Ichimoku, and what does the Doctor say about it?
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url + '/../../doctor/');
+const { diagnose } = require('./lib/diagnose');
+const { createSafeFetch } = require('./lib/safe-fetch');
+const url = 'https://ichimoku-signal.onrender.com/signals/BTC-USDT?interval=4h';
 for (let i = 0; i < 12; i++) {
-  const h = await (await fetch('https://x402-doctor.onrender.com/api/health')).json().catch(() => ({}));
-  const r = await fetch('https://x402-doctor.onrender.com/api/v1/diagnose?url=https://example.com');
-  const c = JSON.parse(Buffer.from(r.headers.get('payment-required') || 'e30=', 'base64').toString());
-  const fp = (c.accepts || []).filter((a) => a.network.startsWith('solana')).map((a) => a.extra && a.extra.feePayer)[0];
-  console.log(`try ${i}: facilitator="${h.paid && h.paid.facilitator}", solana feePayer ${fp} ${signers.includes(fp) ? '= PayAI' : '(not PayAI)'}`);
-  if (h.paid && h.paid.facilitator === 'cdp for base, payai for solana') break;
-  await new Promise((r) => setTimeout(r, 60000));
+  const r = await fetch(url);
+  const pr = r.headers.get('payment-required');
+  const c = pr ? JSON.parse(Buffer.from(pr, 'base64').toString()) : null;
+  console.log(`try ${i}: HTTP ${r.status}`, c ? c.accepts.map((a) => `${a.network}=${a.amount}`).join(' ') : '');
+  if (r.status === 402 && c) break;
+  await new Promise((res) => setTimeout(res, 60000));
 }
+const report = await diagnose(url, { safeFetch: createSafeFetch() });
+console.log('doctor overall:', report.overall);
+for (const c of report.checks.filter((c) => c.status !== 'pass')) console.log(` ${c.status} ${c.id}: ${c.message}`);
