@@ -34,20 +34,24 @@ test('stack detection from response headers, and the override', () => {
   assert.equal(detectStack(r({ 'x-powered-by': 'Next.js' })).id, 'next');
   assert.equal(detectStack(r({ server: 'uvicorn' })).id, 'python');
   assert.equal(detectStack(r({ 'x-vercel-id': 'fra1::abc' }, { x402Version: 2 })).detected_from, 'x402 v2 challenge, hosted on Vercel');
+  // A plain Vercel function (x-matched-path is on every Vercel route) is not Next.js.
+  assert.deepEqual([detectStack(r({ server: 'Vercel', 'x-vercel-id': 'x', 'x-matched-path': '/api/mcp' })).id, detectStack(r({ 'x-vercel-id': 'x', 'x-matched-path': '/api/mcp' })).detected_from], ['node', 'Vercel function (x-vercel-id)']);
+  assert.equal(detectStack(r({ 'x-nextjs-cache': 'HIT' })).id, 'next');
   assert.equal(detectStack(r({})).id, 'generic');
   assert.equal(detectStack(r({ 'x-powered-by': 'Express' }), 'hono').id, 'hono');
 });
 
 test('no 402 but 200: the free-tier / middleware-order fix with this route', () => {
   const out = buildFixes(report({
-    url: 'https://pg1.example/api/mcp', method: 'POST', challenge: null,
+    url: 'https://pg1.example/api/mcp', method: null, challenge: null,
     checks: [{ id: 'returns-402', status: 'fail', message: 'Endpoint did not return 402 Payment Required (POST 200).' }],
     probes: [{ method: 'POST', status: 200, headers: { 'x-vercel-id': 'x' } }],
   }));
   const f = fix(out, 'no-402');
   assert.match(f.title, /200 without asking for payment/);
   assert.match(code(f), /"POST \/api\/mcp"/);
-  assert.match(code(f), /x-free-tier/);
+  assert.match(code(f), /req\.headers\["x-free-tier"\]/);
+  assert.match(f.steps[0], /"POST \/api\/mcp"/, 'the one method tried, not GET');
 });
 
 test('no 402: auth first, validation first, unreachable', () => {
@@ -115,6 +119,12 @@ test('openapi.json is valid JSON with x-payment-info for this route', () => {
   const out = buildFixes(report({ checks: [{ id: 'openapi-present', status: 'warn', message: 'No /openapi.json (HTTP 404).' }] }));
   const spec = JSON.parse(fix(out, 'openapi').code.find((c) => c.language === 'json').snippet);
   assert.equal(spec.paths['/paid'].get['x-payment-info'].price.amount, '0.01');
+  assert.deepEqual(spec.paths['/paid'].get['x-payment-info'].networks, [BASE]);
+});
+
+test('openapi.json without any challenge still names a network', () => {
+  const out = buildFixes(report({ challenge: null, probes: [{ method: 'GET', status: 200, headers: {} }], checks: [{ id: 'openapi-present', status: 'warn', message: 'No /openapi.json (HTTP 404).' }] }));
+  const spec = JSON.parse(fix(out, 'openapi').code.find((c) => c.language === 'json').snippet);
   assert.deepEqual(spec.paths['/paid'].get['x-payment-info'].networks, [BASE]);
 });
 
