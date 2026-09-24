@@ -3,7 +3,8 @@
 // burned-in captions. Writes out/screen.webm and out/timeline.json (when each
 // segment starts, so build.sh can place the voice exactly there).
 //
-//   node record.js            # live pages (GitHub Actions)
+//   node record.js                    # live pages (GitHub Actions)
+//   SCRIPT=fix.json node record.js    # the paid-fix update video
 //   DOCTOR_URL=http://127.0.0.1:3001 GREEN_URL=... ALLOW_PRIVATE=1 node record.js   # local test
 
 const fs = require('fs');
@@ -20,7 +21,8 @@ const W = 1920;
 const H = 1080;
 const ZOOM = 1.6;
 
-const script = JSON.parse(fs.readFileSync(path.join(__dirname, 'script.json'), 'utf8'));
+const script = JSON.parse(fs.readFileSync(path.join(__dirname, process.env.SCRIPT || 'script.json'), 'utf8'));
+const uses = (scene) => script.segments.some((s) => s.scene.startsWith(scene));
 const durations = JSON.parse(fs.readFileSync(path.join(OUT, 'durations.json'), 'utf8'));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -40,7 +42,7 @@ function cardHtml({ title, sub, note }) {
   </style></head><body><div class="c"><h1>${title}</h1><p>${sub || ''}</p>${note ? `<p class="note">${note}</p>` : ''}</div></body></html>`;
 }
 
-function terminalHtml(lines) {
+function terminalHtml(lines, label = 'An agent, before paying an unknown x402 API') {
   const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
   return `<!doctype html><html><head><style>${THEME}
     body { display:flex; align-items:center; justify-content:center; }
@@ -51,7 +53,7 @@ function terminalHtml(lines) {
     .l { opacity: 0; transition: opacity .35s; } .l.on { opacity: 1; }
     .cmd { color: var(--text); } .in { color: var(--warn); } .ok { color: var(--go); } .dim { color: var(--soft); }
     .hl { background: color-mix(in srgb, var(--go) 22%, transparent); border-radius: 6px; outline: 2px solid var(--go); }
-  </style></head><body><div class="t"><div class="bar"><i></i><i></i><i></i></div><div class="label">An agent, before paying an unknown x402 API</div><pre>${lines
+  </style></head><body><div class="t"><div class="bar"><i></i><i></i><i></i></div><div class="label">${label}</div><pre>${lines
     .map((l, i) => `<div class="l ${l.cls || ''}" id="l${i}">${l.html || esc(l.text)}</div>`)
     .join('')}</pre></div></body></html>`;
 }
@@ -89,6 +91,27 @@ async function realPreflight() {
   return preflight(GREEN_URL, { safeFetch: createSafeFetch({ allowPrivate: process.env.ALLOW_PRIVATE === '1' }), maxUsd: 0.05 });
 }
 
+// The real fixes for the broken demo, from the same engine /api/v1/fix runs,
+// and the real price and networks from the live fix route's 402.
+async function realFix() {
+  const { diagnose } = require(path.join(ROOT, 'lib', 'diagnose'));
+  const { buildFixes } = require(path.join(ROOT, 'lib', 'recipes'));
+  const { createSafeFetch } = require(path.join(ROOT, 'lib', 'safe-fetch'));
+  const report = await diagnose(BROKEN_URL, { safeFetch: createSafeFetch({ allowPrivate: process.env.ALLOW_PRIVATE === '1' }) });
+  const out = buildFixes(report);
+  let offer = '$0.05 USDC (Base)';
+  try {
+    const res = await fetch(`${DOCTOR}/api/v1/fix?url=${encodeURIComponent(BROKEN_URL)}`);
+    const challenge = JSON.parse(Buffer.from(res.headers.get('payment-required') || '', 'base64').toString());
+    const name = (n) => (n === 'eip155:8453' ? 'Base' : n.startsWith('solana:') ? 'Solana' : n);
+    const nets = challenge.accepts.map((a) => name(a.network));
+    offer = `$${(Number(challenge.accepts[0].amount) / 1e6).toFixed(2)} USDC (${nets.join(' or ')})`;
+  } catch {
+    // Keep the default: the route's configured price.
+  }
+  return { out, offer };
+}
+
 // Warm the live services (Render free tier) and the endpoints the video
 // diagnoses, so on-screen diagnoses take a second instead of a cold start.
 async function warmUp() {
@@ -100,10 +123,11 @@ async function warmUp() {
 
 async function main() {
   await warmUp();
-  const pf = await realPreflight();
-  const best = pf.recommended_option === null ? null : pf.options[pf.recommended_option];
+  const pf = uses('terminal-call') || uses('terminal-verdict') ? await realPreflight() : null;
+  const fix = uses('fix-') || uses('terminal-fix') ? await realFix() : null;
+  const best = !pf || pf.recommended_option === null ? null : pf.options[pf.recommended_option];
   const shortUrl = GREEN_URL.replace(/^https?:\/\//, '');
-  const verdictJson = JSON.stringify(
+  const verdictJson = pf && JSON.stringify(
     {
       verdict: pf.verdict,
       safe_to_pay: pf.safe_to_pay,
@@ -114,16 +138,34 @@ async function main() {
     null,
     2
   );
-  const terminalLines = [
+  const terminalLines = pf && [
     { cls: 'cmd', text: `$ curl "${DOCTOR.replace(/^https?:\/\//, '')}/api/v1/preflight?url=${shortUrl}&max_usd=0.05"` },
     { cls: 'in', text: '← 402 Payment Required · $0.001 USDC (Base or Solana)' },
     { cls: 'dim', text: '→ agent signs $0.001 USDC and retries' },
     { cls: 'ok', text: '← 200 OK' },
-    ...verdictJson.split('\n').map((line) => ({ cls: /"verdict"|"summary"/.test(line) ? 'ok' : 'dim', text: line })),
+    ...(verdictJson || '').split('\n').map((line) => ({ cls: /"verdict"|"summary"/.test(line) ? 'ok' : 'dim', text: line })),
+  ];
+
+  // One line per fix, so the whole answer fits on screen.
+  const fixJson = fix && [
+    '{',
+    `  "summary": ${JSON.stringify(fix.out.summary)},`,
+    `  "stack": ${JSON.stringify(fix.out.stack && fix.out.stack.id)},`,
+    '  "fixes": [',
+    ...fix.out.fixes.map((f, i, all) => `    { "severity": "${f.severity}", "title": ${JSON.stringify(f.title)}, "code": [${f.code.length} snippet${f.code.length === 1 ? '' : 's'}] }${i < all.length - 1 ? ',' : ''}`),
+    '  ]',
+    '}',
+  ].join('\n');
+  const fixLines = fix && [
+    { cls: 'cmd', text: `$ curl "${DOCTOR.replace(/^https?:\/\//, '')}/api/v1/fix?url=${BROKEN_URL.replace(/^https?:\/\//, '')}"` },
+    { cls: 'in', text: `← 402 Payment Required · ${fix.offer}` },
+    { cls: 'dim', text: `→ agent signs ${fix.offer.split(' ')[0]} USDC and retries` },
+    { cls: 'ok', text: '← 200 OK' },
+    ...fixJson.split('\n').map((line) => ({ cls: /"title"|"summary"/.test(line) ? 'ok' : 'dim', text: line })),
   ];
 
   const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined });
-  const context = await browser.newContext({ viewport: { width: W, height: H }, recordVideo: { dir: OUT, size: { width: W, height: H } }, colorScheme: 'dark' });
+  const context = await browser.newContext({ permissions: ['clipboard-read', 'clipboard-write'], viewport: { width: W, height: H }, recordVideo: { dir: OUT, size: { width: W, height: H } }, colorScheme: 'dark' });
   const page = await context.newPage();
   const t0 = Date.now();
   const timeline = [];
@@ -214,6 +256,90 @@ async function main() {
         for (const el of document.querySelectorAll('.l')) if (/"verdict"/.test(el.textContent)) el.classList.add('hl');
       });
     },
+    async 'fix-card'(seg, ms) {
+      await page.waitForSelector('#fixCard:not([hidden])', { timeout: 60000 });
+      await page.evaluate(() => {
+        const card = document.getElementById('fixCard');
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        card.style.transition = 'box-shadow .3s';
+        card.style.boxShadow = '0 0 0 10px rgba(88,166,255,.25)';
+      });
+      await sleep(ms);
+    },
+    async 'fix-stack'(seg, ms) {
+      await page.evaluate(() => {
+        const s = document.getElementById('stackInput');
+        s.style.transition = 'outline .3s';
+        s.style.outline = '4px solid #58a6ff';
+      });
+      const stacks = ['express', 'next', 'hono', 'python', 'generic', ''];
+      for (const v of stacks) {
+        await page.selectOption('#stackInput', v);
+        await sleep(Math.max(350, (ms * 0.85) / stacks.length));
+      }
+    },
+    // No wallet in the recorder: the payment step shows the page's own
+    // statuses; the fixes are the real ones for the broken demo.
+    async 'fix-paid'(seg, ms) {
+      await page.evaluate(() => {
+        document.getElementById('stackInput').style.outline = '';
+        const b = document.getElementById('fixBtn');
+        b.style.transition = 'box-shadow .3s';
+        b.style.boxShadow = '0 0 0 8px rgba(88,166,255,.35)';
+        fixStatus('Sign the $0.05 payment in your wallet…');
+      });
+      await sleep(ms * 0.55);
+      await page.evaluate((out) => {
+        document.getElementById('fixBtn').style.boxShadow = '';
+        fixStatus('Paid $0.05. Your fix:');
+        renderFixes(out);
+        document.getElementById('fixStatus').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, fix.out);
+    },
+    async 'fix-list'(seg, ms) {
+      const steps = 10;
+      for (let i = 1; i <= steps; i++) {
+        await page.evaluate(({ i, steps }) => {
+          const z = parseFloat(document.documentElement.style.zoom) || 1;
+          const box = document.getElementById('fixes');
+          const top = box.getBoundingClientRect().top + window.scrollY - 40;
+          const bottom = box.getBoundingClientRect().bottom + window.scrollY - window.innerHeight / z + 40;
+          window.scrollTo({ top: top + (Math.max(0, bottom - top) * i) / steps, behavior: 'smooth' });
+        }, { i, steps });
+        await sleep(Math.max(250, (ms * 0.85) / steps));
+      }
+    },
+    async 'fix-copy'(seg, ms) {
+      const copy = await page.$('#fixes .copy');
+      if (!copy) return;
+      await copy.evaluate((el) => {
+        el.closest('.snippet').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const pre = el.closest('.snippet').querySelector('pre');
+        pre.style.transition = 'outline .3s';
+        pre.style.outline = '3px solid #3fb950';
+      });
+      await sleep(Math.min(1500, ms * 0.3));
+      await copy.click();
+    },
+    async 'prepare:terminal-fix-call'() {
+      await page.setContent(terminalHtml(fixLines, 'An agent, asking the Doctor for the fix'));
+    },
+    async 'terminal-fix-call'(seg, ms) {
+      for (let i = 0; i < 4; i++) {
+        await page.evaluate((i) => document.getElementById(`l${i}`).classList.add('on'), i);
+        await sleep(Math.max(500, ms / 4.5));
+      }
+    },
+    async 'terminal-fix-result'(seg, ms) {
+      const rest = fixLines.length - 4;
+      for (let i = 4; i < fixLines.length; i++) {
+        await page.evaluate((i) => document.getElementById(`l${i}`).classList.add('on'), i);
+        await sleep(Math.max(60, (ms * 0.5) / rest));
+      }
+      await page.evaluate(() => {
+        for (const el of document.querySelectorAll('.l')) if (/"title"/.test(el.textContent)) el.classList.add('hl');
+      });
+    },
     async 'prepare:trust-stats'() {
       await page.goto(`${DOCTOR}/trust`, { waitUntil: 'load', timeout: 90000 });
       await zoomPage(page);
@@ -268,7 +394,8 @@ async function main() {
   await browser.close();
   fs.renameSync(videoPath, path.join(OUT, 'screen.webm'));
   fs.writeFileSync(path.join(OUT, 'timeline.json'), JSON.stringify({ total, segments: timeline }, null, 2));
-  fs.writeFileSync(path.join(OUT, 'preflight.json'), JSON.stringify(pf, null, 2));
+  if (pf) fs.writeFileSync(path.join(OUT, 'preflight.json'), JSON.stringify(pf, null, 2));
+  if (fix) fs.writeFileSync(path.join(OUT, 'fix.json'), JSON.stringify(fix.out, null, 2));
   console.log(`recorded ${total.toFixed(1)} s`);
 }
 

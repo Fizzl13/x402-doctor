@@ -12,6 +12,11 @@ to fix it. Every check traces back to a real bug hit while shipping
 ▶ **[Watch the 70-second explainer](https://x402-doctor.onrender.com/media/explainer.mp4)** (with voice and captions):
 diagnosing a broken endpoint, the pre-payment check for agents, and the daily Trust Index.
 
+[![x402 Doctor: the paid fix](https://raw.githubusercontent.com/Fizzl13/x402-doctor/fix-video/poster.jpg)](https://x402-doctor.onrender.com/media/fix.mp4)
+
+▶ **New: [the paid fix in 70 seconds](https://x402-doctor.onrender.com/media/fix.mp4)**: for $0.05 the Doctor hands you
+the medicine, the exact code that fixes each problem for your stack, in the browser or as JSON for agents.
+
 ## What it checks
 
 | Group | Check | Catches |
@@ -220,7 +225,7 @@ lib/trust-scan.js      Trust Index scan: catalog, polite fetch, 30-day history
 lib/trust-index.js     Reads the published index for preflight and /api/trust
 scripts/trust-scan.js  Daily scan entry point (trust-scan.yml)
 public/trust.html      /trust page
-lib/media.js           Serves the explainer video from the explainer-video branch (/media/explainer.mp4)
+lib/media.js           Serves the explainer and paid-fix videos from their branches (/media/explainer.mp4, /media/fix.mp4)
 media/explainer/       Explainer video pipeline (script, voice, recording, encoding)
 lib/diagnose.js        The checks
 lib/networks.js        Known networks, USDC per network, address validation

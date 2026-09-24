@@ -11,7 +11,15 @@ A ~75-second narrated explainer of x402 Doctor, produced entirely by
    `x402-doctor-explainer.mp4` (1920×1080, H.264/AAC), an `.srt` and `poster.jpg`.
 
 Run it: Actions → "Explainer video" → Run workflow (optionally pick a voice).
+
+The same pipeline makes the ~75-second **paid-fix update** from `fix.json`
+(pick it as the workflow's script): the broken demo, the "Get the fix" card,
+the real fixes for that demo, and an agent buying them over x402. It publishes
+to the `fix-video` branch as `x402-doctor-fix.mp4`. The recorder has no wallet,
+so the payment step shows the page's own statuses; the fixes on screen are
+the real engine output for `/demo/broken`.
 Edit the narration in `script.json`; the timing follows the voice automatically.
 
 Local dry run without a voice model (silent narration of the right length):
-`python tts.py --engine silent && node record.js && python build.py`.
+`python tts.py --engine silent && node record.js && python build.py`
+(prefix each with `SCRIPT=fix.json` for the update video).

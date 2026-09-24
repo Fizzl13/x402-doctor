@@ -132,7 +132,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     res.json({ url: parsed.href, ...record });
   });
   app.get('/trust', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'trust.html')));
-  // Explainer video, poster and subtitles (see lib/media.js).
+  // Explainer and paid-fix videos, posters and subtitles (see lib/media.js).
   app.get('/media/:name', media.handler);
   app.media = media;
 

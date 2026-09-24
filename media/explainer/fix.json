@@ -1,0 +1,74 @@
+{
+  "title": "x402 Doctor: the paid fix",
+  "output": "x402-doctor-fix",
+  "segments": [
+    {
+      "id": "hook",
+      "scene": "card",
+      "card": {
+        "title": "Diagnosis is free.",
+        "sub": "Now the Doctor also hands you the medicine."
+      },
+      "text": "x402 Doctor always told you what's wrong with your paid API. Now it also hands you the medicine."
+    },
+    {
+      "id": "diagnose",
+      "scene": "home-type-broken",
+      "text": "Paste your endpoint and run the free diagnosis, as always."
+    },
+    {
+      "id": "card",
+      "scene": "fix-card",
+      "text": "When something is broken, a new card appears: get the fix, for five cents in USDC on Base."
+    },
+    {
+      "id": "stack",
+      "scene": "fix-stack",
+      "text": "The Doctor recognises your stack from the response. Express, Next.js, Hono, Python or raw HTTP. Or pick it yourself."
+    },
+    {
+      "id": "pay",
+      "scene": "fix-paid",
+      "text": "One signature in your browser wallet, for exactly five cents. That's the whole checkout."
+    },
+    {
+      "id": "recipes",
+      "scene": "fix-list",
+      "text": "You get every problem as a recipe: why it breaks, the steps, and the exact code, already filled in with your own pay-to address, amount, network and route."
+    },
+    {
+      "id": "copy",
+      "scene": "fix-copy",
+      "text": "Copy, paste, deploy. Then run the free check again until it's green."
+    },
+    {
+      "id": "agents",
+      "scene": "terminal-fix-call",
+      "text": "Agents can buy the medicine too. One call to the fix endpoint, five cents over x402."
+    },
+    {
+      "id": "json",
+      "scene": "terminal-fix-result",
+      "text": "The same fixes come back as JSON, ready for a coding agent to apply."
+    },
+    {
+      "id": "bazaar",
+      "scene": "card",
+      "card": {
+        "title": "Listed in the Bazaar",
+        "sub": "Agents find the Doctor on their own"
+      },
+      "text": "And it's listed in the Coinbase Bazaar, so agents can find it on their own."
+    },
+    {
+      "id": "end",
+      "scene": "card",
+      "card": {
+        "title": "x402 Doctor",
+        "sub": "x402-doctor.onrender.com",
+        "note": "Free diagnosis · $0.05 fix · $0.001 pre-payment check"
+      },
+      "text": "x402 Doctor. The diagnosis is free. The medicine costs five cents."
+    }
+  ]
+}

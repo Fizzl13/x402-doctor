@@ -282,7 +282,7 @@ test('/media: redirects to GitHub until the file is cached, then serves it with 
   const fs = require('fs');
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'media-test-'));
   const body = Buffer.from('0123456789');
-  const media = createMediaCache({ base: 'https://raw.test/branch', dir, fetchImpl: async () => ({ ok: true, arrayBuffer: async () => body }) });
+  const media = createMediaCache({ base: 'https://raw.test/branch', fixBase: 'https://raw.test/fix-branch', dir, fetchImpl: async () => ({ ok: true, arrayBuffer: async () => body }) });
   const app = createApp({ allowPrivate: true, env: {}, trustIndex: { lookup: async () => null, refresh: () => Promise.resolve(), summary: () => null }, media });
   const base = await new Promise((resolve) => {
     const server = app.listen(0, '127.0.0.1', () => resolve(`http://127.0.0.1:${server.address().port}`));
@@ -291,6 +291,8 @@ test('/media: redirects to GitHub until the file is cached, then serves it with 
   const first = await fetch(`${base}/media/explainer.mp4`, { redirect: 'manual' });
   assert.equal(first.status, 302);
   assert.equal(first.headers.get('location'), 'https://raw.test/branch/x402-doctor-explainer.mp4');
+  const fixFirst = await fetch(`${base}/media/fix.mp4`, { redirect: 'manual' });
+  assert.equal(fixFirst.headers.get('location'), 'https://raw.test/fix-branch/x402-doctor-fix.mp4');
   await media.warm();
   const ranged = await fetch(`${base}/media/explainer.mp4`, { headers: { range: 'bytes=2-5' } });
   assert.equal(ranged.status, 206);
@@ -299,4 +301,7 @@ test('/media: redirects to GitHub until the file is cached, then serves it with 
   assert.equal((await fetch(`${base}/media/other.mp4`)).status, 404);
   const home = await (await fetch(`${base}/`)).text();
   assert.match(home, /<video[^>]+poster="\/media\/explainer.jpg"/);
+  assert.match(home, /<video[^>]+poster="\/media\/fix.jpg"/);
+  const fixRanged = await fetch(`${base}/media/fix.mp4`, { headers: { range: 'bytes=0-1' } });
+  assert.equal(fixRanged.status, 206);
 });
