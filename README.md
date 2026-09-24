@@ -96,6 +96,44 @@ call it before your agent pays an x402 endpoint it has not used before. It never
 Not being listed in the CDP Bazaar is reported as `info` only. Results are cached for 10 minutes per URL, budget
 and network (`cached: true`), so checking before every payment stays fast.
 
+### The fix, as code: `GET /api/v1/fix`
+
+`GET /api/v1/fix?url=<endpoint>&method=GET|POST&stack=<optional>`, **$0.05 USDC per call**: diagnoses the endpoint,
+then returns, per failed or warning check, the concrete change that fixes it, as code for your stack and filled in
+with your own values (payTo, amount, network, route).
+
+```json
+{
+  "stack": { "id": "express", "name": "Express (@x402/express)", "detected_from": "x-powered-by: Express" },
+  "summary": "3 fixes (1 blocking), for Express (@x402/express).",
+  "fixes": [
+    {
+      "recipe": "amount",
+      "severity": "warn",
+      "checks": ["accepts[0]-amount"],
+      "title": "Amount \"0.01\" → \"10000\" ($0.01)",
+      "why": "x402 amounts are integer strings in the token's smallest unit; USDC has 6 decimals.",
+      "steps": ["Easiest: let the SDK convert it by using price: \"$0.01\" instead of an amount."],
+      "code": [{ "language": "javascript", "stack": "node", "label": "Route config", "snippet": "accepts: [{ scheme: \"exact\", price: \"$0.01\", ... }]" }],
+      "verify": "Run x402 Doctor again on https://…; accepts[0]-amount should pass."
+    }
+  ],
+  "unfixed": []
+}
+```
+
+The stack is read from the response headers (`x-powered-by`, `server`, Vercel/Render/Cloudflare headers) and the
+challenge: `express`, `next`, `hono`, `node` (an @x402 SDK behind another framework), `python` or `generic` (raw
+HTTP, for any language). Pass `stack=` when the guess is wrong. Node snippets use the @x402 v2 route config, which is
+the same for @x402/express, /next and /hono; lines that only apply to Express say so.
+
+Recipes (`lib/recipes.js`, one test each in `test/recipes.test.js`): no 402 at all (200 before the paywall, auth or
+validation first, 404/405, unreachable), v1 or invalid challenge, wrong header name, no body mirror, no accepts,
+scheme, legacy network names, invalid payTo (spots quotes, spaces, the wrong chain), USDC asset, decimal amounts,
+Solana fee payer, EIP-712 domain, http resource URL behind a proxy, resource URL and metadata, Bazaar declaration and
+example, Solana payout token account, Phantom on PayAI, testnet paywall on mainnet, and openapi.json. Anything
+without a recipe is returned under `unfixed` with the diagnosis hint.
+
 ### x402 Trust Index
 
 Once a day, [`trust-scan.yml`](.github/workflows/trust-scan.yml) runs the pre-payment check against every resource in
@@ -136,6 +174,7 @@ In GitHub Actions:
 | `AGENT_PAYOUT_WALLET_SOLANA` | Solana address that receives paid-API payments (or `DOCTOR_PAYOUT_WALLET_SOLANA`); needs a USDC token account |
 | `DOCTOR_PRICE` | Price per paid diagnosis (default `$0.01`) |
 | `DOCTOR_PREFLIGHT_PRICE` | Price per pre-payment check (default `$0.001`) |
+| `DOCTOR_FIX_PRICE` | Price per fix (default `$0.05`) |
 | `FACILITATOR_URL` | x402 facilitator (default PayAI, `https://facilitator.payai.network`) |
 | `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET` | Use Coinbase's CDP facilitator first (PayAI stays the fallback). Payments settled through CDP get the route listed in the CDP Bazaar |
 
@@ -172,7 +211,9 @@ to trace verify/settle failures) is deliberately out of scope here.
 
 ```
 server.js              Express app: /api/diagnose (free), paid API, /openapi.json, /.well-known/x402, static frontend
-lib/paid-api.js        GET /api/v1/diagnose and /api/v1/preflight behind x402 (Base + Solana USDC)
+lib/paid-api.js        GET /api/v1/diagnose, /preflight and /fix behind x402 (Base + Solana USDC)
+lib/recipes.js         The fix per failed check, as code for the detected stack
+lib/stack.js           Which stack runs an endpoint, from its response headers
 lib/preflight.js       Pre-payment check: verdict, recommended option, reasons (cached)
 lib/bazaar-index.js    Cached CDP Bazaar index (listing signal for preflight)
 lib/trust-scan.js      Trust Index scan: catalog, polite fetch, 30-day history

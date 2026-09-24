@@ -185,6 +185,27 @@ test('preflight: unpaid 402 at $0.001; a paid call returns the verdict (no_go: t
   assert.equal(state.settle, 1);
 });
 
+test('fix: unpaid 402 at $0.05; a paid call returns the code fix for the missing EIP-712 domain; bad stack is 400 before payment', async () => {
+  const unpaid = await fetch(`${api}/api/v1/fix?url=${encodeURIComponent(targetUrl)}`);
+  assert.equal(unpaid.status, 402);
+  for (const a of (await unpaid.json()).accepts) assert.equal(a.amount, '50000');
+  assert.equal((await fetch(`${api}/api/v1/fix?url=${encodeURIComponent(targetUrl)}&stack=cobol`)).status, 400);
+
+  const account = privateKeyToAccount(generatePrivateKey());
+  const client = new x402Client((_version, accepts) => accepts.find((a) => a.network === BASE));
+  client.register(BASE, new ExactEvmScheme(account));
+  const res = await wrapFetchWithPayment(fetch, client)(`${api}/api/v1/fix?url=${encodeURIComponent(targetUrl)}&stack=generic`);
+  const out = await res.json();
+  assert.equal(res.status, 200, JSON.stringify(out));
+  assert.equal(out.stack.id, 'generic');
+  const fix = out.fixes.find((f) => f.recipe === 'eip712');
+  assert.ok(fix, JSON.stringify(out.fixes.map((f) => f.recipe)));
+  assert.equal(fix.severity, 'fail');
+  assert.match(fix.code.map((c) => c.snippet).join('\n'), /"name":"USD Coin","version":"2"/);
+  assert.ok(out.fixes.every((f) => f.code.every((c) => c.stack !== 'node' && c.stack !== 'express')), 'generic stack gets no Node snippets');
+  assert.equal(state.settle, 1);
+});
+
 test('free trust lookup: track record for a scanned URL, 404 for an unknown one, 400 without url, summary', async () => {
   const known = await fetch(`${api}/api/trust?url=${encodeURIComponent(targetUrl)}`);
   assert.equal(known.status, 200);
@@ -203,7 +224,8 @@ test('discovery: OpenAPI with x-payment-info and /.well-known/x402 listing the r
   assert.ok(op.responses['402']);
   const wellKnown = await (await fetch(`${api}/.well-known/x402`)).json();
   assert.equal(wellKnown.version, 1);
-  assert.deepEqual(wellKnown.resources, [`${api}/api/v1/diagnose`, `${api}/api/v1/preflight`]);
+  assert.deepEqual(wellKnown.resources, [`${api}/api/v1/diagnose`, `${api}/api/v1/preflight`, `${api}/api/v1/fix`]);
+  assert.deepEqual(spec.paths['/api/v1/fix'].get['x-payment-info'].price, { mode: 'fixed', currency: 'USD', amount: '0.05' });
   const preflightOp = spec.paths['/api/v1/preflight'].get;
   assert.deepEqual(preflightOp['x-payment-info'].price, { mode: 'fixed', currency: 'USD', amount: '0.001' });
 });
