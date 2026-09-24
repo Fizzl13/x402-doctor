@@ -1,23 +1,17 @@
-// One-off: the fix engine (library call, no payment) on pg1-ai-agent, plus the live /api/v1/fix 402.
-import { createRequire } from 'node:module';
-const require = createRequire(import.meta.url);
-const { diagnose } = require('../doctor/lib/diagnose.js');
-const { createSafeFetch } = require('../doctor/lib/safe-fetch.js');
-const { buildFixes } = require('../doctor/lib/recipes.js');
-const safeFetch = createSafeFetch({});
-for (const [url, method] of [['https://pg1-ai-agent.vercel.app/api/mcp', 'POST'], ['https://pg1-ai-agent.vercel.app/api/ioc', 'GET']]) {
-  const report = await diagnose(url, { safeFetch, method });
-  const out = buildFixes(report);
-  console.log(`\n=================== ${method} ${url}\nstack: ${out.stack.name} (${out.stack.detected_from})\nprobes: ${JSON.stringify(report.probes)}\n${out.summary}`);
-  for (const f of out.fixes) {
-    console.log(`\n## [${f.severity}] ${f.title}  (${f.checks.join(', ')})\n${f.why}\n- ${f.steps.join('\n- ')}`);
-    for (const c of f.code) console.log(`--- ${c.label} (${c.stack})\n${c.snippet}`);
+// One-off: is /api/v1/fix in the CDP Bazaar after the first paid call? Retries ~10 minutes.
+for (let round = 0; round < 10; round++) {
+  const hits = [];
+  let total = 0;
+  for (let offset = 0; offset < 40000; offset += 500) {
+    const res = await fetch(`https://api.cdp.coinbase.com/platform/v2/x402/discovery/resources?type=http&limit=500&offset=${offset}`);
+    if (!res.ok) { console.log(`CDP HTTP ${res.status}`); break; }
+    const items = (await res.json()).items || [];
+    total += items.length;
+    for (const it of items) if (/x402-doctor\.onrender\.com\/api\/v1\/fix/.test(JSON.stringify(it).slice(0, 3000))) hits.push(JSON.stringify(it).slice(0, 400));
+    if (items.length < 500) break;
   }
-  if (out.unfixed.length) console.log('unfixed:', JSON.stringify(out.unfixed));
-}
-for (let i = 0; i < 30; i++) {
-  const r = await fetch('https://x402-doctor.onrender.com/api/v1/fix?url=' + encodeURIComponent('https://x402-doctor.onrender.com/demo/broken'));
-  if (r.status === 402) { const b = await r.json(); console.log(`\nlive /api/v1/fix: 402, amounts ${b.accepts.map((a) => a.amount + ' ' + a.network).join(', ')}`); break; }
-  console.log(`live /api/v1/fix: ${r.status} (waiting for deploy)`);
-  await new Promise((r) => setTimeout(r, 15000));
+  console.log(`round ${round}: catalog ${total}, fix entries: ${hits.length}`);
+  for (const h of hits) console.log('  ' + h);
+  if (hits.length) break;
+  await new Promise((r) => setTimeout(r, 60000));
 }
