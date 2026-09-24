@@ -60,6 +60,24 @@
   footer a, footer code { color: var(--accent); }
   .video { margin-top: 40px; }
   .video video { display: block; width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--line); background: #000; }
+  .fix-card { margin: 0 0 20px; padding: 16px; border-radius: 8px; background: var(--panel); border: 1px solid var(--accent); }
+  .fix-card h3 { margin: 0 0 4px; font-size: 16px; }
+  .fix-card p { margin: 0 0 12px; color: var(--text-soft); font-size: 14px; }
+  .fix-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .fix-row select { padding: 10px; }
+  .fix-note { font-size: 12.5px; color: var(--text-soft); margin-top: 10px; }
+  .fix-status { font-size: 14px; margin-top: 10px; }
+  .fix-status.error { color: var(--fail); }
+  .fix { margin-top: 14px; padding: 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); }
+  .fix h4 { margin: 0 0 6px; font-size: 15px; display: flex; gap: 8px; align-items: baseline; }
+  .fix .why { font-size: 13.5px; color: var(--text-soft); margin: 0 0 8px; overflow-wrap: anywhere; }
+  .fix ol { margin: 0 0 8px; padding-left: 20px; font-size: 14px; }
+  .fix .snippet { position: relative; margin-top: 8px; }
+  .fix .snippet-label { font-size: 12px; color: var(--text-soft); margin-bottom: 4px; }
+  .fix .snippet pre { margin: 0; white-space: pre; padding-right: 72px; }
+  .fix .copy { position: absolute; top: 24px; right: 6px; padding: 4px 10px; font-size: 12px; background: var(--line); color: var(--text); }
+  .sev { font-size: 11px; padding: 1px 7px; border-radius: 999px; border: 1px solid currentColor; font-weight: 600; }
+  .sev.fail { color: var(--fail); } .sev.warn { color: var(--warn); }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -80,6 +98,25 @@
 
   <div class="error-box" id="errorBox" hidden></div>
   <div class="overall" id="overallBox" hidden><span id="overallText"></span><a id="shareLink" href="#">Copy link to this report</a></div>
+  <div class="fix-card" id="fixCard" hidden>
+    <h3>Get the fix: $0.05</h3>
+    <p id="fixIntro">The code that fixes these problems, for your stack, filled in with your own payTo, amount, network and route.</p>
+    <div class="fix-row">
+      <select id="stackInput" aria-label="Your stack">
+        <option value="">Stack: detect</option>
+        <option value="express">Express</option>
+        <option value="next">Next.js</option>
+        <option value="hono">Hono</option>
+        <option value="node">Other Node.js</option>
+        <option value="python">Python</option>
+        <option value="generic">Raw HTTP (any language)</option>
+      </select>
+      <button id="fixBtn" type="button">Get the fix with MetaMask</button>
+    </div>
+    <p class="fix-note" id="fixNote">You pay $0.05 in USDC on Base; your wallet shows a signature for exactly that amount to our payout wallet <code id="fixPayTo">0x6B0F…5F25</code>. MetaMask's security check may call that wallet "untrusted" because it is a regular wallet rather than a contract; that is normal for x402 payments, and the signature can only move this one amount, once. Agents: <code>GET /api/v1/fix?url=…</code></p>
+    <div class="fix-status" id="fixStatus" aria-live="polite"></div>
+    <div id="fixes"></div>
+  </div>
   <div id="results"></div>
   <details id="challengeBox" hidden><summary>Decoded challenge</summary><pre id="challengeJson"></pre></details>
 
@@ -178,7 +215,10 @@ function showError(message) {
   $('errorBox').hidden = false;
 }
 
+let lastDiagnosis = null;
+
 async function diagnose(url, method) {
+  $('fixCard').hidden = true;
   $('errorBox').hidden = true;
   $('overallBox').hidden = true;
   $('challengeBox').hidden = true;
@@ -209,6 +249,12 @@ async function diagnose(url, method) {
     $('overallBox').className = `overall ${data.overall}`;
     $('overallBox').hidden = false;
     renderChecks(data.checks, data.wallets);
+    lastDiagnosis = { url, method };
+    const problems = counts[1] + counts[2];
+    $('fixCard').hidden = problems === 0;
+    $('fixes').replaceChildren();
+    $('fixStatus').textContent = '';
+    $('fixIntro').textContent = `${problems} problem${problems === 1 ? '' : 's'} found. Get the code that fixes ${problems === 1 ? 'it' : 'them'}, for your stack, filled in with your own payTo, amount, network and route.`;
     if (data.challenge) {
       $('challengeJson').textContent = JSON.stringify(data.challenge, null, 2);
       $('challengeBox').hidden = false;
@@ -220,6 +266,107 @@ async function diagnose(url, method) {
     $('diagnoseBtn').textContent = 'Diagnose →';
   }
 }
+
+// ------------------------------------------------ the paid fix ($0.05, MetaMask on Base)
+
+const BASE = 'eip155:8453';
+const usd = (units) => `$${(Number(units) / 1e6).toFixed(2)}`;
+
+function fixStatus(text, error = false) {
+  $('fixStatus').textContent = text;
+  $('fixStatus').className = error ? 'fix-status error' : 'fix-status';
+}
+
+function fixUrl() {
+  const q = new URLSearchParams({ url: lastDiagnosis.url });
+  if (lastDiagnosis.method) q.set('method', lastDiagnosis.method);
+  if ($('stackInput').value) q.set('stack', $('stackInput').value);
+  return `/api/v1/fix?${q}`;
+}
+
+function paymentError(err, price) {
+  const raw = err instanceof Error ? err.message : String(err || '');
+  if (/user (rejected|denied)|rejected the request|cancel/i.test(raw)) return 'You cancelled the signature. Nothing was paid.';
+  if (/execution reverted|insufficient|exceeds balance|invalid_payload|invalid_exact_evm_payload/i.test(raw)) {
+    return `The payment was declined before any money moved. Most likely this wallet has less than ${price} in USDC on Base.`;
+  }
+  return raw || 'Something went wrong. Nothing was paid.';
+}
+
+// Code blocks from the fix are text only; a copy button per block.
+function renderFixes(out) {
+  const box = $('fixes');
+  box.replaceChildren(el('p', 'fix-note', `${out.summary} Detected from ${out.stack.detected_from}; wrong? Pick your stack above and get it again.`));
+  for (const f of out.fixes) {
+    const card = el('div', 'fix');
+    const h = el('h4');
+    h.append(el('span', `sev ${f.severity}`, f.severity === 'fail' ? 'blocking' : 'warning'), el('span', null, f.title));
+    card.append(h, el('p', 'why', f.why));
+    const ol = el('ol');
+    for (const step of f.steps) ol.append(el('li', null, step));
+    card.append(ol);
+    for (const c of f.code) {
+      const wrap = el('div', 'snippet');
+      const pre = el('pre', null, c.snippet);
+      const copy = el('button', 'copy', 'Copy');
+      copy.type = 'button';
+      copy.addEventListener('click', async () => {
+        try { await navigator.clipboard.writeText(c.snippet); copy.textContent = 'Copied'; } catch { copy.textContent = 'Select and copy'; }
+      });
+      wrap.append(el('div', 'snippet-label', c.label), pre, copy);
+      card.append(wrap);
+    }
+    card.append(el('p', 'fix-note', f.verify));
+    box.append(card);
+  }
+  for (const u of out.unfixed || []) box.append(el('p', 'fix-note', `No recipe yet for ${u.id}: ${u.hint || u.message}`));
+}
+
+async function buyFix() {
+  if (!lastDiagnosis) return;
+  if (!window.ethereum) return fixStatus('No browser wallet found. Install MetaMask and reload, or call GET /api/v1/fix from your agent.', true);
+  $('fixBtn').disabled = true;
+  let price = '$0.05';
+  try {
+    fixStatus('Reading the price…');
+    const probe = await fetch(fixUrl());
+    const challenge = await probe.json().catch(() => ({}));
+    if (probe.status !== 402) throw new Error(challenge.error || `Unexpected HTTP ${probe.status}`);
+    const need = (challenge.accepts || []).find((a) => a.network === BASE);
+    if (!need) throw new Error('The fix is not offered on Base right now.');
+    price = usd(need.amount);
+    $('fixPayTo').textContent = `${need.payTo.slice(0, 6)}…${need.payTo.slice(-4)}`;
+
+    fixStatus('Connecting your wallet…');
+    const [{ createWalletClient, custom }, { base }, { wrapFetchWithPayment, x402Client }, { ExactEvmScheme }] = await Promise.all([
+      import('https://esm.sh/viem@2.31.7'),
+      import('https://esm.sh/viem@2.31.7/chains'),
+      import('https://esm.sh/@x402/fetch@2.26.0'),
+      import('https://esm.sh/@x402/evm@2.26.0'),
+    ]);
+    const [account] = await window.ethereum.request({ method: 'eth_requestAccounts' });
+    if (!account) throw new Error('No wallet account selected.');
+    await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: '0x2105' }] });
+    const data = '0x70a08231' + account.toLowerCase().slice(2).padStart(64, '0');
+    const balance = BigInt(await window.ethereum.request({ method: 'eth_call', params: [{ to: need.asset, data }, 'latest'] }));
+    if (balance < BigInt(need.amount)) throw new Error(`The fix costs ${price} in USDC on Base, and this wallet has ${usd(balance)}. Nothing was paid.`);
+
+    const wallet = createWalletClient({ account, chain: base, transport: custom(window.ethereum) });
+    const client = new x402Client((_v, accepts) => accepts.find((a) => a.network === BASE));
+    client.register(BASE, new ExactEvmScheme({ address: account, signTypedData: (td) => wallet.signTypedData(td) }));
+    fixStatus(`Sign the ${price} payment in your wallet…`);
+    const res = await wrapFetchWithPayment(fetch, client)(fixUrl());
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(out.error || `HTTP ${res.status}`);
+    fixStatus(`Paid ${price}. Your fix:`);
+    renderFixes(out);
+  } catch (err) {
+    fixStatus(paymentError(err, price), true);
+  } finally {
+    $('fixBtn').disabled = false;
+  }
+}
+$('fixBtn').addEventListener('click', buyFix);
 
 $('form').addEventListener('submit', (e) => {
   e.preventDefault();
