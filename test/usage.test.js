@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
-const { createUsageLog, paymentOf, mcpToolCall } = require('../lib/usage-log');
+const { createUsageLog, paymentOf, mcpToolCall, mcpPayment } = require('../lib/usage-log');
 const { createUsageReader } = require('../lib/usage-reader');
 const { createApp } = require('../server');
 
@@ -101,6 +101,38 @@ test('paymentOf: amount and network from the payment header, tx and payer from t
 test('mcpToolCall finds the tools/call in a JSON-RPC body', () => {
   assert.deepEqual(mcpToolCall({ jsonrpc: '2.0', method: 'tools/call', params: { name: 'ichimoku_trend', arguments: { pair: 'BTC-USDT' } } }), { tool: 'ichimoku_trend', args: { pair: 'BTC-USDT' } });
   assert.equal(mcpToolCall({ method: 'tools/list' }), null);
+});
+
+test('mcpPayment: amount from the call, settlement from the result', () => {
+  const call = { jsonrpc: '2.0', method: 'tools/call', params: { name: 'ichimoku_signal', _meta: { 'x402/payment': { accepted: { amount: '20000', network: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp' } } } } };
+  const reply = { jsonrpc: '2.0', result: { content: [], _meta: { 'x402/payment-response': { success: true, transaction: '5tx', network: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp', payer: 'Payer' } } } };
+  assert.deepEqual(mcpPayment(call, reply), { usd: 0.02, network: 'solana', payer: 'Payer', tx: '5tx' });
+  assert.equal(mcpPayment(call, { jsonrpc: '2.0', result: { content: [] } }), null);
+});
+
+test('middleware: reads a JSON body written with res.end (MCP transport)', async () => {
+  const gh = fakeGitHub();
+  const usageLog = createUsageLog({ service: 'ichimoku', env: { USAGE_LOG_TOKEN: 't' }, fetchFn: gh.fetchFn, now: () => new Date('2026-09-24T10:00:00Z'), log: quiet });
+  const express = require('express');
+  const app = express();
+  app.use(express.json());
+  app.use(usageLog.middleware((req, _res, body) => ({ route: 'mcp', input: mcpToolCall(req.body), result: { ok: Boolean(body && body.result) }, payment: mcpPayment(req.body, body) })));
+  app.post('/mcp', (_req, res) => {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ jsonrpc: '2.0', id: 1, result: { content: [], _meta: { 'x402/payment-response': { success: true, transaction: '0xabc', network: 'eip155:8453', payer: '0xp' } } } }));
+  });
+  const { server, base } = await listen(app);
+  const call = { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'ichimoku_signal', arguments: { pair: 'BTC-USDT' }, _meta: { 'x402/payment': { accepted: { amount: '20000', network: 'eip155:8453' } } } } };
+  await fetch(`${base}/mcp`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(call) });
+  await new Promise((r) => setTimeout(r, 30));
+  await usageLog.flush();
+  server.close();
+  const [line] = gh.files.get('events/ichimoku/2026-09-24.jsonl').trim().split('\n').map((l) => JSON.parse(l));
+  assert.equal(line.paid, true);
+  assert.equal(line.usd, 0.02);
+  assert.equal(line.tx, '0xabc');
+  assert.equal(line.input.tool, 'ichimoku_signal');
+  assert.equal(line.result.ok, true);
 });
 
 test('usage reader: reads the day files in range, newest first', async () => {
