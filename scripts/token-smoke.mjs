@@ -4,3 +4,4 @@ for (const [chain,address] of cases) {
   try { const r = await tokenVerdict({chain,address}); console.log(chain, r.market?.symbol, "|", r.one_liner, "|", r.reasons.map(x=>x.code+":"+x.severity[0]).join(" "), "|", r.sources.join(",")); }
   catch (e) { console.log(chain, address, "ERR", e.message); }
 }
+// run 3
