@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
-const { createUsageLog, paymentOf, mcpToolCall, mcpPayment } = require('../lib/usage-log');
+const { createUsageLog, paymentOf, mcpToolCall, mcpPayment, agentOf } = require('../lib/usage-log');
 const { createUsageReader } = require('../lib/usage-reader');
 const { createApp } = require('../server');
 
@@ -133,6 +133,36 @@ test('middleware: reads a JSON body written with res.end (MCP transport)', async
   assert.equal(line.tx, '0xabc');
   assert.equal(line.input.tool, 'ichimoku_signal');
   assert.equal(line.result.ok, true);
+});
+
+test('middleware: a 402 is logged as a quote with the caller type, a refused payment as payment_failed', async () => {
+  const gh = fakeGitHub();
+  const usageLog = createUsageLog({ service: 'ichimoku', env: { USAGE_LOG_TOKEN: 't' }, fetchFn: gh.fetchFn, now: () => new Date('2026-09-24T10:00:00Z'), log: quiet });
+  const express = require('express');
+  const app = express();
+  app.use(usageLog.middleware((req, _res, body) => ({ route: 'signal', input: { pair: 'BTC-USDT' }, result: { signal: body && body.signal } })));
+  app.get('/signal', (req, res) => (req.query.pay ? res.json({ signal: 'bullish' }) : res.status(402).json({ x402Version: 2, accepts: [] })));
+  const { server, base } = await listen(app);
+  await fetch(`${base}/signal`, { headers: { 'user-agent': 'SmitheryBot/1.0 (+https://smithery.ai)' } });
+  await fetch(`${base}/signal`, { headers: { 'user-agent': 'python-requests/2.32.3', 'payment-signature': b64({ bad: true }) } });
+  await fetch(`${base}/signal?pay=1`, { headers: { 'user-agent': 'Mozilla/5.0 (Macintosh) AppleWebKit/605.1.15 Version/18.0 Safari/605.1.15' } });
+  await new Promise((r) => setTimeout(r, 30));
+  await usageLog.flush();
+  server.close();
+  const lines = gh.files.get('events/ichimoku/2026-09-24.jsonl').trim().split('\n').map((l) => JSON.parse(l));
+  assert.equal(lines.length, 3);
+  assert.deepEqual([lines[0].status, lines[0].quote, lines[0].agent, lines[0].paid, lines[0].result], [402, true, 'SmitheryBot/1.0', false, undefined]);
+  assert.equal(lines[0].payment_failed, undefined, 'no payment offered: just saw the price');
+  assert.deepEqual([lines[1].quote, lines[1].payment_failed, lines[1].agent], [true, true, 'python-requests/2.32.3']);
+  assert.deepEqual([lines[2].status, lines[2].quote, lines[2].agent, lines[2].result.signal], [200, undefined, 'browser', 'bullish']);
+});
+
+test('agentOf: a short caller label, never the full User-Agent', () => {
+  assert.equal(agentOf('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1'), 'browser');
+  assert.equal(agentOf('Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)'), 'Googlebot/2.1');
+  assert.equal(agentOf('x402-doctor-trust-scan/1.0 (+https://x402-doctor.onrender.com/trust)'), 'x402-doctor-trust-scan/1.0');
+  assert.equal(agentOf('axios/1.7.2'), 'axios/1.7.2');
+  assert.equal(agentOf(undefined), 'none');
 });
 
 test('usage reader: reads the day files in range, newest first', async () => {
