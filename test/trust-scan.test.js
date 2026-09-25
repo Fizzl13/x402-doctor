@@ -5,7 +5,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
 const { createSafeFetch } = require('../lib/safe-fetch');
-const { loadCatalog, politeFetch, scan, mergeIndex, trackRecord, summarize, USER_AGENT } = require('../lib/trust-scan');
+const { loadCatalog, politeFetch, retryAfterMs, scan, mergeIndex, trackRecord, summarize, USER_AGENT } = require('../lib/trust-scan');
 const { createTrustIndex } = require('../lib/trust-index');
 
 const BASE = 'eip155:8453';
@@ -79,6 +79,67 @@ test('scan: go, no_go and unreachable sellers, with price and networks', async (
   assert.equal(by.free.verdict, 'no_go');
   assert.deepEqual(by.free.codes, ['no_402']);
   assert.equal(by.down.verdict, 'no_go');
+});
+
+test('Retry-After: seconds or an HTTP date, capped at 60 s, 5 s when missing', () => {
+  assert.equal(retryAfterMs('10'), 10000);
+  assert.equal(retryAfterMs('3600'), 60000);
+  assert.equal(retryAfterMs(undefined), 5000);
+  assert.equal(retryAfterMs('soon'), 5000);
+  const now = Date.parse('2026-09-25T12:00:00Z');
+  assert.equal(retryAfterMs('Fri, 25 Sep 2026 12:00:20 GMT', now), 20000, 'HTTP date');
+  assert.equal(retryAfterMs('Fri, 25 Sep 2026 11:59:00 GMT', now), 0, 'a date in the past means now');
+});
+
+test('scan: a 429 is retried once after Retry-After; still limited = not checked, never down', async () => {
+  const challenge = (host, url) => ({ x402Version: 2, resource: { url: `http://${host}${url}`, mimeType: 'application/json', description: 'x' }, accepts: [{ scheme: 'exact', network: BASE, amount: '20000', asset: USDC_BASE, payTo: '0x6B0F4651eD42893ab58139938175E4a69f175F25', maxTimeoutSeconds: 60, extra: { name: 'USD Coin', version: '2' } }] });
+  let hits = 0;
+  const busyOnce = await listen((req, res) => {
+    if (req.url === '/openapi.json') return res.end('{}');
+    if (hits++ === 0) {
+      res.statusCode = 429;
+      res.setHeader('Retry-After', '7');
+      return res.end('slow down');
+    }
+    const c = challenge(req.headers.host, req.url);
+    res.statusCode = 402;
+    res.setHeader('PAYMENT-REQUIRED', Buffer.from(JSON.stringify(c)).toString('base64'));
+    res.end(JSON.stringify(c));
+  });
+  const alwaysBusy = await listen((req, res) => {
+    if (req.url === '/openapi.json') return res.end('{}');
+    res.statusCode = 429;
+    res.end('slow down');
+  });
+  const waits = [];
+  const results = await scan(
+    [
+      { key: 'once', url: `${busyOnce}/paid`, method: 'GET' },
+      { key: 'always', url: `${alwaysBusy}/paid`, method: 'GET' },
+    ],
+    { safeFetch: createSafeFetch({ allowPrivate: true, timeoutMs: 2000 }), sleep: async (ms) => waits.push(ms) }
+  );
+  const by = Object.fromEntries(results.map((r) => [r.key, r]));
+  assert.equal(by.once.verdict, 'go', 'the retry got the 402');
+  assert.equal(by.always.verdict, 'rate_limited');
+  assert.deepEqual(by.always.codes, ['rate_limited']);
+  assert.ok(waits.some((ms) => ms >= 7000 && ms < 8000), 'waited Retry-After plus jitter');
+  const index = mergeIndex(null, results, { date: '2026-09-25' });
+  assert.equal(index.resources.always.h, '-', 'rate limited is not scored');
+  assert.equal(index.resources.once.h, 'g');
+});
+
+test('politeFetch: Retry-After waiting per host is capped, then limited URLs are recorded without waiting', async () => {
+  const origin = await listen((_req, res) => {
+    res.statusCode = 429;
+    res.setHeader('Retry-After', '50');
+    res.end('slow down');
+  });
+  const waits = [];
+  const f = politeFetch(createSafeFetch({ allowPrivate: true }), { perHost: 1, jitterMs: 0, sleep: async (ms) => waits.push(ms) });
+  for (let i = 0; i < 5; i++) await f(`${origin}/x/${i}`);
+  assert.deepEqual(waits, [50000, 50000], 'two waits fit the 120 s budget, the rest are not retried');
+  assert.equal(f.rateLimited.size, 5);
 });
 
 test('mergeIndex keeps one letter per day aligned with days, replaces a same-day re-run, drops long-gone resources', () => {
