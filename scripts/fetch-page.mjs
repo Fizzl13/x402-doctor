@@ -1,26 +1,28 @@
-// One-off: how does x402.org list ecosystem projects (coinbase/x402)?
-const gh = (u) => fetch(`https://api.github.com/${u}`, { headers: { 'user-agent': 'fizzl-check' } }).then((r) => r.json());
-const raw = (p, ref = 'main') => fetch(`https://raw.githubusercontent.com/coinbase/x402/${ref}/${p}`).then((r) => (r.ok ? r.text() : `HTTP ${r.status}`));
-const repo = await gh('repos/coinbase/x402');
-console.log('repo:', repo.full_name, 'default', repo.default_branch, 'archived', repo.archived);
-const ref = repo.default_branch || 'main';
-const tree = await gh(`repos/coinbase/x402/git/trees/${ref}?recursive=1`);
-const paths = (tree.tree || []).map((t) => t.path);
-const eco = paths.filter((p) => /ecosystem|partners/i.test(p));
-const dirs = [...new Set(eco.map((p) => p.split('/').slice(0, -1).join('/')))];
-console.log('ecosystem dirs (first 15):\n  ' + dirs.slice(0, 15).join('\n  '));
-console.log('ecosystem file count:', eco.length);
-const meta = eco.filter((p) => /metadata\.json$/.test(p));
-console.log('metadata.json files:', meta.length);
-for (const p of meta.filter((p) => /doctor|signal|trading|security|guard|plugin|eliza/i.test(p)).slice(0, 3).concat(meta.slice(0, 2))) console.log(`\n--- ${p}\n${await raw(p, ref)}`);
-const categories = new Set();
-for (const p of meta.slice(0, 400)) { try { categories.add(JSON.parse(await raw(p, ref)).category); } catch {} }
-console.log('\ncategories:', [...categories].join(' | '));
-console.log('\nfizzl/ichimoku already listed:', meta.filter((p) => /fizzl|ichimoku|x402-doctor|presign/i.test(p)));
-for (const f of ['CONTRIBUTING.md', 'typescript/site/CONTRIBUTING.md', 'typescript/site/README.md']) {
-  const t = await raw(f, ref);
-  const i = t.search(/ecosystem/i);
-  console.log(`\n===== ${f} =====\n${i >= 0 ? t.slice(Math.max(0, i - 300), i + 2500) : t.slice(0, 300)}`);
+// One-off: x402.org ecosystem entries (clone the site folder; the API is rate limited here).
+import { execSync } from 'child_process';
+import fs from 'fs';
+import path from 'path';
+const sh = (c) => execSync(c, { stdio: ['ignore', 'pipe', 'pipe'] }).toString();
+sh('git clone -q --depth 1 --filter=blob:none --sparse https://github.com/coinbase/x402 /tmp/x402');
+sh('cd /tmp/x402 && git sparse-checkout set typescript/site/app/ecosystem typescript/site/public/logos');
+const readme = fs.readFileSync('/tmp/x402/typescript/site/README.md', 'utf8');
+console.log(readme.slice(readme.indexOf('## Adding Your Project'), readme.indexOf('## Adding Your Project') + 3000));
+const base = '/tmp/x402/typescript/site/app/ecosystem/partners-data';
+const dirs = fs.readdirSync(base);
+console.log(`\n${dirs.length} entries`);
+const cats = {};
+const metas = [];
+for (const d of dirs) {
+  try { const m = JSON.parse(fs.readFileSync(path.join(base, d, 'metadata.json'), 'utf8')); metas.push([d, m]); cats[m.category] = (cats[m.category] || 0) + 1; } catch {}
 }
-const logos = eco.filter((p) => /\.(png|svg|jpg|webp)$/.test(p)).slice(0, 5);
-console.log('\nlogo examples:', logos.join(', '));
+console.log('categories:', JSON.stringify(cats));
+console.log('keys used:', [...new Set(metas.flatMap(([, m]) => Object.keys(m)))].join(', '));
+for (const [d, m] of metas.filter(([d, m]) => /signal|trading|security|guard|doctor|debug|eliza|plugin|mcp/i.test(d + JSON.stringify(m))).slice(0, 5)) console.log(`\n--- ${d}\n${JSON.stringify(m, null, 2)}`);
+console.log('\nalready listed:', metas.filter(([d, m]) => /fizzl|ichimoku|x402-doctor|presign/i.test(d + JSON.stringify(m))).map(([d]) => d));
+const logos = fs.readdirSync('/tmp/x402/typescript/site/public/logos');
+console.log('\nlogos:', logos.length, logos.slice(0, 8).join(', '));
+const sizes = logos.slice(0, 40).map((f) => { try { const b = fs.readFileSync(`/tmp/x402/typescript/site/public/logos/${f}`); if (b[1] === 0x50) return `${f} ${b.readUInt32BE(16)}x${b.readUInt32BE(20)}`; return `${f} ${b.length}B`; } catch { return f; } });
+console.log('logo sizes:', sizes.join(' | '));
+const other = fs.readdirSync('/tmp/x402/typescript/site/app/ecosystem').filter((f) => f !== 'partners-data');
+console.log('\necosystem folder:', other.join(', '));
+for (const f of other.filter((f) => /\.(ts|tsx)$/.test(f))) { const t = fs.readFileSync(`/tmp/x402/typescript/site/app/ecosystem/${f}`, 'utf8'); const m = t.match(/categor[^\n]*\n(?:[^\n]*\n){0,12}/i); if (m) console.log(`\n${f}:\n${m[0]}`); }
