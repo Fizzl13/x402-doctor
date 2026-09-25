@@ -8,7 +8,7 @@ const { PREFLIGHT_SCHEMA } = require('./lib/preflight');
 const { createTrustIndex } = require('./lib/trust-index');
 const { createMediaCache } = require('./lib/media');
 const crypto = require('crypto');
-const { createUsageLog } = require('./lib/usage-log');
+const { createUsageLog, mcpToolCall, mcpPayment } = require('./lib/usage-log');
 const { createUsageReader } = require('./lib/usage-reader');
 
 const PORT = process.env.PORT || 3001;
@@ -52,6 +52,23 @@ function describeDoctorCall(req, _res, body) {
   }
   if (req.method === 'GET' && req.path === PREFLIGHT_ROUTE) {
     return { route: 'preflight', via: 'api', input: { url: req.query.url, max_usd: req.query.max_usd, network: req.query.network }, result: { verdict: b.verdict, error: b.error } };
+  }
+  if (req.method === 'POST' && req.path === '/mcp') {
+    const call = mcpToolCall(req.body);
+    if (!call) return null; // initialize, tools/list
+    const reply = (Array.isArray(b) ? b : [b]).find((r) => r && r.result) || {};
+    const text = reply.result && reply.result.content && reply.result.content[0] && reply.result.content[0].text;
+    if (reply.result && reply.result.isError && /payment|402/i.test(String(text))) return null; // the price, not a call
+    let parsed = null;
+    try { parsed = JSON.parse(text); } catch { /* plain text */ }
+    const a = call.args || {};
+    return {
+      route: call.tool,
+      via: 'mcp',
+      input: { url: a.url, method: a.method, max_usd: a.max_usd, stack: a.stack },
+      result: { overall: parsed && parsed.overall, verdict: parsed && parsed.verdict, error: reply.result && reply.result.isError ? String(text).slice(0, 200) : undefined },
+      payment: mcpPayment(req.body, body),
+    };
   }
   if (req.method === 'GET' && req.path === '/api/trust') {
     return { route: 'trust lookup', via: 'web', input: { url: req.query.url }, result: { found: Boolean(b.url && !b.error) } };

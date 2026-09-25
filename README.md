@@ -153,6 +153,19 @@ one letter per day (`g` go, `c` caution, `n` no-go, `x` unreachable, `-` not sca
   `GET /api/trust/summary`: totals of the latest scan. `/trust`: the public page, with lookup and the scan's rules.
 - Run it yourself: `node scripts/trust-scan.js --out trust-data --limit 200`.
 
+## MCP server
+
+`https://x402-doctor.onrender.com/mcp` is an MCP server (Streamable HTTP, stateless) for Claude, Cursor and agent frameworks, listed in the official MCP registry as `io.github.Fizzl13/x402-doctor`.
+
+| Tool | Price | Returns |
+|---|---|---|
+| `x402_quick_check` | free, 10 calls/hour | pass/warn/fail, the number of problems and the top three |
+| `x402_diagnose` | $0.01 USDC via x402 | Every check with a fix hint, as `GET /api/v1/diagnose` |
+| `x402_preflight` | $0.001 USDC via x402 | go/caution/no_go before paying an endpoint, as `GET /api/v1/preflight` |
+| `x402_fix` | $0.05 USDC via x402 | The code changes for your stack, as `GET /api/v1/fix` |
+
+The paid tools are paid inside the MCP call with the x402 MCP transport (`_meta["x402/payment"]`), on Base or Solana, at the same prices and to the same payout wallets as the HTTP routes. Invalid input is refused before payment, and a failed call is not charged.
+
 ## CLI
 
 ```bash
