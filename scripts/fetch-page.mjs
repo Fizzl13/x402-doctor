@@ -1,22 +1,17 @@
-// One-off: are the Fizzl services listed on Agentic.Market, x402scan, Glama, Smithery, mcp.so? (read-only)
-const pages = [
-  'https://agentic.market/services/ichimoku-signal-onrender-com',
-  'https://agentic.market/services/x402-doctor-onrender-com',
-  'https://agentic.market/services/presign-guard-onrender-com',
-  'https://agentic.market/about',
-  'https://www.x402scan.com/resources/register',
-  'https://glama.ai/mcp/connectors/io.github.Fizzl13/ichimoku-signal',
-  'https://smithery.ai/search?q=ichimoku',
-  'https://mcp.so/search?q=ichimoku',
-];
-for (const url of pages) {
-  try {
-    const r = await fetch(url, { headers: { 'user-agent': 'Mozilla/5.0', accept: 'text/html' }, redirect: 'follow' });
-    const html = await r.text();
-    const text = html.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<style[\s\S]*?<\/style>/g, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
-    const title = (html.match(/<title>([^<]*)/) || [])[1];
-    const hits = ['ichimoku', 'fizzl', 'x402 doctor', 'presign', 'list your', 'submit', 'add your', 'provider'].map((w) => [w, (text.toLowerCase().split(w).length - 1)]).filter(([, n]) => n);
-    console.log(`\n${r.status} ${url}\n  title: ${title}\n  hits: ${JSON.stringify(hits)}`);
-    if (url.includes('/about') || url.includes('agentic.market/services')) console.log('  text:', text.slice(0, 1500));
-  } catch (e) { console.log(`\nERR ${url} ${e.message}`); }
+// One-off: which contract is the payout wallet delegated to via EIP-7702? (read-only)
+const A = '0x6B0F4651eD42893ab58139938175E4a69f175F25';
+const rpc = async (method, params) => (await (await fetch('https://mainnet.base.org', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) })).json()).result;
+const code = await rpc('eth_getCode', [A, 'latest']);
+console.log('code:', code);
+if (code && code.startsWith('0xef0100')) {
+  const delegate = '0x' + code.slice(8, 48);
+  console.log('delegate:', delegate);
+  const info = await (await fetch(`https://base.blockscout.com/api/v2/addresses/${delegate}`)).json();
+  console.log('delegate name:', info.name, '| verified:', info.is_verified, '| tags:', JSON.stringify(info.public_tags || []), '| creator:', info.creator_address_hash);
+  const sc = await (await fetch(`https://base.blockscout.com/api/v2/smart-contracts/${delegate}`)).json().catch(() => ({}));
+  console.log('contract name:', sc.name, '| compiler:', sc.compiler_version);
 }
+const me = await (await fetch(`https://base.blockscout.com/api/v2/addresses/${A}`)).json();
+console.log('payout tags:', JSON.stringify(me.public_tags || me.metadata || []), '| name:', me.name);
+const txs = await (await fetch(`https://base.blockscout.com/api/v2/addresses/${A}/transactions`)).json();
+for (const t of (txs.items || []).slice(0, 10)) console.log(t.timestamp, t.method, 'from', t.from?.hash, 'to', t.to?.hash, t.type, JSON.stringify(t.authorization_list || '').slice(0, 200));
