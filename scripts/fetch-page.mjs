@@ -1,16 +1,26 @@
-// One-off: how does ElizaOS find plugins now (registry URL in the CLI / docs)?
-const raw = (repo, p) => fetch(`https://raw.githubusercontent.com/${repo}/develop/${p}`).then((r) => (r.ok ? r.text() : null));
+// One-off: how does x402.org list ecosystem projects (coinbase/x402)?
 const gh = (u) => fetch(`https://api.github.com/${u}`, { headers: { 'user-agent': 'fizzl-check' } }).then((r) => r.json());
-const readme = await raw('elizaOS/eliza', 'README.md');
-console.log('README lines about plugins/registry:');
-for (const l of (readme || '').split('\n')) if (/registry|publish|plugins add|plugin.*(list|submit)/i.test(l)) console.log('  ' + l.trim().slice(0, 200));
-const tree = await gh('repos/elizaOS/eliza/git/trees/develop?recursive=1');
-const files = (tree.tree || []).map((t) => t.path).filter((p) => /registry/i.test(p) && /\.(ts|md|json)$/.test(p)).slice(0, 25);
-console.log('\nfiles with "registry" in the path:\n  ' + files.join('\n  '));
-for (const f of files.filter((p) => /cli.*registry.*\.ts$/i.test(p)).slice(0, 4)) {
-  const t = await raw('elizaOS/eliza', f);
-  const urls = [...new Set((t || '').match(/https?:\/\/[^\s'"`)]+/g) || [])];
-  console.log(`\n${f}: ${urls.join(' ')}`);
+const raw = (p, ref = 'main') => fetch(`https://raw.githubusercontent.com/coinbase/x402/${ref}/${p}`).then((r) => (r.ok ? r.text() : `HTTP ${r.status}`));
+const repo = await gh('repos/coinbase/x402');
+console.log('repo:', repo.full_name, 'default', repo.default_branch, 'archived', repo.archived);
+const ref = repo.default_branch || 'main';
+const tree = await gh(`repos/coinbase/x402/git/trees/${ref}?recursive=1`);
+const paths = (tree.tree || []).map((t) => t.path);
+const eco = paths.filter((p) => /ecosystem|partners/i.test(p));
+const dirs = [...new Set(eco.map((p) => p.split('/').slice(0, -1).join('/')))];
+console.log('ecosystem dirs (first 15):\n  ' + dirs.slice(0, 15).join('\n  '));
+console.log('ecosystem file count:', eco.length);
+const meta = eco.filter((p) => /metadata\.json$/.test(p));
+console.log('metadata.json files:', meta.length);
+for (const p of meta.filter((p) => /doctor|signal|trading|security|guard|plugin|eliza/i.test(p)).slice(0, 3).concat(meta.slice(0, 2))) console.log(`\n--- ${p}\n${await raw(p, ref)}`);
+const categories = new Set();
+for (const p of meta.slice(0, 400)) { try { categories.add(JSON.parse(await raw(p, ref)).category); } catch {} }
+console.log('\ncategories:', [...categories].join(' | '));
+console.log('\nfizzl/ichimoku already listed:', meta.filter((p) => /fizzl|ichimoku|x402-doctor|presign/i.test(p)));
+for (const f of ['CONTRIBUTING.md', 'typescript/site/CONTRIBUTING.md', 'typescript/site/README.md']) {
+  const t = await raw(f, ref);
+  const i = t.search(/ecosystem/i);
+  console.log(`\n===== ${f} =====\n${i >= 0 ? t.slice(Math.max(0, i - 300), i + 2500) : t.slice(0, 300)}`);
 }
-const q = await (await fetch('https://registry.npmjs.org/-/v1/search?text=keywords:elizaos-plugin%20fizzl&size=5')).json();
-console.log('\nnpm search "keywords:elizaos-plugin fizzl":', (q.objects || []).map((o) => `${o.package.name}@${o.package.version}`).join(', ') || 'none');
+const logos = eco.filter((p) => /\.(png|svg|jpg|webp)$/.test(p)).slice(0, 5);
+console.log('\nlogo examples:', logos.join(', '));
