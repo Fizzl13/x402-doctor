@@ -2,7 +2,7 @@ name: x402 volume check (one-off research)
 on:
   push:
     branches: [research/x402-market]
-    paths: ['scripts/fetch-page.mjs', '.github/workflows/volume-check.yml']
+    paths: ['scripts/crowding-check.mjs', 'scripts/fetch-page.mjs', '.github/workflows/volume-check.yml']
 jobs:
   check:
     runs-on: ubuntu-latest
