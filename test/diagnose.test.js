@@ -8,7 +8,7 @@ const http = require('node:http');
 const path = require('node:path');
 const { execFile } = require('node:child_process');
 const { declareDiscoveryExtension } = require('@x402/extensions/bazaar');
-const { diagnose, checkResource } = require('../lib/diagnose');
+const { diagnose, checkResource, checkAccepts } = require('../lib/diagnose');
 const { createSafeFetch, guardedLookup } = require('../lib/safe-fetch');
 const { createApp } = require('../server');
 
@@ -224,6 +224,30 @@ test('http resource URL behind an https endpoint is flagged with the trust proxy
   const c = checks.find((x) => x.id === 'resource-url');
   assert.equal(c.status, 'fail');
   assert.match(c.hint, /trust proxy/);
+});
+
+test('multi-chain options: XRPL and Arbitrum are judged by their own rules, unknown chains are not failed', () => {
+  const checks = [];
+  checkAccepts([
+    // Shaped like a real XRPL option (RLUSD, decimal amount, r-address, issuer).
+    { scheme: 'exact', network: 'xrpl:0', amount: '0.01', asset: '524C555344000000000000000000000000000000', payTo: 'rKv7LTd19CUsKKirVzdZWK4HuFChHf4Hp7', maxTimeoutSeconds: 300, extra: { issuer: 'rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De' } },
+    { scheme: 'exact', network: 'eip155:42161', amount: '10000', asset: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831', payTo: '0x408C4610F6879a75c25722cfCd18A2Eff99dc20F', extra: { name: 'USD Coin', version: '2' } },
+    { scheme: 'exact', network: 'stellar:pubnet', amount: '0.01', asset: 'USDC', payTo: 'GABC' },
+    { scheme: 'exact', network: 'xrpl:0', amount: '0', asset: 'USD', payTo: '0x408C4610F6879a75c25722cfCd18A2Eff99dc20F' },
+  ], checks);
+  const status = (id) => checks.find((c) => c.id === id)?.status;
+  assert.equal(status('accepts[0]-network'), 'pass');
+  assert.equal(status('accepts[0]-payto'), 'pass');
+  assert.equal(status('accepts[0]-amount'), 'pass');
+  assert.equal(status('accepts[0]-asset'), undefined);
+  assert.equal(status('accepts[1]-network'), 'pass');
+  assert.match(checks.find((c) => c.id === 'accepts[1]-amount').message, /\$0\.01 USDC/);
+  assert.equal(status('accepts[2]-network'), 'warn');
+  assert.equal(status('accepts[2]-payto'), 'info');
+  assert.ok(!checks.some((c) => c.id.startsWith('accepts[2]') && c.status === 'fail'));
+  assert.equal(status('accepts[3]-payto'), 'fail');
+  assert.equal(status('accepts[3]-asset'), 'warn');
+  assert.equal(status('accepts[3]-amount'), 'fail');
 });
 
 test('POST-only endpoint: falls back to POST, or uses --method', async () => {
