@@ -1,10 +1,8 @@
-// One-off: is the presign-guard token-check wording live on Render?
-for (const [url, needle] of [['https://presign-guard.onrender.com/openapi.json', 'honeypot, impersonation'], ['https://presign-guard.onrender.com/', 'honeypots, fake look-alikes']]) {
-  let found = false;
-  for (let i = 0; i < 3 && !found; i++) {
-    const text = await (await fetch(url)).text().catch(() => '');
-    found = text.includes(needle);
-    if (!found) await new Promise((r) => setTimeout(r, 30000));
-  }
-  console.log(`${found ? 'LIVE    ' : 'MISSING '} ${url}`);
-}
+// One-off: x402 Doctor diagnosis of a public endpoint (free route).
+const target = 'https://pay.edge-agents.ai/v1/services/usdc-supply-pulse';
+const r = await fetch('https://x402-doctor.onrender.com/diagnose?url=' + encodeURIComponent(target), { headers: { accept: 'application/json' } });
+console.log('HTTP', r.status);
+console.log(JSON.stringify(await r.json(), null, 2));
+const raw = await fetch(target);
+console.log('\nRAW', raw.status, [...raw.headers].filter(([k]) => /payment|content-type/i.test(k)));
+console.log((await raw.text()).slice(0, 1500));
