@@ -8,7 +8,7 @@ const http = require('node:http');
 const path = require('node:path');
 const { execFile } = require('node:child_process');
 const { declareDiscoveryExtension } = require('@x402/extensions/bazaar');
-const { diagnose, checkResource, checkAccepts } = require('../lib/diagnose');
+const { diagnose, checkResource, checkAccepts, checkOpenApi } = require('../lib/diagnose');
 const { createSafeFetch, guardedLookup } = require('../lib/safe-fetch');
 const { createApp } = require('../server');
 
@@ -248,6 +248,16 @@ test('multi-chain options: XRPL and Arbitrum are judged by their own rules, unkn
   assert.equal(status('accepts[3]-payto'), 'fail');
   assert.equal(status('accepts[3]-asset'), 'warn');
   assert.equal(status('accepts[3]-amount'), 'fail');
+});
+
+test('an openapi.json cut off at the size cap is reported as too large, not as invalid JSON', async () => {
+  const checks = [];
+  const fetchCapped = async () => ({ status: 200, text: '{"openapi":"3.1.0","paths":{"/a":', truncated: true });
+  await checkOpenApi('https://api.example.com', fetchCapped, checks);
+  const c = checks.find((x) => x.id === 'openapi-present');
+  assert.equal(c.status, 'warn');
+  assert.match(c.message, /too large/);
+  assert.doesNotMatch(c.message, /not valid JSON/);
 });
 
 test('POST-only endpoint: falls back to POST, or uses --method', async () => {
