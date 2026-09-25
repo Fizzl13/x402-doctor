@@ -16,3 +16,4 @@ const free = await fetch(BASE + "/mcp", { method: "POST", headers: { "content-ty
 console.log("free AERO", JSON.stringify((await free.json()).result?.content?.[0]?.text));
 const oa = await (await fetch(BASE + "/openapi.json")).json();
 console.log("openapi token networks", JSON.stringify(oa.paths["/v1/token"]?.get?.["x-payment-info"]?.networks));
+// recheck 1790364646
