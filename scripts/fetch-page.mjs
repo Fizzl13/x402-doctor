@@ -1,20 +1,22 @@
-// One-off: who is 0x4f600c8A…? Account type and its outgoing USDC payments on Base (read-only).
-const A = '0x4f600c8A9ba01465F33C41a445b1e427cC664f1f';
-const B = 'https://base.blockscout.com/api/v2';
-const info = await (await fetch(`${B}/addresses/${A}`)).json();
-console.log('is_contract:', info.is_contract, '| implementations:', JSON.stringify(info.implementations || []), '| name:', info.name, '| tags:', JSON.stringify(info.public_tags || info.metadata?.tags || []));
-const counters = await (await fetch(`${B}/addresses/${A}/counters`)).json().catch(() => ({}));
-console.log('counters:', JSON.stringify(counters));
-let url = `${B}/addresses/${A}/token-transfers?type=ERC-20`;
-const rows = [];
-for (let p = 0; p < 10 && url; p++) {
-  const j = await (await fetch(url)).json();
-  for (const t of j.items || []) rows.push({ t: t.timestamp, dir: t.from?.hash?.toLowerCase() === A.toLowerCase() ? 'OUT' : 'IN ', other: t.from?.hash?.toLowerCase() === A.toLowerCase() ? t.to?.hash : t.from?.hash, sym: t.token?.symbol, amt: Number(t.total?.value) / 10 ** Number(t.total?.decimals || 6) });
-  url = j.next_page_params ? `${B}/addresses/${A}/token-transfers?type=ERC-20&` + new URLSearchParams(j.next_page_params) : null;
+// One-off: are the Fizzl services listed on Agentic.Market, x402scan, Glama, Smithery, mcp.so? (read-only)
+const pages = [
+  'https://agentic.market/services/ichimoku-signal-onrender-com',
+  'https://agentic.market/services/x402-doctor-onrender-com',
+  'https://agentic.market/services/presign-guard-onrender-com',
+  'https://agentic.market/about',
+  'https://www.x402scan.com/resources/register',
+  'https://glama.ai/mcp/connectors/io.github.Fizzl13/ichimoku-signal',
+  'https://smithery.ai/search?q=ichimoku',
+  'https://mcp.so/search?q=ichimoku',
+];
+for (const url of pages) {
+  try {
+    const r = await fetch(url, { headers: { 'user-agent': 'Mozilla/5.0', accept: 'text/html' }, redirect: 'follow' });
+    const html = await r.text();
+    const text = html.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<style[\s\S]*?<\/style>/g, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+    const title = (html.match(/<title>([^<]*)/) || [])[1];
+    const hits = ['ichimoku', 'fizzl', 'x402 doctor', 'presign', 'list your', 'submit', 'add your', 'provider'].map((w) => [w, (text.toLowerCase().split(w).length - 1)]).filter(([, n]) => n);
+    console.log(`\n${r.status} ${url}\n  title: ${title}\n  hits: ${JSON.stringify(hits)}`);
+    if (url.includes('/about') || url.includes('agentic.market/services')) console.log('  text:', text.slice(0, 1500));
+  } catch (e) { console.log(`\nERR ${url} ${e.message}`); }
 }
-console.log(`\n${rows.length} token transfers`);
-for (const r of rows) console.log(`${r.t}  ${r.dir}  ${r.amt} ${r.sym}  ${r.other}`);
-const out = {};
-for (const r of rows.filter((r) => r.dir === 'OUT')) (out[r.other] ||= { n: 0, amt: 0 }), out[r.other].n++, out[r.other].amt += r.amt;
-console.log('\nPAID TO');
-for (const [k, v] of Object.entries(out).sort((a, b) => b[1].n - a[1].n)) console.log(`${k}  ${v.n}×  ${v.amt.toFixed(4)}`);
