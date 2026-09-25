@@ -1,0 +1,39 @@
+name: Health check (all services)
+
+# Every morning: all four Fizzl services answer, every paid route asks the
+# right price with a valid x402 challenge, free routes and MCP work. Nothing is
+# paid. A failure opens an issue labelled health-check (GitHub emails the
+# owner); the next all-green run closes it. Report: the run summary.
+on:
+  schedule:
+    # 04:30 UTC = 06:30 Amsterdam (summer time), before the daily concierge at 06:55
+    - cron: "30 4 * * *"
+  workflow_dispatch: {}
+  push:
+    branches: ['claude/**']
+    paths: ['scripts/health-check.mjs', '.github/workflows/health.yml']
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: npm ci --omit=dev
+      - run: node scripts/health-check.mjs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: health-report
+          path: |
+            health-report.md
+            health-report.json
