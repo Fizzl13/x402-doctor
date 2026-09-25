@@ -1,15 +1,16 @@
-// One-off: where does the ElizaOS plugin registry live now?
-const gh = (u) => fetch(`https://api.github.com/${u}`, { headers: { accept: 'application/vnd.github+json', 'user-agent': 'fizzl-check' } }).then((r) => r.json());
-for (const q of ['registry in:name org:elizaOS', 'registry in:name org:elizaos-plugins', 'elizaos plugin registry in:name,description', 'elizaos registry index.json']) {
-  const r = await gh(`search/repositories?q=${encodeURIComponent(q)}&per_page=8`);
-  console.log(`\n# ${q}`);
-  for (const it of r.items || []) console.log(`  ${it.full_name}  ★${it.stargazers_count}  pushed ${it.pushed_at}  ${it.archived ? 'ARCHIVED ' : ''}${(it.description || '').slice(0, 90)}`);
-  if (r.message) console.log('  ', r.message);
+// One-off: how does ElizaOS find plugins now (registry URL in the CLI / docs)?
+const raw = (repo, p) => fetch(`https://raw.githubusercontent.com/${repo}/develop/${p}`).then((r) => (r.ok ? r.text() : null));
+const gh = (u) => fetch(`https://api.github.com/${u}`, { headers: { 'user-agent': 'fizzl-check' } }).then((r) => r.json());
+const readme = await raw('elizaOS/eliza', 'README.md');
+console.log('README lines about plugins/registry:');
+for (const l of (readme || '').split('\n')) if (/registry|publish|plugins add|plugin.*(list|submit)/i.test(l)) console.log('  ' + l.trim().slice(0, 200));
+const tree = await gh('repos/elizaOS/eliza/git/trees/develop?recursive=1');
+const files = (tree.tree || []).map((t) => t.path).filter((p) => /registry/i.test(p) && /\.(ts|md|json)$/.test(p)).slice(0, 25);
+console.log('\nfiles with "registry" in the path:\n  ' + files.join('\n  '));
+for (const f of files.filter((p) => /cli.*registry.*\.ts$/i.test(p)).slice(0, 4)) {
+  const t = await raw('elizaOS/eliza', f);
+  const urls = [...new Set((t || '').match(/https?:\/\/[^\s'"`)]+/g) || [])];
+  console.log(`\n${f}: ${urls.join(' ')}`);
 }
-for (const repo of ['elizaOS/registry', 'elizaos-plugins/registry', 'elizaOS/eliza']) {
-  const r = await gh(`repos/${repo}`);
-  console.log(`${repo}: ${r.full_name ? `exists, default ${r.default_branch}, archived ${r.archived}` : r.message}`);
-}
-// How does the eliza CLI find plugins? Look for the registry URL in the CLI source.
-const code = await gh(`search/code?q=${encodeURIComponent('registry index.json repo:elizaOS/eliza')}&per_page=5`);
-console.log('\ncode search:', code.message || (code.items || []).map((i) => i.path).join(', '));
+const q = await (await fetch('https://registry.npmjs.org/-/v1/search?text=keywords:elizaos-plugin%20fizzl&size=5')).json();
+console.log('\nnpm search "keywords:elizaos-plugin fizzl":', (q.objects || []).map((o) => `${o.package.name}@${o.package.version}`).join(', ') || 'none');
