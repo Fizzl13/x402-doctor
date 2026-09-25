@@ -54,6 +54,13 @@ test('no 402 but 200: the free-tier / middleware-order fix with this route', () 
   assert.match(f.steps[0], /"POST \/api\/mcp"/, 'the one method tried, not GET');
 });
 
+test('a description over the CDP limit gets a shorten-it fix', () => {
+  const out = buildFixes(report({ checks: [{ id: 'resource-description-length', status: 'warn', message: 'resource.description is 612 characters; the CDP facilitator accepts at most 500.' }] }));
+  const f = fix(out, 'description-length');
+  assert.match(f.title, /500 characters/);
+  assert.match(f.why, /612 characters/);
+});
+
 test('no 402: auth first, validation first, unreachable', () => {
   const probe = (status, extra = {}) => buildFixes(report({ challenge: null, checks: [{ id: 'returns-402', status: 'fail', message: 'no 402' }], probes: [{ method: 'GET', status, headers: {}, ...extra }] }));
   assert.match(fix(probe(401), 'no-402').title, /Authentication runs before the paywall/);

@@ -250,6 +250,27 @@ test('multi-chain options: XRPL and Arbitrum are judged by their own rules, unkn
   assert.equal(status('accepts[3]-amount'), 'fail');
 });
 
+test('a description over the CDP limit of 500 characters is flagged (v2 resource and v1 accepts)', () => {
+  const resource = (description) => ({ x402Version: 2, resource: { url: 'https://api.example.com/x', description, mimeType: 'application/json' } });
+  const status = (checks, id) => checks.find((c) => c.id === id)?.status;
+  let checks = [];
+  checkResource(resource('a'.repeat(501)), 'https://api.example.com/x', checks);
+  assert.equal(status(checks, 'resource-description-length'), 'warn');
+  assert.match(checks.find((c) => c.id === 'resource-description-length').message, /501 characters/);
+  checks = [];
+  checkResource(resource('a'.repeat(480)), 'https://api.example.com/x', checks);
+  assert.equal(status(checks, 'resource-description-length'), 'info');
+  checks = [];
+  checkResource(resource('é'.repeat(500)), 'https://api.example.com/x', checks);
+  assert.equal(status(checks, 'resource-description-length'), 'info', 'characters, not bytes');
+  checks = [];
+  checkResource(resource('short'), 'https://api.example.com/x', checks);
+  assert.equal(status(checks, 'resource-description-length'), undefined);
+  checks = [];
+  checkAccepts([{ scheme: 'exact', network: 'base', amount: '10000', asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', payTo: '0x408C4610F6879a75c25722cfCd18A2Eff99dc20F', description: 'b'.repeat(600) }], checks);
+  assert.equal(status(checks, 'accepts[0]-description-length'), 'warn');
+});
+
 test('an openapi.json cut off at the size cap is reported as too large, not as invalid JSON', async () => {
   const checks = [];
   const fetchCapped = async () => ({ status: 200, text: '{"openapi":"3.1.0","paths":{"/a":', truncated: true });
