@@ -35,7 +35,7 @@
   .ghost { border: 1px solid var(--line); border-radius: 8px; }
   .toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; color: var(--text-soft); margin-left: 4px; }
   .sw { width: 10px; height: 10px; border-radius: 3px; display: inline-block; flex: none; }
-  .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 18px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-top: 18px; }
   .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
   .tile .k { color: var(--text-soft); font-size: 13px; }
   .tile .v { font-size: 1.7rem; font-weight: 650; font-variant-numeric: tabular-nums; line-height: 1.2; margin-top: 2px; }
@@ -203,8 +203,12 @@
     render();
   }
 
+  // A 402 (quote) is not a call: the caller only saw the price. Counted separately.
   function filtered() {
-    return (state.data.events || []).filter((e) => state.services.has(e.service) && (!state.paidOnly || e.paid));
+    return (state.data.events || []).filter((e) => !e.quote && state.services.has(e.service) && (!state.paidOnly || e.paid));
+  }
+  function quotes() {
+    return (state.data.events || []).filter((e) => e.quote && state.services.has(e.service));
   }
 
   function render() {
@@ -240,11 +244,12 @@
       tile('Paid calls', paid.length.toLocaleString(), events.length ? `${Math.round((paid.length / events.length) * 100)}% of calls` : '–'),
       tile('Revenue', usd(revenue), 'USDC, settled'),
       tile('Paying wallets', payers.size.toLocaleString(), 'unique payers'),
+      tile('Price shown', quotes().length.toLocaleString(), `402s · ${quotes().filter((e) => e.payment_failed).length} refused payments`),
     );
   }
 
   function renderServices(events) {
-    const all = (state.data.events || []).filter((e) => !state.paidOnly || e.paid);
+    const all = (state.data.events || []).filter((e) => !e.quote && (!state.paidOnly || e.paid));
     $('services').replaceChildren(...SERVICES.map((s) => {
       const mine = all.filter((e) => e.service === s.id);
       const paid = mine.filter((e) => e.paid);
