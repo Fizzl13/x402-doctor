@@ -1,11 +1,8 @@
-// One-off: where can x402 demand (paid volume) be read? (read-only)
-const show = (label, v) => console.log(`\n===== ${label}\n${typeof v === 'string' ? v : JSON.stringify(v, null, 1)}`.slice(0, 3500));
-const r = await fetch('https://api.cdp.coinbase.com/platform/v2/x402/discovery/resources?type=http&limit=3&offset=0');
-const j = await r.json().catch(() => ({}));
-show('CDP item keys', Object.keys((j.items || [])[0] || {}));
-show('CDP item sample', (j.items || [])[0]);
-for (const u of ['https://agentic.market/SKILL.md', 'https://www.x402scan.com/', 'https://www.x402scan.com/resources']) {
-  const t = await (await fetch(u, { headers: { 'user-agent': 'Mozilla/5.0' } })).text().catch((e) => e.message);
-  const text = t.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<style[\s\S]*?<\/style>/g, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
-  show(u, text.slice(0, 3000));
-}
+// One-off: demand fields in the CDP catalogue and the Agentic Market API (read-only)
+const j = await (await fetch('https://api.cdp.coinbase.com/platform/v2/x402/discovery/resources?type=http&limit=2&offset=0')).json();
+const it = j.items[0];
+console.log('CDP top-level keys:', Object.keys(it), '| other fields:', JSON.stringify(Object.fromEntries(Object.entries(it).filter(([k]) => !['accepts', 'extensions'].includes(k)))).slice(0, 800));
+const get = async (u) => { const r = await fetch(u); const t = await r.text(); console.log(`\n===== ${r.status} ${u}\n${t.slice(0, 2500)}`); try { return JSON.parse(t); } catch { return null; } };
+const list = await get('https://api.agentic.market/v1/services');
+await get('https://api.agentic.market/v1/services/ichimoku-signal-onrender-com');
+await get('https://api.agentic.market/v1/services/search?q=trading%20signals');
