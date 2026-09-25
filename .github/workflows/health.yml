@@ -6,8 +6,12 @@ name: Health check (all services)
 # owner); the next all-green run closes it. Report: the run summary.
 on:
   schedule:
-    # 04:30 UTC = 06:30 Amsterdam (summer time), before the daily concierge at 06:55
+    # 04:30 UTC = 06:30 Amsterdam (summer time), before the daily concierge at 06:55.
+    # GitHub sometimes drops scheduled runs when busy, so 08:30 and 13:30 UTC are
+    # backups: a scheduled run stops early when a scheduled check already finished today.
     - cron: "30 4 * * *"
+    - cron: "30 8 * * *"
+    - cron: "30 13 * * *"
   workflow_dispatch: {}
   push:
     branches: ['claude/**']
@@ -16,22 +20,37 @@ on:
 permissions:
   contents: read
   issues: write
+  actions: read
 
 jobs:
   health:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      - name: Already checked today?
+        id: today
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          done=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow health.yml --event schedule \
+            --created ">=$(date -u +%F)" --status completed --json databaseId --jq length)
+          echo "done=$done" >> "$GITHUB_OUTPUT"
+          if [ "$done" -gt 0 ]; then echo "A scheduled health check already finished today; skipping."; fi
       - uses: actions/checkout@v5
+        if: steps.today.outputs.done == '0' || github.event_name != 'schedule'
       - uses: actions/setup-node@v5
+        if: steps.today.outputs.done == '0' || github.event_name != 'schedule'
         with:
           node-version: 22
       - run: npm ci --omit=dev
+        if: steps.today.outputs.done == '0' || github.event_name != 'schedule'
       - run: node scripts/health-check.mjs
+        if: steps.today.outputs.done == '0' || github.event_name != 'schedule'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: always() && (steps.today.outputs.done == '0' || github.event_name != 'schedule')
         with:
           name: health-report
           path: |
