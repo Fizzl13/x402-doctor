@@ -81,7 +81,7 @@ async function checkPaid(route) {
     const problems = [];
     for (const network of route.networks) {
       const option = challenge.accepts.find((a) => a.network === network);
-      if (!option) problems.push(`no ${network === BASE ? 'Base' : 'Solana'} option`);
+      if (!option) problems.push(`no ${network === BASE ? 'Base' : 'Solana'} option (offers ${challenge.accepts.map((a) => `${a.network} ${a.amount}`).join(', ')})`);
       else if (option.amount !== route.amount) problems.push(`${network === BASE ? 'Base' : 'Solana'} asks ${option.amount}, expected ${route.amount}`);
     }
     const tags = (challenge.resource && challenge.resource.tags) || [];
