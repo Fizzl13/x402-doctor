@@ -8,10 +8,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/checkout@v5
-        with: { repository: Fizzl13/presign-guard, ref: claude/x402-agents-solana-payments-nceg9b, path: pg }
       - uses: actions/setup-node@v5
         with: { node-version: 22 }
-      - run: npm ci --omit=dev
-        working-directory: pg
       - run: node scripts/token-smoke.mjs
