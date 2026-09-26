@@ -22,3 +22,5 @@ services:
         value: Fizzl13/usage-log
       - key: ADMIN_PASSWORD
         sync: false
+      - key: X402_TRUST_TXT # x402-trust.com provider verification line (public key; optional)
+        sync: false
