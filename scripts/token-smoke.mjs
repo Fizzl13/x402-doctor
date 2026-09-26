@@ -1,4 +1,4 @@
-// Re-validate our pay-skills drafts with pay.sh's checker, full output (probes endpoints unpaid; nothing paid or submitted).
+// Re-validate (after the verb-first summaries) our pay-skills drafts with pay.sh's checker, full output (probes endpoints unpaid; nothing paid or submitted).
 import { spawnSync } from "node:child_process";
 import { cpSync, writeFileSync } from "node:fs";
 const run = (cmd, args, cwd) => { const r = spawnSync(cmd, args, { cwd, encoding: "utf8", timeout: 600000 }); return `exit ${r.status}\n${r.stdout}${r.stderr}`; };
@@ -9,7 +9,7 @@ for (const [name, host] of Object.entries(hosts)) {
   let spec;
   for (let i = 0; i < 30; i++) { // wait for the deploy with the short summaries
     spec = await (await fetch(`https://${host}/openapi.json`)).json();
-    const long = Object.values(spec.paths).flatMap((o) => Object.values(o)).filter((op) => op.summary?.length > 63);
+    const long = Object.values(spec.paths).flatMap((o) => Object.values(o)).filter((op) => op.summary?.length > 63 || !/^(Check|Explain|Find|Get|Scan|Diagnose|Fix|Preflight)\b/.test(op.summary || ""));
     if (!long.length) break;
     await sleep(20000);
   }
