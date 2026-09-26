@@ -1,0 +1,45 @@
+{
+  "date": "2026-09-26",
+  "resources": 18206,
+  "today": {
+    "g": 16116,
+    "c": 725,
+    "n": 793,
+    "x": 0
+  },
+  "top_reasons": [
+    [
+      "no_402",
+      782
+    ],
+    [
+      "testnet_only",
+      374
+    ],
+    [
+      "resource_mismatch",
+      310
+    ],
+    [
+      "unknown_asset",
+      279
+    ],
+    [
+      "price_above_advertised",
+      9
+    ],
+    [
+      "suspicious_amount",
+      8
+    ],
+    [
+      "invalid_challenge",
+      6
+    ],
+    [
+      "no_payable_option",
+      5
+    ]
+  ],
+  "scan_seconds": 701
+}
