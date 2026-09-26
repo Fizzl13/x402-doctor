@@ -214,16 +214,18 @@ test('admin pages: 10 wrong passwords from one IP lock it out, even with the rig
   server.close();
 });
 
-test('nohumans claim: each listed paid endpoint carries its own challenge token', async () => {
-  const { CLAIMS } = require('../lib/nohumans-claim');
-  const { server, base } = await listen(createApp({ env: {}, trustIndex: trustStub }));
+test('nohumans claim: a pending token goes on its endpoint only; none pending now', async () => {
+  const express = require('express');
+  const { nohumansClaim, CLAIMS } = require('../lib/nohumans-claim');
+  assert.deepEqual(CLAIMS.headers, {}, 'no claim pending');
+  const app = express();
+  app.use(nohumansClaim({ headers: { '/api/v1/preflight': 'tok' }, wellKnown: null }));
+  app.get('*', (_req, res) => res.status(402).end());
+  const { server, base } = await listen(app);
   try {
-    // Set before the paywall, so the header is there whatever the route answers.
-    for (const [path, token] of Object.entries(CLAIMS.headers)) {
-      assert.equal((await fetch(`${base}${path}`)).headers.get('x-nohumans-claim'), token, path);
-    }
-    assert.equal((await fetch(`${base}/`)).headers.get('x-nohumans-claim'), null);
-    assert.equal((await fetch(`${base}/.well-known/nohumans-claim`)).status, 404);
+    assert.equal((await fetch(`${base}/api/v1/preflight`)).headers.get('x-nohumans-claim'), 'tok');
+    assert.equal((await fetch(`${base}/api/v1/fix`)).headers.get('x-nohumans-claim'), null);
+    assert.equal((await fetch(`${base}/.well-known/nohumans-claim`)).headers.get('x-nohumans-claim'), null);
   } finally {
     server.close();
   }
