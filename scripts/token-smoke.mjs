@@ -1,11 +1,25 @@
-// pay catalog check (summary without "free") on the committed pay-skills drafts as they are (ichimoku spec now includes the free
-// /api/trend/{pair}; doctor PAY.md reuse wording fixed). Probes unpaid; nothing paid or submitted.
-import { spawnSync } from "node:child_process";
-import { cpSync } from "node:fs";
-const run = (cmd, args, cwd) => { const r = spawnSync(cmd, args, { cwd, encoding: "utf8", timeout: 600000 }); return `exit ${r.status}\n${r.stdout}${r.stderr}`; };
-console.log(run("git", ["clone", "-q", "--depth", "1", "https://github.com/solana-foundation/pay-skills", "/tmp/pay-skills"]));
-for (const name of ["ichimoku-signal", "x402-doctor"]) {
-  cpSync(`research/pay-skills/providers/fizzl/${name}`, `/tmp/pay-skills/providers/fizzl/${name}`, { recursive: true });
-  console.log(`\n===== pay catalog check fizzl/${name}`);
-  console.log(run("npx", ["-y", "@solana/pay", "catalog", "check", `providers/fizzl/${name}/PAY.md`], "/tmp/pay-skills").replace(/\x1b\[[0-9;]*m/g, "").slice(-4000));
+// presign-guard: why did PG1's sanctions screen come back unavailable? Nothing paid.
+const PG1 = 'https://pg1-ai-agent.vercel.app/api/mcp';
+const PERMIT2 = '0x000000000022D473030F116dDEE9F6B43aC78BA3';
+let id = 0;
+async function call(name, args) {
+  const t0 = Date.now();
+  try {
+    const r = await fetch(PG1, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: ++id, method: 'tools/call', params: { name, arguments: args } }), signal: AbortSignal.timeout(15000) });
+    const text = await r.text();
+    const ms = Date.now() - t0;
+    const sse = text.match(/^data: (.*)$/m);
+    let body = null; try { body = JSON.parse(sse ? sse[1] : text); } catch {}
+    const res = body?.result;
+    const out = res?.structuredContent ?? (() => { try { return JSON.parse(res?.content?.[0]?.text ?? 'null'); } catch { return res?.content?.[0]?.text?.slice(0, 200); } })();
+    console.log(`${name} ${args.address ?? ''} → HTTP ${r.status} ${ms}ms${ms > 3000 ? ' (OVER 3 s timeout)' : ''} isError=${!!res?.isError} ratelimit-remaining=${r.headers.get('x-ratelimit-remaining')}`);
+    console.log('   ', JSON.stringify(out ?? body?.error ?? text.slice(0, 200)).slice(0, 400));
+  } catch (e) { console.log(`${name} → FAILED after ${Date.now() - t0}ms: ${e.message}`); }
 }
+const h = await fetch('https://presign-guard.onrender.com/health', { signal: AbortSignal.timeout(60000) }).then((r) => r.json()).catch((e) => ({ err: e.message }));
+console.log('presign-guard /health:', JSON.stringify(h));
+for (let i = 0; i < 3; i++) await call('check_wallet_sanctions', { address: PERMIT2 });
+await new Promise((r) => setTimeout(r, 20000));
+console.log('after 20 s:');
+await call('check_wallet_sanctions', { address: PERMIT2 });
