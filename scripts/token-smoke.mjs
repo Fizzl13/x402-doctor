@@ -1,23 +1,23 @@
-// Re-validate (after the verb-first summaries) our pay-skills drafts with pay.sh's checker, full output (probes endpoints unpaid; nothing paid or submitted).
+// Final pay-skills check: wait for the last summary deploys, save the live specs (pretty-printed) next to
+// our PAY.md drafts, and run pay.sh's checker on all three. Probes unpaid; nothing paid or submitted.
 import { spawnSync } from "node:child_process";
 import { cpSync, writeFileSync } from "node:fs";
 const run = (cmd, args, cwd) => { const r = spawnSync(cmd, args, { cwd, encoding: "utf8", timeout: 600000 }); return `exit ${r.status}\n${r.stdout}${r.stderr}`; };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-console.log(run("git", ["clone", "-q", "--depth", "1", "https://github.com/solana-foundation/pay-skills", "/tmp/pay-skills"]));
-const hosts = { "presign-guard": "presign-guard.onrender.com", "ichimoku-signal": "ichimoku-signal.onrender.com", "x402-doctor": "x402-doctor.onrender.com" };
-for (const [name, host] of Object.entries(hosts)) {
+const hosts = {
+  "presign-guard": ["presign-guard.onrender.com", (s) => s.paths["/v1/check/explain"].post.summary.startsWith("Get ")],
+  "ichimoku-signal": ["ichimoku-signal.onrender.com", (s) => s.paths["/scan"].get.summary.startsWith("Get ")],
+  "x402-doctor": ["x402-doctor.onrender.com", () => true],
+};
+for (const [name, [host, ready]] of Object.entries(hosts)) {
   let spec;
-  for (let i = 0; i < 30; i++) { // wait for the deploy with the short summaries
-    spec = await (await fetch(`https://${host}/openapi.json`)).json();
-    const long = Object.values(spec.paths).flatMap((o) => Object.values(o)).filter((op) => op.summary?.length > 63 || !/^(Check|Explain|Find|Get|Scan|Diagnose|Fix|Preflight)\b/.test(op.summary || ""));
-    if (!long.length) break;
-    await sleep(20000);
-  }
-  const dir = `/tmp/pay-skills/providers/fizzl/${name}`;
-  cpSync(`research/pay-skills/providers/fizzl/${name}`, dir, { recursive: true });
-  writeFileSync(`${dir}/openapi.json`, JSON.stringify(spec, null, 2) + "\n");
+  for (let i = 0; i < 30; i++) { spec = await (await fetch(`https://${host}/openapi.json`)).json(); if (ready(spec)) break; await sleep(20000); }
+  console.log(`${name}: ${ready(spec) ? "new spec live" : "OLD SPEC"}`);
+  writeFileSync(`research/pay-skills/providers/fizzl/${name}/openapi.json`, JSON.stringify(spec, null, 2) + "\n");
 }
+console.log(run("git", ["clone", "-q", "--depth", "1", "https://github.com/solana-foundation/pay-skills", "/tmp/pay-skills"]));
 for (const name of Object.keys(hosts)) {
+  cpSync(`research/pay-skills/providers/fizzl/${name}`, `/tmp/pay-skills/providers/fizzl/${name}`, { recursive: true });
   console.log(`\n===== pay catalog check fizzl/${name}`);
-  console.log(run("npx", ["-y", "@solana/pay", "catalog", "check", `providers/fizzl/${name}/PAY.md`], "/tmp/pay-skills").replace(/\x1b\[[0-9;]*m/g, "").slice(-7000));
+  console.log(run("npx", ["-y", "@solana/pay", "catalog", "check", `providers/fizzl/${name}/PAY.md`], "/tmp/pay-skills").replace(/\x1b\[[0-9;]*m/g, "").slice(-4000));
 }

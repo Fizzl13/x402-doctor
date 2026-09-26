@@ -5,6 +5,7 @@ description: "Is a crypto pair bullish, bearish or neutral right now? Ichimoku C
 use_case: "Use when an agent needs a trend read for BTC, ETH, SOL or any top-200 coin: bullish/bearish/neutral, indicator confluence (RSI, MACD, EMA, Bollinger), stop and take-profit levels, or which coins are bullish right now."
 category: finance
 service_url: https://ichimoku-signal.onrender.com
+version: v1
 openapi:
   path: openapi.json
 ---

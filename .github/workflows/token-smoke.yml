@@ -3,6 +3,8 @@ on:
   push:
     branches: [research/x402-market]
     paths: ['scripts/token-smoke.mjs', '.github/workflows/token-smoke.yml']
+permissions:
+  contents: write
 jobs:
   smoke:
     runs-on: ubuntu-latest
@@ -11,3 +13,9 @@ jobs:
       - uses: actions/setup-node@v5
         with: { node-version: 22 }
       - run: node scripts/token-smoke.mjs
+      - name: Save the fetched OpenAPI specs
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/pay-skills
+          git diff --cached --quiet || { git commit -m "Research: live OpenAPI specs for the pay-skills listing [skip ci]" && git push; }

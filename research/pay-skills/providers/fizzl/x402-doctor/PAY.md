@@ -5,6 +5,7 @@ description: "Check any x402 endpoint the way a paying agent would: the 402 chal
 use_case: "Use before paying an unknown x402 endpoint (a $0.001 go/caution/no_go preflight with the recommended option), or to find out why an x402 endpoint fails payment and how to fix it."
 category: devtools
 service_url: https://x402-doctor.onrender.com
+version: v1
 openapi:
   path: openapi.json
 ---

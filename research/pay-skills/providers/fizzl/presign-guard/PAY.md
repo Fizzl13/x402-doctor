@@ -5,6 +5,7 @@ description: "Is it safe to sign or buy? Green/orange/red verdicts with reason c
 use_case: "Use before your agent signs a transaction, approval or EIP-712 signature, buys or accepts a token (honeypot, rug-pull signs, taxes, liquidity), or to find which token approvals on a wallet to revoke. Never sign on red."
 category: security
 service_url: https://presign-guard.onrender.com
+version: v1
 openapi:
   path: openapi.json
 ---
