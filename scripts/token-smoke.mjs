@@ -1,31 +1,42 @@
-// Sample GoPlus approval data (token + NFT) to design presign-guard's /v1/approvals. Free API, nothing paid.
-const G = 'https://api.gopluslabs.io/api/v2';
-const wallets = [
-  ['1', '0xd8da6bf26964af9d7eed9e03e53415d37aa96045'],
-  ['8453', '0x0fd3d46e688855b24536df33bba3dfa35b67445c'],
-  ['8453', '0x6b0f4651ed42893ab58139938175e4a69f175f25'],
-  ['1', '0x28c6c06298d514db089934071355e5743bf21d60'],
-];
-for (const [chain, addr] of wallets) {
-  for (const ep of ['token_approval_security', 'nft721_approval_security', 'nft1155_approval_security']) {
-    const r = await fetch(`${G}/${ep}/${chain}?addresses=${addr}`);
-    const t = await r.text();
-    let j; try { j = JSON.parse(t); } catch { console.log(ep, chain, addr, r.status, t.slice(0, 200)); continue; }
-    const res = j.result;
-    const n = Array.isArray(res) ? res.length : res ? Object.keys(res).length : 0;
-    console.log(`\n### ${ep} chain ${chain} ${addr}: HTTP ${r.status} code ${j.code} msg ${j.message} items ${n}`);
-    const items = Array.isArray(res) ? res : [];
-    if (items.length) {
-      const first = { ...items[0] }; const list = first.approved_list || [];
-      first.approved_list = list.slice(0, 2);
-      console.log(JSON.stringify(first, null, 1).slice(0, 2500));
-      console.log('keys of all items:', [...new Set(items.flatMap((i) => Object.keys(i)))].join(','));
-      console.log('approved_list keys:', [...new Set(items.flatMap((i) => (i.approved_list || []).flatMap((a) => Object.keys(a))))].join(','));
-      console.log('address_info keys:', [...new Set(items.flatMap((i) => (i.approved_list || []).flatMap((a) => Object.keys(a.address_info || {}))))].join(','));
-      const amounts = items.flatMap((i) => (i.approved_list || []).map((a) => a.approved_amount)).slice(0, 12);
-      console.log('sample amounts:', JSON.stringify(amounts));
-      const mal = items.flatMap((i) => (i.approved_list || []).filter((a) => (a.address_info?.malicious_behavior || []).length || a.address_info?.doubt_list == 1).map((a) => [a.approved_contract, a.address_info.malicious_behavior, a.address_info.doubt_list]));
-      console.log('flagged spenders:', JSON.stringify(mal).slice(0, 600));
-    }
+// presign-guard GET /v1/approvals after deploy: 402 challenge, 400, OpenAPI, CDP validator. Nothing paid.
+const B = 'https://presign-guard.onrender.com';
+const R = `${B}/v1/approvals`;
+let ch = null;
+for (let i = 0; i < 30; i++) {
+  const r = await fetch(R, { headers: { accept: 'application/json' } }).catch((e) => ({ status: 0, e }));
+  if (r.status === 402) {
+    const h = r.headers.get('payment-required');
+    ch = JSON.parse(Buffer.from(h, 'base64').toString('utf8'));
+    const body = await r.json();
+    console.log(`round ${i}: 402`);
+    console.log('accepts:', JSON.stringify(ch.accepts.map((a) => [a.network, a.amount, a.payTo])));
+    console.log('resource:', JSON.stringify(ch.resource));
+    console.log('body has resource:', JSON.stringify(body.resource) === JSON.stringify(ch.resource));
+    console.log('bazaar input:', JSON.stringify(ch.extensions?.bazaar?.info?.input));
+    break;
   }
+  console.log(`round ${i}: HTTP ${r.status} (not deployed yet)`);
+  await new Promise((r2) => setTimeout(r2, 30000));
 }
+if (!ch) process.exit(1);
+const bad = await fetch(`${R}?chain=solana&address=x`);
+console.log('invalid →', bad.status, JSON.stringify(await bad.json()));
+const spec = await (await fetch(`${B}/openapi.json`)).json();
+console.log('openapi', spec.info.version, Object.keys(spec.paths).join(' '));
+const wk = await (await fetch(`${B}/.well-known/x402`)).json();
+console.log('well-known resources:', wk.resources.join(' '));
+const v = await fetch('https://api.cdp.coinbase.com/platform/v2/x402/validate', {
+  method: 'POST', headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({ resource: `${R}?chain=ethereum&address=0x28c6c06298d514db089934071355e5743bf21d60`, method: 'GET' }),
+});
+const vj = await v.json().catch(() => null);
+console.log('CDP validate HTTP', v.status, 'valid:', vj?.valid, 'simulation:', vj?.simulation?.outcome);
+console.log(JSON.stringify(vj).slice(0, 1500));
+const v2 = await fetch('https://api.cdp.coinbase.com/platform/v2/x402/validate', {
+  method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ resource: R, method: 'GET' }),
+});
+const v2j = await v2.json().catch(() => null);
+console.log('CDP validate (bare) valid:', v2j?.valid, 'simulation:', v2j?.simulation?.outcome);
+// Free GoPlus sample through the same source, to see a real audit shape (no payment).
+const g = await (await fetch('https://api.gopluslabs.io/api/v2/token_approval_security/8453?addresses=0x28c6c06298d514db089934071355e5743bf21d60')).json();
+console.log('goplus base sample items:', Array.isArray(g.result) ? g.result.length : g.result);
