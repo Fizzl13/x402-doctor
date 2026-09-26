@@ -1,23 +1,20 @@
-// 1) Our endpoints on x402watch (free feed). 2) nohumans.directory: are we listed, and its submission rules. Read-only.
-const ours = ["presign-guard.onrender.com", "ichimoku-signal.onrender.com", "x402-doctor.onrender.com", "smartcontractexplainer.onrender.com"];
-const get = async (u, accept = "application/json") => {
-  const r = await fetch(u, { headers: { accept, "user-agent": "fizzl-research/1" }, signal: AbortSignal.timeout(25000) });
-  return { status: r.status, text: await r.text() };
-};
-console.log("===== x402watch");
-for (const h of ours) {
-  const { status, text } = await get(`https://x402watch.vercel.app/api/feed?q=${h}&limit=100`);
-  let d; try { d = JSON.parse(text); } catch { console.log(h, status, text.slice(0, 200)); continue; }
-  console.log(`\n-- ${h}: ${d.total} rows (feed generated ${d.generatedAt})`);
-  for (const r of d.rows) console.log(`  ${String(r.score).padStart(3)} ${r.method} ${r.url.replace(/^https:\/\/[^/]+/, "")} | ${r.lastStatus} up=${r.uptime} ${r.medianMs}ms price=${r.declaredAmount}/${r.livePrice} drift=${r.priceDrift} payers30d=${r.payers30d} checks=${r.checks} src=${r.sources} ex=${r.hasInputExample}/${r.hasOutputExample}`);
+// nohumans.directory: resolve each of our endpoints, and the submission/claim rules from llms.txt. Read-only.
+const API = "https://api.nohumans.directory";
+const eps = [
+  "https://presign-guard.onrender.com/v1/check", "https://presign-guard.onrender.com/v1/check/explain", "https://presign-guard.onrender.com/v1/token", "https://presign-guard.onrender.com/v1/approvals",
+  "https://ichimoku-signal.onrender.com/signal/:pair", "https://ichimoku-signal.onrender.com/signals/:pair", "https://ichimoku-signal.onrender.com/levels/:pair", "https://ichimoku-signal.onrender.com/scan",
+  "https://x402-doctor.onrender.com/api/v1/preflight", "https://x402-doctor.onrender.com/api/v1/diagnose", "https://x402-doctor.onrender.com/api/v1/fix",
+  "https://smartcontractexplainer.onrender.com/api/check-wallet", "https://smartcontractexplainer.onrender.com/api/explain",
+];
+const j = async (u) => { const r = await fetch(u, { headers: { accept: "application/json" }, signal: AbortSignal.timeout(25000) }); return [r.status, await r.json().catch(() => null)]; };
+for (const u of eps) {
+  const [s, d] = await j(`${API}/v1/resolve?url=${encodeURIComponent(u)}`);
+  const l = d?.listing || d?.match || d;
+  const brief = d ? JSON.stringify({ found: d.found ?? d.listed ?? !!d.id, id: l?.id, status: l?.status, score: l?.score, probes: `${l?.probes_passed}/${l?.probe_count}`, paid_verified: l?.paid_verified, evidence: l?.evidence_tier, has_sample: l?.has_sample, verdict: d.verdict, note: d.note || d.message || d.evidence_note }) : "";
+  console.log(`${s} ${u.replace("https://", "")} ${brief.slice(0, 400)}`);
 }
-console.log("\n===== nohumans.directory");
-for (const h of ours) {
-  const { status, text } = await get(`https://nohumans.directory/v1/discover?q=${encodeURIComponent(h)}`);
-  console.log(`\n-- discover ${h}: ${status} ${text.slice(0, 700)}`);
-}
-for (const path of ["/llms.txt", "/how", "/v1", "/docs", "/openapi.json", "/.well-known/x402"]) {
-  const { status, text } = await get(`https://nohumans.directory${path}`, "text/plain, application/json, text/html");
-  const t = text.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/g, " ").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
-  console.log(`\n-- ${path}: ${status} (${t.length})\n${t.slice(0, 3500)}`);
+const txt = await (await fetch(`${API}/llms.txt`)).text();
+for (const key of ["### POST /v1/listings", "claim", "sample_query", "Claim"]) {
+  const i = txt.indexOf(key);
+  if (i >= 0) console.log(`\n--- llms.txt @ "${key}"\n${txt.slice(i, i + 2500)}`);
 }
