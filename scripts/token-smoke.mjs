@@ -1,15 +1,12 @@
-// Account 3 (test payer) balance on Base: USDC and ETH, plus its latest incoming USDC transfers. Read-only.
-const RPC = "https://mainnet.base.org";
-const ADDR = "0x0fD3D46E688855B24536df33BBa3dFa35b67445C";
-const USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
-const rpc = async (method, params) => (await (await fetch(RPC, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) })).json()).result;
-const pad = ADDR.slice(2).toLowerCase().padStart(64, "0");
-const usdc = BigInt(await rpc("eth_call", [{ to: USDC, data: "0x70a08231" + pad }, "latest"]));
-const eth = BigInt(await rpc("eth_getBalance", [ADDR, "latest"]));
-console.log(`USDC: ${(Number(usdc) / 1e6).toFixed(6)}  ETH: ${(Number(eth) / 1e18).toFixed(8)}`);
-// Incoming USDC transfers in the last ~2 hours (Transfer(from, to=ADDR)).
-const head = Number(await rpc("eth_blockNumber", []));
-const logs = await rpc("eth_getLogs", [{ address: USDC, fromBlock: "0x" + (head - 3600).toString(16), toBlock: "latest",
-  topics: ["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef", null, "0x" + pad] }]);
-for (const l of logs || []) console.log(`in: ${(Number(BigInt(l.data)) / 1e6).toFixed(6)} USDC from 0x${l.topics[1].slice(26)} tx ${l.transactionHash} block ${Number(l.blockNumber)}`);
-console.log(`incoming transfers in the last ~2h: ${(logs || []).length}`);
+// Status of our 12 nohumans listings (embedding sync time included), then the ranking test. Free, read-only.
+const API = "https://api.nohumans.directory";
+const ids = { "5b72a75f-172": "presign check", "6298e4ab-2fb": "presign explain", "ee5c650c-d63": "presign token", "1f61fcfc-42f": "presign approvals",
+  "1259df9a-70c": "ichimoku signal", "5b091fee-e8d": "ichimoku signals", "3e22b66d-48d": "ichimoku levels", "1c8d9230-124": "ichimoku scan",
+  "22c4a0f9-8dd": "doctor preflight", "b8dc5b73-c7b": "doctor diagnose", "3cdb4ceb-a86": "doctor fix", "938d66f7-e9c": "plaintext check-wallet" };
+const t = (s) => (s ? new Date(s * 1000).toISOString().slice(11, 16) : "-");
+for (const [id, what] of Object.entries(ids)) {
+  const d = await (await fetch(`${API}/v1/listings/${id}`)).json().catch(() => ({}));
+  console.log(`${what.padEnd(22)} ${String(d.status).padEnd(10)} score=${d.score} probes=${d.probes_passed}/${d.probe_count} updated=${t(d.updated_at)} embedded=${t(d.embedding_synced_at)} ${d.origin}`);
+}
+console.log("");
+await import("./rank.mjs");
