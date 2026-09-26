@@ -214,6 +214,21 @@ test('admin pages: 10 wrong passwords from one IP lock it out, even with the rig
   server.close();
 });
 
+test('nohumans claim: each listed paid endpoint carries its own challenge token', async () => {
+  const { CLAIMS } = require('../lib/nohumans-claim');
+  const { server, base } = await listen(createApp({ env: {}, trustIndex: trustStub }));
+  try {
+    // Set before the paywall, so the header is there whatever the route answers.
+    for (const [path, token] of Object.entries(CLAIMS.headers)) {
+      assert.equal((await fetch(`${base}${path}`)).headers.get('x-nohumans-claim'), token, path);
+    }
+    assert.equal((await fetch(`${base}/`)).headers.get('x-nohumans-claim'), null);
+    assert.equal((await fetch(`${base}/.well-known/nohumans-claim`)).status, 404);
+  } finally {
+    server.close();
+  }
+});
+
 test('every response carries the security headers', async () => {
   const { server, base } = await listen(createApp({ env: {}, trustIndex: trustStub }));
   for (const path of ['/', '/.well-known/x402-trust.txt', '/api/v1/diagnose']) {

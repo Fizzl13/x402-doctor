@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const { x402TrustTxtRoute } = require('./lib/x402-trust-txt');
 const { securityHeaders } = require('./lib/security-headers');
+const { nohumansClaim } = require('./lib/nohumans-claim');
 const { createSafeFetch, isPrivateIp } = require('./lib/safe-fetch');
 const diagnoseLib = require('./lib/diagnose');
 const { createPaidApi, ROUTE: PAID_ROUTE, PREFLIGHT_ROUTE, FIX_ROUTE, REPORT_SCHEMA, FIX_SCHEMA } = require('./lib/paid-api');
@@ -119,6 +120,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   app.set('trust proxy', 1);
   app.disable('x-powered-by');
   app.use(securityHeaders);
+  app.use(nohumansClaim());
   app.get('/.well-known/x402-trust.txt', x402TrustTxtRoute(env));
   app.use(express.json({ limit: '4kb' }));
   app.use(usageLog.middleware(describeDoctorCall));
