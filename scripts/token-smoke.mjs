@@ -12,3 +12,4 @@ for (let i = 0; i < 10; i++) {
   if (res.every(([, a, b]) => a && b)) break;
   await new Promise((s) => setTimeout(s, 30000));
 }
+// recheck 12:28
