@@ -3,6 +3,7 @@ const path = require('path');
 const { x402TrustTxtRoute } = require('./lib/x402-trust-txt');
 const { securityHeaders } = require('./lib/security-headers');
 const { nohumansClaim } = require('./lib/nohumans-claim');
+const { proxyHops } = require('./lib/proxy-hops');
 const { createSafeFetch, isPrivateIp } = require('./lib/safe-fetch');
 const diagnoseLib = require('./lib/diagnose');
 const { createPaidApi, ROUTE: PAID_ROUTE, PREFLIGHT_ROUTE, FIX_ROUTE, REPORT_SCHEMA, FIX_SCHEMA } = require('./lib/paid-api');
@@ -118,6 +119,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   const paidApi = createPaidApi({ safeFetch, env, trustIndex, ...(bazaarIndex ? { bazaarIndex } : {}) });
 
   app.set('trust proxy', 1);
+  if (env.PROXY_HOPS_LOG !== '0') app.use(proxyHops());
   app.disable('x-powered-by');
   app.use(securityHeaders);
   app.use(nohumansClaim());
