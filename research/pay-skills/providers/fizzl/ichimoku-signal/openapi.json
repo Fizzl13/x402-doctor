@@ -1,0 +1,1149 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Ichimoku Cloud Signal",
+    "version": "1.0.0",
+    "description": "Real-time crypto trading signals for agents on live market data (Binance.US, Kraken, Gate, MEXC): the Ichimoku Cloud signal, a confluence signal of six indicators, price levels with a long/short plan, and a market scan of 148 top-200 coins. Pay-per-call via x402.",
+    "x-guidance": "Use this when a trading agent needs a quick Ichimoku Cloud read (tenkan/kijun cross, cloud position, bullish/bearish/neutral signal) for one pair before deciding to act. It returns the raw indicator values, not a trade recommendation, and it is not a full OHLCV history feed. For a broader read, /signals/{pair} ($0.10) returns Ichimoku, RSI, MACD, EMA 50/200, Bollinger Bands and volume, each with a vote, plus a combined signal and confidence. For where to act, /levels/{pair} ($0.05) returns support and resistance, ATR, pivots, Fibonacci and Ichimoku levels, plus a long and a short plan with stop, two targets and risk/reward (levels, not advice). To find what is moving, /scan ($0.25) returns the Ichimoku signal for 148 top-200 coins in one call, strongest bullish first, with market breadth.",
+    "contact": {
+      "email": "frits.zwager@gmail.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://ichimoku-signal.onrender.com"
+    }
+  ],
+  "paths": {
+    "/signal/{pair}": {
+      "get": {
+        "operationId": "getIchimokuSignal",
+        "summary": "Get the Ichimoku Cloud signal for a trading pair",
+        "tags": [
+          "trading",
+          "crypto",
+          "technical-analysis",
+          "ichimoku"
+        ],
+        "x-payment-info": {
+          "protocols": [
+            "x402"
+          ],
+          "price": {
+            "mode": "fixed",
+            "currency": "USD",
+            "amount": "0.02"
+          },
+          "networks": [
+            "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+            "eip155:8453"
+          ],
+          "asset": "USDC"
+        },
+        "parameters": [
+          {
+            "name": "pair",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9]{2,12}(-[A-Za-z0-9]{2,12})?$",
+              "example": "BTC-USDT"
+            },
+            "description": "Crypto pair, e.g. BTC-USDT, ETH-USDT, TAO-USDT or BTCUSDT. Looked up on Binance.US, then Kraken, Gate and MEXC (top 200 coins)",
+            "example": "BTC-USDT"
+          },
+          {
+            "name": "interval",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "1h",
+              "enum": [
+                "1m",
+                "3m",
+                "5m",
+                "15m",
+                "30m",
+                "1h",
+                "2h",
+                "4h",
+                "6h",
+                "8h",
+                "12h",
+                "1d",
+                "3d",
+                "1w",
+                "1M"
+              ]
+            },
+            "description": "Candle interval, e.g. 1h, 4h, 1d",
+            "example": "1h"
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "json",
+                "html"
+              ],
+              "default": "json"
+            },
+            "description": "Response format. 'html' returns a human-readable page (used by the browser paywall); agents should use the default JSON."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ichimoku Cloud signal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "pair": {
+                      "type": "string"
+                    },
+                    "interval": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "price": {
+                      "type": "number"
+                    },
+                    "tenkan_sen": {
+                      "type": "number"
+                    },
+                    "kijun_sen": {
+                      "type": "number"
+                    },
+                    "senkou_span_a": {
+                      "type": "number"
+                    },
+                    "senkou_span_b": {
+                      "type": "number"
+                    },
+                    "cloud_position": {
+                      "type": "string",
+                      "enum": [
+                        "above_cloud",
+                        "below_cloud",
+                        "in_cloud"
+                      ]
+                    },
+                    "tenkan_kijun_cross": {
+                      "type": "string",
+                      "enum": [
+                        "bullish_cross",
+                        "bearish_cross",
+                        "flat"
+                      ]
+                    },
+                    "signal": {
+                      "type": "string",
+                      "enum": [
+                        "bullish",
+                        "bearish",
+                        "neutral"
+                      ]
+                    },
+                    "exchange": {
+                      "type": "string",
+                      "enum": [
+                        "Binance.US",
+                        "Kraken",
+                        "Gate",
+                        "MEXC"
+                      ],
+                      "description": "Where the candles came from"
+                    },
+                    "market": {
+                      "type": "string",
+                      "description": "The pair on that exchange, e.g. BTCUSDT, TAO/USD or KAS/USDT"
+                    }
+                  }
+                }
+              },
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Readable signal page when format=html"
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid pair or interval (rejected before payment), or not enough candle history"
+          },
+          "402": {
+            "description": "Payment required (x402 protocol v2, $0.02 USDC on Base or Solana)"
+          },
+          "404": {
+            "description": "Pair is not traded on Binance.US, Kraken, Gate or MEXC (rejected before payment)"
+          },
+          "502": {
+            "description": "Market data unavailable; a verified payment is not settled"
+          }
+        }
+      }
+    },
+    "/signals/{pair}": {
+      "get": {
+        "operationId": "getConfluenceSignals",
+        "summary": "Get a six-indicator confluence signal for a trading pair",
+        "tags": [
+          "trading",
+          "crypto",
+          "technical-analysis",
+          "confluence",
+          "rsi",
+          "macd",
+          "bollinger",
+          "ichimoku"
+        ],
+        "x-payment-info": {
+          "protocols": [
+            "x402"
+          ],
+          "price": {
+            "mode": "fixed",
+            "currency": "USD",
+            "amount": "0.10"
+          },
+          "networks": [
+            "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+            "eip155:8453"
+          ],
+          "asset": "USDC"
+        },
+        "parameters": [
+          {
+            "name": "pair",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9]{2,12}(-[A-Za-z0-9]{2,12})?$",
+              "example": "BTC-USDT"
+            },
+            "description": "Crypto pair, e.g. BTC-USDT, ETH-USDT, TAO-USDT or BTCUSDT. Looked up on Binance.US, then Kraken, Gate and MEXC (top 200 coins)",
+            "example": "BTC-USDT"
+          },
+          {
+            "name": "interval",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "1h",
+              "enum": [
+                "1m",
+                "3m",
+                "5m",
+                "15m",
+                "30m",
+                "1h",
+                "2h",
+                "4h",
+                "6h",
+                "8h",
+                "12h",
+                "1d",
+                "3d",
+                "1w",
+                "1M"
+              ]
+            },
+            "description": "Candle interval, e.g. 1h, 4h, 1d",
+            "example": "1h"
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "json",
+                "html"
+              ],
+              "default": "json"
+            },
+            "description": "Response format. 'html' returns a human-readable page (used by the browser paywall); agents should use the default JSON."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Confluence signal: one vote per indicator and the combined signal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "pair": {
+                      "type": "string"
+                    },
+                    "interval": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "price": {
+                      "type": "number"
+                    },
+                    "signal": {
+                      "type": "string",
+                      "enum": [
+                        "bullish",
+                        "bearish",
+                        "neutral"
+                      ],
+                      "description": "bullish when score >= 1/3, bearish when <= -1/3"
+                    },
+                    "confidence": {
+                      "type": "string",
+                      "enum": [
+                        "high",
+                        "medium",
+                        "low"
+                      ],
+                      "description": "high when |score| >= 2/3, medium >= 1/3"
+                    },
+                    "score": {
+                      "type": "number",
+                      "description": "(bullish - bearish) / counted votes, -1 to 1"
+                    },
+                    "votes": {
+                      "type": "object",
+                      "properties": {
+                        "bullish": {
+                          "type": "integer"
+                        },
+                        "bearish": {
+                          "type": "integer"
+                        },
+                        "neutral": {
+                          "type": "integer"
+                        },
+                        "counted": {
+                          "type": "integer"
+                        }
+                      }
+                    },
+                    "summary": {
+                      "type": "string",
+                      "example": "4 of 6 indicators bullish"
+                    },
+                    "indicators": {
+                      "type": "object",
+                      "properties": {
+                        "ichimoku": {
+                          "type": "object",
+                          "properties": {
+                            "cloud_position": {
+                              "type": "string",
+                              "enum": [
+                                "above_cloud",
+                                "below_cloud",
+                                "in_cloud"
+                              ]
+                            },
+                            "tenkan_kijun_cross": {
+                              "type": "string"
+                            },
+                            "tenkan_sen": {
+                              "type": "number"
+                            },
+                            "kijun_sen": {
+                              "type": "number"
+                            },
+                            "vote": {
+                              "type": "string",
+                              "nullable": true,
+                              "enum": [
+                                "bullish",
+                                "bearish",
+                                "neutral",
+                                null
+                              ],
+                              "description": "null = not counted (e.g. insufficient_history)"
+                            }
+                          }
+                        },
+                        "rsi": {
+                          "type": "object",
+                          "properties": {
+                            "value": {
+                              "type": "number"
+                            },
+                            "zone": {
+                              "type": "string",
+                              "enum": [
+                                "overbought",
+                                "oversold",
+                                "normal"
+                              ]
+                            },
+                            "vote": {
+                              "type": "string",
+                              "nullable": true,
+                              "enum": [
+                                "bullish",
+                                "bearish",
+                                "neutral",
+                                null
+                              ],
+                              "description": "null = not counted (e.g. insufficient_history)"
+                            }
+                          }
+                        },
+                        "macd": {
+                          "type": "object",
+                          "properties": {
+                            "macd": {
+                              "type": "number"
+                            },
+                            "signal": {
+                              "type": "number"
+                            },
+                            "histogram": {
+                              "type": "number"
+                            },
+                            "cross": {
+                              "type": "string",
+                              "enum": [
+                                "bullish_cross",
+                                "bearish_cross",
+                                "none"
+                              ]
+                            },
+                            "vote": {
+                              "type": "string",
+                              "nullable": true,
+                              "enum": [
+                                "bullish",
+                                "bearish",
+                                "neutral",
+                                null
+                              ],
+                              "description": "null = not counted (e.g. insufficient_history)"
+                            }
+                          }
+                        },
+                        "ema_cross": {
+                          "type": "object",
+                          "properties": {
+                            "ema_50": {
+                              "type": "number"
+                            },
+                            "ema_200": {
+                              "type": "number"
+                            },
+                            "trend": {
+                              "type": "string",
+                              "enum": [
+                                "golden",
+                                "death",
+                                "flat"
+                              ]
+                            },
+                            "recent_cross": {
+                              "type": "string",
+                              "enum": [
+                                "golden_cross",
+                                "death_cross",
+                                "none"
+                              ]
+                            },
+                            "vote": {
+                              "type": "string",
+                              "nullable": true,
+                              "enum": [
+                                "bullish",
+                                "bearish",
+                                "neutral",
+                                null
+                              ],
+                              "description": "null = not counted (e.g. insufficient_history)"
+                            }
+                          }
+                        },
+                        "bollinger": {
+                          "type": "object",
+                          "properties": {
+                            "middle": {
+                              "type": "number"
+                            },
+                            "upper": {
+                              "type": "number"
+                            },
+                            "lower": {
+                              "type": "number"
+                            },
+                            "percent_b": {
+                              "type": "number"
+                            },
+                            "position": {
+                              "type": "string",
+                              "enum": [
+                                "above_upper",
+                                "upper_half",
+                                "lower_half",
+                                "below_lower"
+                              ]
+                            },
+                            "squeeze": {
+                              "type": "boolean"
+                            },
+                            "vote": {
+                              "type": "string",
+                              "nullable": true,
+                              "enum": [
+                                "bullish",
+                                "bearish",
+                                "neutral",
+                                null
+                              ],
+                              "description": "null = not counted (e.g. insufficient_history)"
+                            }
+                          }
+                        },
+                        "volume": {
+                          "type": "object",
+                          "properties": {
+                            "obv_change": {
+                              "type": "number"
+                            },
+                            "obv_flow": {
+                              "type": "number",
+                              "description": "-1 (all selling volume) to 1 (all buying volume) over 20 candles"
+                            },
+                            "last_vs_average": {
+                              "type": "number"
+                            },
+                            "vote": {
+                              "type": "string",
+                              "nullable": true,
+                              "enum": [
+                                "bullish",
+                                "bearish",
+                                "neutral",
+                                null
+                              ],
+                              "description": "null = not counted (e.g. insufficient_history)"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "candles": {
+                      "type": "integer",
+                      "description": "Candles used (up to 250)"
+                    },
+                    "exchange": {
+                      "type": "string",
+                      "enum": [
+                        "Binance.US",
+                        "Kraken",
+                        "Gate",
+                        "MEXC"
+                      ],
+                      "description": "Where the candles came from"
+                    },
+                    "market": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid pair or interval (rejected before payment), or not enough candle history"
+          },
+          "402": {
+            "description": "Payment required (x402 protocol v2, $0.10 USDC on Base or Solana)"
+          },
+          "404": {
+            "description": "Pair is not traded on Binance.US, Kraken, Gate or MEXC (rejected before payment)"
+          },
+          "502": {
+            "description": "Market data unavailable; a verified payment is not settled"
+          }
+        }
+      }
+    },
+    "/levels/{pair}": {
+      "get": {
+        "operationId": "getPriceLevels",
+        "summary": "Get support/resistance levels, stop and targets for a pair",
+        "tags": [
+          "trading",
+          "crypto",
+          "technical-analysis",
+          "support-resistance",
+          "price-targets",
+          "atr",
+          "fibonacci",
+          "pivots"
+        ],
+        "x-payment-info": {
+          "protocols": [
+            "x402"
+          ],
+          "price": {
+            "mode": "fixed",
+            "currency": "USD",
+            "amount": "0.05"
+          },
+          "networks": [
+            "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+            "eip155:8453"
+          ],
+          "asset": "USDC"
+        },
+        "parameters": [
+          {
+            "name": "pair",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9]{2,12}(-[A-Za-z0-9]{2,12})?$",
+              "example": "BTC-USDT"
+            },
+            "description": "Crypto pair, e.g. BTC-USDT, ETH-USDT, TAO-USDT or BTCUSDT. Looked up on Binance.US, then Kraken, Gate and MEXC (top 200 coins)",
+            "example": "BTC-USDT"
+          },
+          {
+            "name": "interval",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "1h",
+              "enum": [
+                "1m",
+                "3m",
+                "5m",
+                "15m",
+                "30m",
+                "1h",
+                "2h",
+                "4h",
+                "6h",
+                "8h",
+                "12h",
+                "1d",
+                "3d",
+                "1w",
+                "1M"
+              ]
+            },
+            "description": "Candle interval, e.g. 1h, 4h, 1d",
+            "example": "1h"
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "json",
+                "html"
+              ],
+              "default": "json"
+            },
+            "description": "Response format. 'html' returns a human-readable page (used by the browser paywall); agents should use the default JSON."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Price levels and a long and a short plan. Levels from price history, not trade advice.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "pair": {
+                      "type": "string"
+                    },
+                    "interval": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "price": {
+                      "type": "number"
+                    },
+                    "atr": {
+                      "type": "number",
+                      "description": "Average True Range (14, Wilder)"
+                    },
+                    "atr_percent": {
+                      "type": "number"
+                    },
+                    "bias": {
+                      "type": "string",
+                      "enum": [
+                        "long",
+                        "short",
+                        "none"
+                      ],
+                      "description": "From the confluence signal (/signals)"
+                    },
+                    "bias_from": {
+                      "type": "string",
+                      "example": "4 of 6 indicators bullish"
+                    },
+                    "confidence": {
+                      "type": "string",
+                      "enum": [
+                        "high",
+                        "medium",
+                        "low"
+                      ]
+                    },
+                    "supports": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "price": {
+                            "type": "number"
+                          },
+                          "touches": {
+                            "type": "integer",
+                            "description": "How often price turned at this level"
+                          }
+                        }
+                      },
+                      "description": "Up to 3 levels below the price, nearest first (swing lows, pivots)"
+                    },
+                    "resistances": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "price": {
+                            "type": "number"
+                          },
+                          "touches": {
+                            "type": "integer",
+                            "description": "How often price turned at this level"
+                          }
+                        }
+                      },
+                      "description": "Up to 3 levels above the price, nearest first (swing highs, pivots)"
+                    },
+                    "pivots": {
+                      "type": "object",
+                      "description": "Classic pivots from the last completed candle",
+                      "properties": {
+                        "p": {
+                          "type": "number"
+                        },
+                        "r1": {
+                          "type": "number"
+                        },
+                        "r2": {
+                          "type": "number"
+                        },
+                        "s1": {
+                          "type": "number"
+                        },
+                        "s2": {
+                          "type": "number"
+                        }
+                      }
+                    },
+                    "fibonacci": {
+                      "type": "object",
+                      "properties": {
+                        "move": {
+                          "type": "string",
+                          "enum": [
+                            "up",
+                            "down"
+                          ]
+                        },
+                        "swing_high": {
+                          "type": "number"
+                        },
+                        "swing_low": {
+                          "type": "number"
+                        },
+                        "retracements": {
+                          "type": "object",
+                          "properties": {
+                            "0.382": {
+                              "type": "number"
+                            },
+                            "0.5": {
+                              "type": "number"
+                            },
+                            "0.618": {
+                              "type": "number"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "ichimoku": {
+                      "type": "object",
+                      "properties": {
+                        "kijun_sen": {
+                          "type": "number"
+                        },
+                        "cloud_top": {
+                          "type": "number"
+                        },
+                        "cloud_bottom": {
+                          "type": "number"
+                        }
+                      }
+                    },
+                    "plans": {
+                      "type": "object",
+                      "description": "Stop below the nearest support at least 0.5 ATR away (else 1.5 ATR, max 3 ATR); targets at the next resistances at least 1 ATR away (else +2 and +3 ATR). Short mirrors long.",
+                      "properties": {
+                        "long": {
+                          "type": "object",
+                          "properties": {
+                            "entry": {
+                              "type": "number"
+                            },
+                            "stop": {
+                              "type": "number"
+                            },
+                            "target_1": {
+                              "type": "number"
+                            },
+                            "target_2": {
+                              "type": "number"
+                            },
+                            "risk_reward_1": {
+                              "type": "number"
+                            },
+                            "risk_reward_2": {
+                              "type": "number"
+                            },
+                            "stop_basis": {
+                              "type": "string",
+                              "example": "below support 83150"
+                            },
+                            "obstacle_before_target": {
+                              "type": "number",
+                              "nullable": true,
+                              "description": "A level between entry and target 1 where price may stall"
+                            }
+                          }
+                        },
+                        "short": {
+                          "type": "object",
+                          "properties": {
+                            "entry": {
+                              "type": "number"
+                            },
+                            "stop": {
+                              "type": "number"
+                            },
+                            "target_1": {
+                              "type": "number"
+                            },
+                            "target_2": {
+                              "type": "number"
+                            },
+                            "risk_reward_1": {
+                              "type": "number"
+                            },
+                            "risk_reward_2": {
+                              "type": "number"
+                            },
+                            "stop_basis": {
+                              "type": "string",
+                              "example": "below support 83150"
+                            },
+                            "obstacle_before_target": {
+                              "type": "number",
+                              "nullable": true,
+                              "description": "A level between entry and target 1 where price may stall"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "note": {
+                      "type": "string"
+                    },
+                    "candles": {
+                      "type": "integer"
+                    },
+                    "exchange": {
+                      "type": "string",
+                      "enum": [
+                        "Binance.US",
+                        "Kraken",
+                        "Gate",
+                        "MEXC"
+                      ],
+                      "description": "Where the candles came from"
+                    },
+                    "market": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid pair or interval (rejected before payment), or not enough candle history"
+          },
+          "402": {
+            "description": "Payment required (x402 protocol v2, $0.05 USDC on Base or Solana)"
+          },
+          "404": {
+            "description": "Pair is not traded on Binance.US, Kraken, Gate or MEXC (rejected before payment)"
+          },
+          "502": {
+            "description": "Market data unavailable; a verified payment is not settled"
+          }
+        }
+      }
+    },
+    "/scan": {
+      "get": {
+        "operationId": "getMarketScan",
+        "summary": "Get the Ichimoku signal for 148 coins, strongest bullish first",
+        "tags": [
+          "trading",
+          "crypto",
+          "technical-analysis",
+          "ichimoku",
+          "market-scan",
+          "screener"
+        ],
+        "x-payment-info": {
+          "protocols": [
+            "x402"
+          ],
+          "price": {
+            "mode": "fixed",
+            "currency": "USD",
+            "amount": "0.25"
+          },
+          "networks": [
+            "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+            "eip155:8453"
+          ],
+          "asset": "USDC"
+        },
+        "parameters": [
+          {
+            "name": "interval",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "1h",
+              "enum": [
+                "1m",
+                "3m",
+                "5m",
+                "15m",
+                "30m",
+                "1h",
+                "2h",
+                "4h",
+                "6h",
+                "8h",
+                "12h",
+                "1d",
+                "3d",
+                "1w",
+                "1M"
+              ]
+            },
+            "description": "Candle interval, e.g. 1h, 4h, 1d",
+            "example": "1h"
+          },
+          {
+            "name": "signal",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "bullish",
+                "bearish",
+                "neutral"
+              ]
+            },
+            "description": "Only return coins with this signal (optional)"
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "json",
+                "html"
+              ],
+              "default": "json"
+            },
+            "description": "Response format. 'html' returns a human-readable page (used by the browser paywall); agents should use the default JSON."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The scan (JSON, or HTML with format=html)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "interval",
+                    "timestamp",
+                    "coins_scanned",
+                    "summary",
+                    "coins"
+                  ],
+                  "properties": {
+                    "interval": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "coins_scanned": {
+                      "type": "integer"
+                    },
+                    "summary": {
+                      "type": "object",
+                      "properties": {
+                        "bullish": {
+                          "type": "integer"
+                        },
+                        "neutral": {
+                          "type": "integer"
+                        },
+                        "bearish": {
+                          "type": "integer"
+                        }
+                      }
+                    },
+                    "breadth": {
+                      "type": "string",
+                      "example": "98 of 148 coins bullish"
+                    },
+                    "filter": {
+                      "type": "string",
+                      "enum": [
+                        "bullish",
+                        "bearish",
+                        "neutral"
+                      ]
+                    },
+                    "coins": {
+                      "type": "array",
+                      "description": "Strongest bullish first, strongest bearish last",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "pair": {
+                            "type": "string"
+                          },
+                          "signal": {
+                            "type": "string",
+                            "enum": [
+                              "bullish",
+                              "bearish",
+                              "neutral"
+                            ]
+                          },
+                          "price": {
+                            "type": "number"
+                          },
+                          "cloud_position": {
+                            "type": "string",
+                            "enum": [
+                              "above_cloud",
+                              "below_cloud",
+                              "in_cloud"
+                            ]
+                          },
+                          "tenkan_kijun_cross": {
+                            "type": "string",
+                            "enum": [
+                              "bullish_cross",
+                              "bearish_cross",
+                              "flat"
+                            ]
+                          },
+                          "cloud_distance_percent": {
+                            "type": "number",
+                            "description": "Price distance above (+) or below (-) the cloud, in %"
+                          },
+                          "exchange": {
+                            "type": "string",
+                            "enum": [
+                              "Binance.US",
+                              "Kraken",
+                              "Gate",
+                              "MEXC"
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "skipped": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "pair": {
+                            "type": "string"
+                          },
+                          "reason": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "note": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid interval or signal filter (rejected before payment)"
+          },
+          "402": {
+            "description": "Payment required (x402 protocol v2, $0.25 USDC on Base or Solana)"
+          },
+          "502": {
+            "description": "Too few coins answered (market data unavailable); nothing is charged"
+          }
+        }
+      }
+    }
+  }
+}
