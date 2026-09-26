@@ -1,22 +1,11 @@
-// nohumans.directory demand: what agents search for before paying (free MCP tool and free REST), read-only.
-const API = "https://api.nohumans.directory";
-async function mcp(method, params, session) {
-  const r = await fetch(`${API}/mcp`, { method: "POST", headers: { "content-type": "application/json", accept: "application/json, text/event-stream", ...(session ? { "mcp-session-id": session } : {}) },
-    body: JSON.stringify({ jsonrpc: "2.0", id: Math.floor(Math.random() * 1e6), method, params }) });
-  const text = await r.text();
-  const json = text.startsWith("{") ? JSON.parse(text) : JSON.parse((text.match(/data: (.*)/g) || []).map((l) => l.slice(6)).pop() || "{}");
-  return { json, session: r.headers.get("mcp-session-id") || session, status: r.status };
+// nohumans.directory demand, compact: every published search term with its buyer-IP count (free, read-only).
+const d = await (await fetch("https://api.nohumans.directory/v1/demand")).json();
+console.log(`window ${d.window_starts_at_iso} → ${d.window_ends_at_iso} (${d.covered_days} days), ${d.total_queries} queries from ${d.distinct_client_ips} IPs`);
+const rows = [...(d.top_needs || []), ...(d.other_needs || []), ...(d.needs || [])];
+const seen = new Set();
+for (const r of rows) {
+  if (seen.has(r.q)) continue; seen.add(r.q);
+  console.log(`${String(r.buyer_client_ips).padStart(3)} ips ${String(r.searches).padStart(4)}x ${r.distinct_days}d | ${r.q} | top: ${(r.catalogue_top || []).map((t) => `${t.name.slice(0, 40)} $${t.price_amount}`).join(" ; ")}`);
 }
-const init = await mcp("initialize", { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "fizzl-research", version: "1" } });
-const s = init.session;
-await fetch(`${API}/mcp`, { method: "POST", headers: { "content-type": "application/json", accept: "application/json, text/event-stream", ...(s ? { "mcp-session-id": s } : {}) }, body: JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }) });
-const tools = await mcp("tools/list", {}, s);
-const t = (tools.json.result?.tools || []).find((x) => x.name === "what_agents_are_asking_for");
-console.log("tool:", JSON.stringify(t).slice(0, 900));
-for (const args of [{}, { limit: 100 }]) {
-  const r = await mcp("tools/call", { name: "what_agents_are_asking_for", arguments: args }, s);
-  const out = r.json.result?.content?.map((c) => c.text).join("\n") ?? JSON.stringify(r.json);
-  console.log(`\n=== what_agents_are_asking_for ${JSON.stringify(args)} (${out.length} chars)\n${out.slice(0, 9000)}`);
-}
-const d = await fetch(`${API}/v1/demand`);
-console.log(`\n=== GET /v1/demand ${d.status}\n${(await d.text()).slice(0, 6000)}`);
+console.log("other keys:", Object.keys(d).join(", "));
+if (d.named_listing_lookups) console.log("named lookups:", JSON.stringify(d.named_listing_lookups).slice(0, 1500));
