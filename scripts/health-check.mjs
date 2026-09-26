@@ -20,6 +20,7 @@ const ICHI = 'https://ichimoku-signal.onrender.com';
 const DOCTOR = 'https://x402-doctor.onrender.com';
 const GUARD = 'https://presign-guard.onrender.com';
 const PLAIN = 'https://smartcontractexplainer.onrender.com';
+const PG1_HEALTH = 'https://pg1-ai-agent.vercel.app/api/health';
 const USDC_BASE = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 const PERMIT2 = '0x000000000022D473030F116dDEE9F6B43aC78BA3';
 const TIMEOUT_MS = 30000;
@@ -148,6 +149,24 @@ async function main() {
     }
   } catch { /* Bazaar unreachable: skip */ }
 
+  // Informational: PG1, presign-guard's OFAC sanctions source. A PG1 outage
+  // degrades checks to SANCTIONS_SCREEN_UNAVAILABLE but is not our failure.
+  // Free, no key, not counted against PG1's limits.
+  let pg1;
+  try {
+    const started = Date.now();
+    const res = await request(PG1_HEALTH, { headers: { accept: 'application/json' } });
+    const ms = Date.now() - started;
+    const text = await res.text();
+    let body = null;
+    try { body = JSON.parse(text); } catch { /* not JSON */ }
+    const status = body && (body.status ?? body.ok ?? body.healthy);
+    const up = res.ok && status !== false && !/^(down|error|degraded|fail)/i.test(String(status ?? ''));
+    pg1 = { up, detail: `HTTP ${res.status} in ${ms} ms${status !== undefined && status !== null ? `, status ${JSON.stringify(status)}` : ''}` };
+  } catch (err) {
+    pg1 = { up: false, detail: err.name === 'AbortError' ? `no answer within ${TIMEOUT_MS / 1000} s` : err.message };
+  }
+
   const failed = results.filter((r) => !r.ok);
   const date = new Date().toISOString().slice(0, 16).replace('T', ' ');
   const lines = [
@@ -157,12 +176,14 @@ async function main() {
     '|---|---|---|---|',
     ...results.map((r) => `| ${r.ok ? '✅' : '❌'} | ${r.service} | ${r.name} | ${String(r.detail).replace(/\|/g, '/')} |`),
     '',
+    `PG1 (presign-guard's sanctions source): ${pg1.up ? '✅ up' : '⚠️ down'}, ${pg1.detail}. Status page: https://stats.uptimerobot.com/Du0BQ84Hg3`,
+    '',
     `CDP Bazaar lists ${listed.length} route${listed.length === 1 ? '' : 's'}${listed.length ? `: ${listed.sort().join(', ')}` : ''}.`,
   ];
   const report = lines.join('\n');
   console.log(report);
   fs.writeFileSync('health-report.md', report + '\n');
-  fs.writeFileSync('health-report.json', JSON.stringify({ checkedAt: new Date().toISOString(), ok: failed.length === 0, results, bazaar: listed }, null, 2));
+  fs.writeFileSync('health-report.json', JSON.stringify({ checkedAt: new Date().toISOString(), ok: failed.length === 0, results, pg1, bazaar: listed }, null, 2));
   if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, report + '\n');
 
   await updateIssue(failed, report);
