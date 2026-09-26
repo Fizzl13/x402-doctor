@@ -1,18 +1,26 @@
-// PlainText: what do its live 402 answers look like to a prober (GET and POST, header vs body)? Nothing paid.
-const B = 'https://smartcontractexplainer.onrender.com';
-const dec = (h) => { try { return JSON.parse(Buffer.from(h, 'base64').toString('utf8')); } catch (e) { return { undecodable: String(e) }; } };
-for (const path of ['/api/check-wallet', '/api/explain']) {
-  for (const [method, body] of [['GET', undefined], ['POST', undefined], ['POST', '{}']]) {
-    const t0 = Date.now();
-    const r = await fetch(B + path, { method, headers: { accept: 'application/json', ...(body ? { 'content-type': 'application/json' } : {}) }, body, signal: AbortSignal.timeout(90000) }).catch((e) => ({ status: 0, err: e.message }));
-    const ms = Date.now() - t0;
-    const text = r.text ? await r.text() : '';
-    let j = null; try { j = JSON.parse(text); } catch {}
-    const h = r.headers?.get('payment-required');
-    const hd = h ? dec(h) : null;
-    console.log(`\n${method} ${path}${body ? ' {}' : ''} → ${r.status} ${ms}ms ct=${r.headers?.get('content-type')}`);
-    console.log('  header keys:', hd ? Object.keys(hd).join(',') : 'none', '| x402Version', hd?.x402Version, '| accepts', hd?.accepts?.length, '| resource', JSON.stringify(hd?.resource)?.slice(0, 160));
-    console.log('  body keys  :', j ? Object.keys(j).join(',') : text.slice(0, 120).replace(/\s+/g, ' '), '| body.resource == header.resource:', JSON.stringify(j?.resource) === JSON.stringify(hd?.resource));
-    if (hd?.accepts) for (const a of hd.accepts) console.log('   accept', a.scheme, a.network, a.amount, a.asset?.slice(0, 10), a.payTo?.slice(0, 10), 'maxTimeout', a.maxTimeoutSeconds, 'extra', JSON.stringify(a.extra));
+// Live check: fizzl brand on the three homepages after the redeploy.
+const pages = {
+  presign: "https://presign-guard.onrender.com/",
+  ichimoku: "https://ichimoku-signal.onrender.com/",
+  doctor: "https://x402-doctor.onrender.com/",
+};
+const want = ["fizzl brand v1", "More from fizzl", 'name="theme-color" content="#0d1117"'];
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+for (const [name, url] of Object.entries(pages)) {
+  let ok = false, last = "";
+  for (let i = 0; i < 40 && !ok; i++) {
+    try {
+      const res = await fetch(url, { headers: { accept: "text/html" } });
+      const html = await res.text();
+      const missing = want.filter((w) => !html.includes(w));
+      last = `HTTP ${res.status}, missing: ${missing.join(" | ") || "none"}, h1: ${(html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/) || [])[1]?.replace(/<[^>]+>/g, "").trim()}`;
+      ok = res.ok && !missing.length;
+    } catch (e) { last = String(e); }
+    if (!ok) await sleep(20000);
+  }
+  console.log(`${ok ? "OK  " : "FAIL"} ${name}: ${last}`);
+  for (const p of ["/health", "/.well-known/x402-trust.txt"]) {
+    const r = await fetch(new URL(p, url)).catch((e) => ({ status: String(e) }));
+    console.log(`     ${p} → ${r.status}`);
   }
 }
