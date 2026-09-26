@@ -1,31 +1,21 @@
-// Full live header check: every public route type on the three sites (free, nothing paid).
-const WANT = {
-  "x-content-type-options": "nosniff",
-  "x-frame-options": "DENY",
-  "content-security-policy": "frame-ancestors 'none'; base-uri 'none'; object-src 'none'",
-  "strict-transport-security": "max-age=31536000",
-  "referrer-policy": "strict-origin-when-cross-origin",
-};
-const routes = {
-  presign: ["/", "/health", "/openapi.json", "/.well-known/x402", "/.well-known/x402-trust.txt", "/v1/token", "/v1/approvals", ["POST", "/v1/check"], ["POST", "/mcp"]],
-  ichimoku: ["/", "/openapi.json", "/.well-known/x402", "/.well-known/x402-trust.txt", "/api/trend/BTC-USDT", "/signal/BTC-USDT", "/media/explainer.jpg", ["POST", "/mcp"], ["POST", "/solana-rpc"]],
-  doctor: ["/", "/openapi.json", "/.well-known/x402", "/.well-known/x402-trust.txt", "/api/v1/preflight", "/admin/usage", ["POST", "/mcp"]],
-};
-const hosts = { presign: "presign-guard", ichimoku: "ichimoku-signal", doctor: "x402-doctor" };
-const mcpInit = JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "header-check", version: "1" } } });
-let problems = 0;
-for (const [name, list] of Object.entries(routes)) {
-  console.log(`\n== ${name}`);
-  for (const r of list) {
-    const [method, path] = Array.isArray(r) ? r : ["GET", r];
-    const body = path === "/mcp" ? mcpInit : path === "/solana-rpc" ? JSON.stringify({ jsonrpc: "2.0", id: 1, method: "getLatestBlockhash" }) : method === "POST" ? "{}" : undefined;
-    const res = await fetch(`https://${hosts[name]}.onrender.com${path}`, { method, body, headers: { "content-type": "application/json", accept: path === "/mcp" ? "application/json, text/event-stream" : "*/*" } });
-    const bad = Object.entries(WANT).filter(([k, v]) => res.headers.get(k) !== v).map(([k]) => `${k}=${res.headers.get(k)}`);
-    if (res.headers.get("x-powered-by")) bad.push(`x-powered-by=${res.headers.get("x-powered-by")}`);
-    const acao = res.headers.get("access-control-allow-origin");
-    problems += bad.length ? 1 : 0;
-    console.log(`  ${bad.length ? "MISS" : "ok  "} ${method} ${path} → ${res.status}${acao ? ` (CORS ${acao})` : ""}${bad.length ? ` | ${bad.join(", ")}` : ""}`);
-    await res.body?.cancel();
-  }
+// Competitors of x402-trust.com: page text of each (free pages only, nothing paid).
+const strip = (h) => h.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/g, " ").replace(/<[^>]+>/g, " ").replace(/&amp;/g, "&").replace(/&#x27;|&#39;/g, "'").replace(/\s+/g, " ").trim();
+const pages = [
+  "https://x402.fuchss.app/", "https://402audit.com/", "https://x402station.com/", "https://x402watch.vercel.app/",
+  "https://x402-sentinel.vercel.app/", "https://x402-trust.com/", "https://nohumans.directory/",
+];
+for (const u of pages) {
+  try {
+    const res = await fetch(u, { headers: { "user-agent": "Mozilla/5.0 (research)" }, signal: AbortSignal.timeout(20000) });
+    const t = strip(await res.text());
+    console.log(`\n=== ${u} HTTP ${res.status} (${t.length} chars)\n${t.slice(0, 1800)}`);
+  } catch (e) { console.log(`\n=== ${u} ERROR ${e.message}`); }
 }
-console.log(`\nroutes missing a header: ${problems}`);
+// Our own hosts on each, where they have a lookup by host.
+for (const u of ["https://x402.fuchss.app/provider/presign-guard.onrender.com", "https://402audit.com/leaderboard", "https://x402watch.vercel.app/api/feed?q=onrender"]) {
+  try {
+    const res = await fetch(u, { headers: { "user-agent": "Mozilla/5.0 (research)" }, signal: AbortSignal.timeout(20000) });
+    const t = strip(await res.text());
+    console.log(`\n=== ${u} HTTP ${res.status}\n${t.slice(0, 1500)}`);
+  } catch (e) { console.log(`\n=== ${u} ERROR ${e.message}`); }
+}
