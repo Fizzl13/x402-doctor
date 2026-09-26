@@ -214,6 +214,21 @@ test('admin pages: 10 wrong passwords from one IP lock it out, even with the rig
   server.close();
 });
 
+test('admin lockout is per caller behind Render\'s three proxy hops, and a faked entry does not dodge it', async () => {
+  const usageReader = { load: async ({ days }) => ({ configured: true, repo: 'r', days, events: [] }) };
+  const { server, base } = await listen(createApp({ env: { ADMIN_PASSWORD: 'pw' }, trustIndex: trustStub, usageReader }));
+  // As measured on Render: caller, a middle hop, then a private Render address.
+  const from = (chain, p) => ({ headers: { 'x-forwarded-for': chain, authorization: `Basic ${Buffer.from(`me:${p}`).toString('base64')}` } });
+  try {
+    for (let i = 0; i < 10; i++) assert.equal((await fetch(`${base}/admin/usage`, from('203.0.113.7, 104.16.0.1, 10.0.0.5', `guess${i}`))).status, 401);
+    assert.equal((await fetch(`${base}/admin/usage`, from('203.0.113.7, 104.16.0.1, 10.0.0.5', 'pw'))).status, 429, 'the guesser is locked out');
+    assert.equal((await fetch(`${base}/admin/usage`, from('93.184.216.34, 104.16.0.1, 10.0.0.5', 'pw'))).status, 200, 'another caller through the same hops is not');
+    assert.equal((await fetch(`${base}/admin/usage`, from('1.2.3.4, 203.0.113.7, 104.16.0.1, 10.0.0.5', 'pw'))).status, 429, 'a faked leading entry changes nothing');
+  } finally {
+    server.close();
+  }
+});
+
 test('nohumans claim: a pending token goes on its endpoint only; none pending now', async () => {
   const express = require('express');
   const { nohumansClaim, CLAIMS } = require('../lib/nohumans-claim');

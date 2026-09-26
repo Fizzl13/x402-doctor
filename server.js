@@ -3,7 +3,6 @@ const path = require('path');
 const { x402TrustTxtRoute } = require('./lib/x402-trust-txt');
 const { securityHeaders } = require('./lib/security-headers');
 const { nohumansClaim } = require('./lib/nohumans-claim');
-const { proxyHops } = require('./lib/proxy-hops');
 const { createSafeFetch, isPrivateIp } = require('./lib/safe-fetch');
 const diagnoseLib = require('./lib/diagnose');
 const { createPaidApi, ROUTE: PAID_ROUTE, PREFLIGHT_ROUTE, FIX_ROUTE, REPORT_SCHEMA, FIX_SCHEMA } = require('./lib/paid-api');
@@ -113,13 +112,22 @@ function adminAuth(env) {
   };
 }
 
+// TRUST_PROXY_HOPS overrides the measured hop count (a whole number from 0 to 10).
+function trustProxyHops(env) {
+  const n = Number(env.TRUST_PROXY_HOPS);
+  return Number.isInteger(n) && n >= 0 && n <= 10 && String(env.TRUST_PROXY_HOPS).trim() !== '' ? n : 3;
+}
+
 function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, trustIndex = createTrustIndex(), media = createMediaCache(), usageLog = createUsageLog({ service: 'doctor', env }), usageReader = createUsageReader({ env }) } = {}) {
   const app = express();
   const safeFetch = createSafeFetch({ allowPrivate });
   const paidApi = createPaidApi({ safeFetch, env, trustIndex, ...(bazaarIndex ? { bazaarIndex } : {}) });
 
-  app.set('trust proxy', 1);
-  if (env.PROXY_HOPS_LOG !== '0') app.use(proxyHops());
+  // Doctor's requests reach the app through three proxies (the caller, then two
+  // hops, the last a private Render address: measured 26 Sep), so Express has to
+  // count back three X-Forwarded-For entries to find the caller. With 1, req.ip
+  // was the Render hop, and the per-IP admin lockout and rate limits were shared.
+  app.set('trust proxy', trustProxyHops(env));
   app.disable('x-powered-by');
   app.use(securityHeaders);
   app.use(nohumansClaim());
