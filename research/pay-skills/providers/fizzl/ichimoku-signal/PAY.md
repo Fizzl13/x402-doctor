@@ -17,7 +17,7 @@ Crypto technical signals for AI agents, paid per call with x402 on Base or Solan
 - **`GET /levels/{pair}`** ($0.05): support and resistance, ATR, pivots, Fibonacci and Ichimoku levels, plus a long and a short plan with stop, two targets and risk/reward. Levels, not advice.
 - **`GET /scan`** ($0.25): the Ichimoku signal for 148 coins at once, strongest bullish first, with market breadth; `&signal=bullish` returns only the bullish ones.
 
-A free daily trend per pair is at `GET /api/trend/{pair}`, and an MCP server is at `https://ichimoku-signal.onrender.com/mcp`.
+A free daily trend per pair is at `GET /api/trend/{pair}` (no payment; rate-limited per IP), and an MCP server is at `https://ichimoku-signal.onrender.com/mcp`.
 
 ## Spend-aware usage
 

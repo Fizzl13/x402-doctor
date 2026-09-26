@@ -15,6 +15,94 @@
     }
   ],
   "paths": {
+    "/api/trend/{pair}": {
+      "get": {
+        "operationId": "getDailyTrend",
+        "summary": "Get the free daily Ichimoku trend for a trading pair",
+        "description": "Free, no payment: the daily (1d) Ichimoku direction for a pair (bullish, bearish or neutral, with cloud position and tenkan/kijun cross). Rate-limited per IP and cached for 5 minutes. Try it before paying for /signal/{pair} on another interval.",
+        "tags": [
+          "trading",
+          "crypto",
+          "technical-analysis",
+          "ichimoku"
+        ],
+        "parameters": [
+          {
+            "name": "pair",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9]{2,12}(-[A-Za-z0-9]{2,12})?$",
+              "example": "BTC-USDT"
+            },
+            "description": "Crypto pair, e.g. BTC-USDT, ETH-USDT, TAO-USDT or BTCUSDT. Looked up on Binance.US, then Kraken, Gate and MEXC (top 200 coins)",
+            "example": "BTC-USDT"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Daily trend",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "pair": {
+                      "type": "string"
+                    },
+                    "interval": {
+                      "type": "string",
+                      "enum": [
+                        "1d"
+                      ]
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "description": "ISO 8601 UTC"
+                    },
+                    "signal": {
+                      "type": "string",
+                      "enum": [
+                        "bullish",
+                        "bearish",
+                        "neutral"
+                      ]
+                    },
+                    "cloud_position": {
+                      "type": "string",
+                      "enum": [
+                        "above_cloud",
+                        "in_cloud",
+                        "below_cloud"
+                      ]
+                    },
+                    "tenkan_kijun_cross": {
+                      "type": "string"
+                    },
+                    "exchange": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "pair",
+                    "interval",
+                    "signal",
+                    "cloud_position"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown or unsupported pair"
+          },
+          "429": {
+            "description": "Free limit reached; use /signal/{pair}"
+          }
+        }
+      }
+    },
     "/signal/{pair}": {
       "get": {
         "operationId": "getIchimokuSignal",

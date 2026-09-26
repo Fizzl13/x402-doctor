@@ -21,5 +21,5 @@ The same diagnosis is free for people at `https://x402-doctor.onrender.com`, and
 ## Spend-aware usage
 
 - **Preflight, don't diagnose, before paying:** the $0.001 preflight answers "should I pay this?"; the full report is for debugging.
-- **Reuse a verdict for 10 minutes** per endpoint and method: the preflight is cached for that long.
+- **Reuse a verdict for up to 10 minutes, only for the same endpoint, method, budget (`max_usd`) and network:** the preflight is cached per that combination. When your budget or payment network changes, run a new preflight.
 - **Pass your budget** (`max_usd`) and network so the verdict accounts for them.
