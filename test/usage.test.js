@@ -238,3 +238,11 @@ test('usage log middleware: a body written as a Uint8Array (the MCP transport) r
   const line = JSON.parse(gh.files.get('events/doctor/2026-09-26.jsonl').trim());
   assert.deepEqual(line.result, { overall: 'pass' });
 });
+
+test('visitor code: stable per IP and secret, never the IP itself', () => {
+  const { visitorOf } = require('../lib/usage-log');
+  assert.match(visitorOf('203.0.113.7', 's1'), /^[0-9a-f]{12}$/);
+  assert.equal(visitorOf('::ffff:203.0.113.7', 's1'), visitorOf('203.0.113.7', 's1'));
+  assert.notEqual(visitorOf('203.0.113.7', 's1'), visitorOf('203.0.113.7', 's2'));
+  assert.equal(visitorOf('203.0.113.7', undefined), undefined);
+});
