@@ -18,7 +18,7 @@
     "/api/trend/{pair}": {
       "get": {
         "operationId": "getDailyTrend",
-        "summary": "Get the free daily Ichimoku trend for a trading pair",
+        "summary": "Get the daily Ichimoku trend for a trading pair",
         "description": "Free, no payment: the daily (1d) Ichimoku direction for a pair (bullish, bearish or neutral, with cloud position and tenkan/kijun cross). Rate-limited per IP and cached for 5 minutes. Try it before paying for /signal/{pair} on another interval.",
         "tags": [
           "trading",

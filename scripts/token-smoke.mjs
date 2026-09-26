@@ -1,4 +1,4 @@
-// pay catalog check on the committed pay-skills drafts as they are (ichimoku spec now includes the free
+// pay catalog check (summary without "free") on the committed pay-skills drafts as they are (ichimoku spec now includes the free
 // /api/trend/{pair}; doctor PAY.md reuse wording fixed). Probes unpaid; nothing paid or submitted.
 import { spawnSync } from "node:child_process";
 import { cpSync } from "node:fs";
