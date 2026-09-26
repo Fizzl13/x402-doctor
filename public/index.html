@@ -3,90 +3,132 @@
 <head>
 <meta charset="UTF-8">
 <title>x402 Doctor — diagnose a broken x402 payment flow</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"%3E%3Crect width="128" height="128" rx="28" fill="%23a78bfa"/%3E%3Cpath d="M78 30 A22 22 0 0 0 52 52 V104" fill="none" stroke="%230d1117" stroke-width="16" stroke-linecap="round"/%3E%3Cpath d="M36 68 H72" stroke="%230d1117" stroke-width="16" stroke-linecap="round"/%3E%3Cg fill="%230d1117"%3E%3Ccircle cx="92" cy="72" r="8"/%3E%3Ccircle cx="100" cy="52" r="5"/%3E%3Ccircle cx="104" cy="38" r="3"/%3E%3C/g%3E%3C/svg%3E">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 128 128%22%3E%3Crect width=%22128%22 height=%22128%22 rx=%2228%22 fill=%22%23a78bfa%22/%3E%3Cpath d=%22M78 30 A22 22 0 0 0 52 52 V104%22 fill=%22none%22 stroke=%22%230d1117%22 stroke-width=%2216%22 stroke-linecap=%22round%22/%3E%3Cpath d=%22M36 68 H72%22 stroke=%22%230d1117%22 stroke-width=%2216%22 stroke-linecap=%22round%22/%3E%3Cg fill=%22%230d1117%22%3E%3Ccircle cx=%2292%22 cy=%2272%22 r=%228%22/%3E%3Ccircle cx=%22100%22 cy=%2252%22 r=%225%22/%3E%3Ccircle cx=%22104%22 cy=%2238%22 r=%223%22/%3E%3C/g%3E%3C/svg%3E">
+<meta name="theme-color" content="#0d1117">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="description" content="Paste an x402 endpoint URL and see exactly which part of its payment flow is broken. Read-only: no wallet, no payment.">
 <style>
+  /* fizzl brand v1: ink + violet, rounded like the f-mark, three dots as the motif.
+     Keep this block identical in presign-guard, x402-doctor and ichimoku-signal. */
   :root {
-    --bg: #0d1117; --panel: #161b22; --line: #30363d; --text: #e6edf3; --text-soft: #8b949e;
-    --pass: #3fb950; --warn: #d29922; --fail: #f85149; --info: #58a6ff; --accent: #58a6ff;
-  }
-  @media (prefers-color-scheme: light) {
-    :root { --bg: #f6f8fa; --panel: #ffffff; --line: #d0d7de; --text: #1f2328; --text-soft: #57606a;
-      --pass: #1a7f37; --warn: #9a6700; --fail: #cf222e; --info: #0969da; --accent: #0969da; }
+    color-scheme: dark;
+    --ink: #0d1117; --ink-2: #151a22; --ink-3: #1c232d; --line: #262e3a;
+    --violet: #a78bfa; --violet-soft: rgba(167,139,250,.14); --violet-line: rgba(167,139,250,.35);
+    --text: #eef1f6; --soft: #97a1b0;
+    --green: #6ee7b7; --green-bg: rgba(110,231,183,.14); --orange: #fdba74; --orange-bg: rgba(253,186,116,.14); --red: #fca5a5; --red-bg: rgba(252,165,165,.14);
+    --mono: ui-monospace, 'SF Mono', Consolas, monospace;
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text); font-family: -apple-system, 'Segoe UI', sans-serif; line-height: 1.5; }
-  .wrap { max-width: 760px; margin: 0 auto; padding: 48px 16px 80px; }
-  h1 { font-size: 1.6rem; margin: 0 0 8px; }
-  .sub { color: var(--text-soft); margin: 0 0 28px; font-size: 0.95rem; }
+  body { margin: 0; background: var(--ink); color: var(--text); font: 16px/1.6 system-ui, -apple-system, 'Segoe UI', sans-serif; }
+  body::before { content: ""; position: fixed; inset: 0; pointer-events: none; background: radial-gradient(900px 480px at 85% -10%, rgba(167,139,250,.16), transparent 60%); }
+  .wrap { position: relative; max-width: 800px; margin: 0 auto; padding: 22px 16px 64px; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 22px; margin-bottom: 44px; border-bottom: 1px solid var(--line); }
+  .brand { display: flex; align-items: center; gap: 12px; color: var(--text); text-decoration: none; }
+  .brand .mark { width: 40px; height: 40px; display: block; flex: none; }
+  .brand b { font-size: 18px; letter-spacing: -.01em; display: block; line-height: 1.1; }
+  .brand small { color: var(--soft); font-size: 12.5px; }
+  .brand small em { color: var(--violet); font-style: normal; font-weight: 700; }
+  .live { font: 600 12px/1 var(--mono); color: var(--soft); border: 1px solid var(--line); border-radius: 999px; padding: 8px 12px; white-space: nowrap; }
+  .live::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 10px var(--green); margin-right: 8px; }
+  .dots { display: inline-flex; align-items: flex-end; gap: 4px; margin-right: 10px; vertical-align: middle; }
+  .dots i { display: block; border-radius: 50%; background: var(--violet); }
+  .dots i:nth-child(1) { width: 9px; height: 9px; } .dots i:nth-child(2) { width: 6px; height: 6px; margin-bottom: 5px; } .dots i:nth-child(3) { width: 4px; height: 4px; margin-bottom: 10px; }
+  .eyebrow { font: 600 13px/1 var(--mono); color: var(--violet); margin-bottom: 18px; letter-spacing: .02em; }
+  h1 { font-size: clamp(34px, 7vw, 56px); line-height: 1.04; margin: 0 0 18px; letter-spacing: -.035em; font-weight: 800; }
+  h1 em { font-style: normal; color: var(--violet); }
+  .lead { color: var(--soft); font-size: 18px; margin: 0 0 40px; max-width: 58ch; }
+  h2 { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--text); margin: 52px 0 14px; display: flex; align-items: center; }
+  .card { background: var(--ink-2); border: 1px solid var(--line); border-radius: 22px; padding: 22px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+  .grid .card h3 { margin: 0 0 6px; font-size: 16px; }
+  .grid .card p { margin: 0; color: var(--soft); font-size: 14.5px; overflow-wrap: anywhere; }
+  code { font-family: var(--mono); font-size: .9em; }
+  pre { margin: 0; background: var(--ink); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; overflow-x: auto; font: 13px/1.55 var(--mono); }
+  a { color: var(--violet); }
+  select, input, textarea { color: var(--text); }
+  :focus-visible { outline: 2px solid var(--violet-line); outline-offset: 2px; }
+  .video { display: block; width: 100%; height: auto; aspect-ratio: 16/9; border-radius: 22px; border: 1px solid var(--line); background: #05070a; }
+  .more { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .more a { display: flex; gap: 12px; align-items: center; text-decoration: none; color: var(--text); background: var(--ink-2); border: 1px solid var(--line); border-radius: 18px; padding: 14px 16px; }
+  .more a:hover { border-color: var(--violet-line); }
+  .more .mark { width: 34px; height: 34px; flex: none; }
+  .more b { display: block; font-size: 15px; } .more span span { color: var(--soft); font-size: 13px; }
+  footer { margin-top: 44px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--soft); font-size: 13px; }
+  .by-fizzl { margin: 26px 0 0; font-size: 12.5px; line-height: 1; }
+  .by-fizzl a { display: inline-flex; align-items: center; gap: 6px; color: var(--soft); text-decoration: none; }
+  .by-fizzl a:hover { color: var(--text); }
+  .by-fizzl svg { height: 20px; width: auto; display: block; } .by-fizzl .b { fill: var(--violet); }
+  @media (max-width: 560px) { .live { display: none; } .topbar { margin-bottom: 32px; } }
+</style>
+<style>
+  :root { --bg: var(--ink); --panel: var(--ink-2); --text-soft: var(--soft); --pass: var(--green); --warn: var(--orange); --fail: var(--red); --info: #93c5fd; --accent: var(--violet); }
+  .sub { color: var(--soft); margin: 0 0 32px; font-size: 18px; max-width: 58ch; }
   form { display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; }
-  input[type=url] {
-    flex: 1 1 320px; min-width: 0; font-family: 'SF Mono', Consolas, monospace; font-size: 14px;
-    background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px;
-  }
-  select { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 0 10px; font: inherit; }
-  button { font: inherit; font-weight: 600; font-size: 14px; background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 12px 20px; cursor: pointer; }
-  button:disabled { opacity: 0.5; cursor: default; }
-  .overall { padding: 14px 16px; border-radius: 8px; margin-bottom: 20px; font-weight: 600; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: center; }
-  .overall.pass { background: color-mix(in srgb, var(--pass) 12%, transparent); color: var(--pass); border: 1px solid var(--pass); }
-  .overall.warn { background: color-mix(in srgb, var(--warn) 12%, transparent); color: var(--warn); border: 1px solid var(--warn); }
-  .overall.fail { background: color-mix(in srgb, var(--fail) 12%, transparent); color: var(--fail); border: 1px solid var(--fail); }
+  input[type=url] { flex: 1 1 320px; min-width: 0; font: 14px var(--mono); background: var(--ink-2); border: 1px solid var(--line); border-radius: 999px; padding: 14px 18px; }
+  select { background: var(--ink-3); border: 1px solid var(--line); border-radius: 999px; padding: 0 14px; font: inherit; font-size: 14px; }
+  button { font: inherit; font-weight: 800; font-size: 15px; background: var(--violet); color: var(--ink); border: none; border-radius: 999px; padding: 14px 22px; cursor: pointer; box-shadow: 0 8px 28px rgba(167,139,250,.22); }
+  button:hover { filter: brightness(1.06); }
+  button:disabled { opacity: .5; cursor: default; }
+  .overall { padding: 14px 18px; border-radius: 18px; margin-bottom: 20px; font-weight: 700; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .overall.pass { background: var(--green-bg); color: var(--pass); border: 1px solid var(--pass); }
+  .overall.warn { background: var(--orange-bg); color: var(--warn); border: 1px solid var(--warn); }
+  .overall.fail { background: var(--red-bg); color: var(--fail); border: 1px solid var(--fail); }
   .overall a { color: inherit; font-weight: 500; font-size: 13px; }
-  h2 { font-size: 0.8rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-soft); margin: 22px 0 8px; }
   .checks { display: flex; flex-direction: column; gap: 8px; }
-  .wallets { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
-  .wallet-row { display: flex; gap: 12px; padding: 9px 14px; border-top: 1px solid var(--line); align-items: baseline; flex-wrap: wrap; }
+  .wallets { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 18px; overflow: hidden; background: var(--ink-2); }
+  .wallet-row { display: flex; gap: 12px; padding: 10px 16px; border-top: 1px solid var(--line); align-items: baseline; flex-wrap: wrap; }
   .wallet-row:first-child { border-top: none; }
-  .wallet-name { width: 140px; flex: none; font-weight: 600; font-size: 14px; }
+  .wallet-name { width: 140px; flex: none; font-weight: 700; font-size: 14px; }
   .wallet-nets { display: flex; gap: 6px; flex-wrap: wrap; align-items: baseline; min-width: 0; }
-  .net { font-size: 13px; padding: 2px 8px; border-radius: 999px; }
-  .net.yes { color: var(--pass); background: color-mix(in srgb, var(--pass) 12%, transparent); }
-  .net.no { color: var(--fail); background: color-mix(in srgb, var(--fail) 12%, transparent); }
-  .net-reason { font-size: 12.5px; color: var(--text-soft); }
+  .net { font-size: 13px; padding: 2px 9px; border-radius: 999px; }
+  .net.yes { color: var(--pass); background: var(--green-bg); }
+  .net.no { color: var(--fail); background: var(--red-bg); }
+  .net-reason { font-size: 12.5px; color: var(--soft); }
   .net-reason.note { color: var(--warn); flex-basis: 100%; }
-  .check { display: flex; gap: 10px; padding: 12px 14px; border-radius: 8px; background: var(--panel); border: 1px solid var(--line); }
-  .dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 7px; flex-shrink: 0; }
+  .check { display: flex; gap: 12px; padding: 13px 16px; border-radius: 16px; background: var(--ink-2); border: 1px solid var(--line); }
+  .dot { width: 9px; height: 9px; border-radius: 50%; margin-top: 7px; flex-shrink: 0; }
   .dot.pass { background: var(--pass); } .dot.warn { background: var(--warn); } .dot.fail { background: var(--fail); } .dot.info { background: var(--info); }
   .check-body { min-width: 0; }
-  .check-body .id { font-family: 'SF Mono', Consolas, monospace; font-size: 12px; color: var(--text-soft); }
+  .check-body .id { font: 12px var(--mono); color: var(--soft); }
   .check-body .message { font-size: 14px; overflow-wrap: anywhere; }
-  .check-body .hint { font-size: 13px; color: var(--text-soft); margin-top: 4px; overflow-wrap: anywhere; }
+  .check-body .hint, .checks > .hint { font-size: 13px; color: var(--soft); margin-top: 4px; overflow-wrap: anywhere; }
   .check-body .hint::before { content: '→ '; }
   details { margin-top: 20px; }
-  summary { cursor: pointer; color: var(--text-soft); font-size: 14px; }
-  pre { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; overflow-x: auto; font-size: 12px; }
-  .error-box { background: color-mix(in srgb, var(--fail) 12%, transparent); color: var(--fail); border: 1px solid var(--fail); border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; overflow-wrap: anywhere; }
-  footer { margin-top: 40px; color: var(--text-soft); font-size: 12.5px; }
-  footer a, footer code { color: var(--accent); }
-  .video { margin-top: 40px; }
-  .video video { display: block; width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--line); background: #000; }
-  .fix-card { margin: 0 0 20px; padding: 16px; border-radius: 8px; background: var(--panel); border: 1px solid var(--accent); }
-  .fix-card h3 { margin: 0 0 4px; font-size: 16px; }
-  .fix-card p { margin: 0 0 12px; color: var(--text-soft); font-size: 14px; }
+  summary { cursor: pointer; color: var(--soft); font-size: 14px; }
+  pre { font-size: 12px; }
+  .error-box { background: var(--red-bg); color: var(--fail); border: 1px solid var(--fail); border-radius: 18px; padding: 14px 18px; margin-bottom: 16px; overflow-wrap: anywhere; }
+  footer code { color: var(--text); }
+  section.video { aspect-ratio: auto; border: 0; border-radius: 0; background: none; }
+  .video video { display: block; width: 100%; height: auto; aspect-ratio: 16/9; border-radius: 22px; border: 1px solid var(--line); background: #05070a; }
+  .fix-card { margin: 0 0 20px; padding: 20px; border-radius: 22px; background: var(--ink-2); border: 1px solid var(--violet-line); }
+  .fix-card h3 { margin: 0 0 4px; font-size: 17px; }
+  .fix-card p { margin: 0 0 12px; color: var(--soft); font-size: 14px; }
   .fix-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-  .fix-row select { padding: 10px; }
-  .fix-note { font-size: 12.5px; color: var(--text-soft); margin-top: 10px; }
-  .fix-note a { color: var(--accent); }
+  .fix-row select { padding: 12px 14px; }
+  .fix-note { font-size: 12.5px; color: var(--soft); margin-top: 10px; }
   .fix-status { font-size: 14px; margin-top: 10px; }
   .fix-status.error { color: var(--fail); }
-  .fix { margin-top: 14px; padding: 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); }
+  .fix { margin-top: 14px; padding: 16px; border-radius: 18px; border: 1px solid var(--line); background: var(--ink); }
   .fix h4 { margin: 0 0 6px; font-size: 15px; display: flex; gap: 8px; align-items: baseline; }
-  .fix .why { font-size: 13.5px; color: var(--text-soft); margin: 0 0 8px; overflow-wrap: anywhere; }
+  .fix .why { font-size: 13.5px; color: var(--soft); margin: 0 0 8px; overflow-wrap: anywhere; }
   .fix ol { margin: 0 0 8px; padding-left: 20px; font-size: 14px; }
   .fix .snippet { position: relative; margin-top: 8px; }
-  .fix .snippet-label { font-size: 12px; color: var(--text-soft); margin-bottom: 4px; }
-  .fix .snippet pre { margin: 0; white-space: pre; padding-right: 72px; }
-  .fix .copy { position: absolute; top: 24px; right: 6px; padding: 4px 10px; font-size: 12px; background: var(--line); color: var(--text); }
-  .sev { font-size: 11px; padding: 1px 7px; border-radius: 999px; border: 1px solid currentColor; font-weight: 600; }
+  .fix .snippet-label { font-size: 12px; color: var(--soft); margin-bottom: 4px; }
+  .fix .snippet pre { margin: 0; white-space: pre; padding-right: 76px; }
+  .fix .copy { position: absolute; top: 24px; right: 8px; padding: 5px 12px; font-size: 12px; background: var(--ink-3); color: var(--text); box-shadow: none; }
+  .sev { font-size: 11px; padding: 1px 8px; border-radius: 999px; border: 1px solid currentColor; font-weight: 700; }
   .sev.fail { color: var(--fail); } .sev.warn { color: var(--warn); }
   [hidden] { display: none !important; }
 </style>
-<style>.by-fizzl{margin:28px 0 0;font-size:12.5px;line-height:1}.by-fizzl a{display:inline-flex;align-items:center;gap:6px;color:inherit;opacity:.75;text-decoration:none}.by-fizzl a:hover,.by-fizzl a:focus-visible{opacity:1}.by-fizzl svg{height:20px;width:auto;display:block}.by-fizzl .b{fill:#a78bfa}@media (prefers-color-scheme: light){.by-fizzl .b{fill:#6d28d9}}</style>
 </head>
 <body>
 <div class="wrap">
-  <h1>x402 Doctor</h1>
+  <header class="topbar">
+    <a class="brand" href="/"><svg class="mark" viewBox="0 0 128 128" aria-hidden="true"><rect width="128" height="128" rx="30" fill="#a78bfa"/><path d="M78 30 A22 22 0 0 0 52 52 V104" fill="none" stroke="#0d1117" stroke-width="16" stroke-linecap="round"/><path d="M36 68 H72" stroke="#0d1117" stroke-width="16" stroke-linecap="round"/><g fill="#0d1117"><circle cx="92" cy="72" r="8"/><circle cx="100" cy="52" r="5"/><circle cx="104" cy="38" r="3"/></g></svg><span><b>x402 Doctor</b><small>by <em>fizzl</em> · pay-per-call tools for AI agents</small></span></a>
+    <span class="live">ONLINE · BASE + SOLANA</span>
+  </header>
+  <div class="eyebrow"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>x402 · Base + Solana · for builders and agents</div>
+  <h1>Check any x402 endpoint the way a <em>paying agent</em> would.</h1>
   <p class="sub">Paste an x402-payable endpoint URL. Read-only diagnostics: no wallet, no payment, no risk.</p>
 
   <form id="form">
@@ -124,7 +166,7 @@
   <details id="challengeBox" hidden><summary>Decoded challenge</summary><pre id="challengeJson"></pre></details>
 
   <section class="video" aria-labelledby="fixVideoTitle">
-    <h2 id="fixVideoTitle">New: the paid fix, in 70 seconds</h2>
+    <h2 id="fixVideoTitle"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>New: the paid fix, in 70 seconds</h2>
     <video controls playsinline preload="none" poster="/media/fix.jpg" width="1920" height="1080">
       <source src="/media/fix.mp4" type="video/mp4">
       <a href="/media/fix.mp4">Watch the paid-fix video</a>
@@ -132,13 +174,19 @@
   </section>
 
   <section class="video" aria-labelledby="videoTitle">
-    <h2 id="videoTitle">See it in 70 seconds</h2>
+    <h2 id="videoTitle"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>See it in 70 seconds</h2>
     <video controls playsinline preload="none" poster="/media/explainer.jpg" width="1920" height="1080">
       <source src="/media/explainer.mp4" type="video/mp4">
       <a href="/media/explainer.mp4">Watch the explainer video</a>
     </video>
   </section>
 
+  <h2><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>More from fizzl</h2>
+  <div class="more">
+    <a href="https://presign-guard.onrender.com"><svg class="mark" viewBox="0 0 128 128" aria-hidden="true"><rect width="128" height="128" rx="30" fill="#a78bfa"/><path d="M78 30 A22 22 0 0 0 52 52 V104" fill="none" stroke="#0d1117" stroke-width="16" stroke-linecap="round"/><path d="M36 68 H72" stroke="#0d1117" stroke-width="16" stroke-linecap="round"/><g fill="#0d1117"><circle cx="92" cy="72" r="8"/><circle cx="100" cy="52" r="5"/><circle cx="104" cy="38" r="3"/></g></svg><span><b>presign-guard</b><span>Check a signature, token or wallet before your agent signs</span></span></a>
+    <a href="https://ichimoku-signal.onrender.com"><svg class="mark" viewBox="0 0 128 128" aria-hidden="true"><rect width="128" height="128" rx="30" fill="#a78bfa"/><path d="M78 30 A22 22 0 0 0 52 52 V104" fill="none" stroke="#0d1117" stroke-width="16" stroke-linecap="round"/><path d="M36 68 H72" stroke="#0d1117" stroke-width="16" stroke-linecap="round"/><g fill="#0d1117"><circle cx="92" cy="72" r="8"/><circle cx="100" cy="52" r="5"/><circle cx="104" cy="38" r="3"/></g></svg><span><b>Ichimoku Signal</b><span>Crypto trend signals per call</span></span></a>
+    <a href="https://www.npmjs.com/package/x402-safe-fetch"><svg class="mark" viewBox="0 0 128 128" aria-hidden="true"><rect width="128" height="128" rx="30" fill="#a78bfa"/><path d="M78 30 A22 22 0 0 0 52 52 V104" fill="none" stroke="#0d1117" stroke-width="16" stroke-linecap="round"/><path d="M36 68 H72" stroke="#0d1117" stroke-width="16" stroke-linecap="round"/><g fill="#0d1117"><circle cx="92" cy="72" r="8"/><circle cx="100" cy="52" r="5"/><circle cx="104" cy="38" r="3"/></g></svg><span><b>x402-safe-fetch</b><span>npm: a fetch that checks before it pays</span></span></a>
+  </div>
   <footer>
     Checks the 402 challenge and its envelope, protocol version, every <code>accepts[]</code> option (network, asset, amount,
     payee, fee payer, EIP-712 domain), the resource URL and metadata, the Solana payout token account and facilitator,
