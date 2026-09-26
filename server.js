@@ -1,6 +1,7 @@
 const express = require('express');
 const path = require('path');
 const { x402TrustTxtRoute } = require('./lib/x402-trust-txt');
+const { securityHeaders } = require('./lib/security-headers');
 const { createSafeFetch, isPrivateIp } = require('./lib/safe-fetch');
 const diagnoseLib = require('./lib/diagnose');
 const { createPaidApi, ROUTE: PAID_ROUTE, PREFLIGHT_ROUTE, FIX_ROUTE, REPORT_SCHEMA, FIX_SCHEMA } = require('./lib/paid-api');
@@ -79,15 +80,32 @@ function describeDoctorCall(req, _res, body) {
 
 // HTTP Basic auth against ADMIN_PASSWORD (any user name). Without the
 // setting the admin pages do not exist.
+// After ADMIN_MAX_FAILURES wrong passwords from one IP in 15 minutes, that IP
+// gets 429 until the window has passed (no password guessing at request speed).
+const ADMIN_MAX_FAILURES = 10;
+const ADMIN_WINDOW_MS = 15 * 60 * 1000;
 function adminAuth(env) {
+  const failures = new Map();
   return (req, res, next) => {
     const password = env.ADMIN_PASSWORD;
     if (!password) return res.status(404).send('Not found');
+    const now = Date.now();
+    const recent = (failures.get(req.ip) || []).filter((t) => now - t < ADMIN_WINDOW_MS);
+    if (recent.length >= ADMIN_MAX_FAILURES) {
+      res.set('Retry-After', String(Math.ceil((recent[0] + ADMIN_WINDOW_MS - now) / 1000)));
+      return res.status(429).send('Too many attempts; try again later');
+    }
     const header = req.get('authorization') || '';
     const given = header.startsWith('Basic ') ? Buffer.from(header.slice(6), 'base64').toString('utf8').split(':').slice(1).join(':') : '';
     const a = crypto.createHash('sha256').update(given).digest();
     const b = crypto.createHash('sha256').update(password).digest();
     if (given && crypto.timingSafeEqual(a, b)) return next();
+    // A request without credentials is the browser asking for the login prompt, not a guess.
+    if (given) {
+      recent.push(now);
+      failures.set(req.ip, recent);
+      if (failures.size > 10_000) failures.clear();
+    }
     res.set('WWW-Authenticate', 'Basic realm="Fizzl usage", charset="UTF-8"');
     res.status(401).send('Password required');
   };
@@ -99,6 +117,8 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   const paidApi = createPaidApi({ safeFetch, env, trustIndex, ...(bazaarIndex ? { bazaarIndex } : {}) });
 
   app.set('trust proxy', 1);
+  app.disable('x-powered-by');
+  app.use(securityHeaders);
   app.get('/.well-known/x402-trust.txt', x402TrustTxtRoute(env));
   app.use(express.json({ limit: '4kb' }));
   app.use(usageLog.middleware(describeDoctorCall));

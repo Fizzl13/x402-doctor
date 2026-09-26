@@ -200,6 +200,33 @@ test('admin pages: 404 without ADMIN_PASSWORD, 401 without the password, data wi
   open.server.close();
 });
 
+test('admin pages: 10 wrong passwords from one IP lock it out, even with the right password', async () => {
+  const usageReader = { load: async ({ days }) => ({ configured: true, repo: 'r', days, events: [] }) };
+  const { server, base } = await listen(createApp({ env: { ADMIN_PASSWORD: 'pw' }, trustIndex: trustStub, usageReader }));
+  const auth = (p) => ({ headers: { authorization: `Basic ${Buffer.from(`me:${p}`).toString('base64')}` } });
+  // The browser's first request carries no credentials: not a failed attempt.
+  for (let i = 0; i < 12; i++) assert.equal((await fetch(`${base}/admin/usage`)).status, 401);
+  assert.equal((await fetch(`${base}/admin/usage`, auth('pw'))).status, 200);
+  for (let i = 0; i < 10; i++) assert.equal((await fetch(`${base}/admin/usage`, auth(`guess${i}`))).status, 401);
+  const locked = await fetch(`${base}/admin/usage`, auth('pw'));
+  assert.equal(locked.status, 429);
+  assert.ok(Number(locked.headers.get('retry-after')) > 0);
+  server.close();
+});
+
+test('every response carries the security headers', async () => {
+  const { server, base } = await listen(createApp({ env: {}, trustIndex: trustStub }));
+  for (const path of ['/', '/.well-known/x402-trust.txt', '/api/v1/diagnose']) {
+    const res = await fetch(`${base}${path}`);
+    assert.equal(res.headers.get('x-content-type-options'), 'nosniff', path);
+    assert.equal(res.headers.get('x-frame-options'), 'DENY', path);
+    assert.match(res.headers.get('content-security-policy'), /frame-ancestors 'none'/, path);
+    assert.match(res.headers.get('strict-transport-security'), /max-age=31536000/, path);
+    assert.equal(res.headers.get('x-powered-by'), null, path);
+  }
+  server.close();
+});
+
 test('doctor: a web diagnosis is logged with what was asked, static files are not', async () => {
   const gh = fakeGitHub();
   const usageLog = createUsageLog({ service: 'doctor', env: { USAGE_LOG_TOKEN: 't' }, fetchFn: gh.fetchFn, now: () => new Date('2026-09-24T10:00:00Z'), log: quiet });
