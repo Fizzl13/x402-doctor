@@ -3,9 +3,6 @@ on:
   push:
     branches: [research/x402-market]
     paths: ['scripts/token-smoke.mjs', '.github/workflows/token-smoke.yml']
-permissions:
-  contents: read
-  actions: read
 jobs:
   smoke:
     runs-on: ubuntu-latest
@@ -13,7 +10,4 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with: { node-version: 22 }
-      - name: Fetch the crowding-check result (x402-examples run 36250302508)
-        env: { GH_TOKEN: "${{ github.token }}" }
-        run: gh run download 36250302508 -R Fizzl13/x402-examples -n crowding-check-BTC -D crowding
       - run: node scripts/token-smoke.mjs
