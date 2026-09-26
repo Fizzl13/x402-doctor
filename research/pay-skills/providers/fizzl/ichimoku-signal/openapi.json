@@ -4,7 +4,7 @@
     "title": "Ichimoku Cloud Signal",
     "version": "1.0.0",
     "description": "Real-time crypto trading signals for agents on live market data (Binance.US, Kraken, Gate, MEXC): the Ichimoku Cloud signal, a confluence signal of six indicators, price levels with a long/short plan, and a market scan of 148 top-200 coins. Pay-per-call via x402.",
-    "x-guidance": "Use this when a trading agent needs a quick Ichimoku Cloud read (tenkan/kijun cross, cloud position, bullish/bearish/neutral signal) for one pair before deciding to act. It returns the raw indicator values, not a trade recommendation, and it is not a full OHLCV history feed. For a broader read, /signals/{pair} ($0.10) returns Ichimoku, RSI, MACD, EMA 50/200, Bollinger Bands and volume, each with a vote, plus a combined signal and confidence. For where to act, /levels/{pair} ($0.05) returns support and resistance, ATR, pivots, Fibonacci and Ichimoku levels, plus a long and a short plan with stop, two targets and risk/reward (levels, not advice). To find what is moving, /scan ($0.25) returns the Ichimoku signal for 148 top-200 coins in one call, strongest bullish first, with market breadth.",
+    "x-guidance": "Use this when a trading agent needs a quick Ichimoku Cloud read (tenkan/kijun cross, cloud position, bullish/bearish/neutral signal) for one pair before deciding to act. It returns the raw indicator values, not a trade recommendation, and it is not a full OHLCV history feed. For a broader read, /signals/{pair} ($0.15) returns Ichimoku, RSI, MACD, EMA 50/200, Bollinger Bands and volume, each with a vote, plus a combined signal and confidence. For where to act, /levels/{pair} ($0.05) returns support and resistance, ATR, pivots, Fibonacci and Ichimoku levels, plus a long and a short plan with stop, two targets and risk/reward (levels, not advice). To find what is moving, /scan ($0.10) returns the Ichimoku signal for 148 top-200 coins in one call, strongest bullish first, with market breadth. To find what to trade, /setups ($0.50) returns, for the same coins, the six-indicator confluence signal plus a trade plan in that direction (entry, stop, two targets, risk/reward), ranked best first, with long/short, minimum risk/reward and top-N filters (levels, not advice).",
     "contact": {
       "email": "frits.zwager@gmail.com"
     }
@@ -266,11 +266,11 @@
               }
             }
           },
-          "400": {
-            "description": "Invalid pair or interval (rejected before payment), or not enough candle history"
-          },
           "402": {
             "description": "Payment required (x402 protocol v2, $0.02 USDC on Base or Solana)"
+          },
+          "400": {
+            "description": "Invalid pair or interval (rejected before payment), or not enough candle history"
           },
           "404": {
             "description": "Pair is not traded on Binance.US, Kraken, Gate or MEXC (rejected before payment)"
@@ -302,7 +302,7 @@
           "price": {
             "mode": "fixed",
             "currency": "USD",
-            "amount": "0.10"
+            "amount": "0.15"
           },
           "networks": [
             "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
@@ -654,11 +654,11 @@
               }
             }
           },
+          "402": {
+            "description": "Payment required (x402 protocol v2, $0.15 USDC on Base or Solana)"
+          },
           "400": {
             "description": "Invalid pair or interval (rejected before payment), or not enough candle history"
-          },
-          "402": {
-            "description": "Payment required (x402 protocol v2, $0.10 USDC on Base or Solana)"
           },
           "404": {
             "description": "Pair is not traded on Binance.US, Kraken, Gate or MEXC (rejected before payment)"
@@ -996,11 +996,11 @@
               }
             }
           },
-          "400": {
-            "description": "Invalid pair or interval (rejected before payment), or not enough candle history"
-          },
           "402": {
             "description": "Payment required (x402 protocol v2, $0.05 USDC on Base or Solana)"
+          },
+          "400": {
+            "description": "Invalid pair or interval (rejected before payment), or not enough candle history"
           },
           "404": {
             "description": "Pair is not traded on Binance.US, Kraken, Gate or MEXC (rejected before payment)"
@@ -1030,7 +1030,7 @@
           "price": {
             "mode": "fixed",
             "currency": "USD",
-            "amount": "0.25"
+            "amount": "0.10"
           },
           "networks": [
             "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
@@ -1221,16 +1221,282 @@
               }
             }
           },
+          "402": {
+            "description": "Payment required (x402 protocol v2, $0.10 USDC on Base or Solana)"
+          },
           "400": {
             "description": "Invalid interval or signal filter (rejected before payment)"
-          },
-          "402": {
-            "description": "Payment required (x402 protocol v2, $0.25 USDC on Base or Solana)"
           },
           "502": {
             "description": "Too few coins answered (market data unavailable); nothing is charged"
           }
         }
+      }
+    },
+    "/setups": {
+      "get": {
+        "operationId": "getTradeSetups",
+        "summary": "Get ranked trade setups with entry, stop and targets",
+        "tags": [
+          "trading",
+          "crypto",
+          "technical-analysis",
+          "trade-setups",
+          "market-scan",
+          "screener"
+        ],
+        "x-payment-info": {
+          "protocols": [
+            "x402"
+          ],
+          "price": {
+            "mode": "fixed",
+            "currency": "USD",
+            "amount": "0.50"
+          },
+          "networks": [
+            "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+            "eip155:8453"
+          ],
+          "asset": "USDC"
+        },
+        "parameters": [
+          {
+            "name": "interval",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "4h",
+              "enum": [
+                "1m",
+                "3m",
+                "5m",
+                "15m",
+                "30m",
+                "1h",
+                "2h",
+                "4h",
+                "6h",
+                "8h",
+                "12h",
+                "1d",
+                "3d",
+                "1w",
+                "1M"
+              ]
+            },
+            "description": "Candle interval, e.g. 1h, 4h, 1d",
+            "example": "4h"
+          },
+          {
+            "name": "direction",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "long",
+                "short",
+                "both"
+              ],
+              "default": "both"
+            },
+            "description": "Only long or only short setups"
+          },
+          {
+            "name": "min_rr",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 10,
+              "default": 1.5
+            },
+            "description": "Minimum risk/reward to target 1"
+          },
+          {
+            "name": "top",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 10
+            },
+            "description": "How many setups to return"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The ranked setups (JSON)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "interval",
+                    "timestamp",
+                    "coins_scanned",
+                    "filters",
+                    "setups_found",
+                    "setups"
+                  ],
+                  "properties": {
+                    "interval": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "coins_scanned": {
+                      "type": "integer"
+                    },
+                    "filters": {
+                      "type": "object",
+                      "properties": {
+                        "direction": {
+                          "type": "string"
+                        },
+                        "min_risk_reward": {
+                          "type": "number"
+                        },
+                        "top": {
+                          "type": "integer"
+                        }
+                      }
+                    },
+                    "setups_found": {
+                      "type": "integer"
+                    },
+                    "summary": {
+                      "type": "object",
+                      "properties": {
+                        "long": {
+                          "type": "integer"
+                        },
+                        "short": {
+                          "type": "integer"
+                        },
+                        "neutral_coins": {
+                          "type": "integer"
+                        }
+                      }
+                    },
+                    "median_atr_percent": {
+                      "type": "number"
+                    },
+                    "setups": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "rank": {
+                            "type": "integer"
+                          },
+                          "rank_score": {
+                            "type": "number"
+                          },
+                          "pair": {
+                            "type": "string"
+                          },
+                          "direction": {
+                            "type": "string",
+                            "enum": [
+                              "long",
+                              "short"
+                            ]
+                          },
+                          "confidence": {
+                            "type": "string",
+                            "enum": [
+                              "high",
+                              "medium",
+                              "low"
+                            ]
+                          },
+                          "signal_from": {
+                            "type": "string"
+                          },
+                          "entry": {
+                            "type": "number"
+                          },
+                          "stop": {
+                            "type": "number"
+                          },
+                          "target_1": {
+                            "type": "number"
+                          },
+                          "target_2": {
+                            "type": "number"
+                          },
+                          "risk_reward_1": {
+                            "type": "number"
+                          },
+                          "risk_reward_2": {
+                            "type": "number"
+                          },
+                          "stop_basis": {
+                            "type": "string"
+                          },
+                          "obstacle_before_target": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "warning": {
+                            "type": "string"
+                          },
+                          "atr_percent": {
+                            "type": "number"
+                          },
+                          "volume_24h_usd": {
+                            "type": "number",
+                            "description": "On the listed exchange only"
+                          },
+                          "exchange": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "skipped": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "pair": {
+                            "type": "string"
+                          },
+                          "reason": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "note": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Payment required (x402 protocol v2, $0.50 USDC on Base or Solana)"
+          },
+          "400": {
+            "description": "Invalid interval, direction, min_rr or top (rejected before payment)"
+          },
+          "502": {
+            "description": "Too few coins answered (market data unavailable); nothing is charged"
+          }
+        },
+        "description": "Which crypto coins have a trade setup right now? For 148 top-200 coins: the six-indicator confluence signal (Ichimoku, RSI, MACD, EMA 50/200, Bollinger, OBV) plus a trade plan in that direction from /levels (entry, stop, two targets, risk/reward). Neutral coins and plans under the minimum risk/reward are left out. Ranked by signal strength x risk/reward (up to 3), lower for above-median volatility (ATR%) and for support/resistance right after the entry. volume_24h_usd is on the listed exchange only. Levels from price history, not trade advice."
       }
     }
   }
