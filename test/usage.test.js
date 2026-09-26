@@ -218,3 +218,23 @@ test('doctor: a web diagnosis is logged with what was asked, static files are no
   assert.deepEqual(lines[0].input, { url: 'not a url' });
   assert.equal(lines[0].result.error, 'Not a valid URL.');
 });
+
+test('usage log middleware: a body written as a Uint8Array (the MCP transport) reaches describe', async () => {
+  const gh = fakeGitHub();
+  const log = createUsageLog({ service: 'doctor', env: { USAGE_LOG_TOKEN: 't' }, fetchFn: gh.fetchFn, now: () => new Date('2026-09-26T10:00:00Z'), log: quiet });
+  const mw = log.middleware((_req, _res, body) => ({ route: 'x402_quick_check', via: 'mcp', result: { overall: body && body.result && JSON.parse(body.result.content[0].text).overall } }));
+  const app = require('express')();
+  app.use(mw);
+  app.post('/mcp', (_req, res) => {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    const reply = { jsonrpc: '2.0', id: 1, result: { content: [{ type: 'text', text: JSON.stringify({ overall: 'pass' }) }] } };
+    res.end(new TextEncoder().encode(JSON.stringify(reply)));
+  });
+  const { server, base } = await listen(app);
+  await fetch(`${base}/mcp`, { method: 'POST' });
+  await new Promise((r) => setTimeout(r, 30));
+  await log.flush();
+  server.close();
+  const line = JSON.parse(gh.files.get('events/doctor/2026-09-26.jsonl').trim());
+  assert.deepEqual(line.result, { overall: 'pass' });
+});
