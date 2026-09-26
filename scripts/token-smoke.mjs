@@ -1,32 +1,25 @@
-// Claim 3 nohumans listings and set the need-first descriptions. Edit keys stay in memory, never printed.
+// Re-run after the description rewrites: where do our endpoints rank on nohumans.directory for plain-language needs they answer? (free, read-only)
 const API = "https://api.nohumans.directory";
-const EMAIL = "Fizzl13@protonmail.com";
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const jobs = [
-  { id: "ee5c650c-d63", what: "presign token", proof: ["file", "https://presign-guard.onrender.com/.well-known/nohumans-claim", "857bd9d55cb8d42eb41f294993a7f420223870a976d70460"],
-    description: "Is this token safe to buy, hold or accept? Checks a Solana or EVM token for honeypot and rug-pull signs (mint or freeze authority still active, LP not locked, buy/sell tax, low liquidity, brand-new token, concentrated holders) and answers green/orange/red with a grade (SAFE/CAUTION/RISKY/AVOID), the reasons, a one-line summary and market data." },
-  { id: "1259df9a-70c", what: "ichimoku signal", proof: ["header", "https://ichimoku-signal.onrender.com/signal/:pair", "55bdf1ae4520a713dfff68576ecf3eceea50ce914f7e890f"],
-    description: "Is a crypto pair bullish, bearish or neutral right now? Trend signal from the Ichimoku Cloud (cloud position, tenkan/kijun cross) for BTC, ETH, SOL or any top-200 coin on any interval, from live candles on Binance.US, Kraken, Gate or MEXC." },
-  { id: "3e22b66d-48d", what: "ichimoku levels", proof: ["header", "https://ichimoku-signal.onrender.com/levels/:pair", "5d07e40624c14991af20fd512975ef4d82ace41d8a30e1fe"],
-    description: "Support and resistance levels, stop loss and take profit targets for a crypto pair (top 200 coins): swing highs/lows, pivots, ATR, Fibonacci retracements and Ichimoku levels, plus a long and a short plan (entry, stop, two targets, risk/reward). Levels from price history, not trade advice." },
+const OURS = /presign-guard|ichimoku-signal|x402-doctor|smartcontractexplainer/;
+const needs = [
+  ["presign", "is this token safe to buy"],
+  ["presign", "check a token for honeypot or rug pull before buying"],
+  ["presign", "check a token approval before signing it"],
+  ["presign", "is this transaction or signature safe to sign"],
+  ["presign", "which token approvals on my wallet should I revoke"],
+  ["presign", "check if a wallet address is sanctioned or a scammer"],
+  ["ichimoku", "crypto trend signal for BTC bullish or bearish"],
+  ["ichimoku", "technical analysis indicators for a crypto pair RSI MACD"],
+  ["ichimoku", "support and resistance levels stop loss take profit for crypto"],
+  ["ichimoku", "which crypto coins are bullish right now market scan"],
+  ["doctor", "check an x402 endpoint before paying it"],
+  ["doctor", "why does my x402 endpoint fail payment debug"],
+  ["doctor", "x402 endpoint reliability uptime data"],
 ];
-for (const j of jobs) {
-  const [kind, url, token] = j.proof;
-  let ok = false;
-  for (let i = 0; i < 30 && !ok; i++) {
-    const r = await fetch(url).catch(() => null);
-    ok = kind === "header" ? r?.headers.get("x-nohumans-claim") === token : r?.status === 200 && (await r.text()).trim() === token;
-    if (!ok) await sleep(20000);
-  }
-  console.log(`proof ${ok ? "live" : "NOT LIVE"}: ${j.what}`);
-  if (!ok) continue;
-  const c = await fetch(`${API}/v1/listings/${j.id}/claim`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: EMAIL }) });
-  const cd = await c.json().catch(() => ({}));
-  const key = cd.edit_token || cd.claim_token || cd.token;
-  console.log(`claim ${j.what}: ${c.status} ok=${cd.ok} origin=${cd.origin} error=${cd.error ?? ""} key=${key ? "received (not printed)" : "none"}`);
-  if (!key) continue;
-  const p = await fetch(`${API}/v1/listings/${j.id}`, { method: "PATCH", headers: { "content-type": "application/json", "x-claim-token": key }, body: JSON.stringify({ description: j.description }) });
-  console.log(`edit ${j.what}: ${p.status}`);
-  const d = await (await fetch(`${API}/v1/listings/${j.id}`)).json().catch(() => ({}));
-  console.log(`now ${j.what}: origin=${d.origin} status=${d.status} desc="${String(d.description).slice(0, 70)}…"`);
+for (const [svc, q] of needs) {
+  const d = await (await fetch(`${API}/v1/discover?q=${encodeURIComponent(q)}&limit=20`)).json();
+  const res = d.results || [];
+  const hits = res.map((r, i) => [i + 1, r]).filter(([, r]) => OURS.test(r.endpoint_url));
+  const top = res.slice(0, 3).map((r) => `${r.name.slice(0, 38)} $${r.price_amount}`).join(" ; ");
+  console.log(`[${svc}] "${q}" → ours: ${hits.length ? hits.map(([i, r]) => `#${i} ${r.endpoint_url.replace(/^https:\/\//, "")}`).join(", ") : "not in top 20"}\n     top3: ${top}`);
 }
