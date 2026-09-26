@@ -1,30 +1,20 @@
-// Claim the presign /v1/check nohumans listing and set its need-first description (edit key never printed),
-// then wait for the search index to pick it up and re-run the ranking test.
-const API = "https://api.nohumans.directory";
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const ID = "5b72a75f-172", TOKEN = "bdd666be53e1fa1cc7300c6785508961f70631ed91c74027";
-const DESCRIPTION = "Is this transaction, approval or signature safe to sign? Pre-sign verdict (green/orange/red + reason codes) for EVM transactions, token approvals and Permit/Permit2/EIP-3009/Seaport signatures: flagged or sanctioned spenders, unlimited allowances, plain-wallet spenders and risky tokens.";
-let live = false;
-for (let i = 0; i < 30 && !live; i++) {
-  const r = await fetch("https://presign-guard.onrender.com/.well-known/nohumans-claim").catch(() => null);
-  live = r?.status === 200 && (await r.text()).trim() === TOKEN;
-  if (!live) await sleep(20000);
+// Pay.sh and ampersend discover (plus agentic.market for presign): are we listed, and how do you submit? Read-only.
+const strip = (h) => h.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/g, " ").replace(/<[^>]+>/g, " ").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
+const OURS = /presign-guard|ichimoku-signal|x402-doctor|smartcontractexplainer|fizzl/i;
+async function show(u, n = 2500) {
+  try {
+    const r = await fetch(u, { headers: { "user-agent": "Mozilla/5.0 (research)", accept: "text/html,application/json" }, signal: AbortSignal.timeout(25000), redirect: "follow" });
+    const raw = await r.text();
+    const t = r.headers.get("content-type")?.includes("json") ? raw : strip(raw);
+    const hits = [...new Set((raw.match(/[a-z0-9.-]*(presign-guard|ichimoku-signal|x402-doctor|smartcontractexplainer)[a-z0-9./-]*/gi) || []))].slice(0, 10);
+    console.log(`\n=== ${u} → ${r.status} ${r.url !== u ? "(→ " + r.url + ")" : ""} (${t.length} chars) ours: ${hits.length ? hits.join(", ") : "none"}\n${t.slice(0, n)}`);
+    const links = [...new Set([...raw.matchAll(/href="([^"]+)"/g)].map((m) => m[1]).filter((h) => /submit|add|list|docs|seller|provider|register|api|llms|openapi|github/i.test(h)))].slice(0, 25);
+    if (links.length) console.log("links:", links.join(" "));
+    return raw;
+  } catch (e) { console.log(`\n=== ${u} ERROR ${e.message}`); }
 }
-console.log(`proof ${live ? "live" : "NOT LIVE"}`);
-if (live) {
-  const c = await fetch(`${API}/v1/listings/${ID}/claim`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "Fizzl13@protonmail.com" }) });
-  const cd = await c.json().catch(() => ({}));
-  const key = cd.edit_token || cd.claim_token || cd.token;
-  console.log(`claim: ${c.status} ok=${cd.ok} origin=${cd.origin} key=${key ? "received (not printed)" : "none"}`);
-  if (key) {
-    const p = await fetch(`${API}/v1/listings/${ID}`, { method: "PATCH", headers: { "content-type": "application/json", "x-claim-token": key }, body: JSON.stringify({ description: DESCRIPTION }) });
-    console.log(`edit: ${p.status}`);
-  }
-  for (let i = 0; i < 12; i++) {
-    const d = await (await fetch(`${API}/v1/listings/${ID}`)).json();
-    if (d.embedding_synced_at >= d.updated_at) { console.log(`embedded at ${new Date(d.embedding_synced_at * 1000).toISOString()}: "${d.description.slice(0, 60)}…"`); break; }
-    await sleep(20000);
-  }
-  console.log("");
-  await import("./rank.mjs");
+for (const u of ["https://pay.sh", "https://pay.sh/llms.txt", "https://pay.sh/docs", "https://app.ampersend.ai/discover", "https://ampersend.ai", "https://app.ampersend.ai/llms.txt"]) await show(u);
+for (const q of ["presign", "ichimoku", "x402-doctor"]) {
+  await show(`https://pay.sh/search?q=${q}`, 600);
+  await show(`https://app.ampersend.ai/discover?q=${q}`, 600);
 }
