@@ -1,12 +1,9 @@
-// nohumans.directory: how to claim a listing (read-only).
-const txt = await (await fetch("https://api.nohumans.directory/llms.txt")).text();
-const hits = [];
-let i = -1;
-while ((i = txt.toLowerCase().indexOf("claim", i + 1)) !== -1) hits.push(i);
-console.log(`"claim" occurs ${hits.length} times`);
-// Print each distinct section heading that mentions claiming, with its body.
-const sections = txt.split(/\n(?=#{2,3} )/);
-for (const s of sections) if (/claim/i.test(s.split("\n")[0]) || /claim_token|\/claim|well-known\/nohumans|dns|verification token/i.test(s)) console.log(`\n=====\n${s.slice(0, 3000)}`);
-const api = await (await fetch("https://api.nohumans.directory/openapi.json")).json();
-for (const [p, ops] of Object.entries(api.paths)) if (/claim|owner|verify/i.test(p)) console.log(`\nPATH ${p}: ${JSON.stringify(ops).slice(0, 1500)}`);
-console.log("\nsecuritySchemes:", JSON.stringify(api.components?.securitySchemes || {}).slice(0, 1500));
+// nohumans.directory: request claim challenges (one-time proof tokens, valid 24h, not credentials) for 4 listings.
+const API = "https://api.nohumans.directory";
+const ids = { "22c4a0f9-8dd": "doctor preflight", "b8dc5b73-c7b": "doctor diagnose", "3cdb4ceb-a86": "doctor fix", "1259df9a-70c": "ichimoku signal" };
+for (const [id, what] of Object.entries(ids)) {
+  const info = await (await fetch(`${API}/v1/listings/${id}/claim`)).json().catch(() => null);
+  const r = await fetch(`${API}/v1/listings/${id}/claim/challenge`, { method: "POST" });
+  const d = await r.json().catch(() => ({}));
+  console.log(`\n${what} ${id}: claim info ${JSON.stringify(info).slice(0, 600)}\nchallenge ${r.status} ${JSON.stringify(d).slice(0, 900)}`);
+}
