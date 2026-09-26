@@ -165,6 +165,9 @@ test('preflight: unpaid 402 at $0.001; a paid call returns the verdict (no_go: t
   for (const a of challenge.accepts) assert.equal(a.amount, '1000');
   const header = JSON.parse(Buffer.from(unpaid.headers.get('payment-required'), 'base64').toString('utf8'));
   assert.equal(header.extensions.bazaar.info.input.queryParams.url, 'https://ichimoku-signal.onrender.com/signal/BTC-USDT');
+  // The body mirrors the whole v2 challenge, resource included (x402-trust.com flags a v2 body without it).
+  assert.deepEqual(challenge.resource, header.resource);
+  assert.match(challenge.resource.url, /\/api\/v1\/preflight/);
 
   assert.equal((await fetch(`${api}/api/v1/preflight?url=${encodeURIComponent(targetUrl)}&max_usd=abc`)).status, 400);
   assert.equal((await fetch(`${api}/api/v1/preflight?url=${encodeURIComponent(targetUrl)}&network=base`)).status, 400);
