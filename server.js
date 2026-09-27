@@ -1,6 +1,7 @@
 const express = require('express');
 const path = require('path');
 const { x402TrustTxtRoute } = require('./lib/x402-trust-txt');
+const { ALGORITHM, verifyReceipt } = require('./lib/receipt');
 const { securityHeaders } = require('./lib/security-headers');
 const { nohumansClaim } = require('./lib/nohumans-claim');
 const { createSafeFetch, isPrivateIp } = require('./lib/safe-fetch');
@@ -132,6 +133,22 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   app.use(securityHeaders);
   app.use(nohumansClaim());
   app.get('/.well-known/x402-trust.txt', x402TrustTxtRoute(env));
+  // Who signs the verdicts, and a free check of one (before the 4 kB body limit:
+  // a signed diagnose report is larger).
+  const signer = paidApi.signer || null;
+  app.get('/.well-known/x402-doctor-signer.json', (req, res) => res.json({
+    signing: Boolean(signer),
+    signers: signer ? signer.signers : [],
+    algorithm: ALGORITHM,
+    canonicalization: "JSON with keys sorted at every level, no whitespace, non-ASCII as \\uXXXX (Python: json.dumps(obj, sort_keys=True, separators=(',', ':'), ensure_ascii=True))",
+    input_sha256: "sha256 of the canonical JSON of {route, input}: route like 'GET /api/v1/preflight' or 'mcp x402_preflight'; input = the query parameters as strings (GET) or the tool arguments (MCP)",
+    verify: `${req.protocol}://${req.get('host')}/api/v1/verify`,
+  }));
+  app.post('/api/v1/verify', express.json({ limit: '256kb' }), async (req, res) => {
+    const { response, route, input } = req.body || {};
+    const body = response && typeof response === 'object' ? response : req.body;
+    res.json(await verifyReceipt(body, { signers: signer ? signer.signers : [], route, input }));
+  });
   app.use(express.json({ limit: '4kb' }));
   app.use(usageLog.middleware(describeDoctorCall));
 
@@ -164,6 +181,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
       name: 'x402 Doctor',
       description: 'Checks x402 endpoints: a $0.001 pre-payment check for buyers (go / caution / no_go) and a $0.01 full diagnosis with a fix hint per check.',
       openapi: `${origin}/openapi.json`,
+      signer: `${origin}/.well-known/x402-doctor-signer.json`,
     });
   });
 
@@ -238,14 +256,31 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   return app;
 }
 
+// Signed verdicts (lib/receipt.js): present when a signer is configured.
+const RECEIPT_SCHEMA = {
+  type: 'object',
+  description: 'Signature over this whole answer (without receipt.signature), so the verdict can be verified later: EIP-191 personal_sign over canonical JSON (sorted keys, compact, ASCII-escaped). Signer addresses: /.well-known/x402-doctor-signer.json; free check: POST /api/v1/verify.',
+  properties: {
+    request_id: { type: 'string' },
+    route: { type: 'string' },
+    input_sha256: { type: 'string', description: 'sha256 of canonical JSON {route, input}: your query parameters as strings' },
+    signed_at: { type: 'string' },
+    signer: { type: 'string' },
+    algorithm: { type: 'string', enum: ['eip191-canonical-json-v1'] },
+    signature: { type: 'string' },
+  },
+  required: ['request_id', 'route', 'input_sha256', 'signed_at', 'signer', 'algorithm', 'signature'],
+};
+const withReceipt = (schema) => (schema && schema.properties ? { ...schema, properties: { ...schema.properties, receipt: RECEIPT_SCHEMA } } : schema);
+
 function openApi(origin, payment) {
   const spec = {
     openapi: '3.1.0',
     info: {
       title: 'x402 Doctor',
-      version: '2.3.0',
+      version: '2.4.0',
       description: "Diagnoses why an x402-payable endpoint's payment flow is broken, without a funded wallet: challenge format, accepts[], resource URL, Solana settlement readiness, discovery and browser paywall.",
-      'x-guidance': 'Before paying an unknown x402 endpoint, call GET /api/v1/preflight?url=<endpoint>&max_usd=<budget> ($0.001): it answers go, caution or no_go with the recommended payment option and the reasons. To debug your own endpoint, call GET /api/v1/diagnose?url=<endpoint> ($0.01): every check with pass/warn/fail and a fix hint. To get the code that fixes it, call GET /api/v1/fix?url=<endpoint> ($0.05): per problem the concrete change for your stack, filled in with your own values. None of them ever pays the endpoint.',
+      'x-guidance': 'Before paying an unknown x402 endpoint, call GET /api/v1/preflight?url=<endpoint>&max_usd=<budget> ($0.001): it answers go, caution or no_go with the recommended payment option and the reasons. To debug your own endpoint, call GET /api/v1/diagnose?url=<endpoint> ($0.01): every check with pass/warn/fail and a fix hint. To get the code that fixes it, call GET /api/v1/fix?url=<endpoint> ($0.05): per problem the concrete change for your stack, filled in with your own values. None of them ever pays the endpoint. Every paid answer carries a signed receipt: keep it to prove later which verdict you got (for example why you paid an endpoint); the signer is at /.well-known/x402-doctor-signer.json and POST /api/v1/verify checks one for free.',
     },
     servers: [{ url: origin }],
     paths: {},
@@ -267,7 +302,7 @@ function openApi(origin, payment) {
         { name: 'method', in: 'query', required: false, schema: { type: 'string', enum: ['GET', 'POST'] }, description: 'Endpoint method; default tries GET then POST' },
       ],
       responses: {
-        200: { description: 'Diagnosis report', content: { 'application/json': { schema: REPORT_SCHEMA } } },
+        200: { description: 'Diagnosis report', content: { 'application/json': { schema: withReceipt(REPORT_SCHEMA) } } },
         400: { description: 'Invalid input (rejected before payment)' },
         402: { description: 'Payment required (x402 challenge in the PAYMENT-REQUIRED header, mirrored in the body)' },
       },
@@ -291,7 +326,7 @@ function openApi(origin, payment) {
         { name: 'network', in: 'query', required: false, schema: { type: 'string' }, description: 'CAIP-2 network you want to pay on, e.g. eip155:8453' },
       ],
       responses: {
-        200: { description: 'Verdict (go / caution / no_go), recommended option and reasons', content: { 'application/json': { schema: PREFLIGHT_SCHEMA } } },
+        200: { description: 'Verdict (go / caution / no_go), recommended option and reasons', content: { 'application/json': { schema: withReceipt(PREFLIGHT_SCHEMA) } } },
         400: { description: 'Invalid input (rejected before payment)' },
         402: { description: 'Payment required (x402 challenge in the PAYMENT-REQUIRED header, mirrored in the body)' },
       },
@@ -314,7 +349,7 @@ function openApi(origin, payment) {
         { name: 'stack', in: 'query', required: false, schema: { type: 'string', enum: Object.keys(STACKS) }, description: 'Your stack, if detection from the response headers is wrong' },
       ],
       responses: {
-        200: { description: 'Per problem: why, steps and code for your stack', content: { 'application/json': { schema: FIX_SCHEMA } } },
+        200: { description: 'Per problem: why, steps and code for your stack', content: { 'application/json': { schema: withReceipt(FIX_SCHEMA) } } },
         400: { description: 'Invalid input (rejected before payment)' },
         402: { description: 'Payment required (x402 challenge in the PAYMENT-REQUIRED header, mirrored in the body)' },
       },

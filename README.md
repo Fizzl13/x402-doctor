@@ -139,6 +139,25 @@ Solana fee payer, EIP-712 domain, http resource URL behind a proxy, resource URL
 example, Solana payout token account, Phantom on PayAI, testnet paywall on mainnet, and openapi.json. Anything
 without a recipe is returned under `unfixed` with the diagnosis hint.
 
+### Signed verdicts
+
+Every paid answer (diagnose, preflight and fix; HTTP and MCP) carries a `receipt` signed by Doctor, so an agent can later prove **which verdict it got for which endpoint**, for example why it did or didn't pay:
+
+```json
+"receipt": {
+  "request_id": "…", "route": "GET /api/v1/preflight", "input_sha256": "…",
+  "signed_at": "2026-09-27T08:00:00.000Z", "signer": "0x…",
+  "algorithm": "eip191-canonical-json-v1", "signature": "0x…"
+}
+```
+
+- **Signed:** the whole answer without `receipt.signature`, as canonical JSON (sorted keys, compact, non-ASCII as `\uXXXX`: Python's `json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=True)`), with EIP-191 `personal_sign`. Flipping the verdict or moving it to another request breaks it.
+- **`input_sha256`:** SHA-256 of the canonical JSON of `{"route", "input"}`, where `input` is your query parameters as strings (HTTP) or the tool arguments (MCP, route `mcp <tool>`).
+- **Signer:** [`/.well-known/x402-doctor-signer.json`](https://x402-doctor.onrender.com/.well-known/x402-doctor-signer.json), with retired signers listed so old receipts keep verifying.
+- **Free check:** `POST /api/v1/verify` with `{"response": …, "route": …, "input": …}` returns `valid`, `signer`, `known_signer` and `input_matches`.
+
+Same format as [presign-guard](https://github.com/Fizzl13/presign-guard#signed-verdicts), so one verifier works for both. The key comes from `RECEIPT_SIGNER_SECRET` (holds no funds); without it answers are unsigned.
+
 ### x402 Trust Index
 
 Once a day, [`trust-scan.yml`](.github/workflows/trust-scan.yml) runs the pre-payment check against every resource in

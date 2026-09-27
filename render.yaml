@@ -22,5 +22,7 @@ services:
         value: Fizzl13/usage-log
       - key: ADMIN_PASSWORD
         sync: false
+      - key: RECEIPT_SIGNER_SECRET # signs verdict receipts (lib/receipt.js); holds no funds; unset = unsigned answers
+        generateValue: true
       - key: X402_TRUST_TXT # x402-trust.com provider verification line (public key; optional)
         sync: false
