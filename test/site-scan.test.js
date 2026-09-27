@@ -47,3 +47,8 @@ test('other actions warn; scanner errors are info; local hosts are skipped', asy
   await checkSiteScan('http://127.0.0.1:4000/x', checks, scanner({ recommendedAction: 'BLOCK' }));
   assert.equal(checks.length, 0);
 });
+
+test('diagnose() leaves the MetaMask scanner off unless METAMASK_SCAN=on', () => {
+  const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '../lib/diagnose.js'), 'utf8');
+  assert.match(src, /siteScan = process\.env\.METAMASK_SCAN === 'on'/);
+});
