@@ -403,3 +403,34 @@ test('payout wallet upgraded to a smart account (EIP-7702) still counts as an EO
   assert.equal(checks[0].option, 0);
   assert.match(checks[0].message, /EIP-7702/);
 });
+
+test('custom scheme (txHash): no feePayer fail, a softer payout-account warning, Optimism known, nobody counted as able to pay', async () => {
+  const evmPayTo = '0xAd3dB8e2b1A311701E6233f17F6d648e4A52287c';
+  const solPayTo = 'Hp4FLLbuHKtMNMmTLdkJ6J2Kgax8Wj2Sk92JAbu47EX2';
+  const opt = (network, asset, payTo) => ({ scheme: 'txHash', network, asset, payTo, amount: '100000', maxTimeoutSeconds: 300 });
+  const challenge = {
+    x402Version: 2,
+    accepts: [
+      opt('eip155:8453', '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', evmPayTo),
+      opt('eip155:10', '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85', evmPayTo),
+      opt(SOLANA, 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', solPayTo),
+    ],
+  };
+  const url = await listen((req, res) => {
+    res.statusCode = req.method === 'POST' ? 402 : 405;
+    if (req.method === 'POST') res.setHeader('PAYMENT-REQUIRED', b64(challenge));
+    res.end(JSON.stringify(challenge));
+  });
+  const report = await diagnose(`${url}/api/x402/cuni/check`, { safeFetch, rpcUrl });
+  const checks = byId(report);
+  assert.equal(checks['accepts[2]-extra'], undefined, 'no feePayer check for a custom scheme');
+  assert.match(checks['accepts[0]-scheme'][0].message, /only clients built for this scheme can pay/);
+  assert.match(checks['accepts[1]-network'][0].message, /Optimism/);
+  const payout = checks['solana-payout-account'][0];
+  assert.equal(payout.status, 'warn');
+  assert.match(payout.message, /payer's wallet also creates that account/);
+  const agents = report.wallets.find((w) => w.wallet === 'x402 agents');
+  assert.deepEqual(agents.yes, []);
+  assert.match(agents.no[0].reason, /custom scheme "txHash"/);
+  assert.notEqual(report.overall, 'fail');
+});
