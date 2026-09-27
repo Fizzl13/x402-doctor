@@ -16,7 +16,7 @@ Crypto technical signals for AI agents, paid per call with x402 on Base or Solan
 - **`GET /signals/{pair}`** ($0.15): six indicators in one call (Ichimoku, RSI, MACD, EMA 50/200, Bollinger Bands, volume), each with its vote, plus a combined signal and confidence.
 - **`GET /levels/{pair}`** ($0.05): support and resistance, ATR, pivots, Fibonacci and Ichimoku levels, plus a long and a short plan with stop, two targets and risk/reward. Levels, not advice.
 - **`GET /scan`** ($0.10): the Ichimoku signal for 148 coins at once, strongest bullish first, with market breadth; `&signal=bullish` returns only the bullish ones.
-- **`GET /setups`** ($0.50): trade setups across the same 148 coins: the six-indicator signal plus entry, stop, two targets and risk/reward, ranked best first; filter with `direction`, `min_rr` and `top`. Levels, not advice.
+- **`GET /setups`** ($0.50): trade setups across the same 148 coins: the six-indicator signal plus entry, stop, two targets and risk/reward, ranked best first, with each coin's global trading volume and liquidity rank (thinly traded coins rank lower); filter with `direction`, `min_rr`, `top` and `liquid_top` (only the N most traded coins). Levels, not advice.
 
 A free daily trend per pair is at `GET /api/trend/{pair}` (no payment; rate-limited per IP), and an MCP server is at `https://ichimoku-signal.onrender.com/mcp`.
 

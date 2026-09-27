@@ -1,14 +1,11 @@
-// Wait until Ichimoku #67 is deployed: the live OpenAPI lists liquid_top on /setups; check liquid_top
-// is validated before payment. Free, read-only.
-const B = "https://ichimoku-signal.onrender.com";
-const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-let live = false;
-for (let i = 0; i < 56 && !live; i++) {
-  try { live = (await (await fetch(`${B}/openapi.json`)).json()).paths["/setups"].get.parameters.some((p) => p.name === "liquid_top"); } catch {}
-  console.log(new Date().toISOString(), "deployed:", live);
-  if (!live) await wait(15000);
+// pay catalog check on the ichimoku-signal draft with liquid_top and the liquidity fields on /setups.
+// Probes unpaid; nothing paid or submitted.
+import { spawnSync } from "node:child_process";
+import { cpSync } from "node:fs";
+const run = (cmd, args, cwd) => { const r = spawnSync(cmd, args, { cwd, encoding: "utf8", timeout: 600000 }); return `exit ${r.status}\n${r.stdout}${r.stderr}`; };
+console.log(run("git", ["clone", "-q", "--depth", "1", "https://github.com/solana-foundation/pay-skills", "/tmp/pay-skills"]));
+for (const name of ["ichimoku-signal"]) {
+  cpSync(`research/pay-skills/providers/fizzl/${name}`, `/tmp/pay-skills/providers/fizzl/${name}`, { recursive: true });
+  console.log(`\n===== pay catalog check fizzl/${name}`);
+  console.log(run("npx", ["-y", "@solana/pay", "catalog", "check", `providers/fizzl/${name}/PAY.md`], "/tmp/pay-skills").replace(/\x1b\[[0-9;]*m/g, "").slice(-4000));
 }
-const bad = await fetch(`${B}/setups?liquid_top=0`);
-console.log("liquid_top=0 ->", bad.status, (await bad.json()).error);
-const ok = await fetch(`${B}/setups?liquid_top=30&top=3`);
-console.log("liquid_top=30 ->", ok.status, "(402 expected: valid, asks for payment)");

@@ -4,7 +4,7 @@
     "title": "Ichimoku Cloud Signal",
     "version": "1.0.0",
     "description": "Real-time crypto trading signals for agents on live market data (Binance.US, Kraken, Gate, MEXC): the Ichimoku Cloud signal, a confluence signal of six indicators, price levels with a long/short plan, and a market scan of 148 top-200 coins. Pay-per-call via x402.",
-    "x-guidance": "Use this when a trading agent needs a quick Ichimoku Cloud read (tenkan/kijun cross, cloud position, bullish/bearish/neutral signal) for one pair before deciding to act. It returns the raw indicator values, not a trade recommendation, and it is not a full OHLCV history feed. For a broader read, /signals/{pair} ($0.15) returns Ichimoku, RSI, MACD, EMA 50/200, Bollinger Bands and volume, each with a vote, plus a combined signal and confidence. For where to act, /levels/{pair} ($0.05) returns support and resistance, ATR, pivots, Fibonacci and Ichimoku levels, plus a long and a short plan with stop, two targets and risk/reward (levels, not advice). To find what is moving, /scan ($0.10) returns the Ichimoku signal for 148 top-200 coins in one call, strongest bullish first, with market breadth. To find what to trade, /setups ($0.50) returns, for the same coins, the six-indicator confluence signal plus a trade plan in that direction (entry, stop, two targets, risk/reward), ranked best first, with long/short, minimum risk/reward and top-N filters (levels, not advice).",
+    "x-guidance": "Use this when a trading agent needs a quick Ichimoku Cloud read (tenkan/kijun cross, cloud position, bullish/bearish/neutral signal) for one pair before deciding to act. It returns the raw indicator values, not a trade recommendation, and it is not a full OHLCV history feed. For a broader read, /signals/{pair} ($0.15) returns Ichimoku, RSI, MACD, EMA 50/200, Bollinger Bands and volume, each with a vote, plus a combined signal and confidence. For where to act, /levels/{pair} ($0.05) returns support and resistance, ATR, pivots, Fibonacci and Ichimoku levels, plus a long and a short plan with stop, two targets and risk/reward (levels, not advice). To find what is moving, /scan ($0.10) returns the Ichimoku signal for 148 top-200 coins in one call, strongest bullish first, with market breadth. To find what to trade, /setups ($0.50) returns, for the same coins, the six-indicator confluence signal plus a trade plan in that direction (entry, stop, two targets, risk/reward), ranked best first, with long/short, minimum risk/reward, top-N and liquid_top filters (levels, not advice); thinly traded coins rank lower because spread and slippage eat their edge.",
     "contact": {
       "email": "frits.zwager@gmail.com"
     }
@@ -1327,6 +1327,17 @@
               "default": 10
             },
             "description": "How many setups to return"
+          },
+          {
+            "name": "liquid_top",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            },
+            "description": "Only the N most traded coins (global 24h volume across all exchanges; see liquidity_source), e.g. 30"
           }
         ],
         "responses": {
@@ -1443,10 +1454,8 @@
                             "type": "string"
                           },
                           "obstacle_before_target": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": "number",
+                            "nullable": true
                           },
                           "warning": {
                             "type": "string"
@@ -1460,6 +1469,14 @@
                           },
                           "exchange": {
                             "type": "string"
+                          },
+                          "liquidity_rank": {
+                            "type": "integer",
+                            "description": "Rank by traded volume among the scanned coins (1 = most traded); see liquidity_source"
+                          },
+                          "liquidity_usd_daily": {
+                            "type": "number",
+                            "description": "Traded volume in USD: global 24h across all exchanges, or the listed exchange's 30-day daily median (see liquidity_source)"
                           }
                         }
                       }
@@ -1480,6 +1497,14 @@
                     },
                     "note": {
                       "type": "string"
+                    },
+                    "liquidity_source": {
+                      "type": "string",
+                      "enum": [
+                        "coingecko_global_24h",
+                        "exchange_30d_median"
+                      ],
+                      "description": "Where liquidity comes from: global 24h volume across all exchanges (CoinGecko), or the listed exchange's 30-day median as a fallback"
                     }
                   }
                 }
@@ -1490,7 +1515,7 @@
             "description": "Payment required (x402 protocol v2, $0.50 USDC on Base or Solana)"
           },
           "400": {
-            "description": "Invalid interval, direction, min_rr or top (rejected before payment)"
+            "description": "Invalid interval, direction, min_rr, top or liquid_top (rejected before payment)"
           },
           "502": {
             "description": "Too few coins answered (market data unavailable); nothing is charged"
