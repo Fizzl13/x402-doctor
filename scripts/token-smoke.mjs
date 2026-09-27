@@ -1,11 +1,21 @@
 // Verify the AERO and USDC addresses on Base: on-chain name/symbol/decimals/supply + CoinGecko's listed Base contract. Read-only.
-const RPC = "https://mainnet.base.org";
-const call = async (to, data) => (await (await fetch(RPC, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_call", params: [{ to, data }, "latest"] }) })).json()).result;
+const RPCS = ["https://base-rpc.publicnode.com", "https://mainnet.base.org", "https://base.llamarpc.com"];
+const call = async (to, data) => {
+  for (const rpc of RPCS) {
+    try {
+      const j = await (await fetch(rpc, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_call", params: [{ to, data }, "latest"] }) })).json();
+      if (j.result !== undefined) return j.result;
+      if (j.error && /revert/i.test(j.error.message || "")) return "0x";
+      console.log(`  ${rpc}: ${JSON.stringify(j.error || j).slice(0, 120)}`);
+    } catch (e) { console.log(`  ${rpc}: ${e.message}`); }
+  }
+  return "0x";
+};
 const str = (hex) => { if (!hex || hex === "0x") return null; const b = Buffer.from(hex.slice(2), "hex"); const len = Number(BigInt("0x" + b.subarray(32, 64).toString("hex"))); return b.subarray(64, 64 + len).toString("utf8"); };
 for (const [label, addr] of [["AERO", "0x940181a94A35A4569E4529A3CDfB74e38FD98631"], ["USDC", "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"]]) {
   const name = str(await call(addr, "0x06fdde03")), symbol = str(await call(addr, "0x95d89b41"));
   const dec = parseInt(await call(addr, "0x313ce567"), 16);
-  const supply = BigInt(await call(addr, "0x18160ddd"));
+  const supplyHex = await call(addr, "0x18160ddd"); const supply = supplyHex && supplyHex !== "0x" ? BigInt(supplyHex) : 0n;
   const minter = await call(addr, "0x07546172"); // minter()
   console.log(`${label} ${addr}: name="${name}" symbol="${symbol}" decimals=${dec} totalSupply=${(Number(supply) / 10 ** dec).toLocaleString("en")}${minter && minter !== "0x" ? ` minter()=0x${minter.slice(26)}` : ""}`);
 }
