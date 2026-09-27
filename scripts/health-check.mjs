@@ -145,6 +145,14 @@ async function main() {
     return `signer ${current.address}`;
   });
 
+  await checkFree('x402 Doctor', 'verdicts signed', async () => {
+    const res = await request(`${DOCTOR}/.well-known/x402-doctor-signer.json`, { headers: { accept: 'application/json' } });
+    const body = await res.json();
+    const current = (body.signers || []).find((s) => s.status === 'current');
+    if (res.status !== 200 || !body.signing || !current) throw new Error(`signing off (HTTP ${res.status}, signing ${JSON.stringify(body.signing)}): RECEIPT_SIGNER_SECRET missing in Render?`);
+    return `signer ${current.address}`;
+  });
+
   // Informational: which routes the CDP Bazaar lists (never a failure).
   const listed = [];
   try {

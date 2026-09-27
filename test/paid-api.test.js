@@ -88,7 +88,7 @@ test.before(async () => {
     json(res, challenge);
   });
 
-  const env = { AGENT_PAYOUT_WALLET: PAY_TO_BASE, AGENT_PAYOUT_WALLET_SOLANA: PAY_TO_SOLANA, FACILITATOR_URL: facilitatorUrl };
+  const env = { AGENT_PAYOUT_WALLET: PAY_TO_BASE, AGENT_PAYOUT_WALLET_SOLANA: PAY_TO_SOLANA, FACILITATOR_URL: facilitatorUrl, RECEIPT_SIGNER_SECRET: 'paid-api-test-secret-long-enough-0123456789' };
   const trustIndex = {
     lookup: async (u) => (u.startsWith(targetUrl) ? { days_checked: 5, days_payable: 1, payable_ratio: 0.2, history: 'nnngn', last: 'n', streak: 1 } : null),
     refresh: () => Promise.resolve(),
@@ -186,6 +186,17 @@ test('preflight: unpaid 402 at $0.001; a paid call returns the verdict (no_go: t
   assert.ok(report.reasons.some((r) => r.code === 'unreliable_history' && /1 of the last 5/.test(r.message)));
   assert.equal(report.signals.track_record.history, 'nnngn');
   assert.equal(state.settle, 1);
+
+  // Signed verdict: the published signer signed it, bound to this url and budget; flipping it breaks it.
+  const signer = await (await fetch(`${api}/.well-known/x402-doctor-signer.json`)).json();
+  assert.equal(signer.signing, true);
+  assert.equal(report.receipt.signer, signer.signers[0].address);
+  assert.equal(report.receipt.route, 'GET /api/v1/preflight');
+  const verify = (body) => fetch(`${api}/api/v1/verify`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then((r) => r.json());
+  const ok = await verify({ response: report, route: 'GET /api/v1/preflight', input: { url: targetUrl, max_usd: '0.05' } });
+  assert.deepEqual([ok.valid, ok.known_signer, ok.input_matches], [true, true, true], JSON.stringify(ok));
+  const flipped = await verify({ response: { ...report, verdict: 'go' } });
+  assert.equal(flipped.valid, false);
 });
 
 test('fix: unpaid 402 at $0.05; a paid call returns the code fix for the missing EIP-712 domain; bad stack is 400 before payment', async () => {
@@ -222,6 +233,11 @@ test('free trust lookup: track record for a scanned URL, 404 for an unknown one,
 
 test('discovery: OpenAPI with x-payment-info and /.well-known/x402 listing the route', async () => {
   const spec = await (await fetch(`${api}/openapi.json`)).json();
+  for (const p of ['/api/v1/diagnose', '/api/v1/preflight', '/api/v1/fix']) {
+    assert.equal(spec.paths[p].get.responses[200].content['application/json'].schema.properties.receipt.properties.algorithm.enum[0], 'eip191-canonical-json-v1', p);
+  }
+  assert.match(spec.info['x-guidance'], /signed receipt/);
+  assert.match((await (await fetch(`${api}/.well-known/x402`)).json()).signer, /\/\.well-known\/x402-doctor-signer\.json$/);
   const op = spec.paths['/api/v1/diagnose'].get;
   assert.deepEqual(op['x-payment-info'].price, { mode: 'fixed', currency: 'USD', amount: '0.01' });
   assert.ok(op.responses['402']);

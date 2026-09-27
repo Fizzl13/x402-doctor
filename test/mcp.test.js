@@ -89,7 +89,7 @@ test.before(async () => {
     json(res, challenge);
   });
 
-  const env = { AGENT_PAYOUT_WALLET: PAY_TO_BASE, AGENT_PAYOUT_WALLET_SOLANA: PAY_TO_SOLANA, FACILITATOR_URL: facilitatorUrl };
+  const env = { AGENT_PAYOUT_WALLET: PAY_TO_BASE, AGENT_PAYOUT_WALLET_SOLANA: PAY_TO_SOLANA, FACILITATOR_URL: facilitatorUrl, RECEIPT_SIGNER_SECRET: 'mcp-test-secret-that-is-long-enough-0123' };
   const trustIndex = {
     lookup: async (u) => (u.startsWith(targetUrl) ? { days_checked: 5, days_payable: 1, payable_ratio: 0.2, history: 'nnngn', last: 'n', streak: 1 } : null),
     refresh: () => Promise.resolve(),
@@ -162,6 +162,10 @@ test('mcp: a real signed Base payment returns the full report and settles once',
   assert.deepEqual([state.verify, state.settle], [1, 1]);
   const pre = JSON.parse((await client.callTool('x402_preflight', { url: targetUrl, max_usd: 0.05 })).content[0].text);
   assert.ok(['go', 'caution', 'no_go'].includes(pre.verdict));
+  const { verifyReceipt, createSigner } = require('../lib/receipt');
+  const signers = createSigner({ RECEIPT_SIGNER_SECRET: 'mcp-test-secret-that-is-long-enough-0123' }).signers;
+  const check = await verifyReceipt(pre, { signers, route: 'mcp x402_preflight', input: { url: targetUrl, max_usd: 0.05 } });
+  assert.deepEqual([check.valid, check.input_matches], [true, true], 'paid MCP verdicts are signed like the HTTP ones');
   await client.close();
 });
 
