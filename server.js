@@ -147,7 +147,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     certificate_format: 'personal_sign by the authority over: fizzl receipt signer\\nservice: <service>\\nsigner: <address>\\nvalid_from: <YYYY-MM-DD>',
     sign_certificate: `${req.protocol}://${req.get('host')}/sign-receipt-key`,
     algorithm: ALGORITHM,
-    canonicalization: "JSON with keys sorted at every level, no whitespace, non-ASCII as \\uXXXX (Python: json.dumps(obj, sort_keys=True, separators=(',', ':'), ensure_ascii=True))",
+    canonicalization: "js-json-stringify-sorted-utf16-ascii-v1: keys sorted by UTF-16 code units at every level, no whitespace, every code unit from U+007F up as lowercase \\uXXXX, numbers as JavaScript's JSON.stringify writes them (1.0 -> 1, 0.000001 -> 0.000001), UTF-8 bytes. Python's json.dumps matches only for ASCII keys and integers; Python equivalent: https://github.com/Fizzl13/x402-doctor/blob/master/examples/canonical.py",
     input_sha256: "sha256 of the canonical JSON of {route, input}: route like 'GET /api/v1/preflight' or 'mcp x402_preflight'; input = the query parameters as strings (GET) or the tool arguments (MCP)",
     verify: `${req.protocol}://${req.get('host')}/api/v1/verify`,
   }));
