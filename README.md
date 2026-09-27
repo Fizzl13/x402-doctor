@@ -157,7 +157,7 @@ Every paid answer (diagnose, preflight and fix; HTTP and MCP) carries a `receipt
 }
 ```
 
-- **Signed:** the whole answer without `receipt.signature`, as canonical JSON (sorted keys, compact, non-ASCII as `\uXXXX`: Python's `json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=True)`), with EIP-191 `personal_sign`. Flipping the verdict or moving it to another request breaks it.
+- **Signed:** the whole answer without `receipt.signature`, as canonical JSON (profile `js-json-stringify-sorted-utf16-ascii-v1`: keys sorted by UTF-16 code units, compact, every code unit from U+007F up as lowercase `\uXXXX`, numbers as JavaScript's `JSON.stringify` writes them — `1.0` → `1`, `0.000001` → `0.000001` — then UTF-8 bytes; Python's `json.dumps` matches only for ASCII keys and integers, so use [`examples/canonical.py`](examples/canonical.py), which also has `verify_receipt(answer)`), with EIP-191 `personal_sign`. Flipping the verdict or moving it to another request breaks it.
 - **`payment`:** the payment that bought this answer, from your x402 payment payload. On Base the payer and the EIP-3009 nonce, so anyone can find the settlement on-chain as the USDC contract's `AuthorizationUsed(payer, nonce)` event; on Solana the payer and a SHA-256 of the signed transaction you sent.
 - **`input_sha256`:** SHA-256 of the canonical JSON of `{"route", "input"}`, where `input` is your query parameters as strings (HTTP) or the tool arguments (MCP, route `mcp <tool>`).
 - **Signer:** [`/.well-known/x402-doctor-signer.json`](https://x402-doctor.onrender.com/.well-known/x402-doctor-signer.json), with retired signers listed so old receipts keep verifying.
