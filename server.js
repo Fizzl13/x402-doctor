@@ -15,6 +15,7 @@ const { createMediaCache } = require('./lib/media');
 const crypto = require('crypto');
 const { createUsageLog, mcpToolCall, mcpPayment } = require('./lib/usage-log');
 const { createUsageReader } = require('./lib/usage-reader');
+const { setupsFunnel } = require('./lib/usage-funnel');
 
 const PORT = process.env.PORT || 3001;
 // Payout addresses shown by /demo/broken (it never settles, so nothing is paid).
@@ -172,7 +173,8 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     res.set('Cache-Control', 'no-store');
     const days = Math.min(365, Math.max(1, Number(req.query.days) || 30));
     try {
-      res.json(await usageReader.load({ days }));
+      const data = await usageReader.load({ days });
+      res.json({ ...data, funnel: setupsFunnel(data.events || []) });
     } catch (err) {
       res.status(502).json({ error: err.message });
     }

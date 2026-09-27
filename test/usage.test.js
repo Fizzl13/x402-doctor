@@ -4,6 +4,7 @@ const http = require('node:http');
 const { createUsageLog, paymentOf, mcpToolCall, mcpPayment, agentOf } = require('../lib/usage-log');
 const { createUsageReader } = require('../lib/usage-reader');
 const { createApp } = require('../server');
+const { setupsFunnel } = require('../lib/usage-funnel');
 
 const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64');
 const quiet = { warn() {}, error() {} };
@@ -197,6 +198,8 @@ test('admin pages: 404 without ADMIN_PASSWORD, 401 without the password, data wi
   const data = await (await fetch(`${open.base}/admin/usage/data?days=7`, auth('pw'))).json();
   assert.equal(data.days, 7);
   assert.equal(data.events.length, 1);
+  assert.equal(data.funnel.preview_visitors, 0);
+  assert.match(await (await fetch(`${open.base}/admin/usage`, auth('pw'))).text(), /id="funnel"/);
   open.server.close();
 });
 
@@ -304,4 +307,41 @@ test('visitor code: stable per IP and secret, never the IP itself', () => {
   assert.equal(visitorOf('::ffff:203.0.113.7', 's1'), visitorOf('203.0.113.7', 's1'));
   assert.notEqual(visitorOf('203.0.113.7', 's1'), visitorOf('203.0.113.7', 's2'));
   assert.equal(visitorOf('203.0.113.7', undefined), undefined);
+});
+
+test('setups funnel: preview visitors, then the price, then a paid /setups within 24 hours', () => {
+  const ev = (t, visitor, route, extra = {}) => ({ t: `2026-09-27T${t}:00Z`, service: 'ichimoku', route, visitor, status: 200, ...extra });
+  const events = [
+    ev('10:00', 'a', 'setups_preview', { via: 'web' }),
+    ev('10:05', 'a', 'setups', { quote: true, status: 402 }),
+    ev('10:06', 'a', 'setups', { paid: true, usd: 0.5 }),
+    ev('11:00', 'b', 'setups_preview', { via: 'api' }),
+    ev('11:01', 'b', 'setups_preview', { via: 'api' }),
+    ev('11:02', 'b', 'setups', { quote: true, status: 402 }),
+    ev('12:00', 'c', 'setups_preview', { via: 'web' }),
+    ev('09:00', 'c', 'trade_setups', { paid: true, usd: 0.5 }), // before c's preview
+    ev('13:00', 'd', 'trade_setups', { paid: true, usd: 0.5 }), // MCP agent, never previewed
+    ev('13:00', 'e', 'setups_preview', { status: 502 }), // a failed preview does not count
+    { t: '2026-09-27T13:00:00Z', service: 'doctor', route: 'setups_preview', visitor: 'f', status: 200 },
+  ].sort((x, y) => (x.t < y.t ? 1 : -1));
+  assert.deepEqual(setupsFunnel(events), {
+    window_hours: 24,
+    preview_calls: 4,
+    preview_visitors: 3,
+    preview_visitors_web: 2,
+    saw_price: 2,
+    paid: 1,
+    revenue_after_preview: 0.5,
+    paid_calls_without_preview: 2,
+    revenue_without_preview: 1,
+  });
+});
+
+test('setups funnel: a payment more than 24 hours after the preview is not counted as following it', () => {
+  const f = setupsFunnel([
+    { t: '2026-09-28T11:00:00Z', service: 'ichimoku', route: 'setups', visitor: 'a', status: 200, paid: true, usd: 0.5 },
+    { t: '2026-09-27T10:00:00Z', service: 'ichimoku', route: 'setups_preview', visitor: 'a', status: 200 },
+  ]);
+  assert.equal(f.paid, 0);
+  assert.equal(f.paid_calls_without_preview, 1);
 });
