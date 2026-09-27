@@ -1,17 +1,13 @@
-// Live check of presign-guard's origin reputation via the free MCP quick check. Never pays.
-const call = async (origin) => {
-  const args = { type: "approval", chainId: 8453, token: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", spender: "0x000000000022D473030F116dDEE9F6B43aC78BA3", amount: "1000000", origin };
-  const r = await fetch("https://presign-guard.onrender.com/mcp", { method: "POST", headers: { "content-type": "application/json", accept: "application/json, text/event-stream" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "presign_quick_check", arguments: args } }) });
-  const b = await r.json();
-  return b.result?.content?.[0]?.text ?? JSON.stringify(b);
-};
-await new Promise((res) => setTimeout(res, 150000)); // let Render deploy
-for (let round = 0; round < 4; round++) {
-  const out = await call("002271coinbase.com");
-  console.log(`round ${round}: 002271coinbase.com -> ${out}`);
-  if (/"red"/.test(out)) {
-    for (const o of ["metamask-login.com", "ichimoku-signal.onrender.com", "uniswap.org"]) console.log(`${o} -> ${await call(o)}`);
-    break;
-  }
-  await new Promise((res) => setTimeout(res, 60000));
+// Read MetaMask's Terms of Use and print the clauses about automated access, APIs, scraping, commercial use. Read-only.
+const r = await fetch("https://legal.consensys.io/metamask/terms-of-use/", { headers: { "user-agent": "Mozilla/5.0" } });
+const html = await r.text();
+const text = html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/g, " ").replace(/<[^>]+>/g, " ").replace(/&nbsp;|&#160;/g, " ").replace(/&amp;/g, "&").replace(/&#8217;|&rsquo;/g, "'").replace(/&#8220;|&#8221;|&ldquo;|&rdquo;/g, '"').replace(/\s+/g, " ");
+console.log("HTTP", r.status, "chars", text.length, "| last updated:", (text.match(/Last Updated[^.]{0,60}/i) || [""])[0]);
+const keys = /automat|scrap|crawl|robot|\bbot|spider|reverse engineer|\bAPI|interface|commercial|resell|sublicense|third[- ]party (services|content)|security (alert|provider)|Blockaid|data mining/i;
+const sentences = text.split(/(?<=[.;])\s+/);
+const seen = new Set();
+for (let i = 0; i < sentences.length; i++) {
+  if (keys.test(sentences[i]) && !seen.has(i)) { seen.add(i); console.log(`\n[${i}] ${sentences[i].slice(0, 700)}`); }
 }
+const def = text.match(/"Services"[^.]{0,500}\./);
+console.log("\nSERVICES DEFINITION:", def ? def[0] : "(not found)");
