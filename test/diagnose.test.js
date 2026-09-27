@@ -333,6 +333,29 @@ test('API: refuses internal URLs, validates input and rate-limits', async () => 
   assert.equal(limited.status, 429);
 });
 
+test('web diagnose refuses two URLs pasted into each other', async () => {
+  const app = createApp({ rateLimit: { windowMs: 60_000, max: 10 } });
+  const api = await new Promise((resolve) => {
+    const server = app.listen(0, '127.0.0.1', () => resolve(`http://127.0.0.1:${server.address().port}`));
+    servers.push(server);
+  });
+  const post = (url) => fetch(`${api}/api/diagnose`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url }) });
+  const glued = await post('https://smartcontractexplainhttps://pg1-ai-agent.vercel.app/api/mcper.onrender.com/api/check-wallet');
+  assert.equal(glued.status, 400);
+  assert.match((await glued.json()).error, /two URLs pasted into each other/);
+  // A URL inside the query string is fine.
+  const res = await post('http://127.0.0.1/pay?return=https://example.com/done');
+  assert.doesNotMatch((await res.json()).error || '', /two URLs/);
+});
+
+test('web page: no pre-filled URL, the example is a link, reports name their URL', () => {
+  const html = require('node:fs').readFileSync(require('node:path').join(__dirname, '../public/index.html'), 'utf8');
+  assert.doesNotMatch(html, /id="urlInput"[^>]*\svalue=/);
+  assert.match(html, /id="exampleLink" data-url="https:\/\/smartcontractexplainer\.onrender\.com\/api\/check-wallet"/);
+  assert.match(html, /if \(id !== runId\) return;/);
+  assert.match(html, /failed · \$\{url\}/);
+});
+
 function runCli(args) {
   return new Promise((resolve) => {
     execFile(process.execPath, [path.join(__dirname, '..', 'bin', 'x402-doctor.js'), ...args], { env: { ...process.env, SOLANA_RPC_URL: rpcUrl } }, (err, stdout, stderr) =>
