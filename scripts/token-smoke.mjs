@@ -42,20 +42,30 @@ for (const [expect, address] of BLUE) {
   console.log(`blue ${expect} ${address} code=${code && code.length > 2} symbol=${sym} ${ok ? 'OK' : 'DROP'}`);
   if (ok) picked.push({ group: 'blue_chip', symbol: sym, address });
 }
-// Fresh launches: newest Base token profiles on DexScreener with a real pool.
-const profiles = await (await fetch('https://api.dexscreener.com/token-profiles/latest/v1')).json();
+// GoPlus raw answer for two tokens: is "no security data" real, or the runner being limited?
+for (const a of ['0x940181a94A35A4569E4529A3CDfB74e38FD98631', '0x532f27101965dd16442E59d40670FaF5eBB142E4']) {
+  const r = await fetch(`https://api.gopluslabs.io/api/v1/token_security/8453?contract_addresses=${a}`);
+  console.log('GOPLUS', a, r.status, (await r.text()).slice(0, 400));
+}
+// Fresh launches: GeckoTerminal's newest Base pools, token verified on-chain, some liquidity.
 const fresh = [];
-for (const p of profiles.filter((x) => x.chainId === 'base')) {
-  if (picked.length + fresh.length >= 20) break;
-  const address = p.tokenAddress;
-  const code = await rpc('eth_getCode', [address, 'latest']);
-  const sym = await symbolOf(address);
-  if (!code || code === '0x' || !sym) continue;
-  const pairs = await (await fetch(`https://api.dexscreener.com/latest/dex/tokens/${address}`)).json();
-  const liq = Math.max(0, ...((pairs.pairs || []).filter((x) => x.chainId === 'base').map((x) => x.liquidity?.usd || 0)));
-  const created = Math.min(...((pairs.pairs || []).map((x) => x.pairCreatedAt || Infinity)));
-  console.log(`fresh ${sym} ${address} liq=$${Math.round(liq)} age_h=${((Date.now() - created) / 3.6e6).toFixed(1)}`);
-  if (liq >= 5000) fresh.push({ group: 'fresh_launch', symbol: sym, address });
+const seen = new Set(picked.map((t) => t.address.toLowerCase()));
+const known = new Set(['0x4200000000000000000000000000000000000006', '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913']);
+for (let page = 1; page <= 3 && picked.length + fresh.length < 20; page++) {
+  const j = await (await fetch(`https://api.geckoterminal.com/api/v2/networks/base/new_pools?page=${page}`, { headers: { accept: 'application/json' } })).json();
+  for (const pool of j.data || []) {
+    if (picked.length + fresh.length >= 20) break;
+    const liq = Number(pool.attributes?.reserve_in_usd || 0);
+    const address = String(pool.relationships?.base_token?.data?.id || '').replace(/^base_/, '');
+    if (!/^0x[0-9a-fA-F]{40}$/.test(address) || known.has(address.toLowerCase()) || seen.has(address.toLowerCase()) || liq < 10000) continue;
+    const code = await rpc('eth_getCode', [address, 'latest']);
+    const sym = await symbolOf(address);
+    if (!code || code === '0x' || !sym) continue;
+    seen.add(address.toLowerCase());
+    console.log(`fresh ${sym} ${address} liq=$${Math.round(liq)} created=${pool.attributes?.pool_created_at}`);
+    fresh.push({ group: 'fresh_launch', symbol: sym, address, pool_created_at: pool.attributes?.pool_created_at, liquidity_usd: Math.round(liq) });
+  }
+  await new Promise((r) => setTimeout(r, 2500));
 }
 picked.push(...fresh);
 const block = parseInt(await rpc('eth_blockNumber', []), 16);
