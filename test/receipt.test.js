@@ -52,3 +52,30 @@ test('middleware: signs 200 JSON on paid routes only, also when mounted under a 
     server.close();
   }
 });
+
+const { paymentOf, paymentFromHeaders, svmPayer, base58 } = require('../lib/receipt');
+
+test('payment: EVM EIP-3009 payer + nonce from either header name; inside the signed bytes', async () => {
+  const payload = {
+    x402Version: 2,
+    accepted: { scheme: 'exact', network: 'eip155:8453', asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', amount: '1000', payTo: '0x6B0F4651eD42893ab58139938175E4a69f175F25' },
+    payload: { signature: '0x11', authorization: { from: '0x0fD3D46E688855B24536df33BBa3dFa35b67445C', value: '1000', nonce: '0xabc' } },
+  };
+  const header = Buffer.from(JSON.stringify(payload)).toString('base64');
+  assert.equal(paymentFromHeaders({ 'payment-signature': header }).nonce, '0xabc');
+  assert.equal(paymentFromHeaders({ 'x-payment': header }).payer, '0x0fD3D46E688855B24536df33BBa3dFa35b67445C');
+  assert.equal(paymentFromHeaders({ 'payment-signature': 'x' }), null);
+  const signer = createSigner({ RECEIPT_SIGNER_SECRET: SECRET });
+  const signed = await signer.sign({ verdict: 'go' }, { route: 'GET /api/v1/preflight', input: {}, payment: paymentOf(payload) });
+  assert.equal(signed.receipt.payment.proof, 'eip3009');
+  const swapped = { ...signed, receipt: { ...signed.receipt, payment: { ...signed.receipt.payment, nonce: '0xdef' } } };
+  assert.equal((await verifyReceipt(swapped, { signers: signer.signers })).valid, false);
+});
+
+test('payment: Solana transfer authority is signer #2 after the fee payer', () => {
+  const authority = Buffer.from(Array.from({ length: 32 }, (_, i) => i + 1));
+  const tx = Buffer.concat([Buffer.from([2]), Buffer.alloc(128), Buffer.from([0x80, 2, 0, 1, 3]), Buffer.alloc(32, 7), authority, Buffer.alloc(32, 9), Buffer.alloc(40)]);
+  assert.equal(base58(authority), '4wBqpZM9xaSheZzJSMawUKKwhdpChKbZ5eu5ky4Vigw', 'same as @solana/kit (checked in presign-guard)');
+  assert.equal(svmPayer(tx.toString('base64')), '4wBqpZM9xaSheZzJSMawUKKwhdpChKbZ5eu5ky4Vigw');
+  assert.equal(svmPayer('!!'), null);
+});

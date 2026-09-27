@@ -166,6 +166,8 @@ test('mcp: a real signed Base payment returns the full report and settles once',
   const signers = createSigner({ RECEIPT_SIGNER_SECRET: 'mcp-test-secret-that-is-long-enough-0123' }).signers;
   const check = await verifyReceipt(pre, { signers, route: 'mcp x402_preflight', input: { url: targetUrl, max_usd: 0.05 } });
   assert.deepEqual([check.valid, check.input_matches], [true, true], 'paid MCP verdicts are signed like the HTTP ones');
+  assert.equal(pre.receipt.payment.payer, account.address, 'the receipt names who paid');
+  assert.match(pre.receipt.payment.nonce, /^0x[0-9a-f]{64}$/);
   await client.close();
 });
 

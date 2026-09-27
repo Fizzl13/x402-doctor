@@ -195,6 +195,8 @@ test('preflight: unpaid 402 at $0.001; a paid call returns the verdict (no_go: t
   const verify = (body) => fetch(`${api}/api/v1/verify`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then((r) => r.json());
   const ok = await verify({ response: report, route: 'GET /api/v1/preflight', input: { url: targetUrl, max_usd: '0.05' } });
   assert.deepEqual([ok.valid, ok.known_signer, ok.input_matches], [true, true, true], JSON.stringify(ok));
+  assert.equal(report.receipt.payment.payer, account.address, 'HTTP receipts name the payer too');
+  assert.equal(report.receipt.payment.proof, 'eip3009');
   const flipped = await verify({ response: { ...report, verdict: 'go' } });
   assert.equal(flipped.valid, false);
 });
