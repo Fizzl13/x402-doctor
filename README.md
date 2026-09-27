@@ -146,12 +146,14 @@ Every paid answer (diagnose, preflight and fix; HTTP and MCP) carries a `receipt
 ```json
 "receipt": {
   "request_id": "…", "route": "GET /api/v1/preflight", "input_sha256": "…",
+  "payment": { "network": "eip155:8453", "amount": "1000", "payer": "0x…", "nonce": "0x…", "proof": "eip3009" },
   "signed_at": "2026-09-27T08:00:00.000Z", "signer": "0x…",
   "algorithm": "eip191-canonical-json-v1", "signature": "0x…"
 }
 ```
 
 - **Signed:** the whole answer without `receipt.signature`, as canonical JSON (sorted keys, compact, non-ASCII as `\uXXXX`: Python's `json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=True)`), with EIP-191 `personal_sign`. Flipping the verdict or moving it to another request breaks it.
+- **`payment`:** the payment that bought this answer, from your x402 payment payload. On Base the payer and the EIP-3009 nonce, so anyone can find the settlement on-chain as the USDC contract's `AuthorizationUsed(payer, nonce)` event; on Solana the payer and a SHA-256 of the signed transaction you sent.
 - **`input_sha256`:** SHA-256 of the canonical JSON of `{"route", "input"}`, where `input` is your query parameters as strings (HTTP) or the tool arguments (MCP, route `mcp <tool>`).
 - **Signer:** [`/.well-known/x402-doctor-signer.json`](https://x402-doctor.onrender.com/.well-known/x402-doctor-signer.json), with retired signers listed so old receipts keep verifying.
 - **Free check:** `POST /api/v1/verify` with `{"response": …, "route": …, "input": …}` returns `valid`, `signer`, `known_signer` and `input_matches`.
