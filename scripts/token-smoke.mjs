@@ -1,4 +1,4 @@
-// The new x402-over-MCP check (work branch) against live MCP servers. Never pays.
+// The new x402-over-MCP check (work branch) against live MCP servers, round 2. Never pays.
 import { spawnSync } from "node:child_process";
 const run = (cmd, args, cwd) => { const r = spawnSync(cmd, args, { cwd, encoding: "utf8", timeout: 300000 }); return `${r.stdout}${r.stderr}`; };
 console.log(run("git", ["clone", "-q", "--depth", "1", "-b", "claude/x402-agents-solana-payments-nceg9b", "https://github.com/Fizzl13/x402-doctor", "/tmp/d"]));
