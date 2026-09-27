@@ -1,13 +1,15 @@
-// The free/paid fix (work branch) on four live MCP servers, round 2. Never pays.
-import { spawnSync } from "node:child_process";
-const run = (cmd, args, cwd) => { const r = spawnSync(cmd, args, { cwd, encoding: "utf8", timeout: 300000 }); return `${r.stdout}${r.stderr}`; };
-run("git", ["clone", "-q", "--depth", "1", "-b", "claude/x402-agents-solana-payments-nceg9b", "https://github.com/Fizzl13/x402-doctor", "/tmp/d"]);
-run("npm", ["ci", "--silent", "--no-audit", "--no-fund"], "/tmp/d");
-for (const url of ["https://gblin-mcp.gblin-mcp-worker.workers.dev/mcp", "https://pg1-ai-agent.vercel.app/api/mcp", "https://presign-guard.onrender.com/mcp", "https://x402-doctor.onrender.com/mcp"]) {
-  const j = run("node", ["bin/x402-doctor.js", "--json", url], "/tmp/d");
-  try {
-    const d = JSON.parse(j);
-    console.log(`\n${url}\n  overall=${d.overall}; called: ${(d.mcp?.calls || []).map((c) => c.tool).join(", ") || "none"}`);
-    for (const c of d.checks.filter((c) => c.group === "mcp")) console.log(`  ${c.status} ${c.id}: ${c.message.slice(0, 170)}`);
-  } catch { console.log(url, "parse failed", j.slice(-300)); }
+// Verify the AERO and USDC addresses on Base: on-chain name/symbol/decimals/supply + CoinGecko's listed Base contract. Read-only.
+const RPC = "https://mainnet.base.org";
+const call = async (to, data) => (await (await fetch(RPC, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_call", params: [{ to, data }, "latest"] }) })).json()).result;
+const str = (hex) => { if (!hex || hex === "0x") return null; const b = Buffer.from(hex.slice(2), "hex"); const len = Number(BigInt("0x" + b.subarray(32, 64).toString("hex"))); return b.subarray(64, 64 + len).toString("utf8"); };
+for (const [label, addr] of [["AERO", "0x940181a94A35A4569E4529A3CDfB74e38FD98631"], ["USDC", "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"]]) {
+  const name = str(await call(addr, "0x06fdde03")), symbol = str(await call(addr, "0x95d89b41"));
+  const dec = parseInt(await call(addr, "0x313ce567"), 16);
+  const supply = BigInt(await call(addr, "0x18160ddd"));
+  const minter = await call(addr, "0x07546172"); // minter()
+  console.log(`${label} ${addr}: name="${name}" symbol="${symbol}" decimals=${dec} totalSupply=${(Number(supply) / 10 ** dec).toLocaleString("en")}${minter && minter !== "0x" ? ` minter()=0x${minter.slice(26)}` : ""}`);
+}
+for (const id of ["aerodrome-finance", "usd-coin"]) {
+  const d = await fetch(`https://api.coingecko.com/api/v3/coins/${id}?localization=false&tickers=false&market_data=false&community_data=false&developer_data=false`).then((r) => r.json()).catch((e) => ({ e: e.message }));
+  console.log(`CoinGecko ${id}: symbol=${d.symbol} base=${d.platforms?.base ?? d.detail_platforms?.base?.contract_address ?? "?"}`);
 }
