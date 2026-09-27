@@ -1,18 +1,23 @@
-// Free, read-only probe of rider-x402.fly.dev (posted in the x402 Discord): which methods answer,
-// what the 402 envelope looks like (version, scheme, fields), and the discovery docs. No payment.
-const B = "https://rider-x402.fly.dev";
-const show = async (method, path, extra = {}) => {
+// Live check of the free Ichimoku /setups/preview after the #62 deploy: wait for it, then show it
+// and check the homepage card. Free, read-only.
+const B = "https://ichimoku-signal.onrender.com";
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+let body, status;
+for (let i = 0; i < 40; i++) {
+  const t0 = Date.now();
   try {
-    const r = await fetch(B + path, { method, redirect: "manual", signal: AbortSignal.timeout(20000), ...extra });
-    const body = await r.text();
-    const h = Object.fromEntries([...r.headers].filter(([k]) => /payment|x402|content-type|allow|www-auth|location/i.test(k)));
-    console.log(`\n== ${method} ${path} -> ${r.status}`, JSON.stringify(h).slice(0, 400));
-    for (const [k, v] of Object.entries(h)) if (/payment-required/i.test(k)) { try { console.log("   decoded", k, Buffer.from(v, "base64").toString().slice(0, 2500)); } catch {} }
-    console.log("   body:", body.slice(0, 2500));
-  } catch (e) { console.log(`\n== ${method} ${path} -> error ${e.message}`); }
-};
-await show("GET", "/api/x402/ping/ping");
-await show("POST", "/api/x402/ping/ping");
-await show("POST", "/api/x402/ping/ping", { headers: { "X-PAYMENT": Buffer.from(JSON.stringify({ x402Version: 1, scheme: "exact", network: "eip155:8453", payload: { txHash: "0x" + "00".repeat(32) } })).toString("base64") } });
-// What a standard v2 client sends: a signed EIP-3009 authorization, not a txHash (fake signature).
-await show("POST", "/api/x402/ping/ping", { headers: { "PAYMENT-SIGNATURE": Buffer.from(JSON.stringify({ x402Version: 2, accepted: { scheme: "exact", network: "eip155:8453" }, payload: { signature: "0x" + "11".repeat(65), authorization: { from: "0x" + "22".repeat(20), to: "0xAd3dB8e2b1A311701E6233f17F6d648e4A52287c", value: "10000", validAfter: "0", validBefore: "9999999999", nonce: "0x" + "33".repeat(32) } } })).toString("base64") } });
+    const r = await fetch(`${B}/setups/preview`, { signal: AbortSignal.timeout(120000) });
+    status = r.status; body = await r.text();
+    console.log(new Date().toISOString(), "status", status, "ms", Date.now() - t0, body.slice(0, 120));
+    if (status === 200) break;
+  } catch (e) { console.log("error", e.message); }
+  await wait(15000);
+}
+console.log("\nFULL:", body);
+const t1 = Date.now();
+const again = await fetch(`${B}/setups/preview`);
+console.log("second call", again.status, "ms", Date.now() - t1, "(should be cached)");
+const home = await (await fetch(`${B}/`, { headers: { accept: "text/html" } })).text();
+console.log("homepage card:", /Yesterday's #1 trade setup/.test(home), "fetch:", home.includes("fetch('/setups/preview')"));
+const paid = await fetch(`${B}/setups`);
+console.log("/setups still paid:", paid.status);
