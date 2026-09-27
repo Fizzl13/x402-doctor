@@ -2,7 +2,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
-const { checkMcp, exampleArgs, rpcAnswer } = require('../lib/mcp-check');
+const { checkMcp, exampleArgs, toolExample, rpcAnswer } = require('../lib/mcp-check');
 const { createSafeFetch } = require('../lib/safe-fetch');
 
 const servers = [];
@@ -136,6 +136,15 @@ test('HTTP 402 on tools/call (PAYMENT-REQUIRED header): read, warned about for @
   const c = byId(checks, 'mcp-payment-required')[0];
   assert.equal(c.status, 'warn');
   assert.match(c.message, /HTTP 402 .* PAYMENT-REQUIRED header/);
+});
+
+test("a tool's own example (_meta.examples) is used instead of guessed arguments", async () => {
+  const example = { ioc: '8.8.8.8', limit: 10, kind: 'ip' };
+  const { url, seen } = await mcpServer({ tools: [{ ...paidTool, _meta: { examples: [example] } }], onCall: () => ({ isError: true, structuredContent: PR, content: [{ type: 'text', text: JSON.stringify(PR) }] }) });
+  await checkMcp(url, safeFetch, []);
+  assert.deepEqual(seen.calls[0].arguments, example);
+  assert.deepEqual(toolExample({ inputSchema: { type: 'object', examples: [{ a: 1 }] } }), { a: 1 });
+  assert.equal(toolExample({ _meta: { examples: ['x'] } }), null);
 });
 
 test('helpers: example arguments and SSE parsing', () => {
