@@ -1,0 +1,42 @@
+name: x402 Doctor
+description: Check x402 payment endpoints on every push. Fails the build on a broken 402, with the fix for each problem in the job summary.
+author: Fizzl13
+branding:
+  icon: activity
+  color: blue
+inputs:
+  urls:
+    description: The x402 endpoint(s) to check, one per line (or comma separated). localhost works for a dev server started earlier in the job.
+    required: true
+  method:
+    description: GET or POST. Default tries GET, then POST.
+    required: false
+    default: ''
+  fail-on:
+    description: When the step fails. "fail" (a failed check, the default), "warn" (warnings too) or "never" (report only).
+    required: false
+    default: fail
+outputs:
+  overall:
+    description: pass, warn or fail (the worst across all URLs)
+    value: ${{ steps.doctor.outputs.overall }}
+  report:
+    description: The full reports as JSON (an array, one per URL)
+    value: ${{ steps.doctor.outputs.report }}
+runs:
+  using: composite
+  steps:
+    # The runner's own Node (GitHub-hosted runners ship 20+), so the job's
+    # Node version is left as the caller set it.
+    - name: Install x402 Doctor
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: npm ci --omit=dev --ignore-scripts --no-audit --no-fund --loglevel=error
+    - name: Check the endpoints
+      id: doctor
+      shell: bash
+      env:
+        DOCTOR_URLS: ${{ inputs.urls }}
+        DOCTOR_METHOD: ${{ inputs.method }}
+        DOCTOR_FAIL_ON: ${{ inputs.fail-on }}
+      run: node "$GITHUB_ACTION_PATH/bin/action.js"

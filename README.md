@@ -204,7 +204,32 @@ npx github:Fizzl13/x402-doctor https://api.example.com/paid --method POST --json
 Exit code `0` on pass/warn, `1` when a check fails (or on warnings with `--strict`), `2` on usage errors.
 The CLI can diagnose `localhost`, so you can run it against a dev server.
 
-In GitHub Actions:
+## GitHub Action
+
+Check your x402 endpoints on every push. The step fails on a broken 402, each
+problem shows up as an annotation on the run and the PR, and the job summary
+lists what is wrong with the fix next to it.
+
+```yaml
+- uses: Fizzl13/x402-doctor@master
+  with:
+    urls: |
+      https://your-api.example.com/paid
+      https://your-api.example.com/other
+```
+
+| Input | Default | |
+| --- | --- | --- |
+| `urls` | (required) | One per line or comma separated. `localhost` works for a dev server started earlier in the job. |
+| `method` | tries GET, then POST | `GET` or `POST` |
+| `fail-on` | `fail` | `fail`: a failed check fails the step. `warn`: warnings too. `never`: report only. |
+
+Outputs: `overall` (`pass`, `warn` or `fail`, the worst across the URLs) and
+`report` (the full reports as JSON). The Action uses the runner's own Node
+(20.18 or newer, as on GitHub-hosted runners) and does not change the job's
+Node version. Read-only: no wallet, no payment.
+
+Or the CLI in a plain `run:` step:
 
 ```yaml
 - run: npx -y github:Fizzl13/x402-doctor https://your-api.example.com/paid

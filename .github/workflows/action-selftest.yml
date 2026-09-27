@@ -1,0 +1,29 @@
+name: Action self-test
+
+# Runs this repo's GitHub Action (action.yml) the way users do, against our own
+# live x402 endpoints, whenever the Action changes.
+on:
+  pull_request:
+    paths: ['action.yml', 'bin/action.js', 'lib/**', 'package-lock.json', '.github/workflows/action-selftest.yml']
+  workflow_dispatch:
+
+jobs:
+  selftest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - id: doctor
+        uses: ./
+        with:
+          urls: |
+            https://x402-doctor.onrender.com/api/v1/preflight?url=https://ichimoku-signal.onrender.com/signal/BTC-USDT
+            https://ichimoku-signal.onrender.com/signal/BTC-USDT
+      - name: Outputs are set
+        shell: bash
+        env:
+          OVERALL: ${{ steps.doctor.outputs.overall }}
+          REPORT: ${{ steps.doctor.outputs.report }}
+        run: |
+          echo "overall: $OVERALL"
+          test -n "$OVERALL"
+          node -e 'const r = JSON.parse(process.env.REPORT); if (r.length !== 2) process.exit(1); console.log(r.map((x) => `${x.overall} ${x.url}`).join("\n"))'
