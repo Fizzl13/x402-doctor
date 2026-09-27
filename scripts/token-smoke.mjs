@@ -1,15 +1,8 @@
-// x402 Doctor after #60: wait for the deploy and for signing to switch on. Free, read-only.
-const B = "https://x402-doctor.onrender.com";
-const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-let last;
-for (let i = 0; i < 56; i++) {
-  const r = await fetch(`${B}/.well-known/x402-doctor-signer.json`).catch(() => null);
-  const d = r && r.ok ? await r.json().catch(() => null) : null;
-  const line = `${r && r.status} ${d ? JSON.stringify({ signing: d.signing, signers: d.signers }) : ""}`;
-  if (line !== last) console.log(new Date().toISOString(), line);
-  last = line;
-  if (d && d.signing) break;
-  await wait(15000);
+// 08:00 check: nohumans status of the Ichimoku /setups listing and the stored prices of /signals and /scan.
+// Free, read-only; no claim or edit tokens involved.
+const API = "https://api.nohumans.directory";
+const t = (s) => (s ? new Date(s * 1000).toISOString().replace("T", " ").slice(0, 16) : "-");
+for (const [id, what] of [["59de3f48-43f", "/setups (should be $0.50)"], ["5b091fee-e8d", "/signals (should be $0.15)"], ["1c8d9230-124", "/scan (should be $0.10)"]]) {
+  const d = await (await fetch(`${API}/v1/listings/${id}`)).json().catch(() => ({}));
+  console.log(`${what}: status=${d.status} price=${d.price_amount} ${d.price_currency} score=${d.score} probes=${d.probes_passed}/${d.probe_count} updated=${t(d.updated_at)} embedded=${t(d.embedding_synced_at)}`);
 }
-const spec = await (await fetch(`${B}/openapi.json`)).json();
-console.log("openapi", spec.info.version, "receipt on preflight:", Boolean(spec.paths["/api/v1/preflight"].get.responses[200].content["application/json"].schema.properties.receipt));
