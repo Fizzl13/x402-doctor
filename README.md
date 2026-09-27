@@ -24,6 +24,10 @@ the medicine, the exact code that fixes each problem for your stack, in the brow
 | 402 challenge | `returns-402` | No 402 for GET or POST (tries both, or `--method`) |
 | | `protocol-version`, `challenge-header` | v1 vs v2, missing `x402Version`, challenge in the wrong header, undecodable header |
 | | `envelope-body-mirror` | Header-only challenge (`@x402/express` sends `{}`), header and body disagreeing |
+| MCP (payment per tool call) | `mcp-server` | When the URL answers no 402 but speaks MCP (Streamable HTTP, JSON or SSE, with or without a session): initialize and `tools/list` without payment |
+| | `mcp-paid-tools` | No tool description says it is paid (x402, USDC, a price), so agents can't tell |
+| | `mcp-payment-required` | One unpaid `tools/call` per paid-looking tool (at most 2; never tools whose description starts with "Free" or that are marked destructive): the x402 payment requirement in the tool result with `isError: true` (as `@x402/mcp`), or an HTTP 402 with `PAYMENT-REQUIRED` instead (payable over HTTP, not by `@x402/mcp` clients), a JSON-RPC error, a tool that answers for free, or example arguments refused before the payment step. The requirement then gets the payment-option, settlement and wallet checks below |
+| | `mcp-payment-text`, `mcp-payment-structured` | The requirement only in `structuredContent` (the x402 MCP transport requires JSON text in `content[0]`), or only as text (structuredContent preferred) |
 | Payment options | `accepts[i]-scheme`, `-network` | Missing scheme; legacy names like `base` / `solana:mainnet` instead of CAIP-2 |
 | | `accepts[i]-payto`, `-asset` | Invalid EVM/Solana addresses; asset that is not USDC, or USDC of another network (e.g. Base Sepolia USDC on Base) |
 | | `accepts[i]-amount` | Decimal dollar amounts (`"0.02"`) instead of atomic units, zero or non-integer amounts |
@@ -265,6 +269,7 @@ public/trust.html      /trust page
 lib/media.js           Serves the explainer and paid-fix videos from their branches (/media/explainer.mp4, /media/fix.mp4)
 media/explainer/       Explainer video pipeline (script, voice, recording, encoding)
 lib/diagnose.js        The checks
+lib/mcp-check.js       x402 over MCP: tools/list, unpaid tools/call, the payment requirement in the tool result
 lib/networks.js        Known networks, USDC per network, address validation
 lib/safe-fetch.js      SSRF-safe fetch (connect-time IP check, redirects, size cap, timeout)
 bin/x402-doctor.js     CLI

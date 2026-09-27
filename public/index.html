@@ -129,7 +129,7 @@
   </header>
   <div class="eyebrow"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>x402 · Base + Solana · for builders and agents</div>
   <h1>Check any x402 endpoint the way a <em>paying agent</em> would.</h1>
-  <p class="sub">Paste an x402-payable endpoint URL. Read-only diagnostics: no wallet, no payment, no risk. <a href="#" id="exampleLink" data-url="https://smartcontractexplainer.onrender.com/api/check-wallet">Try an example</a>.</p>
+  <p class="sub">Paste an x402-payable endpoint URL, HTTP or MCP. Read-only diagnostics: no wallet, no payment, no risk. <a href="#" id="exampleLink" data-url="https://smartcontractexplainer.onrender.com/api/check-wallet">Try an example</a>.</p>
 
   <form id="form">
     <input type="url" id="urlInput" required placeholder="https://api.example.com/paid-endpoint" aria-label="Endpoint URL">
@@ -217,7 +217,7 @@
 <script>
 const $ = (id) => document.getElementById(id);
 const GROUPS = {
-  challenge: '402 challenge', accepts: 'Payment options', resource: 'Resource',
+  challenge: '402 challenge', mcp: 'MCP (payment per tool call)', accepts: 'Payment options', resource: 'Resource',
   settlement: 'Settlement', wallets: 'Who can pay', discovery: 'Discovery', browser: 'Browser'
 };
 const LABELS = { pass: 'All checks passed', warn: 'Works, with warnings', fail: 'Broken — payments will fail or the resource is not valid x402' };

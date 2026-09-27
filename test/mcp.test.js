@@ -179,3 +179,22 @@ test('mcp: the free quick check is rate limited', async () => {
   assert.match(last.content[0].text, /Free limit reached/);
   await client.close();
 });
+
+test('diagnose on an x402 MCP server: tools listed, unpaid calls return the payment requirement, accepts checked', async () => {
+  const { diagnose } = require('../lib/diagnose');
+  const { createSafeFetch } = require('../lib/safe-fetch');
+  const report = await diagnose(`${api}/mcp`, { safeFetch: createSafeFetch({ allowPrivate: true }), rpcUrl: 'http://127.0.0.1:1', evmRpcUrls: {} });
+  const byId = (id) => report.checks.filter((c) => c.id === id);
+  assert.equal(report.method, 'MCP');
+  assert.equal(byId('returns-402')[0].status, 'info');
+  assert.equal(byId('mcp-server')[0].status, 'pass');
+  assert.match(byId('mcp-server')[0].message, /4 tools/);
+  const calls = byId('mcp-payment-required');
+  assert.equal(calls.length, 2, JSON.stringify(report.checks, null, 1));
+  for (const c of calls) assert.equal(c.status, 'pass', c.message);
+  assert.equal(byId('mcp-payment-text').length, 0);
+  assert.equal(byId('openapi-present').length, 0, 'no OpenAPI noise for an MCP server');
+  assert.ok(report.checks.some((c) => c.group === 'accepts'), 'accepts[] of the tool challenge checked');
+  assert.ok(!report.mcp.calls.some((c) => c.tool === 'x402_quick_check'), 'the free tool is not called');
+  assert.equal(state.settle, 0, 'nothing paid');
+});
