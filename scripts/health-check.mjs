@@ -135,6 +135,16 @@ async function main() {
     return `HTTP ${res.status}, no payment asked`;
   });
 
+  // presign-guard signs every paid verdict (receipt.js); alert when signing stops,
+  // e.g. after RECEIPT_SIGNER_SECRET is lost in a Render change. Free.
+  await checkFree('presign-guard', 'verdicts signed', async () => {
+    const res = await request(`${GUARD}/.well-known/presign-guard-signer.json`, { headers: { accept: 'application/json' } });
+    const body = await res.json();
+    const current = (body.signers || []).find((s) => s.status === 'current');
+    if (res.status !== 200 || !body.signing || !current) throw new Error(`signing off (HTTP ${res.status}, signing ${JSON.stringify(body.signing)}): RECEIPT_SIGNER_SECRET missing in Render?`);
+    return `signer ${current.address}`;
+  });
+
   // Informational: which routes the CDP Bazaar lists (never a failure).
   const listed = [];
   try {
