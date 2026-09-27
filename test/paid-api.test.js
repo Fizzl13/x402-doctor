@@ -240,6 +240,13 @@ test('discovery: OpenAPI with x-payment-info and /.well-known/x402 listing the r
   }
   assert.match(spec.info['x-guidance'], /signed receipt/);
   assert.match((await (await fetch(`${api}/.well-known/x402`)).json()).signer, /\/\.well-known\/x402-doctor-signer\.json$/);
+  const signerDoc = await (await fetch(`${api}/.well-known/x402-doctor-signer.json`)).json();
+  assert.equal(signerDoc.authority, '0x6B0F4651eD42893ab58139938175E4a69f175F25', 'the payout wallet authorises keys');
+  assert.equal(signerDoc.certificate, null, 'no certificate configured in tests');
+  const page = await (await fetch(`${api}/sign-receipt-key`)).text();
+  assert.match(page, /service: \$\{SERVICE\}/);
+  assert.match(page, /const SERVICE = "x402-doctor"/);
+  assert.doesNotMatch(page, /\{\{/, 'all placeholders filled');
   const op = spec.paths['/api/v1/diagnose'].get;
   assert.deepEqual(op['x-payment-info'].price, { mode: 'fixed', currency: 'USD', amount: '0.01' });
   assert.ok(op.responses['402']);

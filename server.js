@@ -1,7 +1,8 @@
 const express = require('express');
+const fs = require('fs');
 const path = require('path');
 const { x402TrustTxtRoute } = require('./lib/x402-trust-txt');
-const { ALGORITHM, verifyReceipt } = require('./lib/receipt');
+const { ALGORITHM, verifyReceipt, AUTHORITY, SERVICE } = require('./lib/receipt');
 const { securityHeaders } = require('./lib/security-headers');
 const { nohumansClaim } = require('./lib/nohumans-claim');
 const { createSafeFetch, isPrivateIp } = require('./lib/safe-fetch');
@@ -136,18 +137,27 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   // Who signs the verdicts, and a free check of one (before the 4 kB body limit:
   // a signed diagnose report is larger).
   const signer = paidApi.signer || null;
-  app.get('/.well-known/x402-doctor-signer.json', (req, res) => res.json({
+  const authority = env.RECEIPT_AUTHORITY || AUTHORITY;
+  app.get('/.well-known/x402-doctor-signer.json', async (req, res) => res.json({
     signing: Boolean(signer),
     signers: signer ? signer.signers : [],
+    // The payout wallet authorises signing keys; clients can pin it instead of the keys.
+    authority,
+    certificate: signer ? await signer.certificate() : null,
+    certificate_format: 'personal_sign by the authority over: fizzl receipt signer\\nservice: <service>\\nsigner: <address>\\nvalid_from: <YYYY-MM-DD>',
+    sign_certificate: `${req.protocol}://${req.get('host')}/sign-receipt-key`,
     algorithm: ALGORITHM,
     canonicalization: "JSON with keys sorted at every level, no whitespace, non-ASCII as \\uXXXX (Python: json.dumps(obj, sort_keys=True, separators=(',', ':'), ensure_ascii=True))",
     input_sha256: "sha256 of the canonical JSON of {route, input}: route like 'GET /api/v1/preflight' or 'mcp x402_preflight'; input = the query parameters as strings (GET) or the tool arguments (MCP)",
     verify: `${req.protocol}://${req.get('host')}/api/v1/verify`,
   }));
+  const signPage = fs.readFileSync(path.join(__dirname, 'lib', 'sign-receipt-key.html'), 'utf8')
+    .replaceAll('{{SERVICE}}', SERVICE).replaceAll('{{AUTHORITY}}', authority).replaceAll('{{WELL_KNOWN}}', '/.well-known/x402-doctor-signer.json');
+  app.get('/sign-receipt-key', (_req, res) => res.type('html').send(signPage));
   app.post('/api/v1/verify', express.json({ limit: '256kb' }), async (req, res) => {
     const { response, route, input } = req.body || {};
     const body = response && typeof response === 'object' ? response : req.body;
-    res.json(await verifyReceipt(body, { signers: signer ? signer.signers : [], route, input }));
+    res.json(await verifyReceipt(body, { signers: signer ? signer.signers : [], route, input, authority }));
   });
   app.use(express.json({ limit: '4kb' }));
   app.use(usageLog.middleware(describeDoctorCall));
@@ -272,6 +282,11 @@ const RECEIPT_SCHEMA = {
         payer: { type: 'string' }, nonce: { type: 'string' }, transaction_sha256: { type: 'string' },
         proof: { type: 'string', enum: ['eip3009', 'svm-transaction'] },
       },
+    },
+    cert: {
+      type: 'object',
+      description: "The payout wallet's certificate for this signing key: personal_sign by authority over 'fizzl receipt signer\\nservice: <service>\\nsigner: <signer>\\nvalid_from: <date>'. Pin the payout wallet and a rotated key still verifies.",
+      properties: { service: { type: 'string' }, signer: { type: 'string' }, valid_from: { type: 'string' }, authority: { type: 'string' }, signature: { type: 'string' } },
     },
     signed_at: { type: 'string' },
     signer: { type: 'string' },

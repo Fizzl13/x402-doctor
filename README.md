@@ -158,6 +158,8 @@ Every paid answer (diagnose, preflight and fix; HTTP and MCP) carries a `receipt
 - **Signer:** [`/.well-known/x402-doctor-signer.json`](https://x402-doctor.onrender.com/.well-known/x402-doctor-signer.json), with retired signers listed so old receipts keep verifying.
 - **Free check:** `POST /api/v1/verify` with `{"response": …, "route": …, "input": …}` returns `valid`, `signer`, `known_signer` and `input_matches`.
 
+**Key rotation without client updates:** the payout wallet (`0x6B0F4651eD42893ab58139938175E4a69f175F25`) authorises each signing key with a `personal_sign` over `fizzl receipt signer` / `service: x402-doctor` / `signer: <address>` / `valid_from: <YYYY-MM-DD>`. Set it as `RECEIPT_SIGNER_CERT` (`YYYY-MM-DD:0x<signature>`, produced by `/sign-receipt-key` in the wallet's browser). It is checked at startup and carried in every receipt as `receipt.cert`, so a client that pins only the payout wallet verifies a new key offline.
+
 Same format as [presign-guard](https://github.com/Fizzl13/presign-guard#signed-verdicts), so one verifier works for both. The key comes from `RECEIPT_SIGNER_SECRET` (holds no funds); without it answers are unsigned.
 
 ### x402 Trust Index
