@@ -129,10 +129,10 @@
   </header>
   <div class="eyebrow"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>x402 · Base + Solana · for builders and agents</div>
   <h1>Check any x402 endpoint the way a <em>paying agent</em> would.</h1>
-  <p class="sub">Paste an x402-payable endpoint URL. Read-only diagnostics: no wallet, no payment, no risk.</p>
+  <p class="sub">Paste an x402-payable endpoint URL. Read-only diagnostics: no wallet, no payment, no risk. <a href="#" id="exampleLink" data-url="https://smartcontractexplainer.onrender.com/api/check-wallet">Try an example</a>.</p>
 
   <form id="form">
-    <input type="url" id="urlInput" required value="https://smartcontractexplainer.onrender.com/api/check-wallet" placeholder="https://api.example.com/paid-endpoint" aria-label="Endpoint URL">
+    <input type="url" id="urlInput" required placeholder="https://api.example.com/paid-endpoint" aria-label="Endpoint URL">
     <select id="methodInput" aria-label="HTTP method">
       <option value="">Auto</option>
       <option>GET</option>
@@ -285,6 +285,10 @@ function showError(message) {
 }
 
 let lastDiagnosis = null;
+let runId = 0; // only the latest diagnosis may fill the page
+
+// Two URLs pasted into each other, e.g. "https://examplehttps://api.real.com/...".
+const GLUED = /^https?:\/\/[^/?#]*https?:/i;
 
 async function diagnose(url, method) {
   $('fixCard').hidden = true;
@@ -294,12 +298,20 @@ async function diagnose(url, method) {
   $('results').replaceChildren();
   $('diagnoseBtn').disabled = true;
   $('diagnoseBtn').textContent = 'Diagnosing…';
+  const id = ++runId;
 
   const share = new URL(location.href);
   share.search = '';
   share.searchParams.set('url', url);
   if (method) share.searchParams.set('method', method);
   history.replaceState(null, '', share);
+
+  if (GLUED.test(url)) {
+    showError(`This looks like two URLs pasted into each other: ${url}. Clear the box and paste only your endpoint.`);
+    $('diagnoseBtn').disabled = false;
+    $('diagnoseBtn').textContent = 'Diagnose →';
+    return;
+  }
 
   try {
     const res = await fetch('/api/diagnose', {
@@ -308,13 +320,14 @@ async function diagnose(url, method) {
       body: JSON.stringify(method ? { url, method } : { url })
     });
     const data = await res.json();
+    if (id !== runId) return;
     if (!res.ok) {
-      showError(data.error || `Request failed (HTTP ${res.status}).`);
+      showError(`${url}: ${data.error || `Request failed (HTTP ${res.status}).`}`);
       if (data.checks) renderChecks(data.checks, data.wallets);
       return;
     }
     const counts = ['pass', 'warn', 'fail'].map((s) => data.checks.filter((c) => c.status === s).length);
-    $('overallText').textContent = `${LABELS[data.overall] || data.overall} · ${counts[0]} passed, ${counts[1]} warnings, ${counts[2]} failed`;
+    $('overallText').textContent = `${LABELS[data.overall] || data.overall} · ${counts[0]} passed, ${counts[1]} warnings, ${counts[2]} failed · ${url}${method ? ` (${method})` : ''}`;
     $('overallBox').className = `overall ${data.overall}`;
     $('overallBox').hidden = false;
     renderChecks(data.checks, data.wallets);
@@ -329,8 +342,9 @@ async function diagnose(url, method) {
       $('challengeBox').hidden = false;
     }
   } catch (err) {
-    showError(err.message);
+    if (id === runId) showError(`${url}: ${err.message}`);
   } finally {
+    if (id !== runId) return;
     $('diagnoseBtn').disabled = false;
     $('diagnoseBtn').textContent = 'Diagnose →';
   }
@@ -441,6 +455,13 @@ $('form').addEventListener('submit', (e) => {
   e.preventDefault();
   const url = $('urlInput').value.trim();
   if (url) diagnose(url, $('methodInput').value);
+});
+
+$('exampleLink').addEventListener('click', (e) => {
+  e.preventDefault();
+  $('urlInput').value = $('exampleLink').dataset.url;
+  $('methodInput').value = '';
+  diagnose($('urlInput').value, '');
 });
 
 $('shareLink').addEventListener('click', async (e) => {

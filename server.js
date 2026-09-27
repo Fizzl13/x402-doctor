@@ -254,6 +254,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     } catch {
       return res.status(400).json({ error: 'Not a valid URL.' });
     }
+    if (/^https?:\/\/[^/?#]*https?:/i.test(targetUrl)) return res.status(400).json({ error: 'This looks like two URLs pasted into each other; send only the endpoint URL.' });
     try {
       const report = await diagnoseLib.diagnose(targetUrl, { safeFetch, method });
       res.json(report);
