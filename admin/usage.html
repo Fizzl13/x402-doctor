@@ -116,6 +116,10 @@
   <h2>Per service</h2>
   <div class="services" id="services"></div>
 
+  <h2>Ichimoku: free preview → paid setups</h2>
+  <div class="tiles" id="funnel" style="margin-top:0"></div>
+  <p class="sub" id="funnelNote" style="margin-top:8px"></p>
+
   <h2>Calls per day</h2>
   <div class="panel">
     <div class="legend" id="legend"></div>
@@ -228,6 +232,7 @@
     const events = filtered();
     renderTiles(events);
     renderServices(events);
+    renderFunnel(d.funnel);
     renderChart(events);
     renderTops(events);
     renderCalls(events);
@@ -246,6 +251,21 @@
       tile('Paying wallets', payers.size.toLocaleString(), 'unique payers'),
       tile('Price shown', quotes().length.toLocaleString(), `402s · ${quotes().filter((e) => e.payment_failed).length} refused payments`),
     );
+  }
+
+  // Same visitor code within the window after a preview. An agent paying from
+  // another machine than the browser shows up as "paid without a preview".
+  function renderFunnel(f) {
+    if (!f) { $('funnel').replaceChildren(); $('funnelNote').textContent = ''; return; }
+    const pct = (n, of) => (of ? `${Math.round((n / of) * 100)}% of preview visitors` : '–');
+    const tile = (k, v, d) => el('div', { className: 'tile' }, el('div', { className: 'k', textContent: k }), el('div', { className: 'v', textContent: v }), el('div', { className: 'd', textContent: d }));
+    $('funnel').replaceChildren(
+      tile('Preview visitors', f.preview_visitors.toLocaleString(), `${f.preview_calls.toLocaleString()} previews · ${f.preview_visitors_web} in a browser`),
+      tile('Then saw the price', f.saw_price.toLocaleString(), pct(f.saw_price, f.preview_visitors)),
+      tile('Then paid', f.paid.toLocaleString(), `${pct(f.paid, f.preview_visitors)} · ${usd(f.revenue_after_preview)}`),
+      tile('Paid without a preview', f.paid_calls_without_preview.toLocaleString(), `calls · ${usd(f.revenue_without_preview)}`),
+    );
+    $('funnelNote').textContent = `"Then" = the same visitor (same IP) within ${f.window_hours} hours after a preview. Someone who reads the preview in a browser and pays from an agent elsewhere counts under "paid without a preview".`;
   }
 
   function renderServices(events) {
