@@ -37,7 +37,7 @@ the medicine, the exact code that fixes each problem for your stack, in the brow
 | Settlement | `solana-payout-account` | Solana payout wallet without a token account for the asset: every settlement fails on-chain |
 | | `solana-wallets` | Solana settled by PayAI, which rejects Phantom (Lighthouse instructions before the transfer) |
 | Who can pay | `wallets` | Per wallet (MetaMask, Coinbase Wallet, Rabby, Phantom, Solflare, Backpack, x402 agents): the networks where payment works and where it fails, and why. Also in the JSON report as `wallets` |
-| | `metamask-site-scan` | MetaMask's site scanner (Blockaid) blocks the domain (e.g. "wallet drainer"): MetaMask users can't open the site or pay in the browser. With how to report a false positive. Agents are not affected |
+| | `metamask-site-scan` | Only with `METAMASK_SCAN=on` (off by default: the endpoint has no published API or licence). MetaMask's site scanner (Blockaid) blocks the domain (e.g. "wallet drainer"): MetaMask users can't open the site or pay in the browser. With how to report a false positive. Agents are not affected |
 | | `evm-payto-eoa` | EVM payout wallet is a regular wallet (EOA): MetaMask's Blockaid check may flag the payment signature as "a deceptive request". Info, with how to get it cleared |
 | Discovery | `bazaar`, `bazaar-output` | Missing or invalid Bazaar declaration, output example not matching its schema |
 | | `bazaar-replay` | The declared example request not answering 402, so the Bazaar cannot index it |
