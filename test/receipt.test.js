@@ -79,3 +79,33 @@ test('payment: Solana transfer authority is signer #2 after the fee payer', () =
   assert.equal(svmPayer(tx.toString('base64')), '4wBqpZM9xaSheZzJSMawUKKwhdpChKbZ5eu5ky4Vigw');
   assert.equal(svmPayer('!!'), null);
 });
+
+const { certMessage, certValid, AUTHORITY } = require('../lib/receipt');
+const { privateKeyToAccount, generatePrivateKey } = require('viem/accounts');
+
+const authority = privateKeyToAccount(generatePrivateKey());
+const certFor = async (address, validFrom = '2026-09-01', key = authority) =>
+  `${validFrom}:${await key.signMessage({ message: certMessage({ service: 'x402-doctor', signer: address, valid_from: validFrom }) })}`;
+
+test('certificate: the payout wallet authorises the key; it rides in every receipt and verifies without pinned signers', async () => {
+  assert.equal(AUTHORITY, '0x6B0F4651eD42893ab58139938175E4a69f175F25');
+  const address = createSigner({ RECEIPT_SIGNER_SECRET: SECRET }).address;
+  const signer = createSigner({ RECEIPT_SIGNER_SECRET: SECRET, RECEIPT_AUTHORITY: authority.address, RECEIPT_SIGNER_CERT: await certFor(address) });
+  const cert = await signer.certificate();
+  assert.equal(cert.service, 'x402-doctor');
+  assert.equal(await certValid(cert, { authority: authority.address, service: 'presign-guard' }), false, 'bound to the service');
+  const signed = await signer.sign({ verdict: 'go' }, { route: 'GET /api/v1/preflight', input: {} });
+  const ok = await verifyReceipt(signed, { authority: authority.address });
+  assert.deepEqual([ok.valid, ok.signer_status], [true, 'certified']);
+  const backdated = { ...signed, receipt: { ...signed.receipt, cert: { ...signed.receipt.cert, valid_from: '2020-01-01' } } };
+  assert.equal((await verifyReceipt(backdated, { authority: authority.address })).valid, false);
+});
+
+test('certificate: wrong, foreign or future certificates do not make a key trusted', async () => {
+  const address = createSigner({ RECEIPT_SIGNER_SECRET: `${SECRET}-2` }).address;
+  const env = (cert) => ({ RECEIPT_SIGNER_SECRET: `${SECRET}-2`, RECEIPT_AUTHORITY: authority.address, RECEIPT_SIGNER_CERT: cert });
+  assert.equal(await createSigner(env(await certFor(address, '2026-09-01', privateKeyToAccount(generatePrivateKey())))).certificate(), null);
+  assert.equal(await createSigner(env('garbage')).certificate(), null);
+  const future = await createSigner(env(await certFor(address, '2999-01-01'))).sign({ verdict: 'go' }, { route: 'r', input: {} });
+  assert.equal((await verifyReceipt(future, { authority: authority.address })).valid, false);
+});
