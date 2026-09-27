@@ -3,7 +3,7 @@
 import { execSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 execSync('git clone -q --depth 1 https://github.com/Fizzl13/presign-guard pg && cd pg && npm ci --omit=dev --ignore-scripts --no-audit --no-fund --loglevel=error', { stdio: 'inherit' });
-const { tokenVerdict } = await import(`${process.cwd()}/pg/src/token-verdict.js`);
+const { tokenVerdict, parseTokenRequest } = await import(`${process.cwd()}/pg/src/token-verdict.js`);
 
 const RPCS = ['https://base-rpc.publicnode.com', 'https://mainnet.base.org', 'https://base.llamarpc.com'];
 async function rpc(method, params) {
@@ -72,7 +72,12 @@ const block = parseInt(await rpc('eth_blockNumber', []), 16);
 const out = [];
 for (const t of picked.slice(0, 20)) {
   let v;
-  try { v = await tokenVerdict({ chain: 'base', address: t.address }); } catch (e) { v = { error: e.message }; }
+  // Same path as GET /v1/token (parseTokenRequest lowercases EVM addresses), paced and
+  // retried because GoPlus rate-limits unauthenticated callers.
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try { v = await tokenVerdict(parseTokenRequest({ chain: 'base', address: t.address })); break; } catch (e) { v = { error: e.message }; if (!/too many/i.test(e.message)) break; await new Promise((r) => setTimeout(r, 15000)); }
+  }
+  await new Promise((r) => setTimeout(r, 4000));
   out.push({ ...t, verdict: v.verdict, grade: v.grade, reasons: (v.reasons || []).map((r) => `${r.severity}:${r.code}`), one_liner: v.one_liner, error: v.error });
 }
 const baseline = { purpose: 'presign-guard token verdicts before TAT pilot evidence', chain: 'base', block, takenAt: new Date().toISOString(), presign_guard_commit: execSync('git -C pg rev-parse HEAD').toString().trim(), tokens: out };
