@@ -1,23 +1,16 @@
-// Live check of the free Ichimoku /setups/preview after the #62 deploy: wait for it, then show it
-// and check the homepage card. Free, read-only.
+// Live check after #63: wait until /setups/preview's "since" is computed from real later candles
+// (not "open" at exactly the entry price, the bug), then print it. Free, read-only.
 const B = "https://ichimoku-signal.onrender.com";
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-let body, status;
-for (let i = 0; i < 40; i++) {
-  const t0 = Date.now();
+let d;
+for (let i = 0; i < 48; i++) {
   try {
     const r = await fetch(`${B}/setups/preview`, { signal: AbortSignal.timeout(120000) });
-    status = r.status; body = await r.text();
-    console.log(new Date().toISOString(), "status", status, "ms", Date.now() - t0, body.slice(0, 120));
-    if (status === 200) break;
-  } catch (e) { console.log("error", e.message); }
+    d = await r.json().catch(() => null);
+    const s = d && d.since, e = d && d.setup && d.setup.entry;
+    console.log(new Date().toISOString(), r.status, d && d.setup && `${d.setup.pair} ${d.setup.direction} entry ${e}`, JSON.stringify(s));
+    if (r.status === 200 && (s === null || s.result !== "open" || s.price_now !== e)) break;
+  } catch (err) { console.log("error", err.message); }
   await wait(15000);
 }
-console.log("\nFULL:", body);
-const t1 = Date.now();
-const again = await fetch(`${B}/setups/preview`);
-console.log("second call", again.status, "ms", Date.now() - t1, "(should be cached)");
-const home = await (await fetch(`${B}/`, { headers: { accept: "text/html" } })).text();
-console.log("homepage card:", /Yesterday's #1 trade setup/.test(home), "fetch:", home.includes("fetch('/setups/preview')"));
-const paid = await fetch(`${B}/setups`);
-console.log("/setups still paid:", paid.status);
+console.log("\nFULL:", JSON.stringify(d));
