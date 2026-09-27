@@ -11,11 +11,8 @@ const show = async (method, path, extra = {}) => {
     console.log("   body:", body.slice(0, 2500));
   } catch (e) { console.log(`\n== ${method} ${path} -> error ${e.message}`); }
 };
-for (const p of ["/", "/health", "/api/x402/prices", "/.well-known/x402"]) await show("GET", p);
-await show("GET", "/openapi.json");
-await show("GET", "/api/ping/ping");
-await show("HEAD", "/api/ping/ping");
-await show("POST", "/api/ping/ping");
-await show("POST", "/api/ping/ping", { headers: { "content-type": "application/json" }, body: "{}" });
-// A fake v2 PAYMENT-SIGNATURE and a fake X-PAYMENT: how does it reject a malformed proof?
-await show("POST", "/api/ping/ping", { headers: { "X-PAYMENT": Buffer.from(JSON.stringify({ x402Version: 1, scheme: "exact", network: "eip155:8453", payload: { txHash: "0x" + "00".repeat(32) } })).toString("base64") } });
+await show("GET", "/api/x402/ping/ping");
+await show("POST", "/api/x402/ping/ping");
+await show("POST", "/api/x402/ping/ping", { headers: { "X-PAYMENT": Buffer.from(JSON.stringify({ x402Version: 1, scheme: "exact", network: "eip155:8453", payload: { txHash: "0x" + "00".repeat(32) } })).toString("base64") } });
+// What a standard v2 client sends: a signed EIP-3009 authorization, not a txHash (fake signature).
+await show("POST", "/api/x402/ping/ping", { headers: { "PAYMENT-SIGNATURE": Buffer.from(JSON.stringify({ x402Version: 2, accepted: { scheme: "exact", network: "eip155:8453" }, payload: { signature: "0x" + "11".repeat(65), authorization: { from: "0x" + "22".repeat(20), to: "0xAd3dB8e2b1A311701E6233f17F6d648e4A52287c", value: "10000", validAfter: "0", validBefore: "9999999999", nonce: "0x" + "33".repeat(32) } } })).toString("base64") } });
