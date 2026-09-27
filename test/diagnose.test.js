@@ -433,4 +433,8 @@ test('custom scheme (txHash): no feePayer fail, a softer payout-account warning,
   assert.deepEqual(agents.yes, []);
   assert.match(agents.no[0].reason, /custom scheme "txHash"/);
   assert.notEqual(report.overall, 'fail');
+  const summary = checks.wallets[0];
+  assert.match(summary.message, /^Only clients built for the "txHash" scheme can pay/);
+  assert.doesNotMatch(summary.message, /Nobody can pay/);
+  assert.match(summary.hint, /"exact" option/);
 });
