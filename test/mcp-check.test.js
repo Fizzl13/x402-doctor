@@ -147,6 +147,46 @@ test("a tool's own example (_meta.examples) is used instead of guessed arguments
   assert.equal(toolExample({ _meta: { examples: ['x'] } }), null);
 });
 
+test('tools about payments that call themselves free are not called (GBLIN-style)', async () => {
+  const tools = [
+    { name: 'risk.regime', description: 'Current risk regime. Free and unsigned; a signed version is a paid x402 endpoint.', annotations: { title: 'Market risk regime (live, free)' } },
+    { name: 'protocol.stats', description: "Public counters of x402 endpoints: paid calls, USDC earned.", annotations: { title: 'Agent-economy stats (free, cached)' } },
+    { name: 'treasury.health', description: 'Analyse a treasury. Free by default; metered at $0.003 USDC only when the operator sets MCP_PAYWALL=true.' },
+  ];
+  const { url, seen } = await mcpServer({ tools, onCall: () => ({ content: [{ type: 'text', text: 'ok' }] }) });
+  const checks = [];
+  await checkMcp(url, safeFetch, checks);
+  assert.equal(seen.calls.length, 0);
+  const c = byId(checks, 'mcp-paid-tools')[0];
+  assert.equal(c.status, 'info');
+  assert.match(c.message, /All 3 tools describe themselves as free/);
+  assert.equal(byId(checks, 'mcp-payment-required').length, 0);
+});
+
+test('an explicit "Paid" or a price in the title wins over a mention of a free alternative', async () => {
+  const tools = [
+    { name: 'check', title: 'Risk check ($0.01 via x402)', description: 'Full reasons. For the verdict only use quick_check (free).' },
+    { name: 'quick_check', title: 'Quick check (free)', description: 'Free: verdict only.' },
+  ];
+  const { url, seen } = await mcpServer({ tools, onCall: () => ({ isError: true, structuredContent: PR, content: [{ type: 'text', text: JSON.stringify(PR) }] }) });
+  await checkMcp(url, safeFetch, []);
+  assert.deepEqual(seen.calls.map((c) => c.name), ['check']);
+});
+
+test('payment words without a paid marker: a free answer is info; write tools are only called when explicitly paid', async () => {
+  const tools = [
+    { name: 'treasury.state', description: 'Read the protocol state. Use this before any swap to know the current price.', annotations: { readOnlyHint: true } },
+    { name: 'receipts.seal', description: 'Append hashes to the log. Unlimited seals are a paid x402 HTTP endpoint.', annotations: { readOnlyHint: false, destructiveHint: false } },
+  ];
+  const { url, seen } = await mcpServer({ tools, onCall: () => ({ content: [{ type: 'text', text: '{}' }] }) });
+  const checks = [];
+  await checkMcp(url, safeFetch, checks);
+  assert.deepEqual(seen.calls.map((c) => c.name), ['treasury.state']);
+  const c = byId(checks, 'mcp-payment-required')[0];
+  assert.equal(c.status, 'info');
+  assert.match(c.message, /a free tool/);
+});
+
 test('helpers: example arguments and SSE parsing', () => {
   assert.deepEqual(exampleArgs({ type: 'object', properties: { type: { enum: ['approval'] }, token: { type: 'string' }, note: { type: 'string' } }, required: ['type'] }), { type: 'approval', token: '0x0000000000000000000000000000000000000001' });
   assert.deepEqual(exampleArgs({ type: 'object', properties: { u: { type: 'string', format: 'uri' }, n: { type: 'number' }, d: { type: 'string', default: 'x' } }, required: ['u', 'n', 'd'] }), { u: 'https://example.com', n: 1, d: 'x' });
