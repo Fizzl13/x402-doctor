@@ -13,6 +13,6 @@ if (body) {
 t = Date.now();
 const r2 = await fetch(`${base}/setups/preview`);
 console.log('preview again (cache)', r2.status, `${((Date.now() - t) / 1000).toFixed(1)}s`);
-const html = await (await fetch(base)).text();
+const html = await (await fetch(base, { headers: { accept: "text/html" } })).text();
 console.log('homepage preview-history', html.includes('id="preview-history"'));
 if (!body || (body.history || []).length !== 7 || !body.history_summary || !html.includes('id="preview-history"')) process.exit(1);
