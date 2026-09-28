@@ -268,7 +268,10 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     if (/^https?:\/\/[^/?#]*https?:/i.test(targetUrl)) return res.status(400).json({ error: 'This looks like two URLs pasted into each other; send only the endpoint URL.' });
     try {
       const report = await diagnoseLib.diagnose(targetUrl, { safeFetch, method });
-      res.json(report);
+      // The page's own share link, for callers that only see JSON (curl, scripts):
+      // opening it runs the same check again in the browser.
+      const share = new URLSearchParams({ url: targetUrl, ...(method ? { method } : {}) });
+      res.json({ ...report, share_url: `${req.protocol}://${req.get('host')}/?${share}` });
     } catch (err) {
       res.status(err.statusCode || 502).json({ error: err.message, checks: [] });
     }

@@ -304,6 +304,10 @@ test('free web API still works and the paid route is off without payout wallets'
   assert.equal((await fetch(diagnoseUrl(targetUrl).replace(api, base))).status, 503);
   const free = await fetch(`${base}/api/diagnose`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: targetUrl }) });
   assert.equal(free.status, 200);
+  const report = await free.json();
+  assert.equal(report.share_url, `${base}/?url=${encodeURIComponent(targetUrl)}`, 'a link that re-runs the check in the browser');
+  const withMethod = await (await fetch(`${base}/api/diagnose`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: targetUrl, method: 'GET' }) })).json();
+  assert.equal(new URL(withMethod.share_url).searchParams.get('method'), 'GET');
   assert.deepEqual((await (await fetch(`${base}/.well-known/x402`)).json()).resources, []);
 });
 

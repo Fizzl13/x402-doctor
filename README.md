@@ -56,7 +56,7 @@ npm start          # http://localhost:3001
 Reports are shareable: `https://<host>/?url=<endpoint>&method=GET` runs the diagnosis on load.
 
 API: `POST /api/diagnose` with `{ "url": "...", "method": "GET" | "POST" }` (method optional) returns
-`{ url, method, overall, checks[], challenge }`. Rate-limited to 10 diagnoses per minute per IP.
+`{ url, method, overall, checks[], challenge, share_url }`: `share_url` is the page link above, to paste into an issue or a chat. Rate-limited to 10 diagnoses per minute per IP.
 
 ## Paid API for agents (x402)
 
