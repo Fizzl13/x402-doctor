@@ -8,6 +8,7 @@ const { nohumansClaim } = require('./lib/nohumans-claim');
 const { fizzlCors } = require('./lib/fizzl-cors');
 const { createSafeFetch, isPrivateIp } = require('./lib/safe-fetch');
 const diagnoseLib = require('./lib/diagnose');
+const { createBazaarIndex } = require('./lib/bazaar-index');
 const { createPaidApi, ROUTE: PAID_ROUTE, PREFLIGHT_ROUTE, FIX_ROUTE, REPORT_SCHEMA, FIX_SCHEMA } = require('./lib/paid-api');
 const { STACKS } = require('./lib/stack');
 const { PREFLIGHT_SCHEMA } = require('./lib/preflight');
@@ -130,7 +131,9 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   // POST /feedback (and the MCP tool feedback): agents report a bug or a missing
   // feature. Free; it lands in the usage log and a person reads it (lib/feedback.js).
   const feedback = createFeedback({ service: 'doctor', record: usageLog.record, agentOf });
-  const paidApi = createPaidApi({ safeFetch, env, trustIndex, feedback, ...(bazaarIndex ? { bazaarIndex } : {}) });
+  // One Bazaar index for the paid API and the free web check (where a route is listed).
+  const bazaar = bazaarIndex || createBazaarIndex();
+  const paidApi = createPaidApi({ safeFetch, env, trustIndex, feedback, bazaarIndex: bazaar });
 
   // Doctor's requests reach the app through three proxies (the caller, then two
   // hops, the last a private Render address: measured 26 Sep), so Express has to
@@ -271,7 +274,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     }
     if (/^https?:\/\/[^/?#]*https?:/i.test(targetUrl)) return res.status(400).json({ error: 'This looks like two URLs pasted into each other; send only the endpoint URL.' });
     try {
-      const report = await diagnoseLib.diagnose(targetUrl, { safeFetch, method });
+      const report = await diagnoseLib.diagnose(targetUrl, { safeFetch, method, bazaarIndex: bazaar });
       // The page's own share link, for callers that only see JSON (curl, scripts):
       // opening it runs the same check again in the browser.
       const share = new URLSearchParams({ url: targetUrl, ...(method ? { method } : {}) });

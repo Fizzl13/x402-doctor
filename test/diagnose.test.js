@@ -8,7 +8,8 @@ const http = require('node:http');
 const path = require('node:path');
 const { execFile } = require('node:child_process');
 const { declareDiscoveryExtension } = require('@x402/extensions/bazaar');
-const { diagnose, checkResource, checkAccepts, checkOpenApi } = require('../lib/diagnose');
+const { diagnose, checkResource, checkAccepts, checkOpenApi, checkWellKnown, checkBazaarListing } = require('../lib/diagnose');
+const { createBazaarIndex } = require('../lib/bazaar-index');
 const { createSafeFetch, guardedLookup } = require('../lib/safe-fetch');
 const { createApp } = require('../server');
 
@@ -455,4 +456,80 @@ test('custom scheme (txHash): no feePayer fail, a softer payout-account warning,
   assert.match(summary.message, /^Only clients built for the "txHash" scheme can pay/);
   assert.doesNotMatch(summary.message, /Nobody can pay/);
   assert.match(summary.hint, /"exact" option/);
+});
+
+// ------------------------------------------------------------ domain move
+
+const fakeFetch = (status, body) => async () => ({ status, text: typeof body === 'string' ? body : JSON.stringify(body), headers: new Map() });
+async function wellKnown(origin, status, body) {
+  const checks = [];
+  await checkWellKnown(origin, fakeFetch(status, body), checks);
+  return checks.find((c) => c.id === 'well-known');
+}
+
+test('well-known: resources on this origin pass; on another host warn; missing is info', async () => {
+  assert.equal((await wellKnown('https://api.example.com', 200, { version: 1, resources: ['https://api.example.com/a', 'https://api.example.com/b'] })).status, 'pass');
+  const moved = await wellKnown('https://api.example.com', 200, { version: 1, resources: ['https://api.onrender.com/a'] });
+  assert.equal(moved.status, 'warn');
+  assert.match(moved.message, /https:\/\/api\.onrender\.com, not on https:\/\/api\.example\.com/);
+  assert.match(moved.hint, /PUBLIC_URL/);
+  assert.equal((await wellKnown('https://api.example.com', 404, '')).status, 'info');
+  assert.equal((await wellKnown('https://api.example.com', 200, '<html>')).status, 'warn');
+});
+
+test('well-known: a platform address pointing at its own domain is info, not a warning', async () => {
+  const c = await wellKnown('https://api.onrender.com', 200, { version: 1, resources: ['https://api.example.com/a'] });
+  assert.equal(c.status, 'info');
+  assert.match(c.message, /hosting platform address/);
+  // but a platform address pointing at another platform address is a warning
+  assert.equal((await wellKnown('https://new.onrender.com', 200, { version: 1, resources: ['https://old.onrender.com/a'] })).status, 'warn');
+});
+
+const PAYTO = '0x6B0F4651eD42893ab58139938175E4a69f175F25';
+function bazaarItems() {
+  return [
+    { resource: 'https://svc.onrender.com/signal/:pair', accepts: [{ payTo: PAYTO }] },
+    { resource: 'https://svc.onrender.com/scan', accepts: [{ payTo: PAYTO.toLowerCase() }] },
+    { resource: 'https://svc.example.com/scan', accepts: [{ payTo: PAYTO }] },
+    { resource: 'https://someone-else.com/signal/:pair', accepts: [{ payTo: '0x209693Bc6afc0C5328bA36FaF03C514EF312287C' }] },
+  ];
+}
+function loadedIndex() {
+  return createBazaarIndex({ url: 'https://cdp.test/discovery', fetchImpl: async () => ({ ok: true, json: async () => ({ items: bazaarItems() }) }) });
+}
+
+test('bazaar index: listings match route templates and payTo, case-insensitively', async () => {
+  const index = loadedIndex();
+  assert.equal(await index.listings('https://svc.example.com/signal/BTC-USDT', [PAYTO]), null, 'not loaded yet: no answer');
+  await index.refresh();
+  assert.deepEqual(await index.listings('https://svc.example.com/signal/BTC-USDT', [PAYTO]), { here: false, elsewhere: ['https://svc.onrender.com'] });
+  assert.deepEqual(await index.listings('https://svc.example.com/scan?interval=4h', [PAYTO.toLowerCase()]), { here: true, elsewhere: ['https://svc.onrender.com'] });
+  assert.deepEqual(await index.listings('https://svc.example.com/levels/BTC-USDT', [PAYTO]), { here: false, elsewhere: [] });
+});
+
+test('bazaar-listing: here passes, only elsewhere warns, nowhere is info, unknown says nothing', async () => {
+  const run = async (answer) => {
+    const checks = [];
+    await checkBazaarListing('https://svc.example.com/signal/BTC-USDT', { accepts: [{ payTo: PAYTO }] }, { listings: async () => answer }, checks);
+    return checks.find((c) => c.id === 'bazaar-listing');
+  };
+  assert.equal((await run({ here: true, elsewhere: ['https://svc.onrender.com'] })).status, 'pass');
+  const moved = await run({ here: false, elsewhere: ['https://svc.onrender.com'] });
+  assert.equal(moved.status, 'warn');
+  assert.match(moved.message, /only under https:\/\/svc\.onrender\.com, not under https:\/\/svc\.example\.com/);
+  assert.equal((await run({ here: false, elsewhere: [] })).status, 'info');
+  assert.equal(await run(null), undefined);
+});
+
+test('diagnose: runs the Bazaar listing check when an index is given', async () => {
+  const report = await diagnose(`${healthyUrl}/signal/BTC-USDT`, {
+    safeFetch: createSafeFetch({ allowPrivate: true }),
+    rpcUrl,
+    evmRpcUrls: { [BASE]: rpcUrl },
+    bazaarIndex: { listings: async () => ({ here: false, elsewhere: ['https://old.onrender.com'] }) },
+  });
+  const c = report.checks.find((x) => x.id === 'bazaar-listing');
+  assert.equal(c.status, 'warn');
+  assert.equal(c.group, 'discovery');
+  assert.equal(report.checks.find((x) => x.id === 'well-known').status, 'info', 'the fixture serves no /.well-known/x402');
 });

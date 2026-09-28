@@ -42,6 +42,8 @@ the medicine, the exact code that fixes each problem for your stack, in the brow
 | Discovery | `bazaar`, `bazaar-output` | Missing or invalid Bazaar declaration, output example not matching its schema |
 | | `bazaar-replay` | The declared example request not answering 402, so the Bazaar cannot index it |
 | | `openapi-present`, `openapi-title`, `openapi-guidance` | Missing `/openapi.json`, `info.title`, `info.x-guidance` |
+| | `well-known` | `/.well-known/x402` missing (info), unreadable, or listing resources on another host than the one checked (built from the request `Host` header, it keeps pointing crawlers at an old domain). A platform address such as `*.onrender.com` pointing at its own domain is fine |
+| | `bazaar-listing` | Where the CDP Bazaar lists this route (same path, same `payTo`): under this origin, not yet, or only under another host. The Bazaar keeps the URL the payer used, so after a domain move a route stays listed under the old host until someone pays through the new one. On the web check and the paid API (not the CLI) |
 | Browser | `paywall` | Browser paywall in testnet mode on a mainnet endpoint (`@x402/paywall` defaults to testnet) |
 
 Statuses: `pass`, `warn` (works, but something is off), `fail` (payments fail or it is not valid x402), `info`.
