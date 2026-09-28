@@ -1,25 +1,40 @@
-// Wait until the four services allow fizzl.eu, then run each demo call once, as the page would.
-const O = { origin: 'https://fizzl.eu' };
-const calls = {
-  ichimoku_trend: () => fetch('https://ichimoku-signal.fizzl.eu/api/trend/BTC-USDT', { headers: O }),
-  ichimoku_preview: () => fetch('https://ichimoku-signal.fizzl.eu/setups/preview', { headers: O }),
-  doctor: () => fetch('https://x402-doctor.fizzl.eu/api/diagnose', { method: 'POST', headers: { ...O, 'content-type': 'application/json' }, body: JSON.stringify({ url: 'https://ichimoku-signal.fizzl.eu/signal/BTC-USDT' }) }),
-  presign: () => fetch('https://presign-guard.fizzl.eu/v1/token/quick?chain=base&address=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', { headers: O }),
-  plaintext: () => fetch('https://plaintext.fizzl.eu/api/demo-explain', { method: 'POST', headers: { ...O, 'content-type': 'application/json' }, body: JSON.stringify({ data: { function: 'permit2', token: 'ETH (wrapped)', spender: 'Uniswap Universal Router', spender_verified: true, approved_amount: '0.5 ETH', duration: 'expires in 30 minutes' } }) }),
-};
-const done = {};
-for (let i = 0; i < 40 && Object.keys(done).length < 5; i++) {
-  for (const [k, f] of Object.entries(calls)) {
-    if (done[k]) continue;
-    // cheap header probe first (the Doctor and PlainText calls do real work)
-    const probeUrl = { ichimoku_trend: 'https://ichimoku-signal.fizzl.eu/api/trend/BTC-USDT', ichimoku_preview: 'https://ichimoku-signal.fizzl.eu/setups/preview', doctor: 'https://x402-doctor.fizzl.eu/api/diagnose', presign: 'https://presign-guard.fizzl.eu/v1/token/quick', plaintext: 'https://plaintext.fizzl.eu/api/demo-explain' }[k];
-    const pre = await fetch(probeUrl, { method: 'OPTIONS', headers: { ...O, 'access-control-request-method': 'POST', 'access-control-request-headers': 'content-type' } }).catch(() => null);
-    if (!pre || pre.headers.get('access-control-allow-origin') !== 'https://fizzl.eu') continue;
-    const r = await f();
-    const body = await r.text();
-    done[k] = true;
-    console.log(`LIVE ${k} after ${i * 20}s: ${r.status} ACAO=${r.headers.get('access-control-allow-origin')} ${body.slice(0, 220).replace(/\s+/g, ' ')}`);
-  }
-  if (Object.keys(done).length < 5) await new Promise((r) => setTimeout(r, 20000));
+// Check the uploaded fizzl.eu: files match the repo, then run the page in a real browser.
+import { createHash } from 'node:crypto';
+import { execSync } from 'node:child_process';
+const want = { 'index.html': '369d32627954e6fb', 'style.css': '0be63cf1939413fe', 'tools.js': '6896ce8261da261d', 'bg-video.mp4': '0e5ecfe7c3b4e37c', 'globe-poster.jpg': '1102075ee71ba76e', 'script.js': '19f47068f020e0f4', 'digital-twin.js': 'e19a4f37d52244d8', 'process-agent.js': 'ac1892cce8ec7623' };
+for (const [f, h] of Object.entries(want)) {
+  const r = await fetch(`https://fizzl.eu/${f}?nocache=${Date.now()}`);
+  const buf = Buffer.from(await r.arrayBuffer());
+  const got = createHash('sha256').update(buf).digest('hex').slice(0, 16);
+  console.log('FILE', f, r.status, buf.length, got === h ? 'MATCH' : `DIFFERENT (${got})`, r.headers.get('content-type'), r.headers.get('cache-control') || '');
 }
-console.log('not live:', Object.keys(calls).filter((k) => !done[k]).join(', ') || 'none');
+execSync('npm i --no-save --silent playwright@1.56.1 && npx playwright install --with-deps chromium >/dev/null 2>&1', { stdio: 'inherit' });
+const { chromium } = await import('playwright');
+const b = await chromium.launch();
+const p = await b.newPage({ viewport: { width: 1440, height: 900 } });
+const errs = []; p.on('pageerror', (e) => errs.push('pageerror ' + e.message)); p.on('console', (m) => { if (m.type() === 'error') errs.push('console ' + m.text()); });
+p.on('requestfailed', (r) => errs.push('failed ' + r.url() + ' ' + (r.failure() || {}).errorText));
+await p.goto('https://fizzl.eu/?v=' + Date.now(), { waitUntil: 'networkidle' });
+const order = await p.$$eval('section[id]', (s) => s.map((x) => x.id).join(' > '));
+console.log('ORDER', order);
+const vid = await p.$eval('.globe-video', (v) => ({ src: v.currentSrc, ready: v.readyState, paused: v.paused, w: v.videoWidth, h: v.videoHeight })).catch((e) => e.message);
+console.log('VIDEO', JSON.stringify(vid));
+await p.evaluate(() => document.getElementById('tools').scrollIntoView());
+const waitText = async (sel, not) => { for (let i = 0; i < 60; i++) { const t = (await p.textContent(sel)).trim(); if (t && !not.some((n) => t.startsWith(n))) return t; await p.waitForTimeout(500); } return (await p.textContent(sel)).trim(); };
+console.log('ICHIMOKU trend:', await waitText('#tl-trend', ['Loading']));
+console.log('ICHIMOKU setup:', await waitText('#tl-setup', ['Loading']));
+await p.click('button[data-pair="ETH-USDT"]'); await p.waitForTimeout(300);
+console.log('ICHIMOKU ETH:', await waitText('#tl-trend', ['Loading']));
+await p.click('.tl-tab[data-tab="doctor"]'); await p.click('#tl-diagnose');
+console.log('DOCTOR:', await waitText('#tl-doctor-overall', ['Calling']), '|', (await p.textContent('#tl-doctor-checks')).slice(0, 200));
+await p.click('.tl-tab[data-tab="presign"]');
+console.log('PRESIGN USDC:', await waitText('#tl-token-out', ['Checking', 'Pick']));
+await p.click('button[data-address="DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263"]'); await p.waitForTimeout(300);
+console.log('PRESIGN BONK:', await waitText('#tl-token-out', ['Checking']));
+await p.click('.tl-tab[data-tab="plaintext"]'); await p.click('#tl-explain');
+console.log('PLAINTEXT:', await waitText('#tl-plain-verdict', ['The AI']), '|', (await p.textContent('#tl-plain-text')).slice(0, 160));
+const m = await b.newPage({ viewport: { width: 390, height: 844 } });
+await m.goto('https://fizzl.eu/?v=' + Date.now(), { waitUntil: 'domcontentloaded' });
+console.log('PHONE nav overflow px', await m.evaluate(() => { const n = document.querySelector('nav'); return n.scrollWidth - n.clientWidth; }), 'page horizontal overflow px', await m.evaluate(() => document.documentElement.scrollWidth - window.innerWidth));
+console.log('ERRORS', JSON.stringify(errs.filter((e) => !/googletagmanager|google-analytics/.test(e)).slice(0, 10)));
+await b.close();
