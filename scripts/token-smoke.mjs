@@ -1,12 +1,7 @@
-// Poll until all four fizzl.eu hosts serve a valid certificate (max 10 min), after fixing the Render domain names.
-const hosts = { 'x402-doctor.fizzl.eu': '/api/health', 'presign-guard.fizzl.eu': '/health', 'ichimoku-signal.fizzl.eu': '/.well-known/x402', 'plaintext.fizzl.eu': '/api/health' };
-const ok = new Map();
-for (let i = 0; i < 20 && ok.size < 4; i++) {
-  for (const [h, p] of Object.entries(hosts)) {
-    if (ok.has(h)) continue;
-    try { const r = await fetch(`https://${h}${p}`, { signal: AbortSignal.timeout(15000) }); ok.set(h, `${r.status} ${(await r.text()).slice(0, 180).replace(/\s+/g, ' ')}`); console.log(new Date().toISOString(), 'OK', h); } catch (e) { if (i % 4 === 0) console.log(new Date().toISOString(), 'waiting', h, e.cause?.code || e.message); }
-  }
-  if (ok.size < 4) await new Promise((r) => setTimeout(r, 30000));
-}
-for (const h of Object.keys(hosts)) console.log(`\n== ${h}: ${ok.get(h) || 'NO CERTIFICATE YET'}`);
-process.exit(ok.size === 4 ? 0 : 1);
+// Weekly Ichimoku results: the free preview's 7-day history and summary.
+const r = await fetch('https://ichimoku-signal.onrender.com/setups/preview', { signal: AbortSignal.timeout(180000) });
+const d = await r.json();
+console.log('HTTP', r.status, 'timestamp', d.timestamp);
+console.log('TODAY', JSON.stringify(d.setup && { pair: d.setup.pair, direction: d.setup.direction, rr: d.setup.risk_reward_1 }));
+for (const h of d.history || []) console.log('DAY', JSON.stringify(h));
+console.log('SUMMARY', JSON.stringify(d.history_summary));
