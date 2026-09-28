@@ -1,12 +1,15 @@
-// Research: what scvd.store offers (read-only GETs, no payment). Output is data only.
-const base = 'https://scvd.store';
-const strip = (h) => h.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/&nbsp;|&amp;/g, ' ').replace(/\s+/g, ' ');
-for (const p of ['/', '/.well-known/x402', '/openapi.json', '/llms.txt', '/robots.txt', '/docs', '/pricing', '/api', '/mcp']) {
-  try {
-    const res = await fetch(base + p, { headers: { accept: p === '/' || p === '/docs' || p === '/pricing' ? 'text/html' : 'application/json, text/plain, */*', 'user-agent': 'Mozilla/5.0 research' }, redirect: 'follow' });
-    const t = await res.text();
-    const ct = res.headers.get('content-type') || '';
-    console.log(`\n## ${p} -> ${res.status} ${ct} ${t.length}b`);
-    console.log((ct.includes('html') ? strip(t) : t).slice(0, p === '/openapi.json' ? 9000 : 3500));
-  } catch (e) { console.log(`${p}: ${e.message}`); }
-}
+// Research: scvd.store menu, stats and a free preflight of one of our doors (read-only, data only).
+const get = async (u) => { const r = await fetch(u, { headers: { accept: 'application/json', 'user-agent': 'Mozilla/5.0 research' } }); return [r.status, await r.text()]; };
+let [s, t] = await get('https://scvd.store/menu.json?view=compact');
+console.log('MENU', s);
+try {
+  const j = JSON.parse(t);
+  const rows = j.items || j.rows || j.menu || j.data || (Array.isArray(j) ? j : []);
+  console.log('keys', Object.keys(j).join(','), 'rows', rows.length);
+  for (const r of rows) console.log(`- ${r.price ?? r.price_usd ?? r.amount} | ${r.name || r.title || r.id} | ${String(r.summary || r.description || r.what || '').replace(/\s+/g, ' ').slice(0, 150)}`);
+  if (!rows.length) console.log(t.slice(0, 4000));
+} catch { console.log(t.slice(0, 4000)); }
+[s, t] = await get('https://scvd.store/stats');
+console.log('\nSTATS', s, t.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 2500));
+[s, t] = await get('https://scvd.store/api/preflight/v1?url=' + encodeURIComponent('https://x402-doctor.fizzl.eu/api/v1/diagnose?url=https://example.com'));
+console.log('\nPREFLIGHT', s, t.slice(0, 3000));
