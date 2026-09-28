@@ -1,23 +1,20 @@
-// Research: how an agent integrates with Vishwa (read-only: docs and package metadata, nothing installed or run).
-async function get(url) {
-  try {
-    const r = await fetch(url, { headers: { 'user-agent': 'Mozilla/5.0 (research)', accept: 'text/plain,text/markdown,application/json,*/*' } });
-    return { status: r.status, type: r.headers.get('content-type') || '', text: await r.text() };
-  } catch (e) { return { status: 'ERR', text: e.cause?.code || e.message }; }
-}
-const dump = (label, t, max = 7000) => { for (let i = 0; i < Math.min(t.length, max); i += 1800) console.log(label, t.slice(i, i + 1800).replace(/\n/g, ' ⏎ ')); };
-const llms = await get('https://vishwalab.com/llms.txt');
-console.log('LLMS', llms.status, llms.text.length); dump('LLMS', llms.text, 9000);
-const skill = await get('https://api.vishwalab.com/skills/vishwa-cli/skill.md');
-console.log('SKILL', skill.status, skill.text.length); dump('SKILL', skill.text, 9000);
-const npm = await get('https://registry.npmjs.org/@vishwalab%2fcli');
-if (npm.status === 200) {
-  const p = JSON.parse(npm.text); const latest = p['dist-tags']?.latest; const v = p.versions?.[latest] || {};
-  console.log('NPM', latest, 'created', p.time?.created, 'modified', p.time?.modified, 'versions', Object.keys(p.versions || {}).length);
-  console.log('NPM meta', JSON.stringify({ description: v.description, bin: v.bin, deps: v.dependencies, repo: v.repository, license: v.license, scripts: v.scripts }).slice(0, 1500));
-  dump('NPM readme', p.readme || '', 5000);
-} else console.log('NPM', npm.status);
-for (const u of ['https://docs.vishwanetwork.xyz/', 'https://api.vishwalab.com/', 'https://api.vishwalab.com/v1/transfers', 'https://api.vishwalab.com/.well-known/x402', 'https://vishwalab.com/erc']) {
-  const r = await get(u);
-  console.log('URL', u, r.status, r.type, r.text.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 700));
-}
+// VIRTUAL on Base with presign-guard main as deployed: the token verdict and the raw GoPlus fields,
+// for TAT Risk (no payment: the verdict code runs directly). Prints the output as base64 JSON + sha256.
+import { execSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+execSync('git clone -q --depth 1 -b main https://github.com/Fizzl13/presign-guard /tmp/pg && cd /tmp/pg && npm ci -s', { stdio: 'inherit' });
+const commit = execSync('git -C /tmp/pg rev-parse HEAD').toString().trim();
+const { tokenVerdict } = await import('/tmp/pg/src/token-verdict.js');
+const address = '0x0b3e328455c4059eeb9e3f84b5543f74e24e7e1b';
+const block = await fetch('https://base-rpc.publicnode.com', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_blockNumber', params: [] }) }).then((r) => r.json()).then((j) => parseInt(j.result, 16)).catch(() => null);
+const verdict = await tokenVerdict({ chain: 'base', address });
+const gp = await fetch(`https://api.gopluslabs.io/api/v1/token_security/8453?contract_addresses=${address}`).then((r) => r.json());
+const t = Object.values(gp.result || {})[0] || {};
+const goplus = Object.fromEntries(['is_proxy', 'is_mintable', 'owner_address', 'owner_change_balance', 'hidden_owner', 'can_take_back_ownership', 'transfer_pausable', 'is_blacklisted', 'external_call', 'selfdestruct', 'is_open_source', 'creator_address'].map((k) => [k, t[k]]));
+const out = { purpose: 'presign-guard token verdict for VIRTUAL (Base), for TAT Risk', presign_guard_commit: commit, chain: 'base', approx_block: block, takenAt: new Date().toISOString(), verdict, goplus_fields: goplus };
+const json = JSON.stringify(out, null, 2) + '\n';
+console.log('SUMMARY', commit, block, verdict.grade, verdict.one_liner, JSON.stringify(verdict.reasons.map((r) => `${r.severity}:${r.code}`)));
+console.log('GOPLUS', JSON.stringify(goplus));
+console.log('SHA256', createHash('sha256').update(json).digest('hex'), json.length);
+const b64 = Buffer.from(json).toString('base64');
+for (let i = 0; i < b64.length; i += 3000) console.log('B64', i / 3000, b64.slice(i, i + 3000));
