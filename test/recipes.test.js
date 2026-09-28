@@ -162,3 +162,19 @@ test('nothing to fix', () => {
   const out = buildFixes(report({ checks: [{ id: 'returns-402', status: 'pass', message: 'ok' }] }));
   assert.equal(out.summary, 'Nothing to fix: every check passes.');
 });
+
+test('domain move: /.well-known/x402 on another host and a Bazaar listing only under the old host', () => {
+  const out = buildFixes(report({
+    url: 'https://api.example.com/v1/thing',
+    checks: [
+      { id: 'well-known', status: 'warn', group: 'discovery', message: '/.well-known/x402 lists resources on https://old.onrender.com, not on https://api.example.com.' },
+      { id: 'bazaar-listing', status: 'warn', group: 'discovery', message: 'The CDP Bazaar lists this route (same payTo) only under https://old.onrender.com.' },
+    ],
+  }));
+  const wk = fix(out, 'well-known');
+  assert.match(code(wk), /PUBLIC_URL \|\| "https:\/\/api\.example\.com"/);
+  assert.match(code(wk), /\$\{PUBLIC_URL\}\/v1\/thing/);
+  const listing = fix(out, 'bazaar-listing');
+  assert.match(listing.steps[0], /https:\/\/api\.example\.com\/v1\/thing/);
+  assert.equal(out.unfixed.length, 0);
+});
