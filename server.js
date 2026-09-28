@@ -325,7 +325,7 @@ function openApi(origin, payment) {
         asset: 'USDC',
       },
       parameters: [
-        { name: 'url', in: 'query', required: true, example: 'https://ichimoku-signal.onrender.com/signal/BTC-USDT', schema: { type: 'string', format: 'uri' }, description: 'The x402 endpoint to diagnose' },
+        { name: 'url', in: 'query', required: true, example: 'https://ichimoku-signal.fizzl.eu/signal/BTC-USDT', schema: { type: 'string', format: 'uri' }, description: 'The x402 endpoint to diagnose' },
         { name: 'method', in: 'query', required: false, schema: { type: 'string', enum: ['GET', 'POST'] }, description: 'Endpoint method; default tries GET then POST' },
       ],
       responses: {
@@ -347,7 +347,7 @@ function openApi(origin, payment) {
         asset: 'USDC',
       },
       parameters: [
-        { name: 'url', in: 'query', required: true, example: 'https://ichimoku-signal.onrender.com/signal/BTC-USDT', schema: { type: 'string', format: 'uri' }, description: 'The x402 endpoint you are about to pay' },
+        { name: 'url', in: 'query', required: true, example: 'https://ichimoku-signal.fizzl.eu/signal/BTC-USDT', schema: { type: 'string', format: 'uri' }, description: 'The x402 endpoint you are about to pay' },
         { name: 'method', in: 'query', required: false, schema: { type: 'string', enum: ['GET', 'POST'] }, description: 'Method you will call it with; default tries GET then POST' },
         { name: 'max_usd', in: 'query', required: false, example: '0.05', schema: { type: 'string' }, description: 'Your budget per call in USD; above it the verdict is no_go' },
         { name: 'network', in: 'query', required: false, schema: { type: 'string' }, description: 'CAIP-2 network you want to pay on, e.g. eip155:8453' },
@@ -371,7 +371,7 @@ function openApi(origin, payment) {
         asset: 'USDC',
       },
       parameters: [
-        { name: 'url', in: 'query', required: true, example: 'https://x402-doctor.onrender.com/demo/broken', schema: { type: 'string', format: 'uri' }, description: 'Your x402 endpoint' },
+        { name: 'url', in: 'query', required: true, example: 'https://x402-doctor.fizzl.eu/demo/broken', schema: { type: 'string', format: 'uri' }, description: 'Your x402 endpoint' },
         { name: 'method', in: 'query', required: false, schema: { type: 'string', enum: ['GET', 'POST'] }, description: 'Endpoint method; default tries GET then POST' },
         { name: 'stack', in: 'query', required: false, schema: { type: 'string', enum: Object.keys(STACKS) }, description: 'Your stack, if detection from the response headers is wrong' },
       ],

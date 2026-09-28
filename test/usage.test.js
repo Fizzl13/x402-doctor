@@ -161,7 +161,7 @@ test('middleware: a 402 is logged as a quote with the caller type, a refused pay
 test('agentOf: a short caller label, never the full User-Agent', () => {
   assert.equal(agentOf('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1'), 'browser');
   assert.equal(agentOf('Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)'), 'Googlebot/2.1');
-  assert.equal(agentOf('x402-doctor-trust-scan/1.0 (+https://x402-doctor.onrender.com/trust)'), 'x402-doctor-trust-scan/1.0');
+  assert.equal(agentOf('x402-doctor-trust-scan/1.0 (+https://x402-doctor.fizzl.eu/trust)'), 'x402-doctor-trust-scan/1.0');
   assert.equal(agentOf('axios/1.7.2'), 'axios/1.7.2');
   assert.equal(agentOf(undefined), 'none');
 });

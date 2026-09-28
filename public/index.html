@@ -129,7 +129,7 @@
   </header>
   <div class="eyebrow"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>x402 · Base + Solana · for builders and agents</div>
   <h1>Check any x402 endpoint the way a <em>paying agent</em> would.</h1>
-  <p class="sub">Paste an x402-payable endpoint URL, HTTP or MCP. Read-only diagnostics: no wallet, no payment, no risk. <a href="#" id="exampleLink" data-url="https://smartcontractexplainer.onrender.com/api/check-wallet">Try an example</a>.</p>
+  <p class="sub">Paste an x402-payable endpoint URL, HTTP or MCP. Read-only diagnostics: no wallet, no payment, no risk. <a href="#" id="exampleLink" data-url="https://plaintext.fizzl.eu/api/check-wallet">Try an example</a>.</p>
 
   <form id="form">
     <input type="url" id="urlInput" required placeholder="https://api.example.com/paid-endpoint" aria-label="Endpoint URL">
@@ -158,7 +158,7 @@
       </select>
       <button id="fixBtn" type="button">Get the fix with MetaMask</button>
     </div>
-    <p class="fix-note" id="fixNote">You pay $0.05 in USDC on Base; your wallet shows a signature for exactly that amount to our payout wallet <code id="fixPayTo">0x6B0F…5F25</code>. MetaMask's security check may call that wallet "untrusted" because it is a regular wallet rather than a contract; that is normal for x402 payments, and the signature can only move this one amount, once. Want a second opinion before you sign? <a href="https://presign-guard.onrender.com">presign-guard</a> reads any signature request and tells you what it can move and to whom. Agents: <code>GET /api/v1/fix?url=…</code></p>
+    <p class="fix-note" id="fixNote">You pay $0.05 in USDC on Base; your wallet shows a signature for exactly that amount to our payout wallet <code id="fixPayTo">0x6B0F…5F25</code>. MetaMask's security check may call that wallet "untrusted" because it is a regular wallet rather than a contract; that is normal for x402 payments, and the signature can only move this one amount, once. Want a second opinion before you sign? <a href="https://presign-guard.fizzl.eu">presign-guard</a> reads any signature request and tells you what it can move and to whom. Agents: <code>GET /api/v1/fix?url=…</code></p>
     <div class="fix-status" id="fixStatus" aria-live="polite"></div>
     <div id="fixes"></div>
   </div>
@@ -183,8 +183,8 @@
 
   <h2><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>More from fizzl</h2>
   <div class="more">
-    <a href="https://presign-guard.onrender.com"><svg class="mark" viewBox="0 0 128 128" aria-hidden="true"><rect width="128" height="128" rx="30" fill="#a78bfa"/><path d="M78 30 A22 22 0 0 0 52 52 V104" fill="none" stroke="#0d1117" stroke-width="16" stroke-linecap="round"/><path d="M36 68 H72" stroke="#0d1117" stroke-width="16" stroke-linecap="round"/><g fill="#0d1117"><circle cx="92" cy="72" r="8"/><circle cx="100" cy="52" r="5"/><circle cx="104" cy="38" r="3"/></g></svg><span><b>presign-guard</b><span>Check a signature, token or wallet before your agent signs</span></span></a>
-    <a href="https://ichimoku-signal.onrender.com"><svg class="mark" viewBox="0 0 128 128" aria-hidden="true"><rect width="128" height="128" rx="30" fill="#a78bfa"/><path d="M78 30 A22 22 0 0 0 52 52 V104" fill="none" stroke="#0d1117" stroke-width="16" stroke-linecap="round"/><path d="M36 68 H72" stroke="#0d1117" stroke-width="16" stroke-linecap="round"/><g fill="#0d1117"><circle cx="92" cy="72" r="8"/><circle cx="100" cy="52" r="5"/><circle cx="104" cy="38" r="3"/></g></svg><span><b>Ichimoku Signal</b><span>Crypto trend signals per call</span></span></a>
+    <a href="https://presign-guard.fizzl.eu"><svg class="mark" viewBox="0 0 128 128" aria-hidden="true"><rect width="128" height="128" rx="30" fill="#a78bfa"/><path d="M78 30 A22 22 0 0 0 52 52 V104" fill="none" stroke="#0d1117" stroke-width="16" stroke-linecap="round"/><path d="M36 68 H72" stroke="#0d1117" stroke-width="16" stroke-linecap="round"/><g fill="#0d1117"><circle cx="92" cy="72" r="8"/><circle cx="100" cy="52" r="5"/><circle cx="104" cy="38" r="3"/></g></svg><span><b>presign-guard</b><span>Check a signature, token or wallet before your agent signs</span></span></a>
+    <a href="https://ichimoku-signal.fizzl.eu"><svg class="mark" viewBox="0 0 128 128" aria-hidden="true"><rect width="128" height="128" rx="30" fill="#a78bfa"/><path d="M78 30 A22 22 0 0 0 52 52 V104" fill="none" stroke="#0d1117" stroke-width="16" stroke-linecap="round"/><path d="M36 68 H72" stroke="#0d1117" stroke-width="16" stroke-linecap="round"/><g fill="#0d1117"><circle cx="92" cy="72" r="8"/><circle cx="100" cy="52" r="5"/><circle cx="104" cy="38" r="3"/></g></svg><span><b>Ichimoku Signal</b><span>Crypto trend signals per call</span></span></a>
     <a href="https://www.npmjs.com/package/x402-safe-fetch"><svg class="mark" viewBox="0 0 128 128" aria-hidden="true"><rect width="128" height="128" rx="30" fill="#a78bfa"/><path d="M78 30 A22 22 0 0 0 52 52 V104" fill="none" stroke="#0d1117" stroke-width="16" stroke-linecap="round"/><path d="M36 68 H72" stroke="#0d1117" stroke-width="16" stroke-linecap="round"/><g fill="#0d1117"><circle cx="92" cy="72" r="8"/><circle cx="100" cy="52" r="5"/><circle cx="104" cy="38" r="3"/></g></svg><span><b>x402-safe-fetch</b><span>npm: a fetch that checks before it pays</span></span></a>
   </div>
   <footer>
@@ -199,15 +199,15 @@
     For agents: <code>GET /api/v1/diagnose?url=&lt;endpoint&gt;</code>, $0.01 USDC per call via x402 on Base or Solana, no rate limit
     (<a href="/openapi.json">OpenAPI</a>).
     <br><br>
-    As an MCP server: <code>https://x402-doctor.onrender.com/mcp</code>, with a free quick check. Also on
+    As an MCP server: <code>https://x402-doctor.fizzl.eu/mcp</code>, with a free quick check. Also on
     <a href="https://smithery.ai/servers/frits-zwager/x402-doctor">Smithery</a> and
     <a href="https://agentic.market/services/x402-doctor-onrender-com">Agentic Market</a>.
     <br><br>
-    Built while shipping <a href="https://smartcontractexplainer.onrender.com">PlainText</a>,
-    <a href="https://ichimoku-signal.onrender.com">Ichimoku Signal</a> and
-    <a href="https://presign-guard.onrender.com">presign-guard</a> — every check traces back to a bug that broke one of them.
+    Built while shipping <a href="https://plaintext.fizzl.eu">PlainText</a>,
+    <a href="https://ichimoku-signal.fizzl.eu">Ichimoku Signal</a> and
+    <a href="https://presign-guard.fizzl.eu">presign-guard</a> — every check traces back to a bug that broke one of them.
     <br><br>
-    <a href="https://presign-guard.onrender.com">presign-guard</a>: before an agent or wallet signs a permit, approval or x402 payment,
+    <a href="https://presign-guard.fizzl.eu">presign-guard</a>: before an agent or wallet signs a permit, approval or x402 payment,
     it gives a green, orange or red verdict with the reasons: unlimited amounts, long-lived permissions, flagged spenders, and the token itself
     (honeypots, fakes of known tokens such as a fake USDC, owner powers, high taxes). From $0.01 per check via x402 on Base.
   </footer>

@@ -8,7 +8,7 @@ on:
   workflow_dispatch: {}
 
 env:
-  SERVICE: https://x402-doctor.onrender.com
+  SERVICE: https://x402-doctor.fizzl.eu
 
 jobs:
   live:
@@ -74,8 +74,8 @@ jobs:
             const targets = [
               process.env.SERVICE + "/api/v1/diagnose",
               process.env.SERVICE + "/api/v1/preflight",
-              "https://smartcontractexplainer.onrender.com/api/check-wallet",
-              "https://smartcontractexplainer.onrender.com/api/explain",
+              "https://plaintext.fizzl.eu/api/check-wallet",
+              "https://plaintext.fizzl.eu/api/explain",
             ];
             (async () => {
               const found = new Map();
@@ -103,13 +103,13 @@ jobs:
       matrix:
         include:
           - name: Ichimoku Signal
-            url: https://ichimoku-signal.onrender.com/signal/BTC-USDT
+            url: https://ichimoku-signal.fizzl.eu/signal/BTC-USDT
             method: GET
           - name: PlainText wallet check
-            url: https://smartcontractexplainer.onrender.com/api/check-wallet
+            url: https://plaintext.fizzl.eu/api/check-wallet
             method: POST
           - name: PlainText explain
-            url: https://smartcontractexplainer.onrender.com/api/explain
+            url: https://plaintext.fizzl.eu/api/explain
             method: POST
     name: ${{ matrix.name }}
     steps:

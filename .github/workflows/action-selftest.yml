@@ -16,8 +16,8 @@ jobs:
         uses: ./
         with:
           urls: |
-            https://x402-doctor.onrender.com/api/v1/preflight?url=https://ichimoku-signal.onrender.com/signal/BTC-USDT
-            https://ichimoku-signal.onrender.com/signal/BTC-USDT
+            https://x402-doctor.fizzl.eu/api/v1/preflight?url=https://ichimoku-signal.fizzl.eu/signal/BTC-USDT
+            https://ichimoku-signal.fizzl.eu/signal/BTC-USDT
       - name: Outputs are set
         shell: bash
         env:

@@ -8,11 +8,11 @@
     "url": "https://github.com/Fizzl13/x402-doctor",
     "source": "github"
   },
-  "websiteUrl": "https://x402-doctor.onrender.com",
+  "websiteUrl": "https://x402-doctor.fizzl.eu",
   "remotes": [
     {
       "type": "streamable-http",
-      "url": "https://x402-doctor.onrender.com/mcp"
+      "url": "https://x402-doctor.fizzl.eu/mcp"
     }
   ]
 }
