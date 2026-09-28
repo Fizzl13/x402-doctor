@@ -1,40 +1,12 @@
-// Check the uploaded fizzl.eu: files match the repo, then run the page in a real browser.
-import { createHash } from 'node:crypto';
-import { execSync } from 'node:child_process';
-const want = { 'index.html': '369d32627954e6fb', 'style.css': '0be63cf1939413fe', 'tools.js': '6896ce8261da261d', 'bg-video.mp4': '0e5ecfe7c3b4e37c', 'globe-poster.jpg': '1102075ee71ba76e', 'script.js': '19f47068f020e0f4', 'digital-twin.js': 'e19a4f37d52244d8', 'process-agent.js': 'ac1892cce8ec7623' };
-for (const [f, h] of Object.entries(want)) {
-  const r = await fetch(`https://fizzl.eu/${f}?nocache=${Date.now()}`);
-  const buf = Buffer.from(await r.arrayBuffer());
-  const got = createHash('sha256').update(buf).digest('hex').slice(0, 16);
-  console.log('FILE', f, r.status, buf.length, got === h ? 'MATCH' : `DIFFERENT (${got})`, r.headers.get('content-type'), r.headers.get('cache-control') || '');
+// Where do fizzl.eu and its subdomains point? (before moving the main site)
+import { Resolver } from 'node:dns/promises';
+const r = new Resolver(); r.setServers(['8.8.8.8']);
+const q = async (fn, h) => { try { return JSON.stringify(await r[fn](h)); } catch (e) { return e.code; } };
+for (const h of ['fizzl.eu', 'www.fizzl.eu', 'ai.fizzl.eu', 'cv.fizzl.eu', 'lab.fizzl.eu', 'projects.fizzl.eu']) {
+  console.log(h, 'CNAME', await q('resolveCname', h), 'A', await q('resolve4', h));
 }
-execSync('npm i --no-save --silent playwright@1.56.1 && npx playwright install --with-deps chromium >/dev/null 2>&1', { stdio: 'inherit' });
-const { chromium } = await import('playwright');
-const b = await chromium.launch();
-const p = await b.newPage({ viewport: { width: 1440, height: 900 } });
-const errs = []; p.on('pageerror', (e) => errs.push('pageerror ' + e.message)); p.on('console', (m) => { if (m.type() === 'error') errs.push('console ' + m.text()); });
-p.on('requestfailed', (r) => errs.push('failed ' + r.url() + ' ' + (r.failure() || {}).errorText));
-await p.goto('https://fizzl.eu/?v=' + Date.now(), { waitUntil: 'networkidle' });
-const order = await p.$$eval('section[id]', (s) => s.map((x) => x.id).join(' > '));
-console.log('ORDER', order);
-const vid = await p.$eval('.globe-video', (v) => ({ src: v.currentSrc, ready: v.readyState, paused: v.paused, w: v.videoWidth, h: v.videoHeight })).catch((e) => e.message);
-console.log('VIDEO', JSON.stringify(vid));
-await p.evaluate(() => document.getElementById('tools').scrollIntoView());
-const waitText = async (sel, not) => { for (let i = 0; i < 60; i++) { const t = (await p.textContent(sel)).trim(); if (t && !not.some((n) => t.startsWith(n))) return t; await p.waitForTimeout(500); } return (await p.textContent(sel)).trim(); };
-console.log('ICHIMOKU trend:', await waitText('#tl-trend', ['Loading']));
-console.log('ICHIMOKU setup:', await waitText('#tl-setup', ['Loading']));
-await p.click('button[data-pair="ETH-USDT"]'); await p.waitForTimeout(300);
-console.log('ICHIMOKU ETH:', await waitText('#tl-trend', ['Loading']));
-await p.click('.tl-tab[data-tab="doctor"]'); await p.click('#tl-diagnose');
-console.log('DOCTOR:', await waitText('#tl-doctor-overall', ['Calling']), '|', (await p.textContent('#tl-doctor-checks')).slice(0, 200));
-await p.click('.tl-tab[data-tab="presign"]');
-console.log('PRESIGN USDC:', await waitText('#tl-token-out', ['Checking', 'Pick']));
-await p.click('button[data-address="DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263"]'); await p.waitForTimeout(300);
-console.log('PRESIGN BONK:', await waitText('#tl-token-out', ['Checking']));
-await p.click('.tl-tab[data-tab="plaintext"]'); await p.click('#tl-explain');
-console.log('PLAINTEXT:', await waitText('#tl-plain-verdict', ['The AI']), '|', (await p.textContent('#tl-plain-text')).slice(0, 160));
-const m = await b.newPage({ viewport: { width: 390, height: 844 } });
-await m.goto('https://fizzl.eu/?v=' + Date.now(), { waitUntil: 'domcontentloaded' });
-console.log('PHONE nav overflow px', await m.evaluate(() => { const n = document.querySelector('nav'); return n.scrollWidth - n.clientWidth; }), 'page horizontal overflow px', await m.evaluate(() => document.documentElement.scrollWidth - window.innerWidth));
-console.log('ERRORS', JSON.stringify(errs.filter((e) => !/googletagmanager|google-analytics/.test(e)).slice(0, 10)));
-await b.close();
+console.log('MX', await q('resolveMx', 'fizzl.eu'));
+console.log('TXT', await q('resolveTxt', 'fizzl.eu'));
+for (const h of ['ai', 'cv', 'lab', 'projects']) {
+  try { const x = await fetch(`https://${h}.fizzl.eu/`, { redirect: 'manual' }); const b = await x.text(); console.log(h, x.status, x.headers.get('server'), x.headers.get('location') || '', (b.match(/<title>[^<]*<\/title>/) || [''])[0]); } catch (e) { console.log(h, 'ERR', e.cause?.code || e.message); }
+}
