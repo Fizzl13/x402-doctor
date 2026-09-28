@@ -1,4 +1,4 @@
-// Poll until presign-guard, ichimoku-signal and plaintext on fizzl.eu serve a valid certificate (max 10 min), then show what answers.
+// Poll until all four fizzl.eu hosts serve a valid certificate (max 10 min), after fixing the Render domain names.
 const hosts = { 'x402-doctor.fizzl.eu': '/api/health', 'presign-guard.fizzl.eu': '/health', 'ichimoku-signal.fizzl.eu': '/.well-known/x402', 'plaintext.fizzl.eu': '/api/health' };
 const ok = new Map();
 for (let i = 0; i < 20 && ok.size < 4; i++) {
