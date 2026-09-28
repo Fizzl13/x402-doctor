@@ -1,14 +1,10 @@
-// Research: re-run the free x402 Doctor web check on chekka's sentiment endpoint
-// (asked in the x402 Discord), and see the new domain-move checks live. Output is data only.
-const target = 'https://crypto-sentiment-x402.onrender.com/sentiment/BTC';
-await fetch('https://crypto-sentiment-x402.onrender.com/').catch(() => {}); // wake it
-for (let attempt = 0; attempt < 2; attempt++) {
-  const res = await fetch('https://x402-doctor.fizzl.eu/api/diagnose', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: target }) });
-  const r = await res.json();
-  console.log(`HTTP ${res.status} overall ${r.overall} method ${r.method}`);
-  for (const c of r.checks || []) console.log(`${c.status.padEnd(5)} ${c.group}/${c.id}: ${c.message}${c.hint ? `  [hint: ${c.hint}]` : ''}`);
-  if (r.checks?.some((c) => c.id === 'bazaar-listing')) break;
-  await new Promise((s) => setTimeout(s, 20000)); // Bazaar index may still be loading after the deploy
-}
-const oa = await fetch('https://crypto-sentiment-x402.onrender.com/openapi.json');
-console.log('openapi', oa.status, (await oa.text()).slice(0, 800));
+// Research: what chekka's /.well-known/x402 and paywall HTML look like (data only).
+const base = 'https://crypto-sentiment-x402.onrender.com';
+const wk = await fetch(`${base}/.well-known/x402`);
+console.log('WELL-KNOWN', wk.status, wk.headers.get('content-type'));
+console.log((await wk.text()).slice(0, 1200));
+const pw = await fetch(`${base}/sentiment/BTC`, { headers: { accept: 'text/html', 'user-agent': 'Mozilla/5.0 (x402-doctor)' } });
+const html = await pw.text();
+const i = html.indexOf('window.x402');
+console.log('PAYWALL', pw.status, html.length, JSON.stringify(html.slice(i, i + 700)));
+console.log('testnet mentions', JSON.stringify([...html.matchAll(/.{30}testnet.{30}/g)].slice(0, 5).map((m) => m[0])));
