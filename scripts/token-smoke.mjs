@@ -1,25 +1,12 @@
-// Research: what agents pay for most (x402scan seller stats). Output is data only.
-async function trpc(path, input) {
-  const url = `https://www.x402scan.com/api/trpc/${path}?input=${encodeURIComponent(JSON.stringify({ json: input }))}`;
-  const res = await fetch(url, { headers: { 'user-agent': 'Mozilla/5.0 research' } });
-  const text = await res.text();
-  if (!res.ok) throw new Error(`${path} HTTP ${res.status}: ${text.slice(0, 300)}`);
-  return JSON.parse(text).result.data.json;
+// Research: what scvd.store offers (read-only GETs, no payment). Output is data only.
+const base = 'https://scvd.store';
+const strip = (h) => h.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/&nbsp;|&amp;/g, ' ').replace(/\s+/g, ' ');
+for (const p of ['/', '/.well-known/x402', '/openapi.json', '/llms.txt', '/robots.txt', '/docs', '/pricing', '/api', '/mcp']) {
+  try {
+    const res = await fetch(base + p, { headers: { accept: p === '/' || p === '/docs' || p === '/pricing' ? 'text/html' : 'application/json, text/plain, */*', 'user-agent': 'Mozilla/5.0 research' }, redirect: 'follow' });
+    const t = await res.text();
+    const ct = res.headers.get('content-type') || '';
+    console.log(`\n## ${p} -> ${res.status} ${ct} ${t.length}b`);
+    console.log((ct.includes('html') ? strip(t) : t).slice(0, p === '/openapi.json' ? 9000 : 3500));
+  } catch (e) { console.log(`${p}: ${e.message}`); }
 }
-for (const timeframe of [30, 7]) {
-  for (const sortId of ['total_amount', 'unique_buyers', 'tx_count']) {
-    try {
-      const data = await trpc('public.sellers.bazaar.list', { pagination: { page: 0, page_size: 40 }, timeframe, sorting: { id: sortId, desc: true } });
-      console.log(`\n## ${timeframe}d by ${sortId} (total sellers ${data.total_count ?? '?'})`);
-      if (timeframe === 30 && sortId === 'total_amount') console.log('RAW', JSON.stringify(data.items?.[0]).slice(0, 700));
-      for (const [i, it] of (data.items || []).entries()) {
-        const o = it.origins?.[0] || {};
-        const amt = Number(it.total_amount);
-        const usd = amt > 1e5 ? amt / 1e6 : amt;
-        console.log(`${i + 1}. ${o.origin || it.recipients?.[0]} | tx ${it.tx_count} | $${usd.toFixed(2)} | buyers ${it.unique_buyers} | avg $${(usd / Math.max(1, it.tx_count)).toFixed(4)} | ${String(o.title || '').slice(0, 50)} | ${String(o.description || '').replace(/\s+/g, ' ').slice(0, 110)}`);
-      }
-    } catch (e) { console.log(`${timeframe} ${sortId}: ${e.message}`); }
-  }
-}
-try { console.log('\nSTATS30', JSON.stringify(await trpc('public.stats.overall', { timeframe: 30 })).slice(0, 800)); } catch (e) { console.log('stats', e.message); }
-try { console.log('STATS7', JSON.stringify(await trpc('public.stats.overall', { timeframe: 7 })).slice(0, 800)); } catch (e) { console.log('stats', e.message); }
