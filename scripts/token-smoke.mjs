@@ -1,7 +1,7 @@
-// Weekly Ichimoku results: the free preview's 7-day history and summary.
-const r = await fetch('https://ichimoku-signal.onrender.com/setups/preview', { signal: AbortSignal.timeout(180000) });
-const d = await r.json();
-console.log('HTTP', r.status, 'timestamp', d.timestamp);
-console.log('TODAY', JSON.stringify(d.setup && { pair: d.setup.pair, direction: d.setup.direction, rr: d.setup.risk_reward_1 }));
-for (const h of d.history || []) console.log('DAY', JSON.stringify(h));
-console.log('SUMMARY', JSON.stringify(d.history_summary));
+// Register the fizzl.eu origins in agent402's seller index (no account, no email).
+const origins = ['https://x402-doctor.fizzl.eu', 'https://presign-guard.fizzl.eu', 'https://ichimoku-signal.fizzl.eu', 'https://plaintext.fizzl.eu'];
+for (const origin of origins) {
+  const r = await fetch('https://agent402.tools/api/index/register', { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json' }, body: JSON.stringify({ origin }) });
+  console.log(`${origin}: HTTP ${r.status} ${(await r.text()).slice(0, 400)}`);
+  await new Promise((res) => setTimeout(res, 2000));
+}
