@@ -1,10 +1,20 @@
-// Research: wait for Doctor #86 to be live, then show the paywall and well-known checks on chekka's endpoint.
-const target = 'https://crypto-sentiment-x402.onrender.com/sentiment/BTC';
-for (let i = 0; i < 16; i++) {
-  const r = await (await fetch('https://x402-doctor.fizzl.eu/api/diagnose', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: target }) })).json();
-  const pick = (id) => r.checks?.find((c) => c.id === id);
-  const pw = pick('paywall');
-  console.log(new Date().toISOString(), 'overall', r.overall, '| paywall', pw?.status, pw?.message, '| well-known', pick('well-known')?.status, pick('well-known')?.message, '| bazaar-listing', pick('bazaar-listing')?.status);
-  if (pw?.status === 'fail') break;
-  await new Promise((s) => setTimeout(s, 20000));
+// Research: fizzl.eu services in AgentBIT (discover and route). Output is data only.
+const urls = [
+  'https://agentbit.app/api/discover?q=fizzl.eu',
+  'https://agentbit.app/api/discover?q=x402-doctor',
+  'https://agentbit.app/api/discover?q=onrender.com%20fizzl',
+  `https://agentbit.app/api/route?q=${encodeURIComponent('diagnose why my x402 endpoint payment flow is broken')}`,
+];
+for (const u of urls) {
+  try {
+    const res = await fetch(u, { headers: { accept: 'application/json' } });
+    const t = await res.text();
+    console.log(`\n## ${u} -> ${res.status}`);
+    let j; try { j = JSON.parse(t); } catch { console.log(t.slice(0, 800)); continue; }
+    const list = j.results || j.resources || j.items || j.services || j.candidates || j.routes || (Array.isArray(j) ? j : null);
+    if (list) {
+      console.log(`count ${list.length}${j.total !== undefined ? ` total ${j.total}` : ''}`);
+      for (const r of list.slice(0, 15)) console.log(`- ${r.url || r.resource || r.endpoint || r.name} | ${r.name || r.title || ''} | ${r.score ?? r.rank ?? ''} | ${(r.description || '').slice(0, 80)}`);
+    } else console.log(t.slice(0, 1500));
+  } catch (e) { console.log(`${u}: ${e.message}`); }
 }
