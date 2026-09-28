@@ -8,7 +8,7 @@ const http = require('node:http');
 const path = require('node:path');
 const { execFile } = require('node:child_process');
 const { declareDiscoveryExtension } = require('@x402/extensions/bazaar');
-const { diagnose, checkResource, checkAccepts, checkOpenApi, checkWellKnown, checkBazaarListing } = require('../lib/diagnose');
+const { diagnose, checkResource, checkAccepts, checkOpenApi, checkWellKnown, checkBazaarListing, checkPaywall } = require('../lib/diagnose');
 const { createBazaarIndex } = require('../lib/bazaar-index');
 const { createSafeFetch, guardedLookup } = require('../lib/safe-fetch');
 const { createApp } = require('../server');
@@ -532,4 +532,24 @@ test('diagnose: runs the Bazaar listing check when an index is given', async () 
   assert.equal(c.status, 'warn');
   assert.equal(c.group, 'discovery');
   assert.equal(report.checks.find((x) => x.id === 'well-known').status, 'info', 'the fixture serves no /.well-known/x402');
+});
+
+test('well-known: resources as objects with a url are read too', async () => {
+  const doc = { x402Version: 2, kind: 'resource-server', resources: [{ url: 'https://api.example.com/sentiment/{symbol}', method: 'GET' }] };
+  assert.equal((await wellKnown('https://api.example.com', 200, doc)).status, 'pass');
+  assert.equal((await wellKnown('https://api.example.com', 200, { ...doc, resources: [{ url: 'https://old.onrender.com/sentiment/{symbol}' }] })).status, 'warn');
+});
+
+test('paywall: the testnet flag is read from JSON config too (as the Python x402 package writes it)', async () => {
+  const page = (cfg) => async () => ({ status: 402, text: `<html><script>window.x402 = ${cfg};</script><script>var chain={testnet:!0};</script></html>`, headers: new Map() });
+  const mainnet = [{ network: BASE }];
+  const run = async (cfg) => {
+    const checks = [];
+    await checkPaywall('https://api.example.com/x', 'GET', mainnet, page(cfg), checks);
+    return checks[0];
+  };
+  const jsonTestnet = await run('{"paymentRequired": {}, "amount": 0.01, "testnet": true}');
+  assert.equal(jsonTestnet.status, 'fail');
+  assert.equal((await run('{"testnet": false}')).message, 'Browser paywall present (mainnet mode).');
+  assert.equal((await run('{"amount": 0.01}')).message, 'Browser paywall present.', 'no flag: the wallet code later in the page does not count');
 });
