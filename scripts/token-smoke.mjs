@@ -1,10 +1,10 @@
-// Research: what chekka's /.well-known/x402 and paywall HTML look like (data only).
-const base = 'https://crypto-sentiment-x402.onrender.com';
-const wk = await fetch(`${base}/.well-known/x402`);
-console.log('WELL-KNOWN', wk.status, wk.headers.get('content-type'));
-console.log((await wk.text()).slice(0, 1200));
-const pw = await fetch(`${base}/sentiment/BTC`, { headers: { accept: 'text/html', 'user-agent': 'Mozilla/5.0 (x402-doctor)' } });
-const html = await pw.text();
-const i = html.indexOf('window.x402');
-console.log('PAYWALL', pw.status, html.length, JSON.stringify(html.slice(i, i + 700)));
-console.log('testnet mentions', JSON.stringify([...html.matchAll(/.{30}testnet.{30}/g)].slice(0, 5).map((m) => m[0])));
+// Research: wait for Doctor #86 to be live, then show the paywall and well-known checks on chekka's endpoint.
+const target = 'https://crypto-sentiment-x402.onrender.com/sentiment/BTC';
+for (let i = 0; i < 16; i++) {
+  const r = await (await fetch('https://x402-doctor.fizzl.eu/api/diagnose', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: target }) })).json();
+  const pick = (id) => r.checks?.find((c) => c.id === id);
+  const pw = pick('paywall');
+  console.log(new Date().toISOString(), 'overall', r.overall, '| paywall', pw?.status, pw?.message, '| well-known', pick('well-known')?.status, pick('well-known')?.message, '| bazaar-listing', pick('bazaar-listing')?.status);
+  if (pw?.status === 'fail') break;
+  await new Promise((s) => setTimeout(s, 20000));
+}
