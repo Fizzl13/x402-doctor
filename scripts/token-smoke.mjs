@@ -1,18 +1,8 @@
-// Wait for the Ichimoku deploy, then check the live paywall text.
 const H = { accept: 'text/html', 'user-agent': 'Mozilla/5.0 (iPhone)' };
-for (let i = 0; i < 30; i++) {
-  const s = await (await fetch('https://ichimoku-signal.fizzl.eu/setups?interval=4h', { headers: H })).text();
-  if (s.includes("<title>Today's top trade setups</title>")) {
-    console.log('LIVE after', i * 20, 's');
-    for (const u of ['/setups?interval=4h&pay=base', '/signal/BTC-USDT?interval=4h', '/signals/ETH-USDT', '/levels/SOL-USDT', '/scan']) {
-      const h = await (await fetch('https://ichimoku-signal.fizzl.eu' + u, { headers: H })).text();
-      console.log(u, '|', (h.match(/<title>[^<]*<\/title>/) || ['?'])[0], '| one-time:', h.includes('One-time payment'), '| old:', h.includes('To access this content'));
-    }
-    const r = await fetch('https://ichimoku-signal.fizzl.eu/setups?interval=4h', { headers: { accept: 'application/json' } });
-    const c = JSON.parse(Buffer.from(r.headers.get('payment-required'), 'base64').toString());
-    console.log('agent', r.status, c.resource.description.slice(0, 60));
-    process.exit(0);
-  }
-  await new Promise((r) => setTimeout(r, 20000));
+for (const u of ['/signal/BTC-USDT?interval=4h', '/signal/BTC-USDT', '/signal/ETH-USDT?interval=1h', '/signal/BTC-USDT?interval=4h']) {
+  const r = await fetch('https://ichimoku-signal.fizzl.eu' + u, { headers: H });
+  const h = await r.text();
+  const cfg = (h.match(/paymentRequired: (\{.*\}),\n/) || [])[1];
+  let desc = ''; try { desc = JSON.parse(cfg).resource.description.slice(0, 70); } catch {}
+  console.log(u, r.status, h.length, (h.match(/<title>[^<]*<\/title>/) || ['?'])[0], 'one-time', h.includes('One-time payment'), 'wallet-btns', h.includes('open-in-wallet'), '| desc:', desc, '| cache:', r.headers.get('cf-cache-status'), r.headers.get('age'), r.headers.get('x-render-origin-server'));
 }
-console.log('not live after 10 min');
