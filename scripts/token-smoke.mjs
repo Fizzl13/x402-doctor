@@ -1,4 +1,4 @@
-// New fizzl.eu hostnames: DNS, TLS certificate and the service answering behind them (after Render verified doctor).
+// New fizzl.eu hostnames: DNS, TLS certificate and the service answering behind them (all four set up).
 import tls from 'node:tls';
 import dns from 'node:dns/promises';
 const hosts = { 'x402-doctor.fizzl.eu': '/api/health', 'presign-guard.fizzl.eu': '/health', 'ichimoku-signal.fizzl.eu': '/.well-known/x402', 'plaintext.fizzl.eu': '/' };
