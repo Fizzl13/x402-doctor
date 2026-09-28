@@ -1,13 +1,17 @@
-// Smithery listing check: homepage/repo and tools per server.
-for (const s of ['x402-doctor', 'presign-guard', 'ichimoku-signal', 'plaintext']) {
-  const r = await fetch(`https://registry.smithery.ai/servers/frits-zwager/${s}`, { headers: { accept: 'application/json' } });
+// Public Glama pages for our servers.
+const ua = { 'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) Chrome/130 Safari/537.36', accept: 'text/html' };
+const urls = [
+  'https://glama.ai/mcp/servers?query=fizzl13',
+  'https://glama.ai/mcp/connectors?query=fizzl',
+  'https://glama.ai/mcp/servers/@Fizzl13/x402-doctor',
+  'https://glama.ai/mcp/servers/@Fizzl13/presign-guard',
+  'https://glama.ai/mcp/servers/@Fizzl13/ichimoku-signal',
+  'https://glama.ai/mcp/servers/@Fizzl13/SmartContractExplainer',
+];
+for (const u of urls) {
+  const r = await fetch(u, { headers: ua, redirect: 'follow' });
   const t = await r.text();
-  console.log('==', s, r.status);
-  let j; try { j = JSON.parse(t); } catch { console.log(t.slice(0, 300)); continue; }
-  const { tools, description, ...rest } = j;
-  console.log(JSON.stringify(rest).slice(0, 800));
-  console.log('description:', description);
-  console.log('tools:', (tools || []).map((x) => x.name).join(', '));
-  const page = await (await fetch(`https://smithery.ai/servers/frits-zwager/${s}`)).text();
-  console.log('page urls:', [...new Set(page.match(/https?:\/\/[a-z0-9.-]*(fizzl\.eu|onrender\.com|github\.com\/fizzl13[^"'<\s]*)/gi) || [])].join(' '));
+  console.log('==', u, r.status, '->', r.url, t.length);
+  console.log(' links:', [...new Set(t.match(/\/mcp\/(servers|connectors)\/[A-Za-z0-9@_.\/-]*(fizzl|Fizzl|x402-doctor|presign|ichimoku|SmartContract|plaintext)[A-Za-z0-9_.\/-]*/g) || [])].slice(0, 15).join(' '));
+  console.log(' hosts:', [...new Set(t.match(/https?:\/\/[a-z0-9.-]*(fizzl\.eu|onrender\.com)[^"'<\s\\]*/g) || [])].slice(0, 10).join(' '));
 }
