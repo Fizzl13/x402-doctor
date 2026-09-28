@@ -202,7 +202,7 @@ Found a bug, or missing something? Send it with `POST /feedback` (free, no payme
 ```bash
 curl -X POST https://x402-doctor.fizzl.eu/feedback \
   -H 'content-type: application/json' \
-  -d '{"type": "feature", "message": "Check the facilitator's /supported list", "endpoint": "/api/v1/diagnose"}'
+  -d '{"type": "feature", "message": "Also check the facilitator /supported list", "endpoint": "/api/v1/diagnose"}'
 ```
 
 `type` is `bug`, `feature` or `other`; `message` is required (up to 2000 characters); `endpoint` and `contact` are optional. The answer is `202` with an id. At most 10 reports per hour per caller. Reports go to the usage log (shown on `/admin/usage`), and a person reads every one; nothing in a report is run or changed automatically. `GET /feedback` shows the schema. A diagnosis never calls another server's `feedback` tool: tools that call themselves free are skipped.
