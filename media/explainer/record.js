@@ -13,9 +13,9 @@ const { chromium } = require('playwright');
 
 const ROOT = path.join(__dirname, '..', '..');
 const OUT = process.env.OUT || path.join(__dirname, 'out');
-const DOCTOR = (process.env.DOCTOR_URL || 'https://x402-doctor.onrender.com').replace(/\/$/, '');
+const DOCTOR = (process.env.DOCTOR_URL || 'https://x402-doctor.fizzl.eu').replace(/\/$/, '');
 const BROKEN_URL = process.env.BROKEN_URL || `${DOCTOR}/demo/broken`;
-const GREEN_URL = process.env.GREEN_URL || 'https://ichimoku-signal.onrender.com/signal/BTC-USDT';
+const GREEN_URL = process.env.GREEN_URL || 'https://ichimoku-signal.fizzl.eu/signal/BTC-USDT';
 const LOOKUP_URL = process.env.LOOKUP_URL || `${DOCTOR}/api/v1/preflight`;
 const W = 1920;
 const H = 1080;
@@ -26,16 +26,23 @@ const uses = (scene) => script.segments.some((s) => s.scene.startsWith(scene));
 const durations = JSON.parse(fs.readFileSync(path.join(OUT, 'durations.json'), 'utf8'));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// Load a generated page and wait for its web fonts, so no frame shows a fallback font.
+async function setPage(page, html, opts = {}) {
+  await page.setContent(html, opts);
+  await page.evaluate(() => document.fonts && document.fonts.ready).catch(() => {});
+}
+
 const THEME = `
-  :root { --bg:#0d1117; --panel:#161b22; --line:#30363d; --text:#e6edf3; --soft:#8b949e; --go:#3fb950; --warn:#d29922; --fail:#f85149; --accent:#58a6ff; }
-  html, body { margin:0; height:100%; background:var(--bg); color:var(--text); font-family:-apple-system,'Segoe UI',Inter,Roboto,sans-serif; }
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+  :root { --bg:#020708; --panel:#041212; --line:rgba(97,245,195,.16); --text:#f4f8f7; --soft:#a8b5b2; --go:#3fb950; --warn:#d29922; --fail:#f85149; --accent:#61f5c3; }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--text); font-family:'DM Sans',system-ui,sans-serif; }
 `;
 
 function cardHtml({ title, sub, note }) {
   return `<!doctype html><html><head><style>${THEME}
     body { display:flex; align-items:center; justify-content:center; }
     .c { text-align:center; animation: in .6s ease-out both; padding: 0 120px; }
-    h1 { font-size: 104px; margin: 0 0 24px; letter-spacing: -0.02em; }
+    h1 { font-family: 'Space Grotesk','DM Sans',sans-serif; font-size: 104px; margin: 0 0 24px; letter-spacing: -0.02em; }
     p { font-size: 48px; color: var(--soft); margin: 0; }
     .note { font-size: 32px; margin-top: 40px; color: var(--accent); }
     @keyframes in { from { opacity:0; transform: translateY(24px);} to { opacity:1; transform:none; } }
@@ -47,7 +54,7 @@ function terminalHtml(lines, label = 'An agent, before paying an unknown x402 AP
   return `<!doctype html><html><head><style>${THEME}
     body { display:flex; align-items:center; justify-content:center; }
     .t { width: 1560px; background: var(--panel); border:1px solid var(--line); border-radius: 18px; padding: 36px 44px; box-shadow: 0 30px 80px rgba(0,0,0,.5); }
-    .bar { display:flex; gap:10px; margin-bottom: 26px; } .bar i { width:16px; height:16px; border-radius:50%; background:#30363d; display:block; }
+    .bar { display:flex; gap:10px; margin-bottom: 26px; } .bar i { width:16px; height:16px; border-radius:50%; background:#10302b; display:block; }
     .label { color: var(--soft); font-size: 24px; margin: -8px 0 22px; }
     pre { margin:0; font: 25px/1.5 'SF Mono', 'DejaVu Sans Mono', Consolas, monospace; white-space: pre-wrap; word-break: break-all; }
     .l { opacity: 0; transition: opacity .35s; } .l.on { opacity: 1; }
@@ -67,7 +74,7 @@ async function caption(page, text) {
         el = document.createElement('div');
         el.id = '__cap';
         el.style.cssText = 'position:fixed;left:50%;bottom:48px;transform:translateX(-50%);max-width:1500px;z-index:2147483647;' +
-          'background:rgba(0,0,0,.78);color:#fff;font:600 38px/1.35 -apple-system,"Segoe UI",Inter,Roboto,sans-serif;' +
+          'background:rgba(2,7,8,.88);border:1px solid rgba(97,245,195,.35);color:#f4f8f7;font:600 38px/1.35 "DM Sans",system-ui,sans-serif;' +
           'padding:14px 28px;border-radius:14px;text-align:center;zoom:1;';
         document.body.appendChild(el);
       }
@@ -172,7 +179,7 @@ async function main() {
 
   const scenes = {
     async card(seg) {
-      await page.setContent(cardHtml(seg.card));
+      await setPage(page, cardHtml(seg.card));
     },
     async 'prepare:home-type-broken'() {
       await page.goto(DOCTOR, { waitUntil: 'load', timeout: 90000 });
@@ -238,7 +245,7 @@ async function main() {
       await sleep(Math.max(ms, 1800));
     },
     async 'prepare:terminal-call'() {
-      await page.setContent(terminalHtml(terminalLines));
+      await setPage(page, terminalHtml(terminalLines));
     },
     async 'terminal-call'(seg, ms) {
       for (let i = 0; i < 4; i++) {
@@ -270,7 +277,7 @@ async function main() {
       await page.evaluate(() => {
         const s = document.getElementById('stackInput');
         s.style.transition = 'outline .3s';
-        s.style.outline = '4px solid #58a6ff';
+        s.style.outline = '4px solid #61f5c3';
       });
       const stacks = ['express', 'next', 'hono', 'python', 'generic', ''];
       for (const v of stacks) {
@@ -322,7 +329,7 @@ async function main() {
       await copy.click();
     },
     async 'prepare:terminal-fix-call'() {
-      await page.setContent(terminalHtml(fixLines, 'An agent, asking the Doctor for the fix'));
+      await setPage(page, terminalHtml(fixLines, 'An agent, asking the Doctor for the fix'));
     },
     async 'terminal-fix-call'(seg, ms) {
       for (let i = 0; i < 4; i++) {
@@ -349,7 +356,7 @@ async function main() {
       await page.evaluate(() => {
         for (const el of document.querySelectorAll('.share-legend > div')) {
           el.style.transition = 'outline .3s';
-          el.style.outline = '3px solid #58a6ff';
+          el.style.outline = '3px solid #61f5c3';
         }
       });
     },
