@@ -1,14 +1,9 @@
-// AgentBIT: are the fizzl.eu resources in, is Doctor found for the diagnose task, are the onrender.com entries still there?
-const get = async (u) => (await fetch(u, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(30000) })).json();
-for (const q of ['fizzl.eu', 'x402-doctor', 'presign-guard', 'ichimoku', 'plaintext']) {
-  const d = await get(`https://agentbit.app/api/discover?q=${encodeURIComponent(q)}`);
-  const ours = (d.items || []).filter((i) => /fizzl\.eu|onrender\.com/.test(i.resource || '') && /x402-doctor|presign-guard|ichimoku-signal|plaintext|smartcontractexplainer/.test(i.resource || ''));
-  console.log(`\n== discover "${q}" (total ${d.total})`);
-  for (const i of ours) console.log(`  [${i.source}] ${i.resource}`);
-}
-for (const q of ['diagnose why my x402 endpoint payment flow is broken', 'is this x402 endpoint safe to pay', 'is this transaction safe to sign before my agent signs it']) {
-  const r = await get(`https://agentbit.app/api/route?q=${encodeURIComponent(q)}`);
-  const all = [r.best, ...(r.alternatives || [])].filter(Boolean);
-  console.log(`\n== route "${q}"`);
-  all.forEach((x, n) => console.log(`  ${n + 1}. ${x.score} ${x.resource}`));
+// Daily MetaMask site-scanner check (read-only GETs): old onrender hosts, PG1, and the new fizzl.eu hosts.
+const hosts = ['x402-doctor.onrender.com', 'ichimoku-signal.onrender.com', 'pg1-ai-agent.vercel.app', 'presign-guard.onrender.com', 'x402-doctor.fizzl.eu', 'presign-guard.fizzl.eu', 'ichimoku-signal.fizzl.eu', 'plaintext.fizzl.eu', 'fizzl.eu'];
+for (const h of hosts) {
+  try {
+    const r = await fetch(`https://dapp-scanning.api.cx.metamask.io/scan?url=${encodeURIComponent(`https://${h}`)}`, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(15000) });
+    const j = await r.json();
+    console.log(`${h}: ${r.status} ${j.recommendedAction} ${JSON.stringify((j.riskFactors || []).map((f) => f.type))}`);
+  } catch (e) { console.log(`${h}: error ${e.message}`); }
 }
