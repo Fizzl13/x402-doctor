@@ -14,7 +14,8 @@ const { PREFLIGHT_SCHEMA } = require('./lib/preflight');
 const { createTrustIndex } = require('./lib/trust-index');
 const { createMediaCache } = require('./lib/media');
 const crypto = require('crypto');
-const { createUsageLog, mcpToolCall, mcpPayment } = require('./lib/usage-log');
+const { createUsageLog, mcpToolCall, mcpPayment, agentOf } = require('./lib/usage-log');
+const { createFeedback } = require('./lib/feedback');
 const { createUsageReader } = require('./lib/usage-reader');
 const { setupsFunnel } = require('./lib/usage-funnel');
 
@@ -63,6 +64,7 @@ function describeDoctorCall(req, _res, body) {
   if (req.method === 'POST' && req.path === '/mcp') {
     const call = mcpToolCall(req.body);
     if (!call) return null; // initialize, tools/list
+    if (call.tool === 'feedback') return null; // feedback.js logs it itself, with the full message
     const reply = (Array.isArray(b) ? b : [b]).find((r) => r && r.result) || {};
     const text = reply.result && reply.result.content && reply.result.content[0] && reply.result.content[0].text;
     if (reply.result && reply.result.isError && /payment|402/i.test(String(text))) return null; // the price, not a call
@@ -125,7 +127,10 @@ function trustProxyHops(env) {
 function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, trustIndex = createTrustIndex(), media = createMediaCache(), usageLog = createUsageLog({ service: 'doctor', env }), usageReader = createUsageReader({ env }) } = {}) {
   const app = express();
   const safeFetch = createSafeFetch({ allowPrivate });
-  const paidApi = createPaidApi({ safeFetch, env, trustIndex, ...(bazaarIndex ? { bazaarIndex } : {}) });
+  // POST /feedback (and the MCP tool feedback): agents report a bug or a missing
+  // feature. Free; it lands in the usage log and a person reads it (lib/feedback.js).
+  const feedback = createFeedback({ service: 'doctor', record: usageLog.record, agentOf });
+  const paidApi = createPaidApi({ safeFetch, env, trustIndex, feedback, ...(bazaarIndex ? { bazaarIndex } : {}) });
 
   // Doctor's requests reach the app through three proxies (the caller, then two
   // hops, the last a private Render address: measured 26 Sep), so Express has to
@@ -161,6 +166,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     const body = response && typeof response === 'object' ? response : req.body;
     res.json(await verifyReceipt(body, { signers: signer ? signer.signers : [], route, input, authority }));
   });
+  app.use(feedback.router(express)); // its own 16 kB JSON parser, before the 4 kB one
   app.use(express.json({ limit: '4kb' }));
   app.use(usageLog.middleware(describeDoctorCall));
 

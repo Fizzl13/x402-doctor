@@ -345,3 +345,16 @@ test('setups funnel: a payment more than 24 hours after the preview is not count
   assert.equal(f.paid, 0);
   assert.equal(f.paid_calls_without_preview, 1);
 });
+
+test('feedback in the app: a long report passes (its own parser, not the 4 kB one) and lands in the usage log', async () => {
+  const recorded = [];
+  const usageLog = { record: (e) => recorded.push(e), middleware: () => (_req, _res, next) => next() };
+  const { server, base } = await listen(createApp({ env: {}, trustIndex: trustStub, usageLog, usageReader: { load: async () => ({}) } }));
+  const message = 'é'.repeat(1990); // about 4 kB in UTF-8
+  const res = await fetch(`${base}/feedback`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ type: 'bug', message, endpoint: '/api/v1/fix' }) });
+  assert.equal(res.status, 202);
+  assert.equal(recorded.length, 1);
+  assert.equal(recorded[0].route, 'feedback');
+  assert.equal(recorded[0].feedback.message, message);
+  server.close();
+});
