@@ -1,0 +1,301 @@
+{
+  "window": {
+    "from": "2026-09-23",
+    "to": "2026-09-28",
+    "days": 6
+  },
+  "resources": 17761,
+  "hosts": 2016,
+  "payable": 17053,
+  "payable_pct": 96,
+  "clean": 16286,
+  "clean_pct": 91.7,
+  "caution_pct": 4.3,
+  "payable_pct_week_start": 96.3,
+  "no_go": 708,
+  "no_go_pct": 4,
+  "caution": 767,
+  "hosts_with_payable": 1903,
+  "reasons": [
+    {
+      "code": "no_402",
+      "count": 699,
+      "why": "don't answer 402 at all, so there is nothing to pay",
+      "short": "don't answer 402",
+      "fix": "make the listed route answer 402 (a moved or renamed endpoint stays listed under its old URL until a payment goes through the new one)"
+    },
+    {
+      "code": "testnet_only",
+      "count": 428,
+      "why": "offer only testnet payment options",
+      "short": "are testnet only",
+      "fix": "add a mainnet option (for example Base, eip155:8453) or delist the test endpoint"
+    },
+    {
+      "code": "resource_mismatch",
+      "count": 301,
+      "why": "name another URL in their 402 than the one requested",
+      "short": "name the wrong URL in their 402",
+      "fix": "build resource.url from your public origin (behind a TLS proxy: trust proxy, so it stays https)"
+    },
+    {
+      "code": "unknown_asset",
+      "count": 288,
+      "why": "ask to be paid in a token that isn't a known USDC contract",
+      "short": "ask for a non-USDC token",
+      "fix": "use the network's USDC contract as the asset"
+    },
+    {
+      "code": "price_above_advertised",
+      "count": 10,
+      "why": "charge more than their OpenAPI advertises",
+      "short": "charge more than advertised",
+      "fix": "keep the price in openapi.json in step with the 402"
+    },
+    {
+      "code": "suspicious_amount",
+      "count": 8,
+      "why": "write the amount as dollars (\"0.01\") instead of atomic units",
+      "short": "write dollars instead of atomic units",
+      "fix": "use atomic units: \"10000\" is $0.01 USDC"
+    },
+    {
+      "code": "invalid_challenge",
+      "count": 5,
+      "why": "answer 402 without a valid x402 challenge",
+      "short": "send a broken 402",
+      "fix": "send the PaymentRequired object (base64 JSON in the PAYMENT-REQUIRED header, mirrored in the body)"
+    },
+    {
+      "code": "no_payable_option",
+      "count": 4,
+      "why": "list payment options that would all fail",
+      "short": "offer no working payment option",
+      "fix": "fix the blocking problem per option (network name, payTo, amount in atomic units)"
+    }
+  ],
+  "networks": [
+    {
+      "network": "eip155:8453",
+      "count": 16547,
+      "pct": 97
+    },
+    {
+      "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+      "count": 5897,
+      "pct": 34.6
+    },
+    {
+      "network": "eip155:137",
+      "count": 2672,
+      "pct": 15.7
+    },
+    {
+      "network": "eip155:42161",
+      "count": 2427,
+      "pct": 14.2
+    },
+    {
+      "network": "eip155:84532",
+      "count": 1135,
+      "pct": 6.7
+    },
+    {
+      "network": "eip155:143",
+      "count": 856,
+      "pct": 5
+    },
+    {
+      "network": "eip155:4663",
+      "count": 723,
+      "pct": 4.2
+    },
+    {
+      "network": "eip155:10",
+      "count": 658,
+      "pct": 3.9
+    },
+    {
+      "network": "xrpl:0",
+      "count": 651,
+      "pct": 3.8
+    },
+    {
+      "network": "eip155:43114",
+      "count": 640,
+      "pct": 3.8
+    },
+    {
+      "network": "eip155:1329",
+      "count": 638,
+      "pct": 3.7
+    },
+    {
+      "network": "eip155:42220",
+      "count": 600,
+      "pct": 3.5
+    },
+    {
+      "network": "stellar:pubnet",
+      "count": 594,
+      "pct": 3.5
+    },
+    {
+      "network": "base",
+      "count": 325,
+      "pct": 1.9
+    },
+    {
+      "network": "eip155:480",
+      "count": 284,
+      "pct": 1.7
+    },
+    {
+      "network": "eip155:5042",
+      "count": 153,
+      "pct": 0.9
+    },
+    {
+      "network": "eip155:196",
+      "count": 121,
+      "pct": 0.7
+    },
+    {
+      "network": "solana:mainnet",
+      "count": 110,
+      "pct": 0.6
+    },
+    {
+      "network": "eip155:56",
+      "count": 94,
+      "pct": 0.6
+    },
+    {
+      "network": "eip155:999",
+      "count": 94,
+      "pct": 0.6
+    },
+    {
+      "network": "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k",
+      "count": 78,
+      "pct": 0.5
+    },
+    {
+      "network": "eip155:1",
+      "count": 63,
+      "pct": 0.4
+    },
+    {
+      "network": "stacks:1",
+      "count": 62,
+      "pct": 0.4
+    },
+    {
+      "network": "cosmos:noble-1",
+      "count": 51,
+      "pct": 0.3
+    },
+    {
+      "network": "eip155:130",
+      "count": 40,
+      "pct": 0.2
+    },
+    {
+      "network": "eip155:146",
+      "count": 40,
+      "pct": 0.2
+    },
+    {
+      "network": "nano:mainnet",
+      "count": 18,
+      "pct": 0.1
+    },
+    {
+      "network": "eip155:4326",
+      "count": 16,
+      "pct": 0.1
+    },
+    {
+      "network": "solana",
+      "count": 15,
+      "pct": 0.1
+    },
+    {
+      "network": "eip155:1187947933",
+      "count": 8,
+      "pct": 0
+    },
+    {
+      "network": "hyperliquid:mainnet",
+      "count": 6,
+      "pct": 0
+    },
+    {
+      "network": "base-sepolia",
+      "count": 5,
+      "pct": 0
+    },
+    {
+      "network": "hedera:testnet",
+      "count": 4,
+      "pct": 0
+    },
+    {
+      "network": "eip155:50",
+      "count": 3,
+      "pct": 0
+    },
+    {
+      "network": "eip155:5042002",
+      "count": 3,
+      "pct": 0
+    },
+    {
+      "network": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+      "count": 2,
+      "pct": 0
+    },
+    {
+      "network": "cosmos:gonka-mainnet",
+      "count": 2,
+      "pct": 0
+    },
+    {
+      "network": "animica:1",
+      "count": 2,
+      "pct": 0
+    },
+    {
+      "network": "eip155:80002",
+      "count": 2,
+      "pct": 0
+    },
+    {
+      "network": "eip155:11142220",
+      "count": 2,
+      "pct": 0
+    },
+    {
+      "network": "aws:base",
+      "count": 1,
+      "pct": 0
+    },
+    {
+      "network": "eip155:42793",
+      "count": 1,
+      "pct": 0
+    },
+    {
+      "network": "xrpl:mainnet",
+      "count": 1,
+      "pct": 0
+    }
+  ],
+  "median_price_usd": 0.008,
+  "this_week": {
+    "broke": 84,
+    "fixed": 103,
+    "added": 492,
+    "flaky": 301
+  }
+}
