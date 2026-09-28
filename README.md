@@ -183,6 +183,15 @@ one letter per day (`g` go, `c` caution, `n` no-go, `x` unreachable, `-` not sca
   `GET /api/trust/summary`: totals of the latest scan. `/trust`: the public page, with lookup and the scan's rules.
 - Run it yourself: `node scripts/trust-scan.js --out trust-data --limit 200`.
 
+### Weekly x402 health report
+
+Every Monday, [`weekly-report.yml`](.github/workflows/weekly-report.yml) turns the last 7 days of the Trust Index into a
+report: how many Bazaar resources are clean, payable with a caution or not payable, the most common reasons with the fix
+for each, which networks payable resources accept, and what changed this week (broke, fixed, flaky, new). It names no
+seller or host. The report, its numbers and drafts for X, Discord and Reddit (for a person to review and post) go to
+`reports/<date>.md`, `.json` and `-posts.md` on the `weekly-reports` branch. Locally:
+`node scripts/weekly-report.js --out reports [--index trust-data/index.json]`.
+
 ## MCP server
 
 `https://x402-doctor.fizzl.eu/mcp` is an MCP server (Streamable HTTP, stateless) for Claude, Cursor and agent frameworks, listed in the official MCP registry as `io.github.Fizzl13/x402-doctor`.
