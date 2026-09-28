@@ -12,4 +12,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ping health endpoint
-        run: curl -sf -o /dev/null --max-time 90 -w "HTTP %{http_code}\n" https://x402-doctor.onrender.com/api/health
+        run: curl -sf -o /dev/null --max-time 90 -w "HTTP %{http_code}\n" https://x402-doctor.fizzl.eu/api/health

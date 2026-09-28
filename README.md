@@ -4,17 +4,17 @@ Diagnoses why an x402-payable endpoint's payment flow is broken, without needing
 
 Paste a URL (web app) or run `x402-doctor <url>` (CLI, CI) and get back exactly which check failed, why, and how
 to fix it. Every check traces back to a real bug hit while shipping
-[PlainText](https://smartcontractexplainer.onrender.com) and
-[Ichimoku Signal](https://ichimoku-signal.onrender.com).
+[PlainText](https://plaintext.fizzl.eu) and
+[Ichimoku Signal](https://ichimoku-signal.fizzl.eu).
 
-[![x402 Doctor in 70 seconds](https://raw.githubusercontent.com/Fizzl13/x402-doctor/explainer-video/poster.jpg)](https://x402-doctor.onrender.com/media/explainer.mp4)
+[![x402 Doctor in 70 seconds](https://raw.githubusercontent.com/Fizzl13/x402-doctor/explainer-video/poster.jpg)](https://x402-doctor.fizzl.eu/media/explainer.mp4)
 
-▶ **[Watch the 70-second explainer](https://x402-doctor.onrender.com/media/explainer.mp4)** (with voice and captions):
+▶ **[Watch the 70-second explainer](https://x402-doctor.fizzl.eu/media/explainer.mp4)** (with voice and captions):
 diagnosing a broken endpoint, the pre-payment check for agents, and the daily Trust Index.
 
-[![x402 Doctor: the paid fix](https://raw.githubusercontent.com/Fizzl13/x402-doctor/fix-video/poster.jpg)](https://x402-doctor.onrender.com/media/fix.mp4)
+[![x402 Doctor: the paid fix](https://raw.githubusercontent.com/Fizzl13/x402-doctor/fix-video/poster.jpg)](https://x402-doctor.fizzl.eu/media/fix.mp4)
 
-▶ **New: [the paid fix in 70 seconds](https://x402-doctor.onrender.com/media/fix.mp4)**: for $0.05 the Doctor hands you
+▶ **New: [the paid fix in 70 seconds](https://x402-doctor.fizzl.eu/media/fix.mp4)**: for $0.05 the Doctor hands you
 the medicine, the exact code that fixes each problem for your stack, in the browser or as JSON for agents.
 
 ## What it checks
@@ -160,7 +160,7 @@ Every paid answer (diagnose, preflight and fix; HTTP and MCP) carries a `receipt
 - **Signed:** the whole answer without `receipt.signature`, as canonical JSON (profile `js-json-stringify-sorted-utf16-ascii-v1`: keys sorted by UTF-16 code units, compact, every code unit from U+007F up as lowercase `\uXXXX`, numbers as JavaScript's `JSON.stringify` writes them — `1.0` → `1`, `0.000001` → `0.000001` — then UTF-8 bytes; Python's `json.dumps` matches only for ASCII keys and integers, so use [`examples/canonical.py`](examples/canonical.py), which also has `verify_receipt(answer)`), with EIP-191 `personal_sign`. Flipping the verdict or moving it to another request breaks it.
 - **`payment`:** the payment that bought this answer, from your x402 payment payload. On Base the payer and the EIP-3009 nonce, so anyone can find the settlement on-chain as the USDC contract's `AuthorizationUsed(payer, nonce)` event; on Solana the payer and a SHA-256 of the signed transaction you sent.
 - **`input_sha256`:** SHA-256 of the canonical JSON of `{"route", "input"}`, where `input` is your query parameters as strings (HTTP) or the tool arguments (MCP, route `mcp <tool>`).
-- **Signer:** [`/.well-known/x402-doctor-signer.json`](https://x402-doctor.onrender.com/.well-known/x402-doctor-signer.json), with retired signers listed so old receipts keep verifying.
+- **Signer:** [`/.well-known/x402-doctor-signer.json`](https://x402-doctor.fizzl.eu/.well-known/x402-doctor-signer.json), with retired signers listed so old receipts keep verifying.
 - **Free check:** `POST /api/v1/verify` with `{"response": …, "route": …, "input": …}` returns `valid`, `signer`, `known_signer` and `input_matches`.
 
 **Key rotation without client updates:** the payout wallet (`0x6B0F4651eD42893ab58139938175E4a69f175F25`) authorises each signing key with a `personal_sign` over `fizzl receipt signer` / `service: x402-doctor` / `signer: <address>` / `valid_from: <YYYY-MM-DD>`. Set it as `RECEIPT_SIGNER_CERT` (`YYYY-MM-DD:0x<signature>`, produced by `/sign-receipt-key` in the wallet's browser). It is checked at startup and carried in every receipt as `receipt.cert`, so a client that pins only the payout wallet verifies a new key offline.
@@ -183,7 +183,7 @@ one letter per day (`g` go, `c` caution, `n` no-go, `x` unreachable, `-` not sca
 
 ## MCP server
 
-`https://x402-doctor.onrender.com/mcp` is an MCP server (Streamable HTTP, stateless) for Claude, Cursor and agent frameworks, listed in the official MCP registry as `io.github.Fizzl13/x402-doctor`.
+`https://x402-doctor.fizzl.eu/mcp` is an MCP server (Streamable HTTP, stateless) for Claude, Cursor and agent frameworks, listed in the official MCP registry as `io.github.Fizzl13/x402-doctor`.
 
 | Tool | Price | Returns |
 |---|---|---|

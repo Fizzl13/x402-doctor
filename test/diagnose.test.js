@@ -351,7 +351,7 @@ test('web diagnose refuses two URLs pasted into each other', async () => {
 test('web page: no pre-filled URL, the example is a link, reports name their URL', () => {
   const html = require('node:fs').readFileSync(require('node:path').join(__dirname, '../public/index.html'), 'utf8');
   assert.doesNotMatch(html, /id="urlInput"[^>]*\svalue=/);
-  assert.match(html, /id="exampleLink" data-url="https:\/\/smartcontractexplainer\.onrender\.com\/api\/check-wallet"/);
+  assert.match(html, /id="exampleLink" data-url="https:\/\/plaintext\.fizzl\.eu\/api\/check-wallet"/);
   assert.match(html, /if \(id !== runId\) return;/);
   assert.match(html, /failed · \$\{url\}/);
 });

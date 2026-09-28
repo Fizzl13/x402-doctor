@@ -16,10 +16,10 @@ const { parsePaymentRequired } = require('@x402/core/schemas');
 
 const BASE = 'eip155:8453';
 const SOLANA = 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp';
-const ICHI = 'https://ichimoku-signal.onrender.com';
-const DOCTOR = 'https://x402-doctor.onrender.com';
-const GUARD = 'https://presign-guard.onrender.com';
-const PLAIN = 'https://smartcontractexplainer.onrender.com';
+const ICHI = 'https://ichimoku-signal.fizzl.eu';
+const DOCTOR = 'https://x402-doctor.fizzl.eu';
+const GUARD = 'https://presign-guard.fizzl.eu';
+const PLAIN = 'https://plaintext.fizzl.eu';
 const PG1_HEALTH = 'https://pg1-ai-agent.vercel.app/api/health';
 const USDC_BASE = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 const PERMIT2 = '0x000000000022D473030F116dDEE9F6B43aC78BA3';
