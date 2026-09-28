@@ -5,6 +5,7 @@ const { x402TrustTxtRoute } = require('./lib/x402-trust-txt');
 const { ALGORITHM, verifyReceipt, AUTHORITY, SERVICE } = require('./lib/receipt');
 const { securityHeaders } = require('./lib/security-headers');
 const { nohumansClaim } = require('./lib/nohumans-claim');
+const { fizzlCors } = require('./lib/fizzl-cors');
 const { createSafeFetch, isPrivateIp } = require('./lib/safe-fetch');
 const diagnoseLib = require('./lib/diagnose');
 const { createPaidApi, ROUTE: PAID_ROUTE, PREFLIGHT_ROUTE, FIX_ROUTE, REPORT_SCHEMA, FIX_SCHEMA } = require('./lib/paid-api');
@@ -247,6 +248,8 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     res.json(summary);
   });
 
+  // The free check may also be called from the live demo on fizzl.eu (browser, CORS).
+  app.use('/api/diagnose', fizzlCors);
   app.post('/api/diagnose', rateLimit(limits), async (req, res) => {
     const { url: targetUrl, method } = req.body || {};
     if (!targetUrl || typeof targetUrl !== 'string') return res.status(400).json({ error: 'url is required' });

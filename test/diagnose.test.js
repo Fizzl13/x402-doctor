@@ -348,6 +348,24 @@ test('web diagnose refuses two URLs pasted into each other', async () => {
   assert.doesNotMatch((await res.json()).error || '', /two URLs/);
 });
 
+test('free check answers the fizzl.eu demo (CORS), and only that origin', async () => {
+  const app = createApp({ rateLimit: { windowMs: 60_000, max: 10 } });
+  const api = await new Promise((resolve) => {
+    const server = app.listen(0, '127.0.0.1', () => resolve(`http://127.0.0.1:${server.address().port}`));
+    servers.push(server);
+  });
+  const pre = await fetch(`${api}/api/diagnose`, { method: 'OPTIONS', headers: { origin: 'https://fizzl.eu', 'access-control-request-method': 'POST', 'access-control-request-headers': 'content-type' } });
+  assert.equal(pre.status, 204);
+  assert.equal(pre.headers.get('access-control-allow-origin'), 'https://fizzl.eu');
+  const res = await fetch(`${api}/api/diagnose`, { method: 'POST', headers: { origin: 'https://fizzl.eu', 'content-type': 'application/json' }, body: JSON.stringify({ url: 'not a url' }) });
+  assert.equal(res.status, 400);
+  assert.equal(res.headers.get('access-control-allow-origin'), 'https://fizzl.eu');
+  const other = await fetch(`${api}/api/diagnose`, { method: 'POST', headers: { origin: 'https://evil.example', 'content-type': 'application/json' }, body: JSON.stringify({ url: 'not a url' }) });
+  assert.equal(other.headers.get('access-control-allow-origin'), null);
+  const paid = await fetch(`${api}/api/v1/diagnose?url=https://example.com`, { headers: { origin: 'https://fizzl.eu' } });
+  assert.equal(paid.headers.get('access-control-allow-origin'), null);
+});
+
 test('web page: no pre-filled URL, the example is a link, reports name their URL', () => {
   const html = require('node:fs').readFileSync(require('node:path').join(__dirname, '../public/index.html'), 'utf8');
   assert.doesNotMatch(html, /id="urlInput"[^>]*\svalue=/);
