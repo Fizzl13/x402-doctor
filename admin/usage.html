@@ -427,7 +427,8 @@
         el('td', {}, el('span', { className: 'svcname' }, swatch(e.service), NAME[e.service] || e.service)),
         el('td', { className: 'nowrap' }, `${e.route || ''}`, e.via && e.via !== 'http' ? el('span', { className: 'pill', textContent: e.via, style: 'margin-left:6px' }) : null),
         el('td', { className: 'mono', textContent: summary(e.input) || '–' }),
-        el('td', { className: 'mono' }, summary(e.result) || '–', status),
+        // A feedback report (feedback.js) shows its message; it is text from the caller, set as text.
+        el('td', { className: 'mono' }, e.feedback ? `“${String(e.feedback.message || '').slice(0, 300)}”${e.feedback.contact ? ` · ${e.feedback.contact}` : ''}` : summary(e.result) || '–', status),
         el('td', { className: 'nowrap' }, pay));
     });
     $('calls').replaceChildren(el('thead', {}, head), el('tbody', {}, ...(rows.length ? rows : [el('tr', {}, el('td', { colSpan: 6, className: 'empty', textContent: 'No calls in this range yet.' }))])));
