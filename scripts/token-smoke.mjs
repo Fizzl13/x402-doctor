@@ -1,9 +1,12 @@
-// Read the current fizzl.eu page: structure, text, links, assets.
+// Copy the fizzl.eu site files into the log (gzip + base64), so they can be versioned.
+import { gzipSync } from 'node:zlib';
+for (const f of ['index.html', 'style.css', 'script.js', 'digital-twin.js', 'process-agent.js', 'favicon.ico', 'robots.txt', 'sitemap.xml']) {
+  const r = await fetch('https://fizzl.eu/' + f);
+  if (!r.ok) { console.log(`FILE ${f} HTTP ${r.status}`); continue; }
+  const buf = Buffer.from(await r.arrayBuffer());
+  const b64 = gzipSync(buf).toString('base64');
+  console.log(`FILE ${f} ${buf.length} ${b64.length}`);
+  for (let i = 0; i < b64.length; i += 2000) console.log(`B64 ${f} ${b64.slice(i, i + 2000)}`);
+}
 const h = await (await fetch('https://fizzl.eu/')).text();
-console.log('HEAD', (h.match(/<head>[\s\S]*?<\/head>/) || [''])[0].replace(/<style[\s\S]*?<\/style>/g, '<style…>').slice(0, 1500));
-const body = (h.match(/<body[\s\S]*<\/body>/) || [h])[0];
-console.log('SECTIONS', [...body.matchAll(/<(section|header|footer|nav|h1|h2|h3)[^>]*>/g)].map((m) => m[0]).join(' '));
-console.log('TEXT', body.replace(/<script[\s\S]*?<\/script>/g, '').replace(/<style[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 3500));
-console.log('LINKS', [...new Set([...body.matchAll(/href="([^"]+)"/g)].map((m) => m[1]))].join(' '));
-console.log('ASSETS', [...new Set([...h.matchAll(/(?:src|href)="([^"]+\.(?:css|js|png|jpg|jpeg|svg|webp|ico))"/g)].map((m) => m[1]))].join(' '));
-console.log('STYLE', ((h.match(/<style[\s\S]*?<\/style>/) || [''])[0]).slice(0, 900));
+console.log('REFS', [...new Set([...h.matchAll(/(?:src|href)="(?!https?:|mailto:|#)([^"]+)"/g)].map((m) => m[1]))].join(' '));
