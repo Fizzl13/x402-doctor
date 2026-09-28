@@ -1,0 +1,44 @@
+1
+00:00:00,279 --> 00:00:07,170
+x402 Doctor always told you what's wrong with your paid API. Now it also hands you the medicine.
+
+2
+00:00:08,361 --> 00:00:11,988
+Paste your endpoint and run the free diagnosis, as always.
+
+3
+00:00:12,445 --> 00:00:17,906
+When something is broken, a new card appears: get the fix, for five cents in USDC on Base.
+
+4
+00:00:18,360 --> 00:00:27,107
+The Doctor recognises your stack from the response. Express, Next.js, Hono, Python or raw HTTP. Or pick it yourself.
+
+5
+00:00:27,562 --> 00:00:32,597
+One signature in your browser wallet, for exactly five cents. That's the whole checkout.
+
+6
+00:00:33,052 --> 00:00:42,055
+You get every problem as a recipe: why it breaks, the steps, and the exact code, already filled in with your own pay-to address, amount, network and route.
+
+7
+00:00:42,511 --> 00:00:46,671
+Copy, paste, deploy. Then run the free check again until it's green.
+
+8
+00:00:47,144 --> 00:00:53,096
+Agents can buy the medicine too. One call to the fix endpoint, five cents over x402.
+
+9
+00:00:53,550 --> 00:00:58,115
+The same fixes come back as JSON, ready for a coding agent to apply.
+
+10
+00:00:58,575 --> 00:01:02,735
+And it's listed in the Coinbase Bazaar, so agents can find it on their own.
+
+11
+00:01:03,201 --> 00:01:08,342
+x402 Doctor. The diagnosis is free. The medicine costs five cents.
+
