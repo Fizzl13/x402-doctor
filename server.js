@@ -192,8 +192,12 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   // Paid agent API (x402). The web page below stays free and rate-limited.
   app.use(paidApi);
   app.get('/openapi.json', (req, res) => res.json(openApi(`${req.protocol}://${req.get('host')}`, paidApi.paymentInfo)));
+  // Indexers (CDP Bazaar, nsgoods, x402scan) keep the URLs they are given. The
+  // old onrender.com address still works, but discovery always names the
+  // fizzl.eu address; any other host (a local run, a test) lists itself.
+  const publicUrl = (env.PUBLIC_URL || 'https://x402-doctor.fizzl.eu').replace(/\/$/, '');
   app.get('/.well-known/x402', (req, res) => {
-    const origin = `${req.protocol}://${req.get('host')}`;
+    const origin = /\.onrender\.com$/i.test(req.hostname) ? publicUrl : `${req.protocol}://${req.get('host')}`;
     res.json({
       version: 1,
       resources: paidApi.paymentInfo ? [`${origin}${PAID_ROUTE}`, `${origin}${PREFLIGHT_ROUTE}`, `${origin}${FIX_ROUTE}`] : [],

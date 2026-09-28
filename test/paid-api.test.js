@@ -253,6 +253,10 @@ test('discovery: OpenAPI with x-payment-info and /.well-known/x402 listing the r
   const wellKnown = await (await fetch(`${api}/.well-known/x402`)).json();
   assert.equal(wellKnown.version, 1);
   assert.deepEqual(wellKnown.resources, [`${api}/api/v1/diagnose`, `${api}/api/v1/preflight`, `${api}/api/v1/fix`]);
+  // fetch cannot set Host; behind the trusted proxy X-Forwarded-Host sets req.hostname the same way.
+  const onRender = await (await fetch(`${api}/.well-known/x402`, { headers: { 'x-forwarded-host': 'x402-doctor.onrender.com' } })).json();
+  assert.deepEqual(onRender.resources, ['https://x402-doctor.fizzl.eu/api/v1/diagnose', 'https://x402-doctor.fizzl.eu/api/v1/preflight', 'https://x402-doctor.fizzl.eu/api/v1/fix']);
+  assert.equal(onRender.signer, 'https://x402-doctor.fizzl.eu/.well-known/x402-doctor-signer.json');
   assert.deepEqual(spec.paths['/api/v1/fix'].get['x-payment-info'].price, { mode: 'fixed', currency: 'USD', amount: '0.05' });
   const preflightOp = spec.paths['/api/v1/preflight'].get;
   assert.deepEqual(preflightOp['x-payment-info'].price, { mode: 'fixed', currency: 'USD', amount: '0.001' });
