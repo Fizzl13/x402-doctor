@@ -1,22 +1,29 @@
-// Live check after the feedback merge: GET /feedback on all four services (no POST, no junk reports),
-// polling until each answers 200 with the schema (Render deploys take a few minutes).
-const HOSTS = ['ichimoku-signal', 'x402-doctor', 'presign-guard', 'plaintext'].map((h) => `https://${h}.fizzl.eu`);
-const done = {};
-for (let round = 0; round < 30 && Object.keys(done).length < HOSTS.length; round++) {
-  for (const h of HOSTS) {
-    if (done[h]) continue;
-    try {
-      const r = await fetch(`${h}/feedback`, { headers: { accept: 'application/json' } });
-      const b = r.headers.get('content-type')?.includes('json') ? await r.json() : null;
-      if (r.status === 200 && b && b.schema) { done[h] = `${b.service} ok, required ${JSON.stringify(b.schema.required)}`; console.log(new Date().toISOString(), h, done[h]); }
-      else if (round % 5 === 0) console.log(new Date().toISOString(), h, 'not yet', r.status);
-    } catch (e) { console.log(h, 'ERR', e.message); }
-  }
-  if (Object.keys(done).length < HOSTS.length) await new Promise((s) => setTimeout(s, 20000));
+// Research: what is vishwalab.com? Home page text, links, and common agent/x402 discovery files.
+const base = 'https://vishwalab.com';
+const strip = (h) => h.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/&nbsp;|&#160;/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
+async function get(url) {
+  try {
+    const r = await fetch(url, { redirect: 'follow', headers: { 'user-agent': 'Mozilla/5.0 (research)', accept: 'text/html,application/json,*/*' } });
+    return { status: r.status, url: r.url, type: r.headers.get('content-type') || '', text: await r.text() };
+  } catch (e) { return { status: 'ERR', text: e.cause?.code || e.message }; }
 }
-for (const h of HOSTS) {
-  const r = await fetch(`${h}/mcp`, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} }) }).catch((e) => ({ status: 'ERR ' + e.message, text: async () => '' }));
-  const t = await r.text();
-  console.log(h, 'tools/list', r.status, /"name":"feedback"/.test(t) ? 'has feedback tool' : 'NO feedback tool');
+const home = await get(base);
+console.log('HOME', home.status, home.url, home.type, home.text.length);
+console.log('TITLE', (home.text.match(/<title>([^<]*)/i) || [])[1]);
+console.log('META', [...home.text.matchAll(/<meta[^>]+(?:name|property)="(description|og:description|og:title)"[^>]+content="([^"]*)"/gi)].map((m) => `${m[1]}=${m[2]}`).join(' | '));
+const text = strip(home.text);
+for (let i = 0; i < Math.min(text.length, 6000); i += 1500) console.log('TEXT', text.slice(i, i + 1500));
+const links = [...new Set([...home.text.matchAll(/href="([^"#]+)"/g)].map((m) => m[1]))].filter((l) => !/\.(css|png|jpg|svg|ico|woff2?)(\?|$)/.test(l));
+console.log('LINKS', links.slice(0, 60).join(' '));
+// Next.js / SPA bundles: look for API hosts and x402 mentions in the first scripts.
+const scripts = [...home.text.matchAll(/src="([^"]+\.js)"/g)].map((m) => new URL(m[1], home.url || base).href).slice(0, 8);
+for (const s of scripts) {
+  const js = await get(s);
+  const hits = [...new Set((js.text.match(/https?:\/\/[a-z0-9.-]+\.[a-z]{2,}[^"'`\s)]{0,60}/gi) || []).filter((u) => !/w3\.org|schema\.org|reactjs|nextjs|github\.com\/facebook/.test(u)))].slice(0, 15);
+  const words = ['x402', 'solana', 'mainnet', 'devnet', 'testnet', 'waitlist', 'audit', 'policy', 'vault', 'custody', 'token'].map((w) => `${w}:${(js.text.match(new RegExp(w, 'gi')) || []).length}`).join(' ');
+  console.log('JS', s, js.text.length, words, hits.join(' '));
 }
-console.log('summary', JSON.stringify(done));
+for (const p of ['/.well-known/x402', '/openapi.json', '/llms.txt', '/robots.txt', '/sitemap.xml', '/docs', '/api', '/.well-known/agent.json']) {
+  const r = await get(base + p);
+  console.log('PATH', p, r.status, r.type, strip(String(r.text)).slice(0, 400));
+}
