@@ -1,16 +1,22 @@
-// Live check of the presign-guard branch: /v1/check reports pause/blacklist powers of the token.
-import { execSync } from 'node:child_process';
-execSync('git clone -q --depth 1 -b claude/x402-agents-solana-payments-nceg9b https://github.com/Fizzl13/presign-guard /tmp/pg && cd /tmp/pg && npm ci -s', { stdio: 'inherit' });
-process.env.ORIGIN_REPUTATION = 'off';
-const { parseRequest, analyze } = await import('/tmp/pg/src/presign-guard.js');
-const SPENDER = '0x000000000022D473030F116dDEE9F6B43aC78BA3'; // Permit2
-const T = { USDC: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', cbBTC: '0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf', DEGEN: '0x4ed4E862860beD51a9570b96d89aF5E1B0Efefed' };
-for (const [sym, token] of Object.entries(T)) {
-  const t0 = Date.now();
-  try {
-    const r = await analyze(parseRequest({ type: 'approval', chainId: 8453, token, spender: SPENDER, amount: '1000000' }));
-    const c = r.reasons.filter((x) => /PAUS|BLACKLIST/.test(x.code));
-    console.log(sym, Date.now() - t0 + 'ms', r.verdict, JSON.stringify(c), '| all:', r.reasons.map((x) => x.code).join(','));
-  } catch (e) { console.log(sym, 'ERR', e.message); }
-  await new Promise((s) => setTimeout(s, 2500));
+// Live check after the feedback merge: GET /feedback on all four services (no POST, no junk reports),
+// polling until each answers 200 with the schema (Render deploys take a few minutes).
+const HOSTS = ['ichimoku-signal', 'x402-doctor', 'presign-guard', 'plaintext'].map((h) => `https://${h}.fizzl.eu`);
+const done = {};
+for (let round = 0; round < 30 && Object.keys(done).length < HOSTS.length; round++) {
+  for (const h of HOSTS) {
+    if (done[h]) continue;
+    try {
+      const r = await fetch(`${h}/feedback`, { headers: { accept: 'application/json' } });
+      const b = r.headers.get('content-type')?.includes('json') ? await r.json() : null;
+      if (r.status === 200 && b && b.schema) { done[h] = `${b.service} ok, required ${JSON.stringify(b.schema.required)}`; console.log(new Date().toISOString(), h, done[h]); }
+      else if (round % 5 === 0) console.log(new Date().toISOString(), h, 'not yet', r.status);
+    } catch (e) { console.log(h, 'ERR', e.message); }
+  }
+  if (Object.keys(done).length < HOSTS.length) await new Promise((s) => setTimeout(s, 20000));
 }
+for (const h of HOSTS) {
+  const r = await fetch(`${h}/mcp`, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} }) }).catch((e) => ({ status: 'ERR ' + e.message, text: async () => '' }));
+  const t = await r.text();
+  console.log(h, 'tools/list', r.status, /"name":"feedback"/.test(t) ? 'has feedback tool' : 'NO feedback tool');
+}
+console.log('summary', JSON.stringify(done));
