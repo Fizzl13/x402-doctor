@@ -34,6 +34,8 @@ const PAID = [
   { service: 'Ichimoku Signal', name: 'GET /setups', url: `${ICHI}/setups?interval=4h`, amount: '500000', networks: [BASE, SOLANA] },
   { service: 'x402 Doctor', name: 'GET /api/v1/diagnose', url: `${DOCTOR}/api/v1/diagnose?url=${encodeURIComponent(`${ICHI}/signal/BTC-USDT`)}`, amount: '10000', networks: [BASE, SOLANA] },
   { service: 'x402 Doctor', name: 'GET /api/v1/preflight', url: `${DOCTOR}/api/v1/preflight?url=${encodeURIComponent(`${ICHI}/signal/BTC-USDT`)}`, amount: '1000', networks: [BASE, SOLANA] },
+  { service: 'x402 Doctor', name: 'GET /api/v1/preflight/batch', url: `${DOCTOR}/api/v1/preflight/batch?url=${encodeURIComponent(`${ICHI}/signal/BTC-USDT`)}&url=${encodeURIComponent(`${GUARD}/v1/token`)}`, amount: '5000', networks: [BASE, SOLANA] },
+  { service: 'x402 Doctor', name: 'GET /api/v1/preflight/deep', url: `${DOCTOR}/api/v1/preflight/deep?url=${encodeURIComponent(`${ICHI}/setups`)}`, amount: '10000', networks: [BASE, SOLANA] },
   { service: 'x402 Doctor', name: 'GET /api/v1/fix', url: `${DOCTOR}/api/v1/fix?url=${encodeURIComponent(`${ICHI}/signal/BTC-USDT`)}`, amount: '50000', networks: [BASE, SOLANA] },
   { service: 'presign-guard', name: 'POST /v1/check', url: `${GUARD}/v1/check`, amount: '10000', networks: [BASE], body: { type: 'approval', chainId: 8453, token: USDC_BASE, spender: PERMIT2, amount: '1000000' } },
   { service: 'presign-guard', name: 'POST /v1/check/explain', url: `${GUARD}/v1/check/explain`, amount: '30000', networks: [BASE], body: { type: 'approval', chainId: 8453, token: USDC_BASE, spender: PERMIT2, amount: '1000000', lang: 'en' } },
