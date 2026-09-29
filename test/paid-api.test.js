@@ -363,7 +363,7 @@ test('/media: redirects to GitHub until the file is cached, then serves it with 
   assert.equal((await fetch(`${base}/media/other.mp4`)).status, 404);
   const home = await (await fetch(`${base}/`)).text();
   assert.match(home, /<video[^>]+poster="\/media\/explainer.jpg"/);
-  assert.match(home, /<video[^>]+poster="\/media\/fix.jpg"/);
+  assert.doesNotMatch(home, /\/media\/fix\./, "one video on the homepage; fix.mp4 stays served for links shared earlier");
   const fixRanged = await fetch(`${base}/media/fix.mp4`, { headers: { range: 'bytes=0-1' } });
   assert.equal(fixRanged.status, 206);
 });
