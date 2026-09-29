@@ -1,15 +1,21 @@
-// Read-only: how Google would see fizzl.eu (status, redirects, robots headers, title).
-const urls = ['https://fizzl.eu/', 'http://fizzl.eu/', 'https://www.fizzl.eu/', 'http://www.fizzl.eu/', 'https://fizzl.eu/robots.txt', 'https://fizzl.eu/sitemap.xml', 'https://fizzl.eu/index.html'];
-const UA = 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)';
-for (const u of urls) {
+// Monitor: the four fizzl x402 services (read-only, never pays). Output is data only. Run 2026-09-29T0625Z.
+const SVC = [
+  { name: 'ichimoku', home: 'https://ichimoku-signal.fizzl.eu/', paid: 'https://ichimoku-signal.fizzl.eu/signal/BTC-USDT' },
+  { name: 'presign', home: 'https://presign-guard.fizzl.eu/', paid: 'https://presign-guard.fizzl.eu/v1/token?chain=base&address=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' },
+  { name: 'doctor', home: 'https://x402-doctor.fizzl.eu/', paid: 'https://x402-doctor.fizzl.eu/api/v1/diagnose?url=https://example.com' },
+  { name: 'plaintext', home: 'https://plaintext.fizzl.eu/', paid: 'https://plaintext.fizzl.eu/api/check-wallet', method: 'POST' },
+];
+const timed = async (url, init) => { const t = Date.now(); try { const r = await fetch(url, { ...init, signal: AbortSignal.timeout(60000) }); return { r, ms: Date.now() - t }; } catch (e) { return { err: e.message, ms: Date.now() - t }; } };
+for (const s of SVC) {
+  const h = await timed(s.home, { headers: { accept: 'text/html' } });
+  const p = await timed(s.paid, s.method === 'POST' ? { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json' }, body: '{}' } : { headers: { accept: 'application/json' } });
+  let nets = '';
+  const hdr = p.r?.headers.get('payment-required');
+  if (hdr) { try { nets = JSON.parse(Buffer.from(hdr, 'base64').toString()).accepts.map((a) => a.network).join(','); } catch { nets = 'UNREADABLE'; } }
+  let doc = '';
   try {
-    const r = await fetch(u, { redirect: 'manual', headers: { 'user-agent': UA }, signal: AbortSignal.timeout(15000) });
-    const body = r.status < 300 ? await r.text() : '';
-    const title = (body.match(/<title>([^<]*)/) || [])[1];
-    const robots = (body.match(/<meta name="robots" content="([^"]*)/) || [])[1];
-    console.log('SEO', u, r.status, 'loc=' + (r.headers.get('location') || '-'), 'xrobots=' + (r.headers.get('x-robots-tag') || '-'), 'type=' + r.headers.get('content-type'), 'len=' + body.length, title ? 'title=' + title : '', robots ? 'robots=' + robots : '', u.endsWith('.txt') || u.endsWith('.xml') ? '\n' + body.slice(0, 300) : '');
-  } catch (e) { console.log('SEO', u, 'ERR', e.message); }
-}
-for (const q of ['fizzl.eu']) {
-  try { const r = await fetch('https://dns.google/resolve?name=' + q + '&type=A'); console.log('DNS', JSON.stringify((await r.json()).Answer)); } catch (e) { console.log('DNS ERR', e.message); }
+    const d = await (await fetch('https://x402-doctor.fizzl.eu/api/diagnose', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: s.paid, ...(s.method ? { method: s.method } : {}) }), signal: AbortSignal.timeout(90000) })).json();
+    doc = `${d.overall} | ${(d.checks || []).filter((c) => c.status === 'fail' || c.status === 'warn').map((c) => `${c.status}:${c.id}`).join(', ')}`;
+  } catch (e) { doc = `ERR ${e.message}`; }
+  console.log(`MON ${s.name} home ${h.r?.status ?? h.err} ${h.ms}ms | paid ${p.r?.status ?? p.err} ${p.ms}ms nets ${nets || '-'} | doctor ${doc}`);
 }
