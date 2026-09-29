@@ -219,6 +219,23 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     });
   });
 
+  // Agent registration (ERC-8004 format) for the Metaplex Agent Registry on Solana:
+  // the document the registered agent points to. registrations gets the asset
+  // address once the agent is minted.
+  app.get('/.well-known/agent-registration.json', (req, res) => res.json({
+    type: 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1',
+    name: 'x402 Doctor',
+    description: 'Checks x402 paid APIs before an agent pays and before a seller ships: a $0.001 preflight (go / caution / no_go, plus the cheapest option that will settle), batch and deep preflight, a $0.01 full diagnosis with a fix hint per check, and the fix code for $0.05. Paid per call over x402 in USDC on Base or Solana; the web check is free.',
+    image: `${publicUrl}/og.jpg`,
+    services: [
+      { name: 'web', endpoint: `${publicUrl}/` },
+      { name: 'MCP', endpoint: `${publicUrl}/mcp`, version: '2025-06-18' },
+    ],
+    active: true,
+    registrations: [],
+    supportedTrust: [],
+  }));
+
   // x402 Trust Index (free): the 30-day track record of a scanned resource,
   // from the daily scan of the CDP Bazaar. Sellers can look up their own.
   const trustLimit = rateLimit({ windowMs: 60 * 1000, max: 30 });
