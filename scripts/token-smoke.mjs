@@ -8,3 +8,4 @@ for (const h of ['x402-doctor', 'presign-guard', 'ichimoku-signal', 'plaintext']
     console.log('REG', h, r.status, j?.name, JSON.stringify(j?.services?.map((s) => s.endpoint)), 'image', img);
   } catch (e) { console.log('REG', h, 'ERR', e.message); }
 }
+// recheck 17:23:25
