@@ -65,6 +65,12 @@
   select, input, textarea { color: var(--text); }
   :focus-visible { outline: 2px solid var(--mint-line); outline-offset: 2px; }
   .video { display: block; width: 100%; height: auto; aspect-ratio: 16/9; border-radius: 22px; border: 1px solid var(--line); background: #020708; }
+  .buyer .card { display: flex; flex-direction: column; gap: 8px; }
+  .buyer .price { font: 600 13px/1 var(--mono); color: var(--mint); }
+  .buyer .card h3 { margin: 0; font-size: 16px; font-family: var(--head); }
+  .buyer .card p { margin: 0; color: var(--soft); font-size: 14.5px; }
+  .buyer pre { margin-top: auto; font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .buyer-note { color: var(--soft); font-size: 14px; margin: 12px 0 0; }
   .more { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
   .more a { display: flex; gap: 12px; align-items: center; text-decoration: none; color: var(--text); background: var(--ink-2); border: 1px solid var(--line); border-radius: 18px; padding: 14px 16px; }
   .more a:hover { border-color: var(--mint-line); }
@@ -198,6 +204,31 @@
     </video>
   </section>
 
+  <section aria-labelledby="buyerTitle">
+    <h2 id="buyerTitle"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>Before your agent pays</h2>
+    <div class="grid buyer">
+      <div class="card">
+        <span class="price">$0.001</span>
+        <h3>Preflight</h3>
+        <p>Before paying an endpoint you haven't used: go, caution or no_go, the payment option to use, and why.</p>
+        <pre>GET /api/v1/preflight?url=…&amp;max_usd=0.05</pre>
+      </div>
+      <div class="card">
+        <span class="price">$0.005 for up to 10</span>
+        <h3>Batch</h3>
+        <p>Weighing several services? One verdict per endpoint and the totals, in one call.</p>
+        <pre>GET /api/v1/preflight/batch?url=…&amp;url=…</pre>
+      </div>
+      <div class="card">
+        <span class="price">$0.01</span>
+        <h3>Deep</h3>
+        <p>Before an expensive call: the verdict plus the full diagnosis, 30 days of daily scans, the seller's other endpoints and domain moves.</p>
+        <pre>GET /api/v1/preflight/deep?url=…</pre>
+      </div>
+    </div>
+    <p class="buyer-note">Paid per call in USDC via x402 on Base or Solana, with a signed receipt. They never pay the endpoint. Also as MCP tools at <code>/mcp</code>; details in the <a href="/openapi.json">OpenAPI</a>.</p>
+  </section>
+
   <h2><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>More from fizzl</h2>
   <div class="more">
     <a href="https://presign-guard.fizzl.eu"><svg class="mark" viewBox="0 0 128 128" aria-hidden="true"><rect x="1.5" y="1.5" width="125" height="125" rx="29" fill="#020708" stroke="#61f5c3" stroke-opacity=".4" stroke-width="3"/><path d="M78 30 A22 22 0 0 0 52 52 V104" fill="none" stroke="#f4f8f7" stroke-width="16" stroke-linecap="round"/><path d="M36 68 H72" stroke="#f4f8f7" stroke-width="16" stroke-linecap="round"/><g fill="#61f5c3"><circle cx="92" cy="72" r="8"/><circle cx="100" cy="52" r="5"/><circle cx="104" cy="38" r="3"/></g></svg><span><b>presign-guard</b><span>Check a signature, token or wallet before your agent signs</span></span></a>
@@ -215,10 +246,6 @@
     <br><br>
     For agents: <code>GET /api/v1/diagnose?url=&lt;endpoint&gt;</code>, $0.01 USDC per call via x402 on Base or Solana, no rate limit
     (<a href="/openapi.json">OpenAPI</a>).
-    <br><br>
-    Before paying someone else's endpoint: <code>GET /api/v1/preflight?url=…</code> ($0.001, go / caution / no_go),
-    <code>/api/v1/preflight/batch?url=…&amp;url=…</code> (up to 10 endpoints, $0.005) or
-    <code>/api/v1/preflight/deep?url=…</code> ($0.01, with the full diagnosis, 30-day history and the seller's other endpoints).
     <br><br>
     As an MCP server: <code>https://x402-doctor.fizzl.eu/mcp</code>, with a free quick check. Also on
     <a href="https://smithery.ai/servers/frits-zwager/x402-doctor">Smithery</a>,
