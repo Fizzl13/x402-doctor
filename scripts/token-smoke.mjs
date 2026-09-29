@@ -1,21 +1,24 @@
-// Monitor: the four fizzl x402 services (read-only, never pays). Output is data only. Run 2026-09-29T0625Z.
-const SVC = [
-  { name: 'ichimoku', home: 'https://ichimoku-signal.fizzl.eu/', paid: 'https://ichimoku-signal.fizzl.eu/signal/BTC-USDT' },
-  { name: 'presign', home: 'https://presign-guard.fizzl.eu/', paid: 'https://presign-guard.fizzl.eu/v1/token?chain=base&address=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' },
-  { name: 'doctor', home: 'https://x402-doctor.fizzl.eu/', paid: 'https://x402-doctor.fizzl.eu/api/v1/diagnose?url=https://example.com' },
-  { name: 'plaintext', home: 'https://plaintext.fizzl.eu/', paid: 'https://plaintext.fizzl.eu/api/check-wallet', method: 'POST' },
-];
-const timed = async (url, init) => { const t = Date.now(); try { const r = await fetch(url, { ...init, signal: AbortSignal.timeout(60000) }); return { r, ms: Date.now() - t }; } catch (e) { return { err: e.message, ms: Date.now() - t }; } };
-for (const s of SVC) {
-  const h = await timed(s.home, { headers: { accept: 'text/html' } });
-  const p = await timed(s.paid, s.method === 'POST' ? { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json' }, body: '{}' } : { headers: { accept: 'application/json' } });
-  let nets = '';
-  const hdr = p.r?.headers.get('payment-required');
-  if (hdr) { try { nets = JSON.parse(Buffer.from(hdr, 'base64').toString()).accepts.map((a) => a.network).join(','); } catch { nets = 'UNREADABLE'; } }
-  let doc = '';
-  try {
-    const d = await (await fetch('https://x402-doctor.fizzl.eu/api/diagnose', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: s.paid, ...(s.method ? { method: s.method } : {}) }), signal: AbortSignal.timeout(90000) })).json();
-    doc = `${d.overall} | ${(d.checks || []).filter((c) => c.status === 'fail' || c.status === 'warn').map((c) => `${c.status}:${c.id}`).join(', ')}`;
-  } catch (e) { doc = `ERR ${e.message}`; }
-  console.log(`MON ${s.name} home ${h.r?.status ?? h.err} ${h.ms}ms | paid ${p.r?.status ?? p.err} ${p.ms}ms nets ${nets || '-'} | doctor ${doc}`);
+// Read-only: find tokens launched with Metaplex Genesis (program GNS1…) and how their top holders look.
+const RPC = 'https://api.mainnet-beta.solana.com';
+const call = async (method, params) => (await (await fetch(RPC, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }), signal: AbortSignal.timeout(40000) })).json());
+const GEN = 'GNS1S5J5AspKXgpjz6SvKL66kPaKWAhaGRhCqPRxii2B';
+const sigs = await call('getSignaturesForAddress', [GEN, { limit: 40 }]);
+console.log('GEN sigs', sigs.result?.length, JSON.stringify(sigs.error || ''));
+const mints = new Map();
+for (const s of (sigs.result || []).slice(0, 25)) {
+  const tx = await call('getTransaction', [s.signature, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }]);
+  const bals = tx.result?.meta?.postTokenBalances || [];
+  for (const b of bals) if (b.mint !== 'So11111111111111111111111111111111111111112') mints.set(b.mint, (mints.get(b.mint) || 0) + 1);
+  const progs = new Set((tx.result?.transaction?.message?.instructions || []).map((i) => i.programId));
+  const inner = new Set((tx.result?.meta?.innerInstructions || []).flatMap((x) => x.instructions.map((i) => i.programId)));
+  console.log('GEN tx', s.signature.slice(0, 10), 'progs', [...progs].join(','), 'inner', [...inner].filter((p) => !/^(11111|Token|ATok|Compute)/.test(p)).join(','));
+}
+console.log('GEN mints', JSON.stringify([...mints].slice(0, 15)));
+for (const [mint] of [...mints].slice(0, 3)) {
+  const big = await call('getTokenLargestAccounts', [mint]);
+  const accts = (big.result?.value || []).slice(0, 8);
+  const infos = await call('getMultipleAccounts', [accts.map((a) => a.address), { encoding: 'jsonParsed' }]);
+  const owners = (infos.result?.value || []).map((v) => v?.data?.parsed?.info?.owner);
+  const ownerInfos = await call('getMultipleAccounts', [owners.filter(Boolean), { encoding: 'base64', dataSlice: { offset: 0, length: 0 } }]);
+  owners.forEach((o, i) => console.log('HOLD', mint.slice(0, 8), accts[i]?.uiAmountString, 'owner', o, 'ownerProgram', ownerInfos.result?.value?.[owners.filter(Boolean).indexOf(o)]?.owner ?? 'none(wallet)'));
 }
