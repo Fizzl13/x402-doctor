@@ -247,6 +247,10 @@
     For agents: <code>GET /api/v1/diagnose?url=&lt;endpoint&gt;</code>, $0.01 USDC per call via x402 on Base or Solana, no rate limit
     (<a href="/openapi.json">OpenAPI</a>).
     <br><br>
+    Before paying someone else's endpoint: <code>GET /api/v1/preflight?url=…</code> ($0.001, go / caution / no_go),
+    <code>/api/v1/preflight/batch?url=…&amp;url=…</code> (up to 10 endpoints, $0.005) or
+    <code>/api/v1/preflight/deep?url=…</code> ($0.01, with the full diagnosis, 30-day history and the seller's other endpoints).
+    <br><br>
     As an MCP server: <code>https://x402-doctor.fizzl.eu/mcp</code>, with a free quick check. Also on
     <a href="https://smithery.ai/servers/frits-zwager/x402-doctor">Smithery</a>,
     <a href="https://agentic.market/services/x402-doctor-fizzl-eu">Agentic Market</a> and
