@@ -108,6 +108,36 @@ call it before your agent pays an x402 endpoint it has not used before. It never
 Not being listed in the CDP Bazaar is reported as `info` only. Results are cached for 10 minutes per URL, budget
 and network (`cached: true`), so checking before every payment stays fast.
 
+### Several endpoints at once: `GET /api/v1/preflight/batch`
+
+`GET /api/v1/preflight/batch?url=<a>&url=<b>&max_usd=0.05`, **$0.005 USDC per call** for up to 10 endpoints (one
+`url` parameter each; duplicates count once). For marketplaces, directories and agents that weigh several services.
+Each endpoint gets the same verdict as a single preflight; one that errors or does not answer within 20 seconds is
+`unknown` and does not hold up the rest.
+
+```json
+{
+  "count": 2,
+  "counts": { "go": 1, "caution": 0, "no_go": 1, "unknown": 0 },
+  "results": [
+    { "url": "https://a.example/paid", "verdict": "go", "safe_to_pay": true, "summary": "OK to pay: $0.02 on Base.", "recommended_option": 0, "options": […], "reasons": [] },
+    { "url": "https://b.example/paid", "verdict": "no_go", "safe_to_pay": false, "summary": "Do not pay: …", … }
+  ]
+}
+```
+
+### Before an expensive call: `GET /api/v1/preflight/deep`
+
+`GET /api/v1/preflight/deep?url=<endpoint>&max_usd=0.5`, **$0.01 USDC per call**: everything the preflight answers,
+plus
+
+- `diagnosis`: the full diagnosis (`overall`, every check, and the failing or warning ones as `problems`);
+- `history`: the daily scans of the last 30 days, one `{ date, status }` per day;
+- `seller`: the seller's other scanned endpoints on the same origin (how many, payable today, average payable ratio,
+  how many were unreliable). A seller whose endpoints were payable on less than half of the scans turns `go` into
+  `caution` (`unreliable_seller`);
+- `domain`: the domain-move checks (`well-known`, `bazaar-listing`), e.g. a Bazaar listing only under an old domain.
+
 ### The fix, as code: `GET /api/v1/fix`
 
 `GET /api/v1/fix?url=<endpoint>&method=GET|POST&stack=<optional>`, **$0.05 USDC per call**: diagnoses the endpoint,
@@ -148,7 +178,7 @@ without a recipe is returned under `unfixed` with the diagnosis hint.
 
 ### Signed verdicts
 
-Every paid answer (diagnose, preflight and fix; HTTP and MCP) carries a `receipt` signed by Doctor, so an agent can later prove **which verdict it got for which endpoint**, for example why it did or didn't pay:
+Every paid answer (diagnose, preflight, batch, deep and fix; HTTP and MCP) carries a `receipt` signed by Doctor, so an agent can later prove **which verdict it got for which endpoint**, for example why it did or didn't pay:
 
 ```json
 "receipt": {
@@ -201,6 +231,8 @@ seller or host. The report, its numbers and drafts for X, Discord and Reddit (fo
 | `x402_quick_check` | free, 10 calls/hour | pass/warn/fail, the number of problems and the top three |
 | `x402_diagnose` | $0.01 USDC via x402 | Every check with a fix hint, as `GET /api/v1/diagnose` |
 | `x402_preflight` | $0.001 USDC via x402 | go/caution/no_go before paying an endpoint, as `GET /api/v1/preflight` |
+| `x402_preflight_batch` | $0.005 USDC via x402 | The preflight for up to 10 endpoints (`urls`), as `GET /api/v1/preflight/batch` |
+| `x402_preflight_deep` | $0.01 USDC via x402 | The preflight plus diagnosis, history, seller and domain checks, as `GET /api/v1/preflight/deep` |
 | `x402_fix` | $0.05 USDC via x402 | The code changes for your stack, as `GET /api/v1/fix` |
 | `feedback` | free | Report a bug or a missing feature, as `POST /feedback` (below) |
 
@@ -269,6 +301,8 @@ Or the CLI in a plain `run:` step:
 | `AGENT_PAYOUT_WALLET_SOLANA` | Solana address that receives paid-API payments (or `DOCTOR_PAYOUT_WALLET_SOLANA`); needs a USDC token account |
 | `DOCTOR_PRICE` | Price per paid diagnosis (default `$0.01`) |
 | `DOCTOR_PREFLIGHT_PRICE` | Price per pre-payment check (default `$0.001`) |
+| `DOCTOR_BATCH_PRICE` | Price per batch pre-payment check, up to 10 endpoints (default `$0.005`) |
+| `DOCTOR_DEEP_PRICE` | Price per deep pre-payment check (default `$0.01`) |
 | `DOCTOR_FIX_PRICE` | Price per fix (default `$0.05`) |
 | `FACILITATOR_URL` | x402 facilitator (default PayAI, `https://facilitator.payai.network`) |
 | `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET` | Use Coinbase's CDP facilitator for Base (PayAI stays the fallback). Payments settled through CDP get the route listed in the CDP Bazaar |
@@ -307,10 +341,11 @@ to trace verify/settle failures) is deliberately out of scope here.
 
 ```
 server.js              Express app: /api/diagnose (free), paid API, /openapi.json, /.well-known/x402, static frontend
-lib/paid-api.js        GET /api/v1/diagnose, /preflight and /fix behind x402 (Base + Solana USDC)
+lib/paid-api.js        GET /api/v1/diagnose, /preflight (+ /batch, /deep) and /fix behind x402 (Base + Solana USDC)
 lib/recipes.js         The fix per failed check, as code for the detected stack
 lib/stack.js           Which stack runs an endpoint, from its response headers
 lib/preflight.js       Pre-payment check: verdict, recommended option, reasons (cached)
+lib/preflight-plus.js  Batch (up to 10 endpoints) and deep pre-payment checks
 lib/bazaar-index.js    Cached CDP Bazaar index (listing signal for preflight)
 lib/trust-scan.js      Trust Index scan: catalog, polite fetch, 30-day history
 lib/trust-index.js     Reads the published index for preflight and /api/trust

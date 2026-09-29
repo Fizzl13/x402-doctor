@@ -114,16 +114,18 @@ async function mcpClient() {
   return client;
 }
 
-test('mcp: a free quick check, three paid tools with their prices, and the free feedback tool', async () => {
+test('mcp: a free quick check, five paid tools with their prices, and the free feedback tool', async () => {
   const client = await mcpClient();
   const { tools } = await client.listTools();
-  assert.deepEqual(tools.map((t) => t.name).sort(), ['feedback', 'x402_diagnose', 'x402_fix', 'x402_preflight', 'x402_quick_check']);
+  assert.deepEqual(tools.map((t) => t.name).sort(), ['feedback', 'x402_diagnose', 'x402_fix', 'x402_preflight', 'x402_preflight_batch', 'x402_preflight_deep', 'x402_quick_check']);
   const fb = await client.callTool({ name: 'feedback', arguments: { type: 'feature', message: 'Check Solana payTo token accounts in quick check', endpoint: 'x402_quick_check' } });
   assert.ok(!fb.isError);
   assert.equal(JSON.parse(fb.content[0].text).service, 'doctor');
   assert.match(tools.find((t) => t.name === 'x402_diagnose').description, /\$0\.01/);
   assert.match(tools.find((t) => t.name === 'x402_preflight').description, /\$0\.001/);
   assert.match(tools.find((t) => t.name === 'x402_fix').description, /\$0\.05/);
+  assert.match(tools.find((t) => t.name === 'x402_preflight_batch').description, /\$0\.005/);
+  assert.match(tools.find((t) => t.name === 'x402_preflight_deep').description, /\$0\.01/);
   await client.close();
 });
 
@@ -191,7 +193,7 @@ test('diagnose on an x402 MCP server: tools listed, unpaid calls return the paym
   assert.equal(report.method, 'MCP');
   assert.equal(byId('returns-402')[0].status, 'info');
   assert.equal(byId('mcp-server')[0].status, 'pass');
-  assert.match(byId('mcp-server')[0].message, /5 tools/);
+  assert.match(byId('mcp-server')[0].message, /7 tools/);
   const calls = byId('mcp-payment-required');
   assert.equal(calls.length, 2, JSON.stringify(report.checks, null, 1));
   for (const c of calls) assert.equal(c.status, 'pass', c.message);

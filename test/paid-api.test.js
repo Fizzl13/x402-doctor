@@ -91,6 +91,7 @@ test.before(async () => {
   const env = { AGENT_PAYOUT_WALLET: PAY_TO_BASE, AGENT_PAYOUT_WALLET_SOLANA: PAY_TO_SOLANA, FACILITATOR_URL: facilitatorUrl, RECEIPT_SIGNER_SECRET: 'paid-api-test-secret-long-enough-0123456789' };
   const trustIndex = {
     lookup: async (u) => (u.startsWith(targetUrl) ? { days_checked: 5, days_payable: 1, payable_ratio: 0.2, history: 'nnngn', last: 'n', streak: 1 } : null),
+    seller: async (u) => (u.startsWith(targetUrl) ? { origin: new URL(targetUrl).origin, resources: 4, payable_now: 1, avg_payable_ratio: 0.25, unreliable: 3 } : null),
     refresh: () => Promise.resolve(),
     summary: () => ({ updated: '2026-09-23T03:00:00Z', days: 5, resources: 1, latest: { go: 0, caution: 0, no_go: 1, unreachable: 0 } }),
   };
@@ -252,14 +253,19 @@ test('discovery: OpenAPI with x-payment-info and /.well-known/x402 listing the r
   assert.ok(op.responses['402']);
   const wellKnown = await (await fetch(`${api}/.well-known/x402`)).json();
   assert.equal(wellKnown.version, 1);
-  assert.deepEqual(wellKnown.resources, [`${api}/api/v1/diagnose`, `${api}/api/v1/preflight`, `${api}/api/v1/fix`]);
+  const ROUTES = ['/api/v1/diagnose', '/api/v1/preflight', '/api/v1/preflight/batch', '/api/v1/preflight/deep', '/api/v1/fix'];
+  assert.deepEqual(wellKnown.resources, ROUTES.map((r) => `${api}${r}`));
   // fetch cannot set Host; behind the trusted proxy X-Forwarded-Host sets req.hostname the same way.
   const onRender = await (await fetch(`${api}/.well-known/x402`, { headers: { 'x-forwarded-host': 'x402-doctor.onrender.com' } })).json();
-  assert.deepEqual(onRender.resources, ['https://x402-doctor.fizzl.eu/api/v1/diagnose', 'https://x402-doctor.fizzl.eu/api/v1/preflight', 'https://x402-doctor.fizzl.eu/api/v1/fix']);
+  assert.deepEqual(onRender.resources, ROUTES.map((r) => `https://x402-doctor.fizzl.eu${r}`));
   assert.equal(onRender.signer, 'https://x402-doctor.fizzl.eu/.well-known/x402-doctor-signer.json');
   assert.deepEqual(spec.paths['/api/v1/fix'].get['x-payment-info'].price, { mode: 'fixed', currency: 'USD', amount: '0.05' });
   const preflightOp = spec.paths['/api/v1/preflight'].get;
   assert.deepEqual(preflightOp['x-payment-info'].price, { mode: 'fixed', currency: 'USD', amount: '0.001' });
+  assert.deepEqual(spec.paths['/api/v1/preflight/batch'].get['x-payment-info'].price, { mode: 'fixed', currency: 'USD', amount: '0.005' });
+  assert.equal(spec.paths['/api/v1/preflight/batch'].get.parameters[0].schema.maxItems, 10);
+  assert.deepEqual(spec.paths['/api/v1/preflight/deep'].get['x-payment-info'].price, { mode: 'fixed', currency: 'USD', amount: '0.01' });
+  assert.ok(spec.paths['/api/v1/preflight/deep'].get.responses[200].content['application/json'].schema.properties.seller);
 });
 
 test('browsers get a wallet paywall (mainnet, Base first) instead of the bare 402', async () => {
@@ -360,4 +366,60 @@ test('/media: redirects to GitHub until the file is cached, then serves it with 
   assert.match(home, /<video[^>]+poster="\/media\/fix.jpg"/);
   const fixRanged = await fetch(`${base}/media/fix.mp4`, { headers: { range: 'bytes=0-1' } });
   assert.equal(fixRanged.status, 206);
+});
+
+const payingFetch = () => {
+  const account = privateKeyToAccount(generatePrivateKey());
+  const client = new x402Client((_version, accepts) => accepts.find((a) => a.network === BASE));
+  client.register(BASE, new ExactEvmScheme(account));
+  return wrapFetchWithPayment(fetch, client);
+};
+
+test('preflight batch: $0.005 for up to 10 endpoints; input checked before payment; one verdict per endpoint plus totals', async () => {
+  const q = (urls, extra = '') => `${api}/api/v1/preflight/batch?${urls.map((u) => `url=${encodeURIComponent(u)}`).join('&')}${extra}`;
+  const unpaid = await fetch(q([targetUrl, `${targetUrl}/other`]));
+  assert.equal(unpaid.status, 402);
+  for (const a of (await unpaid.json()).accepts) assert.equal(a.amount, '5000');
+  assert.equal((await fetch(`${api}/api/v1/preflight/batch`)).status, 402, 'bare route: indexers get the challenge');
+
+  const eleven = Array.from({ length: 11 }, (_, i) => `https://example.com/paid/${i}`);
+  for (const bad of [q(eleven), q([targetUrl, 'not-a-url']), q([targetUrl, 'ftp://x.y']), q([targetUrl], '&max_usd=abc')]) {
+    const res = await fetch(bad);
+    assert.equal(res.status, 400, bad);
+    assert.equal(res.headers.get('payment-required'), null, bad);
+  }
+
+  // The same url twice counts once; the unreachable one is "no_go" (no 402), not an error for the rest.
+  const res = await payingFetch()(q([targetUrl, targetUrl, 'http://127.0.0.1:1/paid'], '&max_usd=0.05'));
+  const out = await res.json();
+  assert.equal(res.status, 200, JSON.stringify(out));
+  assert.equal(out.count, 2);
+  assert.equal(out.results[0].url, targetUrl);
+  assert.equal(out.results[0].verdict, 'no_go');
+  assert.equal(out.results[0].track_record.payable_ratio, 0.2);
+  assert.ok(['no_go', 'unknown'].includes(out.results[1].verdict));
+  assert.equal(Object.values(out.counts).reduce((a, b) => a + b, 0), 2);
+  assert.equal(out.receipt.route, 'GET /api/v1/preflight/batch');
+  assert.equal(state.settle, 1);
+});
+
+test('preflight deep: $0.01; the preflight plus the full diagnosis, daily history, seller and domain checks', async () => {
+  const unpaid = await fetch(`${api}/api/v1/preflight/deep?url=${encodeURIComponent(targetUrl)}`);
+  assert.equal(unpaid.status, 402);
+  for (const a of (await unpaid.json()).accepts) assert.equal(a.amount, '10000');
+  const two = await fetch(`${api}/api/v1/preflight/deep?url=${encodeURIComponent(targetUrl)}&url=${encodeURIComponent(targetUrl)}`);
+  assert.equal(two.status, 400, 'one url; several go to the batch route');
+
+  const res = await payingFetch()(`${api}/api/v1/preflight/deep?url=${encodeURIComponent(targetUrl)}&max_usd=0.05`);
+  const out = await res.json();
+  assert.equal(res.status, 200, JSON.stringify(out));
+  assert.equal(out.verdict, 'no_go');
+  assert.ok(out.diagnosis.checks.length > 5);
+  assert.ok(out.diagnosis.problems.every((c) => c.status === 'fail' || c.status === 'warn'));
+  assert.deepEqual(out.history.map((d) => d.status), ['no_go', 'no_go', 'no_go', 'go', 'no_go']);
+  assert.equal(out.seller.resources, 4);
+  assert.ok(out.reasons.some((r) => r.code === 'unreliable_seller' && /25%/.test(r.message)));
+  assert.ok(Array.isArray(out.domain.checks));
+  assert.equal(out.receipt.route, 'GET /api/v1/preflight/deep');
+  assert.equal(state.settle, 1);
 });
