@@ -1,11 +1,6 @@
-// Read-only: the four agent registration documents after deploy.
-for (const h of ['x402-doctor', 'presign-guard', 'ichimoku-signal', 'plaintext']) {
-  const u = `https://${h}.fizzl.eu/.well-known/agent-registration.json`;
-  try {
-    const r = await fetch(u, { signal: AbortSignal.timeout(20000) });
-    const j = r.ok ? await r.json() : null;
-    const img = j?.image ? (await fetch(j.image, { method: 'HEAD' })).status : '-';
-    console.log('REG', h, r.status, j?.name, JSON.stringify(j?.services?.map((s) => s.endpoint)), 'image', img);
-  } catch (e) { console.log('REG', h, 'ERR', e.message); }
+// Read-only: why does the Doctor's agent registration return 404? Compare hosts and a cache-buster.
+for (const u of ['https://x402-doctor.fizzl.eu/.well-known/agent-registration.json', 'https://x402-doctor.fizzl.eu/.well-known/agent-registration.json?v=2', 'https://x402-doctor.onrender.com/.well-known/agent-registration.json', 'https://x402-doctor.fizzl.eu/.well-known/x402', 'https://x402-doctor.fizzl.eu/']) {
+  const r = await fetch(u, { signal: AbortSignal.timeout(20000) });
+  const t = await r.text();
+  console.log('DBG', r.status, u, 'age', r.headers.get('age'), 'cache', r.headers.get('cf-cache-status') || r.headers.get('x-cache') || '-', 'server', r.headers.get('server'), 'rndr', r.headers.get('rndr-id'), '|', t.slice(0, 90).replace(/\s+/g, ' '));
 }
-// recheck 17:23:25
