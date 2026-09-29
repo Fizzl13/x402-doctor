@@ -1,21 +1,19 @@
-// Monitor: the four fizzl x402 services (read-only, never pays). Output is data only. Run 2026-09-29T0625Z.
-const SVC = [
-  { name: 'ichimoku', home: 'https://ichimoku-signal.fizzl.eu/', paid: 'https://ichimoku-signal.fizzl.eu/signal/BTC-USDT' },
-  { name: 'presign', home: 'https://presign-guard.fizzl.eu/', paid: 'https://presign-guard.fizzl.eu/v1/token?chain=base&address=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' },
-  { name: 'doctor', home: 'https://x402-doctor.fizzl.eu/', paid: 'https://x402-doctor.fizzl.eu/api/v1/diagnose?url=https://example.com' },
-  { name: 'plaintext', home: 'https://plaintext.fizzl.eu/', paid: 'https://plaintext.fizzl.eu/api/check-wallet', method: 'POST' },
-];
-const timed = async (url, init) => { const t = Date.now(); try { const r = await fetch(url, { ...init, signal: AbortSignal.timeout(60000) }); return { r, ms: Date.now() - t }; } catch (e) { return { err: e.message, ms: Date.now() - t }; } };
-for (const s of SVC) {
-  const h = await timed(s.home, { headers: { accept: 'text/html' } });
-  const p = await timed(s.paid, s.method === 'POST' ? { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json' }, body: '{}' } : { headers: { accept: 'application/json' } });
-  let nets = '';
-  const hdr = p.r?.headers.get('payment-required');
-  if (hdr) { try { nets = JSON.parse(Buffer.from(hdr, 'base64').toString()).accepts.map((a) => a.network).join(','); } catch { nets = 'UNREADABLE'; } }
-  let doc = '';
-  try {
-    const d = await (await fetch('https://x402-doctor.fizzl.eu/api/diagnose', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: s.paid, ...(s.method ? { method: s.method } : {}) }), signal: AbortSignal.timeout(90000) })).json();
-    doc = `${d.overall} | ${(d.checks || []).filter((c) => c.status === 'fail' || c.status === 'warn').map((c) => `${c.status}:${c.id}`).join(', ')}`;
-  } catch (e) { doc = `ERR ${e.message}`; }
-  console.log(`MON ${s.name} home ${h.r?.status ?? h.err} ${h.ms}ms | paid ${p.r?.status ?? p.err} ${p.ms}ms nets ${nets || '-'} | doctor ${doc}`);
+// Read-only: a public endpoint someone asked about on Discord. Free Doctor check + Bazaar lookup. Never pays.
+const EP = 'https://filingdelta-328386696249.us-central1.run.app/v1/8k/events?ticker=AAPL';
+const r = await fetch('https://x402-doctor.fizzl.eu/api/diagnose', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: EP }), signal: AbortSignal.timeout(40000) });
+const d = await r.json();
+console.log('DOC overall', d.overall || d.status);
+for (const c of d.checks || []) if (c.status !== 'pass') console.log('DOC', c.status, c.id, '|', (c.message || c.detail || '').slice(0, 300));
+const raw = await fetch(EP, { signal: AbortSignal.timeout(20000) });
+const pr = raw.headers.get('payment-required');
+console.log('RAW', raw.status);
+if (pr) { const j = JSON.parse(Buffer.from(pr, 'base64').toString()); console.log('PR resource', JSON.stringify(j.resource)); console.log('PR accepts', JSON.stringify(j.accepts).slice(0, 600)); console.log('PR ext', JSON.stringify(j.extensions || {}).slice(0, 900)); }
+const U = 'https://api.cdp.coinbase.com/platform/v2/x402/discovery/resources';
+let hits = 0;
+for (let p = 0; p < 60; p++) {
+  const x = await fetch(`${U}?type=http&limit=100&offset=${p * 100}`, { signal: AbortSignal.timeout(20000) });
+  if (!x.ok) { console.log('BZ HTTP', x.status); break; }
+  const items = (await x.json()).items || [];
+  for (const it of items) if (/filingdelta/i.test(it.resource) || JSON.stringify(it.accepts || []).toLowerCase().includes('0x126ff41c8c7866a017c1c3e0865f702828fb5c63')) { hits++; console.log('BZ', it.resource, it.lastUpdated); }
+  if (items.length < 100) { console.log('BZ pages', p + 1, 'hits', hits); break; }
 }
