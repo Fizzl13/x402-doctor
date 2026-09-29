@@ -3,8 +3,6 @@ on:
   push:
     branches: [research/x402-market]
     paths: ['scripts/token-smoke.mjs', '.github/workflows/token-smoke.yml']
-permissions:
-  contents: write
 jobs:
   smoke:
     runs-on: ubuntu-latest
@@ -13,11 +11,3 @@ jobs:
       - uses: actions/setup-node@v5
         with: { node-version: 22 }
       - run: node scripts/token-smoke.mjs
-      - name: Push fetched files to the subsites-import branch (only when there are any)
-        run: |
-          [ -d out ] || exit 0
-          cd out && git init -q -b subsites-import && git add . \
-            && git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -qm "subdomain site files $(date -u +%F)" \
-            && git push -qf "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" subsites-import
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
