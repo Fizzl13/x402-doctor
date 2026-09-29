@@ -8,3 +8,4 @@ for (const u of ['https://ai-customerserviceemailapp.onrender.com', 'https://fiz
     console.log('DEMO', u, r.status, Date.now() - t, 'ms', 'title=' + title, 'len=' + body.length, '|', body.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 300));
   } catch (e) { console.log('DEMO', u, 'ERR', e.message, Date.now() - t, 'ms'); }
 }
+// rerun 18:50:20
