@@ -1,21 +1,18 @@
-// Monitor: the four fizzl x402 services (read-only, never pays). Output is data only. Run 2026-09-29T0625Z.
-const SVC = [
-  { name: 'ichimoku', home: 'https://ichimoku-signal.fizzl.eu/', paid: 'https://ichimoku-signal.fizzl.eu/signal/BTC-USDT' },
-  { name: 'presign', home: 'https://presign-guard.fizzl.eu/', paid: 'https://presign-guard.fizzl.eu/v1/token?chain=base&address=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' },
-  { name: 'doctor', home: 'https://x402-doctor.fizzl.eu/', paid: 'https://x402-doctor.fizzl.eu/api/v1/diagnose?url=https://example.com' },
-  { name: 'plaintext', home: 'https://plaintext.fizzl.eu/', paid: 'https://plaintext.fizzl.eu/api/check-wallet', method: 'POST' },
-];
-const timed = async (url, init) => { const t = Date.now(); try { const r = await fetch(url, { ...init, signal: AbortSignal.timeout(60000) }); return { r, ms: Date.now() - t }; } catch (e) { return { err: e.message, ms: Date.now() - t }; } };
-for (const s of SVC) {
-  const h = await timed(s.home, { headers: { accept: 'text/html' } });
-  const p = await timed(s.paid, s.method === 'POST' ? { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json' }, body: '{}' } : { headers: { accept: 'application/json' } });
-  let nets = '';
-  const hdr = p.r?.headers.get('payment-required');
-  if (hdr) { try { nets = JSON.parse(Buffer.from(hdr, 'base64').toString()).accepts.map((a) => a.network).join(','); } catch { nets = 'UNREADABLE'; } }
-  let doc = '';
-  try {
-    const d = await (await fetch('https://x402-doctor.fizzl.eu/api/diagnose', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: s.paid, ...(s.method ? { method: s.method } : {}) }), signal: AbortSignal.timeout(90000) })).json();
-    doc = `${d.overall} | ${(d.checks || []).filter((c) => c.status === 'fail' || c.status === 'warn').map((c) => `${c.status}:${c.id}`).join(', ')}`;
-  } catch (e) { doc = `ERR ${e.message}`; }
-  console.log(`MON ${s.name} home ${h.r?.status ?? h.err} ${h.ms}ms | paid ${p.r?.status ?? p.err} ${p.ms}ms nets ${nets || '-'} | doctor ${doc}`);
+// Read-only: list Token ACL MintConfig accounts on Solana mainnet, print address + decoded mint,
+// and the mint's jsonParsed freeze authority/extensions. No keys, no payments.
+const RPC = 'https://api.mainnet-beta.solana.com';
+const call = async (method, params) => (await (await fetch(RPC, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }), signal: AbortSignal.timeout(30000) })).json());
+const r = await call('getProgramAccounts', ['TACLkU6CiCdkQN2MjoyDkVg2yAH9zkxiHDsiztQ52TP', { encoding: 'base64', filters: [{ dataSize: 100 }] }]);
+if (r.error) console.log('ACL err', JSON.stringify(r.error));
+const accts = r.result ?? [];
+console.log('ACL count', accts.length);
+const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+const b58 = (buf) => { let n = BigInt('0x' + Buffer.from(buf).toString('hex')); let s = ''; while (n > 0n) { s = B58[Number(n % 58n)] + s; n /= 58n; } for (const b of buf) { if (b === 0) s = '1' + s; else break; } return s; };
+for (const a of accts.slice(0, 5)) {
+  const d = Buffer.from(a.account.data[0], 'base64');
+  const mint = b58(d.subarray(4, 36));
+  console.log('ACL cfg', a.pubkey, 'disc', d[0], 'thaw', d[2], 'freeze', d[3], 'mint', mint, 'gate', b58(d.subarray(68, 100)));
+  const m = await call('getAccountInfo', [mint, { encoding: 'jsonParsed' }]);
+  const info = m.result?.value?.data?.parsed?.info;
+  console.log('ACL mint', mint, 'owner', m.result?.value?.owner, 'freezeAuth', info?.freezeAuthority, 'ext', JSON.stringify((info?.extensions ?? []).map((e) => [e.extension, e.state?.accountState ?? e.state?.delegate ?? ''])).slice(0, 300));
 }
