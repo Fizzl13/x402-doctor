@@ -1,19 +1,21 @@
-// Read-only: how GoPlus and RugCheck report the top holders of two Genesis-launched mints,
-// plus which program owns each holder's owner account.
-const RPC = 'https://api.mainnet-beta.solana.com';
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const rpc = async (method, params) => (await (await fetch(RPC, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) })).json());
-for (const mint of ['H6H8eXheCUdEd82ULuaDYq6ePiRPasZEaddF1HrCPLEX', 'rMVmRp5DJch9sVxJTgchcDbgkK3phgmEd9a8Yk3PLEX']) {
-  const gp = await (await fetch(`https://api.gopluslabs.io/api/v1/solana/token_security?contract_addresses=${mint}`)).json();
-  const sec = gp.result?.[mint];
-  for (const h of (sec?.holders || []).slice(0, 8)) console.log('GP', mint.slice(0, 6), JSON.stringify(h).slice(0, 220));
-  const rc = await fetch(`https://api.rugcheck.xyz/v1/tokens/${mint}/report`);
-  const rj = rc.ok ? await rc.json() : null;
-  console.log('RC', mint.slice(0, 6), rc.status, 'risks', JSON.stringify((rj?.risks || []).map((r) => r.name)).slice(0, 300));
-  const top = (rj?.topHolders || []).slice(0, 8);
-  const owners = top.map((h) => h.owner).filter(Boolean);
-  const oi = owners.length ? await rpc('getMultipleAccounts', [owners, { encoding: 'base64', dataSlice: { offset: 0, length: 0 } }]) : {};
-  top.forEach((h, i) => console.log('RC', mint.slice(0, 6), 'pct', h.pct, 'addr', h.address, 'owner', h.owner, 'insider', h.insider, 'ownerProgram', oi.result?.value?.[i]?.owner ?? 'wallet/none'));
-  for (const m of (rj?.markets || []).slice(0, 2)) console.log('RC mkt', mint.slice(0, 6), m.marketType, m.pubkey, 'lpLocked', m.lp?.lpLockedPct);
-  await sleep(1500);
+// Monitor: the four fizzl x402 services (read-only, never pays). Output is data only. Run 2026-09-29T0625Z.
+const SVC = [
+  { name: 'ichimoku', home: 'https://ichimoku-signal.fizzl.eu/', paid: 'https://ichimoku-signal.fizzl.eu/signal/BTC-USDT' },
+  { name: 'presign', home: 'https://presign-guard.fizzl.eu/', paid: 'https://presign-guard.fizzl.eu/v1/token?chain=base&address=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' },
+  { name: 'doctor', home: 'https://x402-doctor.fizzl.eu/', paid: 'https://x402-doctor.fizzl.eu/api/v1/diagnose?url=https://example.com' },
+  { name: 'plaintext', home: 'https://plaintext.fizzl.eu/', paid: 'https://plaintext.fizzl.eu/api/check-wallet', method: 'POST' },
+];
+const timed = async (url, init) => { const t = Date.now(); try { const r = await fetch(url, { ...init, signal: AbortSignal.timeout(60000) }); return { r, ms: Date.now() - t }; } catch (e) { return { err: e.message, ms: Date.now() - t }; } };
+for (const s of SVC) {
+  const h = await timed(s.home, { headers: { accept: 'text/html' } });
+  const p = await timed(s.paid, s.method === 'POST' ? { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json' }, body: '{}' } : { headers: { accept: 'application/json' } });
+  let nets = '';
+  const hdr = p.r?.headers.get('payment-required');
+  if (hdr) { try { nets = JSON.parse(Buffer.from(hdr, 'base64').toString()).accepts.map((a) => a.network).join(','); } catch { nets = 'UNREADABLE'; } }
+  let doc = '';
+  try {
+    const d = await (await fetch('https://x402-doctor.fizzl.eu/api/diagnose', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: s.paid, ...(s.method ? { method: s.method } : {}) }), signal: AbortSignal.timeout(90000) })).json();
+    doc = `${d.overall} | ${(d.checks || []).filter((c) => c.status === 'fail' || c.status === 'warn').map((c) => `${c.status}:${c.id}`).join(', ')}`;
+  } catch (e) { doc = `ERR ${e.message}`; }
+  console.log(`MON ${s.name} home ${h.r?.status ?? h.err} ${h.ms}ms | paid ${p.r?.status ?? p.err} ${p.ms}ms nets ${nets || '-'} | doctor ${doc}`);
 }
