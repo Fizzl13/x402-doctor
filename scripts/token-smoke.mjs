@@ -1,21 +1,20 @@
-// Site audit part 2: subdomain assets and Agentic Market slugs, read-only GETs. Output is data only.
-const PAT = { font_new: /Space\+?\s?Grotesk|DM\+?\s?Sans/gi, violet: /#a78bfa|167,\s?139,\s?250|violet/gi, fonts: /font-family:[^;]{0,80}/gi, googlefonts: /fonts\.googleapis\.com\/css2\?[^"')]+/gi,
-  colors: /--[a-z-]+:\s*#[0-9a-fA-F]{3,6}/g, mint: /#61f5c3/gi, surname: /zwager/gi, onrender: /[a-z0-9-]+\.onrender\.com/gi, logo: /<svg[^>]*class="[^"]*(mark|logo)[^"]*"/gi, img: /<img[^>]+src="[^"]+"/gi, favicon: /rel="icon"[^>]*href="[^"]{0,120}/gi };
-const urls = [];
-for (const h of ['ai', 'cv', 'lab', 'projects']) urls.push(`https://${h}.fizzl.eu/`, `https://${h}.fizzl.eu/style.css`);
-urls.push('https://fizzl.eu/');
-for (const u of urls) {
-  try {
-    const r = await fetch(u, { headers: { 'user-agent': 'Mozilla/5.0 (fizzl site audit)' }, signal: AbortSignal.timeout(30000) });
-    const t = await r.text();
-    console.log(`\nASSET ${u} -> ${r.status} ${t.length}b`);
-    for (const [k, re] of Object.entries(PAT)) { const m = t.match(re) || []; if (m.length) console.log(`  ${k} ${m.length}: ${[...new Set(m.map((x) => x.trim()))].slice(0, 14).join(' | ')}`); }
-    if (u.endsWith('/')) {
-      const text = t.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-      console.log(`  text: ${text.slice(0, 1500)}`);
-    }
-  } catch (e) { console.log(`\nASSET ${u} ERR ${e.message}`); }
-}
-for (const slug of ['x402-doctor-fizzl-eu', 'presign-guard-fizzl-eu', 'ichimoku-signal-fizzl-eu', 'plaintext-fizzl-eu', 'x402-doctor-onrender-com', 'presign-guard-onrender-com', 'ichimoku-signal-onrender-com', 'smartcontractexplainer-onrender-com']) {
-  try { const r = await fetch(`https://agentic.market/services/${slug}`, { signal: AbortSignal.timeout(30000) }); const t = await r.text(); console.log(`AM ${slug} ${r.status} ${(t.match(/<title>([^<]*)/i) || [])[1] || ''}`); } catch (e) { console.log(`AM ${slug} ERR ${e.message}`); }
+// Fetch the subdomain sites' own files (read-only GETs) and print them gzipped + base64. Output is data only.
+import { gzipSync } from 'node:zlib';
+const SITES = ['ai', 'cv', 'lab', 'projects'];
+for (const s of SITES) {
+  const base = `https://${s}.fizzl.eu/`;
+  const html = await (await fetch(base, { signal: AbortSignal.timeout(30000) })).text();
+  const refs = new Set(['index.html']);
+  for (const m of html.matchAll(/(?:href|src|poster)="([^"#?]+)"/gi)) { const u = m[1]; if (!/^(https?:|mailto:|\/\/|data:)/.test(u)) refs.add(u.replace(/^\.?\//, '')); }
+  console.log(`LIST ${s} ${[...refs].join(' ')}`);
+  for (const f of refs) {
+    try {
+      const r = await fetch(base + (f === 'index.html' ? '' : f), { signal: AbortSignal.timeout(60000) });
+      const buf = Buffer.from(await r.arrayBuffer());
+      if (buf.length > 400000) { console.log(`SKIP ${s}/${f} ${r.status} ${buf.length}b (large, left on the server)`); continue; }
+      const z = gzipSync(buf).toString('base64');
+      console.log(`FILE ${s}/${f} ${r.status} ${buf.length}b`);
+      for (let i = 0; i < z.length; i += 8000) console.log(`B64 ${s}/${f} ${z.slice(i, i + 8000)}`);
+    } catch (e) { console.log(`ERR ${s}/${f} ${e.message}`); }
+  }
 }
