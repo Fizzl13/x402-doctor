@@ -19,3 +19,4 @@ for (const s of SVC) {
   } catch (e) { doc = `ERR ${e.message}`; }
   console.log(`MON ${s.name} home ${h.r?.status ?? h.err} ${h.ms}ms | paid ${p.r?.status ?? p.err} ${p.ms}ms nets ${nets || '-'} | doctor ${doc}`);
 }
+// run 2026-09-29T18:24:02
