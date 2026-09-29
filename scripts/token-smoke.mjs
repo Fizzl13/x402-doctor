@@ -4,3 +4,4 @@ for (const u of ['https://x402-doctor.fizzl.eu/.well-known/agent-registration.js
   const t = await r.text();
   console.log('DBG', r.status, u, 'age', r.headers.get('age'), 'cache', r.headers.get('cf-cache-status') || r.headers.get('x-cache') || '-', 'server', r.headers.get('server'), 'rndr', r.headers.get('rndr-id'), '|', t.slice(0, 90).replace(/\s+/g, ' '));
 }
+// recheck 17:26:12
