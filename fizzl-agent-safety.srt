@@ -1,0 +1,44 @@
+1
+00:00:00,240 --> 00:00:07,536
+AI agents now pay for APIs and sign transactions on their own. One wrong signature can empty a wallet.
+
+2
+00:00:08,001 --> 00:00:13,313
+So we built two checks for the two risky moments: before an agent pays, and before it signs.
+
+3
+00:00:14,574 --> 00:00:21,635
+x402 Doctor checks a paid API the way a paying agent would. Here it diagnoses a broken one.
+
+4
+00:00:22,094 --> 00:00:26,915
+Every problem, with the reason and the fix. For developers the web check is free.
+
+5
+00:00:27,383 --> 00:00:37,559
+For agents there's x402-safe-fetch. Before it pays an unknown API, it buys a Doctor preflight for a tenth of a cent. No-go means no payment.
+
+6
+00:00:38,023 --> 00:00:43,271
+And when a payment still fails, it buys one diagnosis for a cent that says exactly why.
+
+7
+00:00:45,174 --> 00:00:51,126
+The second check is presign-guard. It answers one question before an agent signs: is this safe?
+
+8
+00:00:52,196 --> 00:01:01,753
+presign-guard-wallet wraps the agent's wallet. Every transaction and signature is checked first. Green signs, orange asks, and red is never signed.
+
+9
+00:01:02,218 --> 00:01:12,543
+Every verdict is cryptographically signed, and both packages check that signature. A forged green is never a payment or a signature. Your keys stay in your own code.
+
+10
+00:01:18,184 --> 00:01:22,856
+And it's all live: every call to the services, on lab.fizzl.eu.
+
+11
+00:01:28,039 --> 00:01:37,063
+Install presign-guard-wallet and x402-safe-fetch from npm, or try the free checks on the web. Safe money for AI agents.
+
