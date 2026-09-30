@@ -124,3 +124,14 @@ test('stats: the BTC chart comes along, trimmed to the chart fields', async () =
   assert.strictEqual(body.btc_chart.secret, undefined);
   assert.strictEqual(body.all_time.calls, 3);
 });
+
+test('stats: the paper trade comes along, trimmed to standings and the trades it already shows', async () => {
+  const usageReader = { load: async () => ({ events, truncated: false }) };
+  const paper = { standings: { start: '2026-09-29', start_equity_usd: 1000, equity_usd: 980.42, return_pct: -1.96, trades_closed: 3, targets: 0, stops: 3, timeouts: 0, r_closed: -3, open: 3, hidden: 3, secret: 'x' }, days: [{ salt: 'abc' }], trades: [{ date: '2026-09-29', pair: 'XRP-USDT', direction: 'long', status: 'stop', r: -1, pnl_usd: -7.44, entry: 1.5, qty: 12, closed_at: '2026-09-29T15:26:51Z' }] };
+  const fetchFn = async (url) => ({ ok: true, json: async () => (url.includes('track-record') ? paper : {}) });
+  const body = await createPublicStats({ usageReader, fetchFn, now: () => NOW }).get();
+  assert.strictEqual(body.paper_trade.standings.equity_usd, 980.42);
+  assert.strictEqual(body.paper_trade.standings.secret, undefined);
+  assert.deepStrictEqual(body.paper_trade.trades, [{ date: '2026-09-29', pair: 'XRP-USDT', direction: 'long', status: 'stop', r: -1, pnl_usd: -7.44, closed_at: '2026-09-29T15:26:51Z' }]);
+  assert.doesNotMatch(JSON.stringify(body.paper_trade), /salt|qty/);
+});
