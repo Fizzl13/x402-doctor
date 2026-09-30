@@ -233,6 +233,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
       { name: 'MCP', endpoint: `${publicUrl}/mcp`, version: '2025-06-18' },
     ],
     active: true,
+    x402Support: true,
     registrations: [],
     supportedTrust: [],
   }));
