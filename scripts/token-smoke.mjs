@@ -1,13 +1,21 @@
-// Metaplex: verification status of our three agents (read-only GETs).
-const assets = { doctor: "CLgJCXbmpJeL4v8KeXb6UGLHcVG4AkNDXKBWQjm1dupj", presign: "9NN5M9jSUv2opiU47huXeRunHvJa1DdEAtapLtrJbnG4", ichimoku: "zWMVHbd4xN1UEZ8ssGY7aCmqhyRzPtZhKtR1LeLc3WC" };
-for (const [n, id] of Object.entries(assets)) {
+// Monitor: the four fizzl x402 services (read-only, never pays). Output is data only. Run 2026-09-30T1224Z.
+const SVC = [
+  { name: 'ichimoku', home: 'https://ichimoku-signal.fizzl.eu/', paid: 'https://ichimoku-signal.fizzl.eu/signal/BTC-USDT' },
+  { name: 'presign', home: 'https://presign-guard.fizzl.eu/', paid: 'https://presign-guard.fizzl.eu/v1/token?chain=base&address=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' },
+  { name: 'doctor', home: 'https://x402-doctor.fizzl.eu/', paid: 'https://x402-doctor.fizzl.eu/api/v1/diagnose?url=https://example.com' },
+  { name: 'plaintext', home: 'https://plaintext.fizzl.eu/', paid: 'https://plaintext.fizzl.eu/api/check-wallet', method: 'POST' },
+];
+const timed = async (url, init) => { const t = Date.now(); try { const r = await fetch(url, { ...init, signal: AbortSignal.timeout(60000) }); return { r, ms: Date.now() - t }; } catch (e) { return { err: e.message, ms: Date.now() - t }; } };
+for (const s of SVC) {
+  const h = await timed(s.home, { headers: { accept: 'text/html' } });
+  const p = await timed(s.paid, s.method === 'POST' ? { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json' }, body: '{}' } : { headers: { accept: 'application/json' } });
+  let nets = '';
+  const hdr = p.r?.headers.get('payment-required');
+  if (hdr) { try { nets = JSON.parse(Buffer.from(hdr, 'base64').toString()).accepts.map((a) => a.network).join(','); } catch { nets = 'UNREADABLE'; } }
+  let doc = '';
   try {
-    const j = await (await fetch(`https://api.metaplex.com/v1/agents/${id}?network=solana-mainnet&t=${Date.now()}`, { signal: AbortSignal.timeout(30000) })).json();
-    const { verifiedAt, tokens, owner } = j;
-    const extra = Object.keys(j).filter((k) => !["success","type","name","description","image","services","x402Support","active","registrations","supportedTrust","address","walletAddress","authority","agentMetadataUri","a2aCard","verifiedAt","owner","tokens"].includes(k));
-    console.log("MPX", n, JSON.stringify({ verifiedAt, tokens, extraKeys: extra }));
-  } catch (e) { console.log("MPX", n, "ERR", e.message); }
-}
-for (const u of ["https://api.metaplex.com/v1/agents?network=solana-mainnet&owner=ATWJ82T8nRdQwZnaysB68N5EpaSvLRsQP4h6eWmaJBH9", "https://api.metaplex.com/v1/agents/CLgJCXbmpJeL4v8KeXb6UGLHcVG4AkNDXKBWQjm1dupj/stats?network=solana-mainnet"]) {
-  try { const r = await fetch(u, { signal: AbortSignal.timeout(30000) }); console.log("MPX GET", u.split("/v1/")[1], r.status, (await r.text()).slice(0, 400)); } catch (e) { console.log("ERR", e.message); }
+    const d = await (await fetch('https://x402-doctor.fizzl.eu/api/diagnose', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: s.paid, ...(s.method ? { method: s.method } : {}) }), signal: AbortSignal.timeout(90000) })).json();
+    doc = `${d.overall} | ${(d.checks || []).filter((c) => c.status === 'fail' || c.status === 'warn').map((c) => `${c.status}:${c.id}`).join(', ')}`;
+  } catch (e) { doc = `ERR ${e.message}`; }
+  console.log(`MON ${s.name} home ${h.r?.status ?? h.err} ${h.ms}ms | paid ${p.r?.status ?? p.err} ${p.ms}ms nets ${nets || '-'} | doctor ${doc}`);
 }
