@@ -1,0 +1,156 @@
+{
+  "title": "Safe money for AI agents: x402 Doctor and presign-guard",
+  "output": "fizzl-agent-safety",
+  "segments": [
+    {
+      "id": "hook",
+      "scene": "card",
+      "card": {
+        "title": "AI agents now pay and sign on their own.",
+        "sub": "One wrong signature can empty a wallet."
+      },
+      "text": "AI agents now pay for APIs and sign transactions on their own. One wrong signature can empty a wallet."
+    },
+    {
+      "id": "idea",
+      "scene": "card",
+      "card": {
+        "title": "Check first. Then pay or sign.",
+        "sub": "x402 Doctor · presign-guard",
+        "note": "Paid per check, in USDC. No account, no API key."
+      },
+      "text": "So we built two checks for the two risky moments: before an agent pays, and before it signs."
+    },
+    {
+      "id": "doctor-type",
+      "scene": "home-type-broken",
+      "text": "x402 Doctor checks a paid API the way a paying agent would. Here it diagnoses a broken one."
+    },
+    {
+      "id": "doctor-scroll",
+      "scene": "home-scroll",
+      "text": "Every problem, with the reason and the fix. For developers the web check is free."
+    },
+    {
+      "id": "safe-fetch",
+      "scene": "code",
+      "label": "In your agent: npm install x402-safe-fetch",
+      "lines": [
+        {
+          "cls": "dim",
+          "text": "import { createSafeFetch } from \"x402-safe-fetch\";"
+        },
+        {
+          "cls": "cmd",
+          "text": "const safeFetch = createSafeFetch({ register, maxUsd: 0.05, diagnoseOnFailure: true });"
+        },
+        {
+          "cls": "cmd",
+          "text": "await safeFetch(\"https://api.example.com/paid\");"
+        },
+        {
+          "cls": "in",
+          "text": "→ 402 Payment Required: first a Doctor preflight, for a tenth of a cent"
+        },
+        {
+          "cls": "ok",
+          "text": "← go: pays the API, never above your budget"
+        },
+        {
+          "cls": "fail",
+          "text": "← no_go: throws, and nothing is paid"
+        }
+      ],
+      "text": "For agents there's x402-safe-fetch. Before it pays an unknown API, it buys a Doctor preflight for a tenth of a cent. No-go means no payment."
+    },
+    {
+      "id": "diagnose",
+      "scene": "code",
+      "label": "When a payment still fails",
+      "lines": [
+        {
+          "cls": "in",
+          "text": "← the API answers 402 again after paying"
+        },
+        {
+          "cls": "dim",
+          "text": "→ one Doctor diagnosis, for one cent"
+        },
+        {
+          "cls": "ok",
+          "text": "diagnosisOf(res).checks → \"Payment option is on Base Sepolia, not Base mainnet.\""
+        }
+      ],
+      "text": "And when a payment still fails, it buys one diagnosis for a cent that says exactly why."
+    },
+    {
+      "id": "presign",
+      "scene": "page",
+      "url": "https://presign-guard.fizzl.eu/",
+      "zoom": 1.3,
+      "scroll": 700,
+      "text": "The second check is presign-guard. It answers one question before an agent signs: is this safe?"
+    },
+    {
+      "id": "guard-wallet",
+      "scene": "code",
+      "label": "In your agent: npm install presign-guard-wallet",
+      "lines": [
+        {
+          "cls": "dim",
+          "text": "import { guardWallet } from \"presign-guard-wallet\";"
+        },
+        {
+          "cls": "cmd",
+          "text": "const wallet = guardWallet(walletClient, { pay, onOrange: \"stop\" });"
+        },
+        {
+          "cls": "cmd",
+          "text": "await wallet.writeContract({ functionName: \"approve\", args: [spender, maxUint256] });"
+        },
+        {
+          "cls": "in",
+          "text": "→ presign-guard checks exactly this approval, for one cent"
+        },
+        {
+          "cls": "fail",
+          "text": "✗ red: UNLIMITED_APPROVAL_TO_EOA · not signed"
+        },
+        {
+          "cls": "ok",
+          "text": "✓ green signs · orange stops or asks you first"
+        }
+      ],
+      "text": "presign-guard-wallet wraps the agent's wallet. Every transaction and signature is checked first. Green signs, orange asks, and red is never signed."
+    },
+    {
+      "id": "signed",
+      "scene": "card",
+      "card": {
+        "title": "Every verdict is signed.",
+        "sub": "A forged “green” is never a payment or a signature.",
+        "note": "Your keys stay in your own code."
+      },
+      "text": "Every verdict is cryptographically signed, and both packages check that signature. A forged green is never a payment or a signature. Your keys stay in your own code."
+    },
+    {
+      "id": "lab",
+      "scene": "page",
+      "url": "https://lab.fizzl.eu/#agents-live",
+      "selector": "#agentCharts",
+      "wait": "#agents-live:not([hidden])",
+      "scroll": 900,
+      "text": "And it's all live: every call to the services, on lab.fizzl.eu."
+    },
+    {
+      "id": "end",
+      "scene": "card",
+      "card": {
+        "title": "npm install presign-guard-wallet x402-safe-fetch",
+        "sub": "x402-doctor.fizzl.eu · presign-guard.fizzl.eu",
+        "note": "fizzl.eu"
+      },
+      "text": "Install presign-guard-wallet and x402-safe-fetch from npm, or try the free checks on the web. Safe money for AI agents."
+    }
+  ]
+}
