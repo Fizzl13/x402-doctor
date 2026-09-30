@@ -233,7 +233,8 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
       { name: 'MCP', endpoint: `${publicUrl}/mcp`, version: '2025-06-18' },
     ],
     active: true,
-    registrations: [],
+    x402Support: true,
+    registrations: [{ agentId: 'CLgJCXbmpJeL4v8KeXb6UGLHcVG4AkNDXKBWQjm1dupj', agentRegistry: 'solana:101:metaplex' }],
     supportedTrust: [],
   }));
 
