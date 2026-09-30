@@ -386,6 +386,8 @@ test('preflight batch: $0.005 for up to 10 endpoints; input checked before payme
   assert.equal(unpaid.status, 402);
   for (const a of (await unpaid.json()).accepts) assert.equal(a.amount, '5000');
   assert.equal((await fetch(`${api}/api/v1/preflight/batch`)).status, 402, 'bare route: indexers get the challenge');
+  assert.equal((await fetch(`${api}/api/v1/preflight/batch?url=&max_usd=0.05`)).status, 402, 'a blank url (probers fill empty examples) counts as no url');
+  assert.equal((await fetch(`${api}/api/v1/preflight?url=`)).status, 402, 'same for the single preflight');
 
   const eleven = Array.from({ length: 11 }, (_, i) => `https://example.com/paid/${i}`);
   for (const bad of [q(eleven), q([targetUrl, 'not-a-url']), q([targetUrl, 'ftp://x.y']), q([targetUrl], '&max_usd=abc')]) {
