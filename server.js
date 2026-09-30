@@ -19,6 +19,7 @@ const crypto = require('crypto');
 const { createUsageLog, mcpToolCall, mcpPayment, agentOf } = require('./lib/usage-log');
 const { createFeedback } = require('./lib/feedback');
 const { createUsageReader } = require('./lib/usage-reader');
+const { createPublicStats, statsCors } = require('./lib/public-stats');
 const { setupsFunnel } = require('./lib/usage-funnel');
 
 const PORT = process.env.PORT || 3001;
@@ -133,7 +134,7 @@ function trustProxyHops(env) {
   return Number.isInteger(n) && n >= 0 && n <= 10 && String(env.TRUST_PROXY_HOPS).trim() !== '' ? n : 3;
 }
 
-function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, trustIndex = createTrustIndex(), media = createMediaCache(), usageLog = createUsageLog({ service: 'doctor', env }), usageReader = createUsageReader({ env }) } = {}) {
+function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, trustIndex = createTrustIndex(), media = createMediaCache(), usageLog = createUsageLog({ service: 'doctor', env }), usageReader = createUsageReader({ env }), publicStats = createPublicStats({ usageReader }) } = {}) {
   const app = express();
   const safeFetch = createSafeFetch({ allowPrivate });
   // POST /feedback (and the MCP tool feedback): agents report a bug or a missing
@@ -306,6 +307,16 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
       res.json({ ...report, share_url: `${req.protocol}://${req.get('host')}/?${share}` });
     } catch (err) {
       res.status(err.statusCode || 502).json({ error: err.message, checks: [] });
+    }
+  });
+
+  // Live numbers for fizzl.eu and its subdomains: totals only (lib/public-stats.js).
+  app.get('/api/stats', statsCors, async (_req, res) => {
+    try {
+      res.set('Cache-Control', 'public, max-age=60');
+      res.json(await publicStats.get());
+    } catch {
+      res.status(503).json({ error: 'stats not available right now' });
     }
   });
 
