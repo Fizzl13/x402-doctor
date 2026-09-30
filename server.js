@@ -51,6 +51,8 @@ function rateLimit({ windowMs, max }) {
 // diagnoses internal addresses.
 // What each Doctor call was about, for the usage log (null = not logged).
 function describeDoctorCall(req, _res, body) {
+  // Who reads the EIP-8004 registration (e.g. agent registries such as Metaplex).
+  if (req.method === 'GET' && req.path === '/.well-known/agent-registration.json') return { route: 'agent registration', via: 'discovery', input: {}, result: { status: _res.statusCode } };
   const b = body || {};
   if (req.method === 'POST' && req.path === '/api/diagnose') {
     return { route: 'diagnose', via: 'web', input: { url: req.body && req.body.url, method: req.body && req.body.method }, result: { overall: b.overall, error: b.error } };
