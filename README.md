@@ -176,6 +176,18 @@ Solana fee payer, EIP-712 domain, http resource URL behind a proxy, resource URL
 example, Solana payout token account, Phantom on PayAI, testnet paywall on mainnet, and openapi.json. Anything
 without a recipe is returned under `unfixed` with the diagnosis hint.
 
+### Learning from outcomes: `POST /api/v1/outcome`
+
+After a paid preflight, a buyer can report (free) what happened when it then paid the endpoint: `paid_ok`, `paid_failed` (402 again) or `paid_error`. [x402-safe-fetch](https://www.npmjs.com/package/x402-safe-fetch) does it with `shareOutcomes: true`.
+
+```json
+{ "outcome": "paid_failed", "status": 402, "preflight": { …the signed preflight answer… }, "query": { "url": "…", "method": "GET", "max_usd": "0.05", "network": "eip155:8453" } }
+```
+
+- A report counts only with a real preflight that Doctor signed for exactly that query, once per preflight (`receipt.request_id`), so a false report costs a paid preflight.
+- Doctor counts reports per endpoint over 30 days. When most reported payments failed, from at least three different paying wallets, later preflights add `payments_fail_after_preflight` (caution); `signals.agent_outcomes` shows the counts.
+- Reports land in the usage log (endpoint, outcome, status, verdict, payer from the receipt); nothing else about the buyer.
+
 ### Signed verdicts
 
 Every paid answer (diagnose, preflight, batch, deep and fix; HTTP and MCP) carries a `receipt` signed by Doctor, so an agent can later prove **which verdict it got for which endpoint**, for example why it did or didn't pay:

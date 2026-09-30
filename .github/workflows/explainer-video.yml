@@ -8,9 +8,9 @@ on:
   workflow_dispatch:
     inputs:
       script:
-        description: "Which video: script.json (the explainer) or fix.json (the paid-fix update)"
+        description: "Which video: script.json (the explainer), fix.json (the paid-fix update) or suite.json (Doctor + presign-guard + the npm packages)"
         type: choice
-        options: [script.json, fix.json]
+        options: [script.json, fix.json, suite.json]
         default: script.json
       voice:
         description: "Kokoro voice (e.g. af_heart, af_bella, am_michael, am_fenrir, bf_emma, bm_george)"
@@ -56,7 +56,7 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Wake the live services
         run: |
-          for u in https://x402-doctor.fizzl.eu/api/health https://ichimoku-signal.fizzl.eu/ https://x402-doctor.fizzl.eu/api/trust/summary; do
+          for u in https://x402-doctor.fizzl.eu/api/health https://ichimoku-signal.fizzl.eu/ https://x402-doctor.fizzl.eu/api/trust/summary https://presign-guard.fizzl.eu/ https://x402-doctor.fizzl.eu/api/stats; do
             curl -s -o /dev/null --retry 6 --retry-delay 10 --retry-all-errors --max-time 90 "$u" || true
           done
       - name: Record
@@ -74,10 +74,10 @@ jobs:
             ffmpeg -loglevel error -y -ss "$t" -i "out/$NAME.mp4" -frames:v 1 -update 1 -vf scale=640:-1 "out/f$i.jpg"; i=$((i+1))
           done
           ffmpeg -loglevel error -y -framerate 1 -i out/f%d.jpg -vf "tile=3x$(( (i + 2) / 3 ))" -frames:v 1 -update 1 out/contact.jpg
-      # The explainer publishes to explainer-video, the fix update to fix-video.
+      # The explainer publishes to explainer-video, the fix update to fix-video, the suite video to suite-video.
       - name: Publish to the video branch
         run: |
-          BRANCH=$([ "$SCRIPT" = fix.json ] && echo fix-video || echo explainer-video)
+          BRANCH=$(case "$SCRIPT" in fix.json) echo fix-video;; suite.json) echo suite-video;; *) echo explainer-video;; esac)
           mkdir -p ../publish && cp "out/$NAME.mp4" "out/$NAME.srt" out/poster.jpg out/contact.jpg ../publish/
           cd ../publish
           printf '# %s\n\nProduced by explainer-video.yml from %s. Voice: %s.\n' "$NAME" "$SCRIPT" "${{ github.event.inputs.voice || 'af_heart' }}" > README.md

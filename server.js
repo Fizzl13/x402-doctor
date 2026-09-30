@@ -16,8 +16,9 @@ const { PREFLIGHT_SCHEMA } = require('./lib/preflight');
 const { createTrustIndex } = require('./lib/trust-index');
 const { createMediaCache } = require('./lib/media');
 const crypto = require('crypto');
-const { createUsageLog, mcpToolCall, mcpPayment, agentOf } = require('./lib/usage-log');
+const { createUsageLog, mcpToolCall, mcpPayment, agentOf, visitorOf } = require('./lib/usage-log');
 const { createFeedback } = require('./lib/feedback');
+const { createOutcomes } = require('./lib/outcomes');
 const { createUsageReader } = require('./lib/usage-reader');
 const { createPublicStats, statsCors } = require('./lib/public-stats');
 const { setupsFunnel } = require('./lib/usage-funnel');
@@ -144,7 +145,16 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   const feedback = createFeedback({ service: 'doctor', record: usageLog.record, agentOf });
   // One Bazaar index for the paid API and the free web check (where a route is listed).
   const bazaar = bazaarIndex || createBazaarIndex();
-  const paidApi = createPaidApi({ safeFetch, env, trustIndex, feedback, bazaarIndex: bazaar });
+  // Outcome reports (lib/outcomes.js): what agents saw after paying an endpoint
+  // following a preflight; later preflights learn from them.
+  let paidApi = null;
+  const outcomes = createOutcomes({
+    usageReader,
+    record: usageLog.record,
+    signers: () => (paidApi && paidApi.signer ? paidApi.signer.signers : []),
+    authority: env.RECEIPT_AUTHORITY || AUTHORITY,
+  });
+  paidApi = createPaidApi({ safeFetch, env, trustIndex, feedback, bazaarIndex: bazaar, outcomes });
 
   // Doctor's requests reach the app through three proxies (the caller, then two
   // hops, the last a private Render address: measured 26 Sep), so Express has to
@@ -179,6 +189,16 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     const { response, route, input } = req.body || {};
     const body = response && typeof response === 'object' ? response : req.body;
     res.json(await verifyReceipt(body, { signers: signer ? signer.signers : [], route, input, authority }));
+  });
+  // Free: report what happened after paying an endpoint that a paid preflight
+  // checked. The signed preflight travels along (its own 64 kB parser).
+  const outcomeLimit = rateLimit({ windowMs: 60 * 60 * 1000, max: 120 });
+  app.post('/api/v1/outcome', outcomeLimit, express.json({ limit: '64kb' }), async (req, res) => {
+    const { status, body } = await outcomes.report(req.body, {
+      agent: agentOf(req.headers['user-agent']),
+      visitor: visitorOf(req.ip, env.USAGE_LOG_SALT || env.USAGE_LOG_TOKEN),
+    });
+    res.status(status).json(body);
   });
   app.use(feedback.router(express)); // its own 16 kB JSON parser, before the 4 kB one
   app.use(express.json({ limit: '4kb' }));

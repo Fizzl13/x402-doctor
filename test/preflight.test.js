@@ -156,3 +156,15 @@ test('Bazaar index: loads all pages once, matches by origin + path, ignores the 
   assert.equal(calls, 2);
   assert.equal(index.size(), 503);
 });
+
+test('what other agents reported after paying: a failing majority from three wallets is a caution', async () => {
+  const url = await seller({ accepts: [baseOption('20000')] });
+  const fine = await run(url, { outcomes: { lookup: () => ({ reports: 5, failed: 1, failed_payers: 1 }) } });
+  assert.equal(fine.verdict, 'go', JSON.stringify(fine.reasons));
+  assert.deepEqual(fine.signals.agent_outcomes, { reports: 5, failed: 1, failed_payers: 1 });
+  const failing = await run(url, { outcomes: { lookup: () => ({ reports: 4, failed: 3, failed_payers: 3 }) } });
+  assert.equal(failing.verdict, 'caution');
+  assert.ok(failing.reasons.some((r) => r.code === 'payments_fail_after_preflight'));
+  const none = await run(url);
+  assert.equal(none.signals.agent_outcomes, null);
+});

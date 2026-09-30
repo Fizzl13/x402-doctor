@@ -49,7 +49,7 @@ function cardHtml({ title, sub, note }) {
   </style></head><body><div class="c"><h1>${title}</h1><p>${sub || ''}</p>${note ? `<p class="note">${note}</p>` : ''}</div></body></html>`;
 }
 
-function terminalHtml(lines, label = 'An agent, before paying an unknown x402 API') {
+function terminalHtml(lines, label = 'An agent, before paying an unknown x402 API', big = false) {
   const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
   return `<!doctype html><html><head><style>${THEME}
     body { display:flex; align-items:center; justify-content:center; }
@@ -58,9 +58,10 @@ function terminalHtml(lines, label = 'An agent, before paying an unknown x402 AP
     .label { color: var(--soft); font-size: 24px; margin: -8px 0 22px; }
     pre { margin:0; font: 25px/1.5 'SF Mono', 'DejaVu Sans Mono', Consolas, monospace; white-space: pre-wrap; word-break: break-all; }
     .l { opacity: 0; transition: opacity .35s; } .l.on { opacity: 1; }
-    .cmd { color: var(--text); } .in { color: var(--warn); } .ok { color: var(--go); } .dim { color: var(--soft); }
+    .cmd { color: var(--text); } .in { color: var(--warn); } .ok { color: var(--go); } .dim { color: var(--soft); } .fail { color: var(--fail); }
     .hl { background: color-mix(in srgb, var(--go) 22%, transparent); border-radius: 6px; outline: 2px solid var(--go); }
-  </style></head><body><div class="t"><div class="bar"><i></i><i></i><i></i></div><div class="label">${label}</div><pre>${lines
+    body.big .t { width: 1680px; padding: 44px 52px; } body.big pre { font-size: 34px; line-height: 1.55; word-break: normal; overflow-wrap: anywhere; } body.big .label { font-size: 30px; color: var(--accent); }
+  </style></head><body class="${big ? 'big' : ''}"><div class="t"><div class="bar"><i></i><i></i><i></i></div><div class="label">${label}</div><pre>${lines
     .map((l, i) => `<div class="l ${l.cls || ''}" id="l${i}">${l.html || esc(l.text)}</div>`)
     .join('')}</pre></div></body></html>`;
 }
@@ -346,6 +347,35 @@ async function main() {
       await page.evaluate(() => {
         for (const el of document.querySelectorAll('.l')) if (/"title"/.test(el.textContent)) el.classList.add('hl');
       });
+    },
+    // Any live page: open it (before the voice), optionally zoom, then bring a
+    // selector into view and scroll slowly while the line is spoken.
+    async 'prepare:page'(seg) {
+      await page.goto(seg.url, { waitUntil: 'load', timeout: 90000 });
+      if (seg.zoom) await page.evaluate((z) => { document.documentElement.style.zoom = String(z); }, seg.zoom);
+      if (seg.wait) await page.waitForSelector(seg.wait, { timeout: 20000 }).catch(() => {});
+      if (seg.selector) {
+        await page.evaluate((sel) => { const el = document.querySelector(sel); if (el) el.scrollIntoView({ block: 'start' }); }, seg.selector);
+      }
+      await sleep(900);
+    },
+    async page(seg, ms) {
+      if (!seg.scroll) return;
+      const steps = 12;
+      for (let i = 0; i < steps; i++) {
+        await page.evaluate((dy) => window.scrollBy({ top: dy, behavior: 'smooth' }), seg.scroll / steps);
+        await sleep(Math.max(150, (ms * 0.85) / steps));
+      }
+    },
+    // A code screen: the lines of seg.lines appear one by one during the voice.
+    async 'prepare:code'(seg) {
+      await setPage(page, terminalHtml(seg.lines, seg.label || '', true));
+    },
+    async code(seg, ms) {
+      for (let i = 0; i < seg.lines.length; i++) {
+        await page.evaluate((i) => document.getElementById(`l${i}`).classList.add('on'), i);
+        await sleep(Math.max(300, (ms * 0.55) / seg.lines.length));
+      }
     },
     async 'prepare:trust-stats'() {
       await page.goto(`${DOCTOR}/trust`, { waitUntil: 'load', timeout: 90000 });
