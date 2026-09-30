@@ -234,7 +234,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     ],
     active: true,
     x402Support: true,
-    registrations: [],
+    registrations: [{ agentId: 'CLgJCXbmpJeL4v8KeXb6UGLHcVG4AkNDXKBWQjm1dupj', agentRegistry: 'solana:101:metaplex' }],
     supportedTrust: [],
   }));
 
