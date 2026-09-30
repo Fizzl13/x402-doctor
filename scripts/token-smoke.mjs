@@ -1,15 +1,21 @@
-// One-off: live test of NEW_WALLET_SPENDER on Base (free calls only, never pays). Run 2026-09-30T2200Z.
-import { randomBytes } from "node:crypto";
-const USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
-const FRESH = "0x" + randomBytes(20).toString("hex"); // never used: no on-chain history
-const OLD = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045";   // vitalik.eth, years old
-const post = (url, name, args) => fetch(url, { method: "POST", headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
-  body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } }) }).then(async (r) => `${r.status} ${(await r.text()).slice(0, 600)}`);
-const pg1 = (a) => post("https://pg1-ai-agent.vercel.app/api/mcp", "check_wallet_age", { address: a, chain: "base" });
-const quick = (spender) => post("https://presign-guard.fizzl.eu/mcp", "presign_quick_check", { type: "approval", chainId: 8453, token: USDC, spender, amount: "1000000" });
-console.log("fresh:", FRESH);
-for (const a of [FRESH, OLD]) { const t = Date.now(); console.log("PG1 age", a, await pg1(a), `${Date.now() - t}ms`); }
-console.log("waiting 6 min for the Render deploy");
-await new Promise((r) => setTimeout(r, 360000));
-console.log("health:", await fetch("https://presign-guard.fizzl.eu/health").then((r) => r.text()));
-for (const a of [FRESH, OLD]) { const t = Date.now(); console.log("quick", a, await quick(a), `${Date.now() - t}ms`); }
+// Monitor: the four fizzl x402 services (read-only, never pays). Output is data only. Run 2026-09-30T2123Z.
+const SVC = [
+  { name: 'ichimoku', home: 'https://ichimoku-signal.fizzl.eu/', paid: 'https://ichimoku-signal.fizzl.eu/signal/BTC-USDT' },
+  { name: 'presign', home: 'https://presign-guard.fizzl.eu/', paid: 'https://presign-guard.fizzl.eu/v1/token?chain=base&address=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' },
+  { name: 'doctor', home: 'https://x402-doctor.fizzl.eu/', paid: 'https://x402-doctor.fizzl.eu/api/v1/diagnose?url=https://example.com' },
+  { name: 'plaintext', home: 'https://plaintext.fizzl.eu/', paid: 'https://plaintext.fizzl.eu/api/check-wallet', method: 'POST' },
+];
+const timed = async (url, init) => { const t = Date.now(); try { const r = await fetch(url, { ...init, signal: AbortSignal.timeout(60000) }); return { r, ms: Date.now() - t }; } catch (e) { return { err: e.message, ms: Date.now() - t }; } };
+for (const s of SVC) {
+  const h = await timed(s.home, { headers: { accept: 'text/html' } });
+  const p = await timed(s.paid, s.method === 'POST' ? { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json' }, body: '{}' } : { headers: { accept: 'application/json' } });
+  let nets = '';
+  const hdr = p.r?.headers.get('payment-required');
+  if (hdr) { try { nets = JSON.parse(Buffer.from(hdr, 'base64').toString()).accepts.map((a) => a.network).join(','); } catch { nets = 'UNREADABLE'; } }
+  let doc = '';
+  try {
+    const d = await (await fetch('https://x402-doctor.fizzl.eu/api/diagnose', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: s.paid, ...(s.method ? { method: s.method } : {}) }), signal: AbortSignal.timeout(90000) })).json();
+    doc = `${d.overall} | ${(d.checks || []).filter((c) => c.status === 'fail' || c.status === 'warn').map((c) => `${c.status}:${c.id}`).join(', ')}`;
+  } catch (e) { doc = `ERR ${e.message}`; }
+  console.log(`MON ${s.name} home ${h.r?.status ?? h.err} ${h.ms}ms | paid ${p.r?.status ?? p.err} ${p.ms}ms nets ${nets || '-'} | doctor ${doc}`);
+}
