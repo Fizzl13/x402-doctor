@@ -200,8 +200,14 @@
   const PACKAGES = ['x402-safe-fetch', 'presign-guard-wallet'];
   // Our own monitor (fizzl-monitor/…), directory probes, crawlers and uptime checks.
   // A paid call is never hidden: whoever pays is a customer, whatever it calls itself.
-  const BOTS = /monitor|probe|bot\b|bot\/|crawl|spider|uptime|pingdom|healthcheck|verifier|x402-doctor/i;
-  const isBot = (e) => !e.paid && BOTS.test(String(e.agent || ''));
+  const BOTS = /monitor|probe|bot\b|bot\/|crawl|spider|uptime|pingdom|health-?check|verifier|x402-doctor/i;
+  // Scanners that fill every required field with a dummy value (target "test",
+  // pair "1") and get a 400: hidden too. A real typo stays visible.
+  const PLACEHOLDER = /^(|test|testing|probe|not_a_pair|example|sample|demo|string|placeholder|foo|bar|abc|xyz|x|1|0|123|null|undefined|<[^>]*>|\{[^}]*\})$/i;
+  const PLACEHOLDER_URL = /^https?:\/\/(www\.)?example\.(com|org|net)(\/|$)/i;
+  const isPlaceholderProbe = (e) => e.status >= 400 && e.status < 500
+    && Object.values(e.input || {}).flat().some((v) => typeof v === 'string' && (PLACEHOLDER.test(v.trim()) || PLACEHOLDER_URL.test(v.trim())));
+  const isBot = (e) => !e.paid && (BOTS.test(String(e.agent || '')) || isPlaceholderProbe(e));
   const packageOf = (e) => PACKAGES.find((p) => String(e.agent || '').startsWith(p + '/')) || null;
 
   async function load() {
