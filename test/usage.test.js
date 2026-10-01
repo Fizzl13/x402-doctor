@@ -200,6 +200,7 @@ test('admin pages: 404 without ADMIN_PASSWORD, 401 without the password, data wi
   assert.equal(data.events.length, 1);
   assert.equal(data.funnel.preview_visitors, 0);
   assert.match(await (await fetch(`${open.base}/admin/usage`, auth('pw'))).text(), /id="funnel"/);
+  assert.match(await (await fetch(`${open.base}/admin/usage`, auth('pw'))).text(), /id="packages"[\s\S]*id="pkgOnly"|id="pkgOnly"[\s\S]*id="packages"/);
   open.server.close();
 });
 
