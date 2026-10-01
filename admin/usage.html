@@ -108,6 +108,7 @@
     <span id="chips" style="display:inline-flex;gap:6px;flex-wrap:wrap"></span>
     <label class="toggle"><input type="checkbox" id="paidOnly"> Paid only</label>
     <label class="toggle"><input type="checkbox" id="pkgOnly"> npm packages only</label>
+    <label class="toggle"><input type="checkbox" id="hideBots" checked> Hide monitors &amp; probes</label>
   </div>
 
   <div id="notice"></div>
@@ -194,9 +195,13 @@
     return e.route || 'call';
   }
 
-  const state = { days: 30, services: new Set(SERVICES.map((s) => s.id)), paidOnly: false, pkgOnly: false, data: null, rows: 25 };
+  const state = { days: 30, services: new Set(SERVICES.map((s) => s.id)), paidOnly: false, pkgOnly: false, hideBots: true, data: null, rows: 25 };
   // Calls made by our npm packages: they send "user-agent: <package>/<version>", logged as the agent.
   const PACKAGES = ['x402-safe-fetch', 'presign-guard-wallet'];
+  // Our own monitor (fizzl-monitor/…), directory probes, crawlers and uptime checks.
+  // A paid call is never hidden: whoever pays is a customer, whatever it calls itself.
+  const BOTS = /monitor|probe|bot\b|bot\/|crawl|spider|uptime|pingdom|healthcheck|verifier|x402-doctor/i;
+  const isBot = (e) => !e.paid && BOTS.test(String(e.agent || ''));
   const packageOf = (e) => PACKAGES.find((p) => String(e.agent || '').startsWith(p + '/')) || null;
 
   async function load() {
@@ -217,10 +222,10 @@
 
   // A 402 (quote) is not a call: the caller only saw the price. Counted separately.
   function filtered() {
-    return (state.data.events || []).filter((e) => !e.quote && state.services.has(e.service) && (!state.paidOnly || e.paid) && (!state.pkgOnly || packageOf(e)));
+    return (state.data.events || []).filter((e) => !e.quote && state.services.has(e.service) && (!state.paidOnly || e.paid) && (!state.pkgOnly || packageOf(e)) && (!state.hideBots || !isBot(e)));
   }
   function quotes() {
-    return (state.data.events || []).filter((e) => e.quote && state.services.has(e.service));
+    return (state.data.events || []).filter((e) => e.quote && state.services.has(e.service) && (!state.hideBots || !isBot(e)));
   }
 
   function render() {
@@ -296,7 +301,7 @@
   }
 
   function renderServices(events) {
-    const all = (state.data.events || []).filter((e) => !e.quote && (!state.paidOnly || e.paid));
+    const all = (state.data.events || []).filter((e) => !e.quote && (!state.paidOnly || e.paid) && (!state.hideBots || !isBot(e)));
     $('services').replaceChildren(...SERVICES.map((s) => {
       const mine = all.filter((e) => e.service === s.id);
       const paid = mine.filter((e) => e.paid);
@@ -482,6 +487,7 @@
   }));
   $('paidOnly').addEventListener('change', (e) => { state.paidOnly = e.target.checked; if (state.data) render(); });
   $('pkgOnly').addEventListener('change', (e) => { state.pkgOnly = e.target.checked; if (state.data) render(); });
+  $('hideBots').addEventListener('change', (e) => { state.hideBots = e.target.checked; if (state.data) render(); });
   $('refresh').addEventListener('click', load);
   $('more').addEventListener('click', () => { state.rows += 50; renderCalls(filtered()); });
   let resizeTimer;
