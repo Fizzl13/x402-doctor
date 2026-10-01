@@ -107,6 +107,7 @@
     </div>
     <span id="chips" style="display:inline-flex;gap:6px;flex-wrap:wrap"></span>
     <label class="toggle"><input type="checkbox" id="paidOnly"> Paid only</label>
+    <label class="toggle"><input type="checkbox" id="pkgOnly"> npm packages only</label>
   </div>
 
   <div id="notice"></div>
@@ -115,6 +116,10 @@
 
   <h2>Per service</h2>
   <div class="services" id="services"></div>
+
+  <h2>npm packages: x402-safe-fetch and presign-guard-wallet</h2>
+  <div class="tiles" id="packages" style="margin-top:0"></div>
+  <p class="sub" id="packagesNote" style="margin-top:8px"></p>
 
   <h2>Ichimoku: free preview → paid setups</h2>
   <div class="tiles" id="funnel" style="margin-top:0"></div>
@@ -189,7 +194,10 @@
     return e.route || 'call';
   }
 
-  const state = { days: 30, services: new Set(SERVICES.map((s) => s.id)), paidOnly: false, data: null, rows: 25 };
+  const state = { days: 30, services: new Set(SERVICES.map((s) => s.id)), paidOnly: false, pkgOnly: false, data: null, rows: 25 };
+  // Calls made by our npm packages: they send "user-agent: <package>/<version>", logged as the agent.
+  const PACKAGES = ['x402-safe-fetch', 'presign-guard-wallet'];
+  const packageOf = (e) => PACKAGES.find((p) => String(e.agent || '').startsWith(p + '/')) || null;
 
   async function load() {
     $('sub').textContent = 'Loading…';
@@ -209,7 +217,7 @@
 
   // A 402 (quote) is not a call: the caller only saw the price. Counted separately.
   function filtered() {
-    return (state.data.events || []).filter((e) => !e.quote && state.services.has(e.service) && (!state.paidOnly || e.paid));
+    return (state.data.events || []).filter((e) => !e.quote && state.services.has(e.service) && (!state.paidOnly || e.paid) && (!state.pkgOnly || packageOf(e)));
   }
   function quotes() {
     return (state.data.events || []).filter((e) => e.quote && state.services.has(e.service));
@@ -232,6 +240,7 @@
     const events = filtered();
     renderTiles(events);
     renderServices(events);
+    renderPackages();
     renderFunnel(d.funnel);
     renderChart(events);
     renderTops(events);
@@ -251,6 +260,24 @@
       tile('Paying wallets', payers.size.toLocaleString(), 'unique payers'),
       tile('Price shown', quotes().length.toLocaleString(), `402s · ${quotes().filter((e) => e.payment_failed).length} refused payments`),
     );
+  }
+
+  // Use of the npm packages, over the whole range (not affected by the other filters).
+  function renderPackages() {
+    const all = (state.data.events || []).filter((e) => packageOf(e));
+    const tile = (k, v, d) => el('div', { className: 'tile' }, el('div', { className: 'k', textContent: k }), el('div', { className: 'v', textContent: v }), el('div', { className: 'd', textContent: d }));
+    const tiles = PACKAGES.map((p) => {
+      const mine = all.filter((e) => packageOf(e) === p);
+      const calls = mine.filter((e) => !e.quote && e.route !== 'outcome');
+      const users = new Set(mine.map((e) => e.payer || e.visitor).filter(Boolean));
+      const versions = [...new Set(mine.map((e) => String(e.agent).split('/')[1]).filter(Boolean))].join(', ');
+      const last = mine.length ? new Date(mine[0].t).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : null;
+      return tile(p, calls.length.toLocaleString(), mine.length ? `${calls.filter((e) => e.paid).length} paid · ${users.size} wallet(s)/visitor(s) · v${versions} · last ${last}` : 'no calls yet');
+    });
+    const outcomes = (state.data.events || []).filter((e) => e.route === 'outcome');
+    tiles.push(tile('Outcome reports', outcomes.length.toLocaleString(), outcomes.length ? `${outcomes.filter((e) => e.input && e.input.outcome !== 'paid_ok').length} failed payments reported` : 'from x402-safe-fetch shareOutcomes'));
+    $('packages').replaceChildren(...tiles);
+    $('packagesNote').textContent = 'Installs are not visible: a package shows up here from its first call. Tick "npm packages only" above to see just these calls in the table and chart.';
   }
 
   // Same visitor code within the window after a preview. An agent paying from
@@ -412,7 +439,7 @@
   }
 
   function renderCalls(events) {
-    const head = el('tr', {}, ...['Time', 'Service', 'Call', 'What was filled in', 'Result', 'Payment'].map((t) => el('th', { textContent: t })));
+    const head = el('tr', {}, ...['Time', 'Service', 'Call', 'Agent', 'What was filled in', 'Result', 'Payment'].map((t) => el('th', { textContent: t })));
     const latest = events.slice(0, state.rows);
     $('more').style.display = events.length > state.rows ? 'inline-block' : 'none';
     $('more').textContent = `Show more (${(events.length - state.rows).toLocaleString()} older)`;
@@ -426,12 +453,13 @@
         el('td', { className: 'nowrap', title: e.t, textContent: when.toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) }),
         el('td', {}, el('span', { className: 'svcname' }, swatch(e.service), NAME[e.service] || e.service)),
         el('td', { className: 'nowrap' }, `${e.route || ''}`, e.via && e.via !== 'http' ? el('span', { className: 'pill', textContent: e.via, style: 'margin-left:6px' }) : null),
+        el('td', { className: 'nowrap' }, packageOf(e) ? el('span', { className: 'pill', textContent: e.agent, style: 'border-color:var(--accent,#61f5c3)' }) : String(e.agent || '–').slice(0, 40)),
         el('td', { className: 'mono', textContent: summary(e.input) || '–' }),
         // A feedback report (feedback.js) shows its message; it is text from the caller, set as text.
         el('td', { className: 'mono' }, e.feedback ? `“${String(e.feedback.message || '').slice(0, 300)}”${e.feedback.contact ? ` · ${e.feedback.contact}` : ''}` : summary(e.result) || '–', status),
         el('td', { className: 'nowrap' }, pay));
     });
-    $('calls').replaceChildren(el('thead', {}, head), el('tbody', {}, ...(rows.length ? rows : [el('tr', {}, el('td', { colSpan: 6, className: 'empty', textContent: 'No calls in this range yet.' }))])));
+    $('calls').replaceChildren(el('thead', {}, head), el('tbody', {}, ...(rows.length ? rows : [el('tr', {}, el('td', { colSpan: 7, className: 'empty', textContent: 'No calls in this range yet.' }))])));
   }
 
   // Filters: range (reloads), services and paid-only (re-render only).
@@ -453,6 +481,7 @@
     return c;
   }));
   $('paidOnly').addEventListener('change', (e) => { state.paidOnly = e.target.checked; if (state.data) render(); });
+  $('pkgOnly').addEventListener('change', (e) => { state.pkgOnly = e.target.checked; if (state.data) render(); });
   $('refresh').addEventListener('click', load);
   $('more').addEventListener('click', () => { state.rows += 50; renderCalls(filtered()); });
   let resizeTimer;
