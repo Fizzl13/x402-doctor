@@ -135,3 +135,14 @@ test('stats: the paper trade comes along, trimmed to standings and the trades it
   assert.deepStrictEqual(body.paper_trade.trades, [{ date: '2026-09-29', pair: 'XRP-USDT', direction: 'long', status: 'stop', r: -1, pnl_usd: -7.44, closed_at: '2026-09-29T15:26:51Z' }]);
   assert.doesNotMatch(JSON.stringify(body.paper_trade), /salt|qty/);
 });
+
+test('stats: the trend paper test comes along with its standings and daily values only', async () => {
+  const usageReader = { load: async () => ({ events: [] }) };
+  const trend = { standings: { start: '2026-10-01', start_equity_usd: 1000, weeks: 1, in_market: '30/30', trend: { value_usd: 998.8, return_pct: -0.12, max_drawdown_pct: -0.12 }, hold: { value_usd: 998.8, return_pct: -0.12, max_drawdown_pct: -0.12 }, btc: { value_usd: 998.8, return_pct: -0.12, max_drawdown_pct: -0.12 } }, rebalances: [{ universe: [{ coin: 'BTC' }] }], marks: [{ date: '2026-10-01', at: 'x', trend: 998.8, hold: 998.8, btc: 998.8, extra: 1 }] };
+  const fetchFn = async (url) => ({ ok: true, json: async () => (url.includes('trend-record') ? trend : {}) });
+  const body = await createPublicStats({ usageReader, fetchFn }).get();
+  assert.strictEqual(body.trend_paper.standings.trend.value_usd, 998.8);
+  assert.strictEqual(body.trend_paper.standings.in_market, '30/30');
+  assert.deepStrictEqual(body.trend_paper.marks, [{ date: '2026-10-01', trend: 998.8, trendf: undefined, hold: 998.8, btc: 998.8 }]);
+  assert.strictEqual(body.trend_paper.rebalances, undefined);
+});
