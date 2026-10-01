@@ -1,4 +1,4 @@
-// Monitor: the four fizzl x402 services (read-only, never pays). Output is data only. Run 2026-10-01T0023Z.
+// Monitor: the four fizzl x402 services (read-only, never pays). Output is data only. Run 2026-10-01T0323Z.
 const SVC = [
   { name: 'ichimoku', home: 'https://ichimoku-signal.fizzl.eu/', paid: 'https://ichimoku-signal.fizzl.eu/signal/BTC-USDT' },
   { name: 'presign', home: 'https://presign-guard.fizzl.eu/', paid: 'https://presign-guard.fizzl.eu/v1/token?chain=base&address=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' },
