@@ -1,5 +1,3 @@
-// Recheck after #79: wait for the deploy.
-await new Promise((r) => setTimeout(r, 180000));
 // Monitor: the four fizzl x402 services (read-only, never pays). Output is data only. Run 2026-10-01T1524Z.
 const SVC = [
   { name: 'ichimoku', home: 'https://ichimoku-signal.fizzl.eu/', paid: 'https://ichimoku-signal.fizzl.eu/signal/BTC-USDT' },
