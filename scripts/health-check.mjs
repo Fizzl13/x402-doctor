@@ -41,8 +41,8 @@ const PAID = [
   { service: 'presign-guard', name: 'POST /v1/check/explain', url: `${GUARD}/v1/check/explain`, amount: '30000', networks: [BASE], body: { type: 'approval', chainId: 8453, token: USDC_BASE, spender: PERMIT2, amount: '1000000', lang: 'en' } },
   { service: 'presign-guard', name: 'GET /v1/token', url: `${GUARD}/v1/token?chain=base&address=${USDC_BASE}`, amount: '10000', networks: [BASE, SOLANA] },
   { service: 'presign-guard', name: 'GET /v1/approvals', url: `${GUARD}/v1/approvals?chain=base&address=${PERMIT2}`, amount: '20000', networks: [BASE, SOLANA] },
-  { service: 'PlainText', name: 'POST /api/check-wallet', url: `${PLAIN}/api/check-wallet`, amount: '100000', networks: [BASE, SOLANA], body: { address: PERMIT2, chain: 'base', kind: 'token' } },
-  { service: 'PlainText', name: 'POST /api/explain', url: `${PLAIN}/api/explain`, amount: '50000', networks: [BASE, SOLANA], body: { data: { spender: PERMIT2, amount: '1000000' } } },
+  { service: 'PlainText', name: 'POST /api/check-wallet', url: `${PLAIN}/api/check-wallet`, amount: '40000', networks: [BASE, SOLANA], body: { address: PERMIT2, chain: 'base', kind: 'token' } },
+  { service: 'PlainText', name: 'POST /api/explain', url: `${PLAIN}/api/explain`, amount: '30000', networks: [BASE, SOLANA], body: { data: { spender: PERMIT2, amount: '1000000' } } },
 ];
 
 async function request(url, { method = 'GET', body, headers = {} } = {}) {
