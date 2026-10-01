@@ -1,22 +1,27 @@
-// One-off: PlainText live check after #30 (prices, free routes, presign-guard verdicts). Never pays.
-const B = 'https://plaintext.fizzl.eu';
-const UA = { 'user-agent': 'fizzl-monitor/1.0', 'content-type': 'application/json' };
-const j = async (r) => { const t = await r.text(); try { return JSON.parse(t); } catch { return t.slice(0, 300); } };
-const amounts = async (path) => {
-  const r = await fetch(B + path, { method: 'POST', headers: UA, body: '{}' });
-  const hdr = r.headers.get('payment-required');
-  let acc = [];
-  try { acc = JSON.parse(Buffer.from(hdr, 'base64').toString()).accepts || []; } catch {}
-  if (!acc.length) { const b = await j(r); acc = (b && b.accepts) || []; }
-  console.log('PAID', path, r.status, acc.map((a) => `${String(a.network).split(':')[0]} ${a.amount || a.maxAmountRequired}`).join(', '));
-};
-await amounts('/api/check-wallet');
-await amounts('/api/explain');
-console.log('QUOTA', JSON.stringify(await j(await fetch(B + '/api/free/quota', { headers: UA }))));
-const show = (label, b) => console.log(label, typeof b === 'string' ? b : JSON.stringify({ source: b.source, verdict: b.verdict, reasons: (b.reasons || []).map((x) => `${x.code}:${x.severity}`), receipt: !!b.receipt, left: b.free_left, err: b.error, summary: String(b.summary || b.explanation || '').slice(0, 160) }));
-// Unlimited USDC approval on Base to a random EOA spender — should hit presign-guard /v1/approvals.
-const approval = { chainId: 8453, token: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', spender: '0x1111111111111111111111111111111111111112', amount: '115792089237316195423570985008687907853269984665640564039457584007913129639935' };
-show('FREE explain approval', await j(await fetch(B + '/api/free/explain', { method: 'POST', headers: UA, body: JSON.stringify({ data: approval }) })));
-show('FREE check-wallet USDC', await j(await fetch(B + '/api/free/check-wallet', { method: 'POST', headers: UA, body: JSON.stringify({ address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', chain: 'base' }) })));
-const page = await (await fetch(B + '/', { headers: UA })).text();
-console.log('PAGE free button', /Explain free/.test(page), '| $0.04', page.includes('$0.04'), '| $0.03', page.includes('$0.03'));
+// Monitor: the four fizzl x402 services (read-only, never pays). Output is data only. Run 2026-10-01T0923Z.
+const SVC = [
+  { name: 'ichimoku', home: 'https://ichimoku-signal.fizzl.eu/', paid: 'https://ichimoku-signal.fizzl.eu/signal/BTC-USDT' },
+  { name: 'presign', home: 'https://presign-guard.fizzl.eu/', paid: 'https://presign-guard.fizzl.eu/v1/token?chain=base&address=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' },
+  { name: 'doctor', home: 'https://x402-doctor.fizzl.eu/', paid: 'https://x402-doctor.fizzl.eu/api/v1/diagnose?url=https://example.com' },
+  { name: 'plaintext', home: 'https://plaintext.fizzl.eu/', paid: 'https://plaintext.fizzl.eu/api/check-wallet', method: 'POST' },
+];
+// Our own checks say who they are, so the usage dashboard can hide them.
+const UA = { 'user-agent': 'fizzl-monitor/1.0' };
+const timed = async (url, init) => { const t = Date.now(); try { const r = await fetch(url, { ...init, headers: { ...(init && init.headers), ...UA }, signal: AbortSignal.timeout(60000) }); return { r, ms: Date.now() - t }; } catch (e) { return { err: e.message, ms: Date.now() - t }; } };
+for (const s of SVC) {
+  const h = await timed(s.home, { headers: { accept: 'text/html' } });
+  const p = await timed(s.paid, s.method === 'POST' ? { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json' }, body: '{}' } : { headers: { accept: 'application/json' } });
+  let nets = '';
+  const hdr = p.r?.headers.get('payment-required');
+  if (hdr) { try { nets = JSON.parse(Buffer.from(hdr, 'base64').toString()).accepts.map((a) => a.network).join(','); } catch { nets = 'UNREADABLE'; } }
+  let doc = '';
+  try {
+    const d = await (await fetch('https://x402-doctor.fizzl.eu/api/diagnose', { method: 'POST', headers: { 'content-type': 'application/json', ...UA }, body: JSON.stringify({ url: s.paid, ...(s.method ? { method: s.method } : {}) }), signal: AbortSignal.timeout(90000) })).json();
+    doc = `${d.overall} | ${(d.checks || []).filter((c) => c.status === 'fail' || c.status === 'warn').map((c) => `${c.status}:${c.id}`).join(', ')}`;
+  } catch (e) { doc = `ERR ${e.message}`; }
+  console.log(`MON ${s.name} home ${h.r?.status ?? h.err} ${h.ms}ms | paid ${p.r?.status ?? p.err} ${p.ms}ms nets ${nets || '-'} | doctor ${doc}`);
+}
+for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet']) {
+  const n = async (period) => { try { return (await (await fetch(`https://api.npmjs.org/downloads/point/${period}/${pkg}`, { signal: AbortSignal.timeout(20000) })).json()).downloads ?? '?'; } catch (e) { return `ERR ${e.message}`; } };
+  console.log(`NPM ${pkg} last-day ${await n('last-day')} last-week ${await n('last-week')} last-month ${await n('last-month')}`);
+}
