@@ -1,27 +1,17 @@
-// Monitor: the four fizzl x402 services (read-only, never pays). Output is data only. Run 2026-10-01T0923Z.
-const SVC = [
-  { name: 'ichimoku', home: 'https://ichimoku-signal.fizzl.eu/', paid: 'https://ichimoku-signal.fizzl.eu/signal/BTC-USDT' },
-  { name: 'presign', home: 'https://presign-guard.fizzl.eu/', paid: 'https://presign-guard.fizzl.eu/v1/token?chain=base&address=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' },
-  { name: 'doctor', home: 'https://x402-doctor.fizzl.eu/', paid: 'https://x402-doctor.fizzl.eu/api/v1/diagnose?url=https://example.com' },
-  { name: 'plaintext', home: 'https://plaintext.fizzl.eu/', paid: 'https://plaintext.fizzl.eu/api/check-wallet', method: 'POST' },
-];
-// Our own checks say who they are, so the usage dashboard can hide them.
+// One-off: live check of the new PlainText (prices, free checks, verdict source). Read-only, never pays. Output is data only. Run 2026-10-01T1035Z.
+await new Promise((r) => setTimeout(r, 420000)); // let Render deploy
 const UA = { 'user-agent': 'fizzl-monitor/1.0' };
-const timed = async (url, init) => { const t = Date.now(); try { const r = await fetch(url, { ...init, headers: { ...(init && init.headers), ...UA }, signal: AbortSignal.timeout(60000) }); return { r, ms: Date.now() - t }; } catch (e) { return { err: e.message, ms: Date.now() - t }; } };
-for (const s of SVC) {
-  const h = await timed(s.home, { headers: { accept: 'text/html' } });
-  const p = await timed(s.paid, s.method === 'POST' ? { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json' }, body: '{}' } : { headers: { accept: 'application/json' } });
-  let nets = '';
-  const hdr = p.r?.headers.get('payment-required');
-  if (hdr) { try { nets = JSON.parse(Buffer.from(hdr, 'base64').toString()).accepts.map((a) => a.network).join(','); } catch { nets = 'UNREADABLE'; } }
-  let doc = '';
-  try {
-    const d = await (await fetch('https://x402-doctor.fizzl.eu/api/diagnose', { method: 'POST', headers: { 'content-type': 'application/json', ...UA }, body: JSON.stringify({ url: s.paid, ...(s.method ? { method: s.method } : {}) }), signal: AbortSignal.timeout(90000) })).json();
-    doc = `${d.overall} | ${(d.checks || []).filter((c) => c.status === 'fail' || c.status === 'warn').map((c) => `${c.status}:${c.id}`).join(', ')}`;
-  } catch (e) { doc = `ERR ${e.message}`; }
-  console.log(`MON ${s.name} home ${h.r?.status ?? h.err} ${h.ms}ms | paid ${p.r?.status ?? p.err} ${p.ms}ms nets ${nets || '-'} | doctor ${doc}`);
+const P = 'https://plaintext.fizzl.eu';
+for (const [route, body] of [['/api/check-wallet', { address: '0x000000000022D473030F116dDEE9F6B43aC78BA3', chain: 'base' }], ['/api/explain', { data: { chainId: 8453, token: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', spender: '0x000000000022D473030F116dDEE9F6B43aC78BA3', amount: '1000000' } }]]) {
+  const r = await fetch(P + route, { method: 'POST', headers: { 'content-type': 'application/json', ...UA }, body: JSON.stringify(body) });
+  let amt = '-'; const h = r.headers.get('payment-required');
+  if (h) amt = JSON.parse(Buffer.from(h, 'base64').toString()).accepts.map((a) => `${a.network.split(':')[0]} ${a.amount}`).join(', ');
+  console.log(`PAID ${route} ${r.status} ${amt}`);
 }
-for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet']) {
-  const n = async (period) => { try { return (await (await fetch(`https://api.npmjs.org/downloads/point/${period}/${pkg}`, { signal: AbortSignal.timeout(20000) })).json()).downloads ?? '?'; } catch (e) { return `ERR ${e.message}`; } };
-  console.log(`NPM ${pkg} last-day ${await n('last-day')} last-week ${await n('last-week')} last-month ${await n('last-month')}`);
-}
+console.log('QUOTA', await (await fetch(P + '/api/free/quota', { headers: UA })).text());
+const t = Date.now();
+const r = await fetch(P + '/api/free/explain', { method: 'POST', headers: { 'content-type': 'application/json', ...UA }, body: JSON.stringify({ data: { chainId: 8453, token: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', spender: '0x000000000022D473030F116dDEE9F6B43aC78BA3', amount: '1000000' } }) });
+const b = await r.json().catch(() => ({}));
+console.log(`FREE explain ${r.status} ${Date.now() - t}ms source=${b.source} verdict=${b.verdict} reasons=${JSON.stringify((b.reasons || []).map((x) => x.code))} receipt=${Boolean(b.receipt)} left=${b.free_left} | ${String(b.explanation || b.error || '').slice(0, 300)}`);
+const page = await (await fetch(P + '/', { headers: { accept: 'text/html', ...UA } })).text();
+console.log('PAGE free button', page.includes('checkWalletFreeBtn'), '| $0.04', page.includes('$0.04'));
