@@ -1,27 +1,19 @@
-// Monitor: the four fizzl x402 services (read-only, never pays). Output is data only. Run 2026-10-01T1524Z.
-const SVC = [
-  { name: 'ichimoku', home: 'https://ichimoku-signal.fizzl.eu/', paid: 'https://ichimoku-signal.fizzl.eu/signal/BTC-USDT' },
-  { name: 'presign', home: 'https://presign-guard.fizzl.eu/', paid: 'https://presign-guard.fizzl.eu/v1/token?chain=base&address=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' },
-  { name: 'doctor', home: 'https://x402-doctor.fizzl.eu/', paid: 'https://x402-doctor.fizzl.eu/api/v1/diagnose?url=https://example.com' },
-  { name: 'plaintext', home: 'https://plaintext.fizzl.eu/', paid: 'https://plaintext.fizzl.eu/api/check-wallet', method: 'POST' },
-];
-// Our own checks say who they are, so the usage dashboard can hide them.
-const UA = { 'user-agent': 'fizzl-monitor/1.0' };
-const timed = async (url, init) => { const t = Date.now(); try { const r = await fetch(url, { ...init, headers: { ...(init && init.headers), ...UA }, signal: AbortSignal.timeout(60000) }); return { r, ms: Date.now() - t }; } catch (e) { return { err: e.message, ms: Date.now() - t }; } };
-for (const s of SVC) {
-  const h = await timed(s.home, { headers: { accept: 'text/html' } });
-  const p = await timed(s.paid, s.method === 'POST' ? { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json' }, body: '{}' } : { headers: { accept: 'application/json' } });
-  let nets = '';
-  const hdr = p.r?.headers.get('payment-required');
-  if (hdr) { try { nets = JSON.parse(Buffer.from(hdr, 'base64').toString()).accepts.map((a) => a.network).join(','); } catch { nets = 'UNREADABLE'; } }
-  let doc = '';
-  try {
-    const d = await (await fetch('https://x402-doctor.fizzl.eu/api/diagnose', { method: 'POST', headers: { 'content-type': 'application/json', ...UA }, body: JSON.stringify({ url: s.paid, ...(s.method ? { method: s.method } : {}) }), signal: AbortSignal.timeout(90000) })).json();
-    doc = `${d.overall} | ${(d.checks || []).filter((c) => c.status === 'fail' || c.status === 'warn').map((c) => `${c.status}:${c.id}`).join(', ')}`;
-  } catch (e) { doc = `ERR ${e.message}`; }
-  console.log(`MON ${s.name} home ${h.r?.status ?? h.err} ${h.ms}ms | paid ${p.r?.status ?? p.err} ${p.ms}ms nets ${nets || '-'} | doctor ${doc}`);
+// One-off: presign-guard credit packs live check (after #76). Never pays. Waits for the Render deploy first.
+await new Promise((r) => setTimeout(r, 240000));
+const B = 'https://presign-guard.fizzl.eu';
+const UA = { 'user-agent': 'fizzl-monitor/1.0', accept: 'application/json' };
+const root = await (await fetch(B + '/', { headers: UA })).json();
+console.log('ROOT credits', JSON.stringify(root.credits));
+const info = await fetch(B + '/v1/credits', { headers: UA });
+console.log('INFO', info.status, (await info.text()).slice(0, 300));
+for (const size of ['100', '1000']) {
+  const r = await fetch(`${B}/v1/credits/${size}`, { headers: UA });
+  let acc = [];
+  try { acc = JSON.parse(Buffer.from(r.headers.get('payment-required'), 'base64').toString()).accepts || []; } catch {}
+  console.log('PACK', size, r.status, acc.map((a) => `${String(a.network).split(':')[0]} ${a.amount}`).join(', '));
 }
-for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet']) {
-  const n = async (period) => { try { return (await (await fetch(`https://api.npmjs.org/downloads/point/${period}/${pkg}`, { signal: AbortSignal.timeout(20000) })).json()).downloads ?? '?'; } catch (e) { return `ERR ${e.message}`; } };
-  console.log(`NPM ${pkg} last-day ${await n('last-day')} last-week ${await n('last-week')} last-month ${await n('last-month')}`);
-}
+const fake = 'pgc_' + 'A'.repeat(43);
+const t = await fetch(`${B}/v1/token?chain=base&address=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`, { headers: { ...UA, 'x-credit-key': fake } });
+console.log('UNKNOWN KEY', t.status, 'x-credit-status=' + t.headers.get('x-credit-status'));
+const bal = await fetch(B + '/v1/credits', { headers: { ...UA, 'x-credit-key': fake } });
+console.log('BALANCE unknown', bal.status);
