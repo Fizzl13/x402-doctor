@@ -243,6 +243,25 @@ test('free trust lookup: track record for a scanned URL, 404 for an unknown one,
   assert.equal((await (await fetch(`${api}/api/trust/summary`)).json()).latest.no_go, 1);
 });
 
+test('Bazaar curation metadata: serviceName, category, iconUrl and tags in /.well-known/x402 and in the 402 challenge; the icon is served', async () => {
+  const w = await (await fetch(`${api}/.well-known/x402`)).json();
+  assert.equal(w.serviceName, 'x402 Doctor');
+  assert.equal(w.category, 'developer-tools');
+  assert.match(w.iconUrl, /\/icon\.png$/);
+  assert.ok(w.tags.length > 0);
+  const icon = await fetch(`${api}/icon.png`);
+  assert.equal(icon.status, 200);
+  assert.equal(icon.headers.get('content-type'), 'image/png');
+  for (const route of ['/api/v1/diagnose', '/api/v1/preflight', '/api/v1/fix', '/api/v1/preflight/batch', '/api/v1/preflight/deep']) {
+    const res = await fetch(`${api}${route}`);
+    assert.equal(res.status, 402, route);
+    const challenge = JSON.parse(Buffer.from(res.headers.get('payment-required'), 'base64').toString('utf8'));
+    assert.equal(challenge.resource.serviceName, 'x402 Doctor', route);
+    assert.equal(challenge.resource.iconUrl, 'https://x402-doctor.fizzl.eu/icon.png', route);
+    assert.ok(challenge.resource.tags.length > 0, route);
+  }
+});
+
 test('discovery: OpenAPI with x-payment-info and /.well-known/x402 listing the route', async () => {
   const spec = await (await fetch(`${api}/openapi.json`)).json();
   for (const p of ['/api/v1/diagnose', '/api/v1/preflight', '/api/v1/fix']) {
