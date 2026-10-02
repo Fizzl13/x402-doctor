@@ -225,6 +225,8 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
 
   // Paid agent API (x402). The web page below stays free and rate-limited.
   app.use(paidApi);
+  // Instructions an AI agent can read and follow ("Connect to x402-doctor.fizzl.eu/skill.md").
+  app.get('/skill.md', (_req, res) => res.set('cache-control', 'public, max-age=300').type('text/markdown; charset=utf-8').sendFile(path.join(__dirname, 'public', 'skill.md')));
   app.get('/openapi.json', (req, res) => res.json(openApi(`${req.protocol}://${req.get('host')}`, paidApi.paymentInfo)));
   // Indexers (CDP Bazaar, nsgoods, x402scan) keep the URLs they are given. The
   // old onrender.com address still works, but discovery always names the
