@@ -69,3 +69,13 @@ test('GET /api/status, /status, and status.fizzl.eu at the root', async (t) => {
   assert.match(viaHost, /<title>Fizzl status/);
   assert.doesNotMatch(await (await fetch(`${base}/`)).text(), /<title>Fizzl status/);
 });
+
+test('GET /sellers: the seller tools page', async (t) => {
+  const app = createApp({ env: {}, status: { snapshot: async () => ({}) } });
+  const server = await new Promise((resolve) => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
+  t.after(() => server.close());
+  const page = await (await fetch(`http://127.0.0.1:${server.address().port}/sellers`)).text();
+  assert.match(page, /For x402 sellers/);
+  assert.match(page, /action="\/trust"/);
+  assert.match(page, /href="\/settlement"/);
+});

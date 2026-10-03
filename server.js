@@ -322,6 +322,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   // Public status of the Fizzl services (lib/status.js); also the home page of status.fizzl.eu when that domain points here.
   const statusBoard = status || createStatus({ trustIndex });
   app.get('/status', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'status.html')));
+  app.get('/sellers', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'sellers.html')));
   app.use('/api/status', fizzlCors);
   app.get('/api/status', async (_req, res) => {
     try {
