@@ -292,8 +292,9 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   app.get('/settlement', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'settlement.html')));
   app.use('/api/settlement', fizzlCors);
   app.post('/api/settlement', rateLimit(limits), express.json({ limit: '32kb' }), async (req, res) => {
-    const header = req.body && (req.body.header ?? req.body.payment_response);
-    if (typeof header !== 'string' || !header.trim()) return res.status(400).json({ error: 'Send { "header": "<the PAYMENT-RESPONSE header value>" }.' });
+    const b = req.body || {};
+    const header = typeof b.transaction === 'string' && typeof b.network === 'string' ? { transaction: b.transaction, network: b.network, payer: b.payer } : (b.header ?? b.payment_response);
+    if (!(header && typeof header === 'object') && (typeof header !== 'string' || !header.trim())) return res.status(400).json({ error: 'Send { "header": "<the PAYMENT-RESPONSE header value>" }, or { "transaction": "…", "network": "eip155:8453" }.' });
     try {
       res.json(await checkPaymentProof(header));
     } catch (err) {

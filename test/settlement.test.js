@@ -36,6 +36,8 @@ test('decode: the bare value, a whole header line, raw JSON and x402 v1 network 
   assert.equal(decodeSettlement(`PAYMENT-RESPONSE: ${v}`).transaction, TX);
   assert.equal(decodeSettlement(`x-payment-response: ${v}`).payer, PAYER);
   assert.equal(decodeSettlement(JSON.stringify({ success: true, transaction: TX, network: 'eip155:8453' })).success, true);
+  assert.equal(decodeSettlement(JSON.stringify({ transaction: TX, network: 'base' })).direct, true); // pasted from a receipt link
+  assert.equal(decodeSettlement({ transaction: TX, network: 'eip155:8453' }).network, 'eip155:8453');
   assert.throws(() => decodeSettlement(''), /Paste/);
   assert.throws(() => decodeSettlement('not-base64-json!!'), /base64-encoded JSON/);
   assert.throws(() => decodeSettlement(b64([1, 2])), /JSON object/);
@@ -109,6 +111,11 @@ test('POST /api/settlement and the /settlement page', async (t) => {
   const bad = await post({ header: 'nonsense' });
   assert.equal(bad.status, 400);
   assert.match((await bad.json()).error, /base64-encoded JSON/);
+  const direct = await post({ transaction: TX, network: 'eip155:8453', payer: PAYER });
+  const d = await direct.json();
+  assert.equal(direct.status, 200);
+  assert.equal(d.overall, 'pass'); // no header, so no "success" check, only the chain
+  assert.ok(!d.checks.some((c) => c.id === 'success'));
   const page = await fetch(`${base}/settlement`);
   assert.equal(page.status, 200);
   assert.match(await page.text(), /payment proof check/i);
