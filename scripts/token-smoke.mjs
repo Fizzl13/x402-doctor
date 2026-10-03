@@ -41,13 +41,3 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
-// one-off probe: does the CDP discovery API take a curated filter?
-for (const q of ['limit=1', 'limit=1&curatedOnly=true', 'limit=1&curated_only=true', 'limit=1&curated=true']) {
-  const r = await timed(`https://api.cdp.coinbase.com/platform/v2/x402/discovery/resources?${q}`);
-  let info = r.err || r.r.status; try { const j = await r.r.json(); info = `${r.r.status} total=${j.pagination?.total ?? j.total ?? '?'} keys=${Object.keys(j).join(',')} first=${JSON.stringify(j.items?.[0] ?? j.resources?.[0] ?? null).slice(0, 300)}`; } catch {}
-  console.log(`PROBE ${q} ${info}`);
-}
-for (const q of ['curatedOnly=true&limit=100', 'curatedOnly=true&limit=100&offset=100']) {
-  const r = await timed(`https://api.cdp.coinbase.com/platform/v2/x402/discovery/resources?${q}`);
-  try { const j = await r.r.json(); const hosts = [...new Set((j.items ?? []).map((i) => { try { return new URL(i.resource).host; } catch { return '?'; } }))]; console.log(`CURATED ${q} n=${(j.items ?? []).length} hosts=${hosts.join(' ')}`); } catch (e) { console.log(`CURATED ${q} ${r.err || e.message}`); }
-}
