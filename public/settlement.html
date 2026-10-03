@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>x402 payment proof check</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"%3E%3Crect width="128" height="128" rx="28" fill="%23020708"/%3E%3Cpath d="M78 30 A22 22 0 0 0 52 52 V104" fill="none" stroke="%23f4f8f7" stroke-width="16" stroke-linecap="round"/%3E%3Cpath d="M36 68 H72" stroke="%23f4f8f7" stroke-width="16" stroke-linecap="round"/%3E%3Cg fill="%2361f5c3"%3E%3Ccircle cx="92" cy="72" r="8"/%3E%3Ccircle cx="100" cy="52" r="5"/%3E%3Ccircle cx="104" cy="38" r="3"/%3E%3C/g%3E%3C/svg%3E">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Paste the PAYMENT-RESPONSE header of an x402 payment and see the on-chain transaction behind it: network, payer, USDC moved, success. Free, read-only.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+  :root {
+    --bg: #020708; --panel: #041212; --line: rgba(97,245,195,.16); --text: #f4f8f7; --text-soft: #a8b5b2;
+    --go: #3fb950; --caution: #d29922; --nogo: #f85149; --none: #484f58; --accent: #61f5c3; --on-accent: #02100c;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --bg: #f6f8fa; --panel: #ffffff; --line: #d0d7de; --text: #1f2328; --text-soft: #57606a;
+      --go: #1a7f37; --caution: #9a6700; --nogo: #cf222e; --none: #d0d7de; --accent: #0a7a5c; --on-accent: #ffffff; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: 'DM Sans', system-ui, sans-serif; line-height: 1.55; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 48px 16px 80px; }
+  h1 { font-family: 'Space Grotesk', 'DM Sans', sans-serif; font-size: 1.6rem; letter-spacing: -.02em; margin: 0 0 8px; }
+  h2 { font-size: 0.8rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-soft); margin: 32px 0 10px; }
+  .sub { color: var(--text-soft); margin: 0 0 24px; }
+  .headline { font-size: 17px; margin: 0 0 12px; }
+  .headline strong { font-variant-numeric: tabular-nums; }
+  .share { display: flex; gap: 2px; height: 34px; border-radius: 6px; overflow: hidden; background: var(--panel); }
+  .share .seg { min-width: 4px; height: 100%; cursor: default; outline-offset: 2px; }
+  .share .seg:focus-visible { outline: 2px solid var(--text); }
+  .seg.g { background: var(--go); } .seg.c { background: var(--caution); }
+  .seg.n { background: var(--nogo); background-image: repeating-linear-gradient(135deg, rgba(0,0,0,.28) 0 3px, transparent 3px 7px); }
+  .share-legend { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+  .share-legend > div { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+  .share-legend .k { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
+  .share-legend .sw { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+  .share-legend .v { font-size: 1.25rem; font-weight: 600; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .share-legend .p { color: var(--text-soft); font-size: 13px; font-weight: 400; margin-left: 4px; }
+  .reasons { display: flex; flex-direction: column; gap: 10px; }
+  .reason { display: grid; grid-template-columns: minmax(0, 1fr) 64px; gap: 2px 12px; align-items: center; outline-offset: 3px; border-radius: 4px; }
+  .reason:focus-visible { outline: 2px solid var(--text); }
+  .reason .t { font-size: 14px; grid-column: 1 / -1; }
+  .reason .track { height: 12px; }
+  .reason .bar { height: 100%; min-width: 3px; background: var(--accent); border-radius: 0 4px 4px 0; }
+  .reason .n { font-size: 13.5px; font-variant-numeric: tabular-nums; text-align: right; color: var(--text); }
+  .note { color: var(--text-soft); font-size: 12.5px; margin-top: 10px; }
+  details { margin-top: 10px; font-size: 13.5px; } summary { cursor: pointer; color: var(--text-soft); }
+  table { border-collapse: collapse; margin-top: 8px; width: 100%; font-size: 13.5px; }
+  td, th { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); } td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  #tip { position: fixed; z-index: 10; pointer-events: none; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 13px; box-shadow: 0 6px 20px rgba(0,0,0,.25); max-width: 280px; }
+  form { display: flex; gap: 8px; flex-wrap: wrap; }
+  input[type=url] { flex: 1 1 320px; min-width: 0; font-family: 'SF Mono', Consolas, monospace; font-size: 14px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+  button { font: inherit; font-weight: 600; font-size: 14px; background: var(--accent); color: var(--on-accent); border: none; border-radius: 8px; padding: 12px 20px; cursor: pointer; }
+  .result { margin-top: 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; overflow-wrap: anywhere; }
+  .days { display: flex; gap: 3px; margin: 10px 0 6px; flex-wrap: wrap; }
+  .day { width: 14px; height: 22px; border-radius: 3px; background: var(--none); }
+  .day.g { background: var(--go); } .day.c { background: var(--caution); } .day.n, .day.x { background: var(--nogo); }
+  .legend { font-size: 12.5px; color: var(--text-soft); }
+  ul { padding-left: 20px; } li { margin: 4px 0; }
+  code { font-family: 'SF Mono', Consolas, monospace; font-size: 13px; }
+  a { color: var(--accent); }
+  footer { margin-top: 40px; color: var(--text-soft); font-size: 12.5px; }
+  textarea { width: 100%; min-height: 96px; font-family: 'SF Mono', Consolas, monospace; font-size: 13px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; resize: vertical; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; align-items: center; }
+  .ghost { background: transparent; color: var(--accent); border: 1px solid var(--line); }
+  .checks { list-style: none; padding: 0; margin: 10px 0 0; } .checks li { display: grid; grid-template-columns: 22px minmax(0,1fr); gap: 6px; margin: 6px 0; }
+  .st { font-weight: 700; } .st.pass { color: var(--go); } .st.warn { color: var(--caution); } .st.fail { color: var(--nogo); }
+  .verdict { font-family: 'Space Grotesk', 'DM Sans', sans-serif; font-size: 1.15rem; margin: 0 0 6px; }
+  dl { display: grid; grid-template-columns: max-content minmax(0,1fr); gap: 4px 12px; margin: 10px 0 0; font-size: 13.5px; } dt { color: var(--text-soft); } dd { margin: 0; overflow-wrap: anywhere; font-family: 'SF Mono', Consolas, monospace; font-size: 12.5px; }
+</style>
+<style>.by-fizzl{margin:28px 0 0;font-size:12.5px;line-height:1}.by-fizzl a{display:inline-flex;align-items:center;gap:6px;color:inherit;opacity:.75;text-decoration:none}.by-fizzl a:hover,.by-fizzl a:focus-visible{opacity:1}.by-fizzl svg{height:20px;width:auto;display:block}.by-fizzl .b{fill:#61f5c3}@media (prefers-color-scheme: light){.by-fizzl .b{fill:#0b7a57}}</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>x402 payment proof check</h1>
+  <p class="sub">After a paid x402 request, the seller answers with a <code>PAYMENT-RESPONSE</code> header (<code>X-PAYMENT-RESPONSE</code> in x402 v1). Paste it here to see which on-chain transaction it points to, whether that transaction exists and succeeded, and which USDC moved from whom to whom.</p>
+
+  <h2>Paste the header</h2>
+  <form id="form">
+    <textarea id="hdr" required spellcheck="false" placeholder="eyJzdWNjZXNzIjp0cnVlLCJ0cmFuc2FjdGlvbiI6IjB4… (the header value, or the whole PAYMENT-RESPONSE: … line)" aria-label="PAYMENT-RESPONSE header"></textarea>
+    <div class="row"><button type="submit">Check</button><span class="note" style="margin:0">Free and read-only: nothing is signed or paid, and the header isn't stored.</span></div>
+  </form>
+  <div class="result" id="result" hidden aria-live="polite"></div>
+
+  <h2>Where to find the header</h2>
+  <ul>
+    <li><b>curl:</b> add <code>-i</code> to the paid request and copy the value after <code>payment-response:</code>.</li>
+    <li><b>JavaScript:</b> <code>res.headers.get('payment-response')</code> (or <code>x-payment-response</code> for v1 sellers).</li>
+    <li><b>A browser:</b> developer tools → Network → the paid request → Response headers.</li>
+  </ul>
+
+  <h2>What it tells you</h2>
+  <ul>
+    <li>In plain x402 one paid request is one signed authorization, one settlement and one transaction. The header names it: <code>transaction</code>, <code>network</code>, <code>payer</code> and <code>success</code>.</li>
+    <li>A hosted checkout (such as a payment session) adds its own ids on top; those live in that provider's backend. The transaction hash is still the link to the chain.</li>
+    <li><b>Not found?</b> Check the network. A payment for Base won't show a transfer made on Solana, and the other way round.</li>
+  </ul>
+  <p>Before paying, check the endpoint itself with the <a href="/">free x402 Doctor check</a>, or its track record in the <a href="/trust">Trust Index</a>.</p>
+<footer>API: <code>POST /api/settlement</code> with <code>{"header": "…"}</code> (free, rate-limited). The same check is in x402 Doctor's MCP server as <code>check_payment_proof</code>.</footer>
+  <p class="by-fizzl"><a href="https://fizzl.eu" title="Fizzl: all pay-per-call tools for AI agents, with live demos">by <svg viewBox="-6 -14 236 126" role="img" aria-label="fizzl"><g fill="none" stroke="currentColor" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"><path d="M44 12 A20 20 0 0 0 20 32 V100"/><path d="M6 48 H38"/><path d="M64 56 V100"/><path d="M88 52 H124 L88 100 H124"/><path d="M144 52 H180 L144 100 H180"/><path d="M200 8 V84 A16 16 0 0 0 216 100"/></g><g class="b"><circle cx="64" cy="26" r="9"/><circle cx="78" cy="10" r="5"/><circle cx="90" cy="-2" r="3"/></g></svg><span>· all tools and live demos at fizzl.eu</span></a></p>
+</div>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const icon = { pass: '✓', warn: '!', fail: '✕' };
+  const words = { pass: 'Proof checks out', warn: 'Mostly fine, see the notes', fail: 'Something doesn\'t match' };
+  $('form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const box = $('result');
+    box.hidden = false;
+    box.textContent = 'Checking…';
+    try {
+      const res = await fetch('/api/settlement', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ header: $('hdr').value }) });
+      const d = await res.json();
+      if (!res.ok) { box.textContent = d.error || 'Something went wrong.'; return; }
+      const x = d.decoded;
+      box.innerHTML = `<p class="verdict"><span class="st ${d.overall}">${icon[d.overall]}</span> ${words[d.overall]}</p>
+        <ul class="checks">${d.checks.map((c) => `<li><span class="st ${c.status}">${icon[c.status]}</span><span>${esc(c.message)}</span></li>`).join('')}</ul>
+        <dl><dt>Transaction</dt><dd>${d.explorer ? `<a href="${esc(d.explorer)}" target="_blank" rel="noopener noreferrer">${esc(x.transaction)}</a>` : esc(x.transaction || '-')}</dd>
+        <dt>Network</dt><dd>${esc(x.network || '-')}</dd><dt>Payer</dt><dd>${esc(x.payer || '-')}</dd>
+        ${d.onchain && d.onchain.found ? `<dt>${d.onchain.block ? 'Block' : 'Slot'}</dt><dd>${esc(d.onchain.block || d.onchain.slot)}${d.onchain.time ? ` · ${esc(d.onchain.time)}` : ''}</dd>` : ''}</dl>`;
+    } catch (err) { box.textContent = 'Could not reach x402 Doctor: ' + err.message; }
+  });
+</script>
+</body>
+</html>

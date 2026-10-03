@@ -22,6 +22,7 @@ const { createOutcomes } = require('./lib/outcomes');
 const { createUsageReader } = require('./lib/usage-reader');
 const { createPublicStats, statsCors } = require('./lib/public-stats');
 const { setupsFunnel } = require('./lib/usage-funnel');
+const { checkSettlement } = require('./lib/settlement');
 
 const PORT = process.env.PORT || 3001;
 // Payout addresses shown by /demo/broken (it never settles, so nothing is paid).
@@ -92,6 +93,9 @@ function describeDoctorCall(req, _res, body) {
       payment: mcpPayment(req.body, body),
     };
   }
+  if (req.method === 'POST' && req.path === '/api/settlement') {
+    return { route: 'payment proof', via: 'web', input: { network: b.decoded && b.decoded.network }, result: { overall: b.overall, found: b.onchain ? b.onchain.found : undefined, error: b.error } };
+  }
   if (req.method === 'GET' && req.path === '/api/trust') {
     return { route: 'trust lookup', via: 'web', input: { url: req.query.url }, result: { found: Boolean(b.url && !b.error) } };
   }
@@ -137,7 +141,7 @@ function trustProxyHops(env) {
   return Number.isInteger(n) && n >= 0 && n <= 10 && String(env.TRUST_PROXY_HOPS).trim() !== '' ? n : 3;
 }
 
-function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, trustIndex = createTrustIndex(), media = createMediaCache(), usageLog = createUsageLog({ service: 'doctor', env }), usageReader = createUsageReader({ env }), publicStats = createPublicStats({ usageReader }) } = {}) {
+function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, trustIndex = createTrustIndex(), media = createMediaCache(), usageLog = createUsageLog({ service: 'doctor', env }), usageReader = createUsageReader({ env }), publicStats = createPublicStats({ usageReader }), settlementFetch = globalThis.fetch } = {}) {
   const app = express();
   const safeFetch = createSafeFetch({ allowPrivate });
   // POST /feedback (and the MCP tool feedback): agents report a bug or a missing
@@ -154,7 +158,10 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     signers: () => (paidApi && paidApi.signer ? paidApi.signer.signers : []),
     authority: env.RECEIPT_AUTHORITY || AUTHORITY,
   });
-  paidApi = createPaidApi({ safeFetch, env, trustIndex, feedback, bazaarIndex: bazaar, outcomes });
+  // Free payment-proof check (lib/settlement.js): the PAYMENT-RESPONSE header → the on-chain transaction.
+  const rpcUrls = { ...(env.BASE_RPC_URL ? { 'eip155:8453': env.BASE_RPC_URL } : {}), ...(env.SOLANA_RPC_URL ? { 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp': env.SOLANA_RPC_URL } : {}) };
+  const checkPaymentProof = (header) => checkSettlement(header, { fetch: settlementFetch, rpcUrls });
+  paidApi = createPaidApi({ safeFetch, env, trustIndex, feedback, bazaarIndex: bazaar, outcomes, checkPaymentProof });
 
   // Doctor's requests reach the app through three proxies (the caller, then two
   // hops, the last a private Render address: measured 26 Sep), so Express has to
@@ -282,6 +289,17 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     res.json({ url: parsed.href, ...record });
   });
   app.get('/trust', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'trust.html')));
+  app.get('/settlement', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'settlement.html')));
+  app.use('/api/settlement', fizzlCors);
+  app.post('/api/settlement', rateLimit(limits), express.json({ limit: '32kb' }), async (req, res) => {
+    const header = req.body && (req.body.header ?? req.body.payment_response);
+    if (typeof header !== 'string' || !header.trim()) return res.status(400).json({ error: 'Send { "header": "<the PAYMENT-RESPONSE header value>" }.' });
+    try {
+      res.json(await checkPaymentProof(header));
+    } catch (err) {
+      res.status(err.statusCode || 502).json({ error: err.message });
+    }
+  });
   // Explainer and paid-fix videos, posters and subtitles (see lib/media.js).
   app.get('/media/:name', media.handler);
   app.media = media;
