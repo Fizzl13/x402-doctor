@@ -97,7 +97,7 @@
     <li><b>Not found?</b> Check the network. A payment for Base won't show a transfer made on Solana, and the other way round.</li>
   </ul>
   <p>Before paying, check the endpoint itself with the <a href="/">free x402 Doctor check</a>, or its track record in the <a href="/trust">Trust Index</a>.</p>
-<footer>API: <code>POST /api/settlement</code> with <code>{"header": "…"}</code> (free, rate-limited). The same check is in x402 Doctor's MCP server as <code>check_payment_proof</code>.</footer>
+<footer>API: <code>POST /api/settlement</code> with <code>{"header": "…"}</code> (free, rate-limited). The same check is in x402 Doctor's MCP server as <code>check_payment_proof</code>. To look a transaction up directly, link to <code>/settlement?tx=&lt;hash&gt;&amp;network=&lt;CAIP-2&gt;</code> (the Fizzl Agent Wallet does this from its receipts).</footer>
   <p class="by-fizzl"><a href="https://fizzl.eu" title="Fizzl: all pay-per-call tools for AI agents, with live demos">by <svg viewBox="-6 -14 236 126" role="img" aria-label="fizzl"><g fill="none" stroke="currentColor" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"><path d="M44 12 A20 20 0 0 0 20 32 V100"/><path d="M6 48 H38"/><path d="M64 56 V100"/><path d="M88 52 H124 L88 100 H124"/><path d="M144 52 H180 L144 100 H180"/><path d="M200 8 V84 A16 16 0 0 0 216 100"/></g><g class="b"><circle cx="64" cy="26" r="9"/><circle cx="78" cy="10" r="5"/><circle cx="90" cy="-2" r="3"/></g></svg><span>· all tools and live demos at fizzl.eu</span></a></p>
 </div>
 <script>
@@ -105,13 +105,16 @@
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const icon = { pass: '✓', warn: '!', fail: '✕' };
   const words = { pass: 'Proof checks out', warn: 'Mostly fine, see the notes', fail: 'Something doesn\'t match' };
-  $('form').addEventListener('submit', async (e) => {
-    e.preventDefault();
+  // Opened from a receipt (?tx=…&network=…&payer=…): look that transaction up right away.
+  const q = new URLSearchParams(location.search);
+  const direct = q.get('tx') && q.get('network') ? { transaction: q.get('tx'), network: q.get('network'), ...(q.get('payer') ? { payer: q.get('payer') } : {}) } : null;
+  if (direct) $('hdr').value = JSON.stringify({ transaction: direct.transaction, network: direct.network, ...(direct.payer ? { payer: direct.payer } : {}) });
+  const run = async (body) => {
     const box = $('result');
     box.hidden = false;
     box.textContent = 'Checking…';
     try {
-      const res = await fetch('/api/settlement', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ header: $('hdr').value }) });
+      const res = await fetch('/api/settlement', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
       const d = await res.json();
       if (!res.ok) { box.textContent = d.error || 'Something went wrong.'; return; }
       const x = d.decoded;
@@ -121,7 +124,9 @@
         <dt>Network</dt><dd>${esc(x.network || '-')}</dd><dt>Payer</dt><dd>${esc(x.payer || '-')}</dd>
         ${d.onchain && d.onchain.found ? `<dt>${d.onchain.block ? 'Block' : 'Slot'}</dt><dd>${esc(d.onchain.block || d.onchain.slot)}${d.onchain.time ? ` · ${esc(d.onchain.time)}` : ''}</dd>` : ''}</dl>`;
     } catch (err) { box.textContent = 'Could not reach x402 Doctor: ' + err.message; }
-  });
+  };
+  $('form').addEventListener('submit', (e) => { e.preventDefault(); run({ header: $('hdr').value }); });
+  if (direct) run(direct);
 </script>
 </body>
 </html>
