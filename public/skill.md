@@ -44,6 +44,7 @@ Examples:
 - The MCP tool `x402_quick_check` (10 calls an hour).
 - The website: paste an endpoint at https://x402-doctor.fizzl.eu for the full report in the browser.
 - `GET /api/trust?url=<resource>`: what other agents reported after paying that resource (30 a minute).
+- After paying any x402 endpoint: `POST /api/settlement` with `{"header": "<the PAYMENT-RESPONSE header>"}` (or the MCP tool `check_payment_proof`) shows the on-chain transaction, network, payer and the USDC that moved. Web page: https://x402-doctor.fizzl.eu/settlement
 
 ## Paying
 
