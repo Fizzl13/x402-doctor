@@ -24,6 +24,7 @@ const { createPublicStats, statsCors } = require('./lib/public-stats');
 const { setupsFunnel } = require('./lib/usage-funnel');
 const { checkSettlement } = require('./lib/settlement');
 const { createStatus } = require('./lib/status');
+const { renderBadge, badgeFor } = require('./lib/badge');
 
 const PORT = process.env.PORT || 3001;
 // Payout addresses shown by /demo/broken (it never settles, so nothing is paid).
@@ -96,6 +97,11 @@ function describeDoctorCall(req, _res, body) {
   }
   if (req.method === 'POST' && req.path === '/api/settlement') {
     return { route: 'payment proof', via: 'web', input: { network: b.decoded && b.decoded.network }, result: { overall: b.overall, found: b.onchain ? b.onchain.found : undefined, error: b.error } };
+  }
+  if (req.method === 'GET' && req.path === '/badge.svg') {
+    let host;
+    try { host = new URL(String(req.query.url)).host; } catch { host = undefined; }
+    return { route: 'badge', via: 'web', input: { host, from: (() => { try { return new URL(req.get('referer') || '').host || undefined; } catch { return undefined; } })() }, result: {} };
   }
   if (req.method === 'GET' && req.path === '/api/trust') {
     return { route: 'trust lookup', via: 'web', input: { url: req.query.url }, result: { found: Boolean(b.url && !b.error) } };
@@ -290,6 +296,26 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     const record = await trustIndex.lookup(parsed.href, { waitMs: 5000 });
     if (!record) return res.status(404).json({ url: parsed.href, error: 'not in the trust index (only resources listed in the CDP Bazaar are scanned, once a day)', index: trustIndex.summary() });
     res.json({ url: parsed.href, ...record });
+  });
+  // A "payable" badge for sellers' READMEs and sites (lib/badge.js): one resource, or a whole origin.
+  app.get('/badge.svg', async (req, res) => {
+    let parsed;
+    try {
+      parsed = new URL(String(req.query.url));
+      if (!/^https?:$/.test(parsed.protocol)) throw new Error('not http');
+    } catch {
+      return res.status(400).type('image/svg+xml').send(renderBadge({ message: 'add ?url=…', color: 'grey' }));
+    }
+    let face;
+    try {
+      const wholeOrigin = parsed.pathname === '/' || parsed.pathname === '';
+      const record = wholeOrigin ? null : await trustIndex.lookup(parsed.href, { waitMs: 5000 });
+      const seller = record ? null : await trustIndex.seller(parsed.href, { waitMs: 5000 });
+      face = badgeFor({ record, seller });
+    } catch {
+      face = { message: 'unknown', color: 'grey' };
+    }
+    res.set('Cache-Control', 'public, max-age=3600, s-maxage=3600').set('Access-Control-Allow-Origin', '*').type('image/svg+xml').send(renderBadge(face));
   });
   app.get('/trust', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'trust.html')));
   app.get('/settlement', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'settlement.html')));

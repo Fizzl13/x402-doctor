@@ -60,6 +60,7 @@
   ul { padding-left: 20px; } li { margin: 4px 0; }
   code { font-family: 'SF Mono', Consolas, monospace; font-size: 13px; }
   a { color: var(--accent); }
+  .snippet { display: block; margin-top: 6px; padding: 8px 10px; border-radius: 6px; background: var(--bg); border: 1px solid var(--line); font-size: 12px; overflow-wrap: anywhere; user-select: all; }
   footer { margin-top: 40px; color: var(--text-soft); font-size: 12.5px; }
 </style>
 <style>.by-fizzl{margin:28px 0 0;font-size:12.5px;line-height:1}.by-fizzl a{display:inline-flex;align-items:center;gap:6px;color:inherit;opacity:.75;text-decoration:none}.by-fizzl a:hover,.by-fizzl a:focus-visible{opacity:1}.by-fizzl svg{height:20px;width:auto;display:block}.by-fizzl .b{fill:#61f5c3}@media (prefers-color-scheme: light){.by-fizzl .b{fill:#0b7a57}}</style>
@@ -98,6 +99,7 @@
   <ul>
     <li>The scan sends one request (GET, or POST when you declared POST) per resource per day, plus one <code>/openapi.json</code> per origin, with at most two requests to your host at a time. It never pays and never sends a payment header.</li>
     <li>User-Agent: <code>x402-doctor-trust-scan/1.0 (+https://x402-doctor.fizzl.eu/trust; …)</code></li>
+    <li><b>Get a badge</b> for your README or site: look up your endpoint above and copy the snippet. It shows your track record (e.g. <img src="/badge.svg?url=https%3A%2F%2Fx402-doctor.fizzl.eu%2Fapi%2Fv1%2Fdiagnose" alt="x402 payable" height="16" style="vertical-align:middle">) and links back here. For a whole domain use <code>/badge.svg?url=https://your.domain</code>.</li>
     <li>Found a problem? <a href="/">Diagnose your endpoint</a> for free on the web page, and see every check with a fix hint.</li>
     <li>Paid, and want to see the transaction behind it? The <a href="/settlement">payment proof check</a> reads the <code>PAYMENT-RESPONSE</code> header.</li>
     <li>Want your origin left out of the scan? <a href="https://github.com/Fizzl13/x402-doctor/issues">Open an issue</a>.</li>
@@ -203,6 +205,9 @@
   loadSummary(10);
 
   const label = { g: 'go', c: 'caution', n: 'no-go', x: 'unreachable', '-': 'not scanned' };
+  // Opened from a badge (/trust?url=…): look that resource up right away.
+  const asked = new URLSearchParams(location.search).get('url');
+  if (asked) setTimeout(() => { $('url').value = asked; $('form').requestSubmit(); }, 0);
   $('form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const box = $('result');
@@ -226,6 +231,17 @@
     legend.className = 'legend';
     legend.textContent = 'Last 30 days, oldest left. Green: go · amber: caution · red: no-go or unreachable · grey: not scanned.';
     box.append(head, days, legend);
+    // The seller's badge: shown here so they can copy it into a README or a page.
+    const target = $('url').value.trim(), origin = (() => { try { return new URL(target).origin; } catch { return ''; } })();
+    const badgeUrl = (u) => `${location.origin}/badge.svg?url=${encodeURIComponent(u)}`, pageUrl = `${location.origin}/trust?url=${encodeURIComponent(target)}`;
+    const badge = document.createElement('div');
+    badge.className = 'badgebox';
+    badge.innerHTML = `<div class="legend" style="margin-top:12px">Show this track record on your README or site (it updates daily):</div>
+      <p style="margin:8px 0"><img src="${badgeUrl(target)}" alt="x402 payable badge" height="20"></p>
+      <code class="snippet">[![x402 payable](${badgeUrl(target)})](${pageUrl})</code>
+      <code class="snippet">&lt;a href="${pageUrl}"&gt;&lt;img src="${badgeUrl(target)}" alt="x402 payable" height="20"&gt;&lt;/a&gt;</code>
+      ${origin ? `<div class="legend">For all endpoints on ${origin.replace(/^https?:\/\//, '')} together: <code>${badgeUrl(origin)}</code></div>` : ''}`;
+    box.append(badge);
     if (data.last_scan && data.last_scan.codes && data.last_scan.codes.length) {
       const codes = document.createElement('div');
       codes.className = 'legend';
