@@ -243,6 +243,18 @@
       <code class="snippet">&lt;a href="${pageUrl}"&gt;&lt;img src="${badgeUrl(target)}" alt="x402 payable" height="20"&gt;&lt;/a&gt;</code>
       ${origin ? `<div class="legend">For all endpoints on ${origin.replace(/^https?:\/\//, '')} together: <code>${badgeUrl(origin)}</code></div>` : ''}`;
     box.append(badge);
+    // Not just a record of the past: the Fizzl endpoint monitor alerts the seller when it breaks.
+    if (/^https:/i.test(target) && !/[{}]|\/:[a-z]/i.test(target)) {
+      const watch = document.createElement('div');
+      watch.className = 'legend';
+      watch.style.marginTop = '12px';
+      watch.append('Hear it first when this endpoint stops being payable: ');
+      const a = document.createElement('a');
+      a.href = `https://wallet.fizzl.eu/?${new URLSearchParams({ watch: target })}#/account`;
+      a.textContent = 'get a Telegram alert (free) →';
+      watch.append(a);
+      box.append(watch);
+    }
     if (data.last_scan && data.last_scan.codes && data.last_scan.codes.length) {
       const codes = document.createElement('div');
       codes.className = 'legend';
