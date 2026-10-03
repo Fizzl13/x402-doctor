@@ -41,11 +41,3 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
-// one-off: which facilitator settles Base payments
-{
-  const i = await timed('https://ichimoku-signal.fizzl.eu/', { headers: { accept: 'application/json' } });
-  let fi = i.err || i.r.status; try { fi = JSON.stringify((await i.r.json()).payment.facilitators); } catch {}
-  const d = await timed('https://x402-doctor.fizzl.eu/api/health');
-  let fd = d.err || d.r.status; try { fd = JSON.stringify((await d.r.json()).paid.facilitator); } catch {}
-  console.log(`FACILITATOR ichimoku ${fi} | doctor ${fd}`);
-}
