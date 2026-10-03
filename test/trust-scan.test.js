@@ -81,6 +81,20 @@ test('scan: go, no_go and unreachable sellers, with price and networks', async (
   assert.equal(by.down.verdict, 'no_go');
 });
 
+test('scan: a listing that declares GET but only asks for payment on POST still counts as payable', async () => {
+  const postOnly = await listen((req, res) => {
+    if (req.url === '/openapi.json') return res.end('{}');
+    if (req.method !== 'POST') { res.statusCode = 405; return res.end('use POST'); }
+    const challenge = { x402Version: 2, resource: { url: `http://${req.headers.host}${req.url}`, mimeType: 'application/json', description: 'x' }, accepts: [{ scheme: 'exact', network: BASE, amount: '10000', asset: USDC_BASE, payTo: '0x6B0F4651eD42893ab58139938175E4a69f175F25', maxTimeoutSeconds: 60, extra: { name: 'USD Coin', version: '2' } }] };
+    res.statusCode = 402;
+    res.setHeader('PAYMENT-REQUIRED', Buffer.from(JSON.stringify(challenge)).toString('base64'));
+    res.end('{}'); // requirements in the header only
+  });
+  const [r] = await scan([{ key: 'p', url: `${postOnly}/paid`, method: 'GET' }], { safeFetch: createSafeFetch({ allowPrivate: true, timeoutMs: 2000 }) });
+  assert.equal(r.verdict, 'go');
+  assert.equal(r.method, 'POST');
+});
+
 test('Retry-After: seconds or an HTTP date, capped at 60 s, 5 s when missing', () => {
   assert.equal(retryAfterMs('10'), 10000);
   assert.equal(retryAfterMs('3600'), 60000);
