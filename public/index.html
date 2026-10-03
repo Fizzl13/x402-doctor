@@ -100,6 +100,8 @@
   .overall.warn { background: var(--orange-bg); color: var(--warn); border: 1px solid var(--warn); }
   .overall.fail { background: var(--red-bg); color: var(--fail); border: 1px solid var(--fail); }
   .overall a { color: inherit; font-weight: 500; font-size: 13px; }
+  .watch-line { margin: -8px 0 20px; font-size: 14px; color: var(--text-soft); }
+  .watch-line a { font-weight: 600; white-space: nowrap; }
   .checks { display: flex; flex-direction: column; gap: 8px; }
   .wallets { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 18px; overflow: hidden; background: var(--ink-2); }
   .wallet-row { display: flex; gap: 12px; padding: 10px 16px; border-top: 1px solid var(--line); align-items: baseline; flex-wrap: wrap; }
@@ -169,6 +171,7 @@
 
   <div class="error-box" id="errorBox" hidden></div>
   <div class="overall" id="overallBox" hidden><span id="overallText"></span><a id="shareLink" href="#">Copy link to this report</a></div>
+  <p class="watch-line" id="watchLine" hidden>Get a Telegram message when this endpoint stops being payable (checked every hour, nothing paid): <a id="watchLink" href="https://wallet.fizzl.eu/#/account">Watch this endpoint, free →</a></p>
   <div class="fix-card" id="fixCard" hidden>
     <h3>Get the fix: $0.05</h3>
     <p id="fixIntro">The code that fixes these problems, for your stack, filled in with your own payTo, amount, network and route.</p>
@@ -344,6 +347,7 @@ async function diagnose(url, method) {
   $('fixCard').hidden = true;
   $('errorBox').hidden = true;
   $('overallBox').hidden = true;
+  $('watchLine').hidden = true;
   $('challengeBox').hidden = true;
   $('results').replaceChildren();
   $('diagnoseBtn').disabled = true;
@@ -381,6 +385,12 @@ async function diagnose(url, method) {
     $('overallBox').className = `overall ${data.overall}`;
     $('overallBox').hidden = false;
     renderChecks(data.checks, data.wallets);
+    // The Fizzl endpoint monitor (wallet.fizzl.eu): opens with this endpoint filled in.
+    const watchMethod = data.method || method || 'GET';
+    if (/^https:/i.test(url) && ['GET', 'POST'].includes(watchMethod)) {
+      $('watchLink').href = `https://wallet.fizzl.eu/?${new URLSearchParams({ watch: url, ...(watchMethod === 'POST' ? { method: 'POST' } : {}) })}#/account`;
+      $('watchLine').hidden = false;
+    }
     lastDiagnosis = { url, method };
     const problems = counts[1] + counts[2];
     $('fixCard').hidden = problems === 0;
