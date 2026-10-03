@@ -49,6 +49,8 @@ test('weekly report: markdown and posts name no seller, and the X post fits', ()
   assert.match(posts.x, /57\.1% clean/);
   assert.match(posts.x, /#1 problem: 1 don't answer 402\./);
   assert.match(posts.discord, /DM me your endpoint/);
+  assert.match(posts.discord, /2 endpoints stopped being payable this week.*wallet\.fizzl\.eu/);
+  assert.match(markdown, /Fizzl endpoint monitor.*https:\/\/wallet\.fizzl\.eu/);
 });
 
 test('weekly report: an empty index is an error, not an empty report', () => {
