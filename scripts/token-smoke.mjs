@@ -41,9 +41,3 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
-// one-off: MetaMask dapp scanner verdicts
-for (const h of ['x402-doctor.onrender.com', 'ichimoku-signal.onrender.com', 'x402-doctor.fizzl.eu', 'presign-guard.fizzl.eu', 'ichimoku-signal.fizzl.eu', 'plaintext.fizzl.eu', 'fizzl.eu', 'wallet.fizzl.eu']) {
-  const r = await timed(`https://dapp-scanning.api.cx.metamask.io/scan?url=https://${h}`);
-  let v = r.err || r.r.status; try { const j = await r.r.json(); v = `${j.recommendedAction ?? '?'} ${JSON.stringify(j.riskFactors ?? []).slice(0, 200)}`; } catch {}
-  console.log(`MM ${h} ${v}`);
-}
