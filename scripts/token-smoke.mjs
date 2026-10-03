@@ -1,4 +1,4 @@
-// Monitor: the four fizzl x402 services (read-only, never pays). Output is data only. Run 2026-10-03T03:26:10Z.
+// Monitor: the four fizzl x402 services (read-only, never pays). Output is data only. Run 2026-10-03T06:29:40Z.
 const SVC = [
   { name: 'ichimoku', home: 'https://ichimoku-signal.fizzl.eu/', paid: 'https://ichimoku-signal.fizzl.eu/signal/BTC-USDT' },
   { name: 'presign', home: 'https://presign-guard.fizzl.eu/', paid: 'https://presign-guard.fizzl.eu/v1/token?chain=base&address=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' },
@@ -40,4 +40,12 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const h = await get('/health'), dash = await get('/'), api = await get('/api/state'), v1 = await get('/v1/spending');
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
+}
+// one-off: which facilitator settles Base payments
+{
+  const i = await timed('https://ichimoku-signal.fizzl.eu/', { headers: { accept: 'application/json' } });
+  let fi = i.err || i.r.status; try { fi = JSON.stringify((await i.r.json()).payment.facilitators); } catch {}
+  const d = await timed('https://x402-doctor.fizzl.eu/api/health');
+  let fd = d.err || d.r.status; try { fd = JSON.stringify((await d.r.json()).paid.facilitator); } catch {}
+  console.log(`FACILITATOR ichimoku ${fi} | doctor ${fd}`);
 }
