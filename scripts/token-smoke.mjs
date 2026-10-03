@@ -41,3 +41,20 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
+// one-off: tokenized stocks on Binance and MEXC
+const STK = /^(AAPL|MSFT|NVDA|AMZN|GOOGL|GOOG|META|TSLA|AVGO|SPY|QQQ|COIN|MSTR|HOOD|NFLX|CRCL|JPM|LLY|ORCL|AMD)/;
+for (const [name, url] of [["BINANCE", "https://api.binance.com/api/v3/exchangeInfo"], ["BINANCEUS", "https://api.binance.us/api/v3/exchangeInfo"], ["MEXC", "https://api.mexc.com/api/v3/exchangeInfo"]]) {
+  try { const r = await fetch(url); const t = await r.text(); let j = null; try { j = JSON.parse(t); } catch {}
+    const syms = (j?.symbols || []).filter((s) => STK.test(s.baseAsset || s.symbol || "")).map((s) => `${s.symbol}:${s.status ?? ""}`);
+    console.log("TOK", name, r.status, "total", j?.symbols?.length ?? "-", "stocks", syms.length, syms.slice(0, 120).join(" "), j ? "" : t.slice(0, 120));
+  } catch (e) { console.log("TOK", name, "ERR", e.message); }
+}
+for (const [name, url] of [["MEXCFUT", "https://contract.mexc.com/api/v1/contract/detail"], ["BINANCEFUT", "https://fapi.binance.com/fapi/v1/exchangeInfo"]]) {
+  try { const r = await fetch(url); const j = await r.json().catch(() => null); const list = j?.data || j?.symbols || [];
+    const syms = list.filter((s) => STK.test(s.baseCoin || s.baseAsset || s.symbol || "")).map((s) => s.symbol);
+    console.log("TOK", name, r.status, "stocks", syms.length, syms.slice(0, 80).join(" "));
+  } catch (e) { console.log("TOK", name, "ERR", e.message); }
+}
+for (const sym of ["AAPLXUSDT", "TSLAXUSDT", "NVDAXUSDT", "SPYXUSDT", "AAPLONUSDT"]) {
+  try { const r = await fetch(`https://api.mexc.com/api/v3/klines?symbol=${sym}&interval=1d&limit=3`); console.log("TOK MEXCK", sym, r.status, (await r.text()).slice(0, 160)); } catch (e) { console.log("TOK MEXCK", sym, "ERR", e.message); }
+}
