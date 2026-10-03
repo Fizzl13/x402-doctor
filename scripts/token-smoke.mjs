@@ -1,4 +1,4 @@
-// Monitor: the four fizzl x402 services (read-only, never pays). Output is data only. Run 2026-10-03T07:08:15Z.
+// Monitor: the four fizzl x402 services (read-only, never pays). Output is data only. Run 2026-10-03T08:30:41Z.
 const SVC = [
   { name: 'ichimoku', home: 'https://ichimoku-signal.fizzl.eu/', paid: 'https://ichimoku-signal.fizzl.eu/signal/BTC-USDT' },
   { name: 'presign', home: 'https://presign-guard.fizzl.eu/', paid: 'https://presign-guard.fizzl.eu/v1/token?chain=base&address=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' },
@@ -41,3 +41,5 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
+// one-off: the wallet server's public config (is Solana sign-in on?)
+{ const r = await timed('https://wallet.fizzl.eu/api/config'); let v = r.err || r.r.status; try { v = JSON.stringify(await r.r.json()); } catch {} console.log(`CONFIG ${v}`); }
