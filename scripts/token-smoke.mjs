@@ -41,3 +41,9 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
+// one-off: USDC and SOL on the owner's MetaMask Solana account (read-only)
+{ const rpc = async (method, params) => (await (await fetch("https://api.mainnet-beta.solana.com", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) })).json()).result;
+  const owner = "8JfAWgh8eqqU8y5CaPEA43whQPayJUCfuyQrxhQ5XztE";
+  const t = await rpc("getTokenAccountsByOwner", [owner, { mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" }, { encoding: "jsonParsed" }]).catch((e) => ({ err: e.message }));
+  const b = await rpc("getBalance", [owner]).catch(() => null);
+  console.log("SOLBAL usdc accounts", t?.value?.length, "usdc", JSON.stringify((t?.value || []).map((a) => a.account.data.parsed.info.tokenAmount.uiAmount)), "sol", b?.value / 1e9); }
