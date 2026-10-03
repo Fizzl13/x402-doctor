@@ -41,9 +41,3 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
-// one-off: MEXC base assets of the Ondo stock tokens + candle history length
-{ const j = await (await fetch("https://api.mexc.com/api/v3/exchangeInfo")).json();
-  const want = ["AAPL","MSFT","NVDA","AMZN","GOOGL","META","TSLA","AVGO","ORCL","NFLX","JPM","LLY","AMD","SPY"];
-  for (const w of want) { const s = (j.symbols || []).find((x) => x.symbol === `${w}ONUSDT`);
-    let n = "-"; try { n = (await (await fetch(`https://api.mexc.com/api/v3/klines?symbol=${w}ONUSDT&interval=1d&limit=60`)).json()).length; } catch {}
-    console.log("ONDO", w, s ? `${s.baseAsset}/${s.quoteAsset} status=${s.status} spot=${s.isSpotTradingAllowed}` : "MISSING", "candles", n); } }
