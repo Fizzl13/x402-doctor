@@ -41,5 +41,3 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
-// one-off: the wallet server's public config (is Solana sign-in on?)
-{ const r = await timed('https://wallet.fizzl.eu/api/config'); let v = r.err || r.r.status; try { v = JSON.stringify(await r.r.json()); } catch {} console.log(`CONFIG ${v}`); }
