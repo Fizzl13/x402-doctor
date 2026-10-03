@@ -1,5 +1,7 @@
 # x402 Doctor
 
+[![x402 payable](https://x402-doctor.fizzl.eu/badge.svg?url=https%3A%2F%2Fx402-doctor.fizzl.eu%2Fapi%2Fv1%2Fdiagnose)](https://x402-doctor.fizzl.eu/trust?url=https%3A%2F%2Fx402-doctor.fizzl.eu%2Fapi%2Fv1%2Fdiagnose) · [Live status](https://x402-doctor.fizzl.eu/status)
+
 Diagnoses why an x402-payable endpoint's payment flow is broken, without needing a funded wallet.
 
 Paste a URL (web app) or run `x402-doctor <url>` (CLI, CI) and get back exactly which check failed, why, and how
