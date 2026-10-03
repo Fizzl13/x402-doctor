@@ -78,4 +78,5 @@ test('GET /sellers: the seller tools page', async (t) => {
   assert.match(page, /For x402 sellers/);
   assert.match(page, /action="\/trust"/);
   assert.match(page, /href="\/settlement"/);
+  assert.match(page, /wallet\.fizzl\.eu\/#\/account/);
 });

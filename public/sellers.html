@@ -5,7 +5,7 @@
 <title>x402 Doctor for sellers</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"%3E%3Crect width="128" height="128" rx="28" fill="%23020708"/%3E%3Cpath d="M78 30 A22 22 0 0 0 52 52 V104" fill="none" stroke="%23f4f8f7" stroke-width="16" stroke-linecap="round"/%3E%3Cpath d="M36 68 H72" stroke="%23f4f8f7" stroke-width="16" stroke-linecap="round"/%3E%3Cg fill="%2361f5c3"%3E%3Ccircle cx="92" cy="72" r="8"/%3E%3Ccircle cx="100" cy="52" r="5"/%3E%3Ccircle cx="104" cy="38" r="3"/%3E%3C/g%3E%3C/svg%3E">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Free tools for x402 sellers: check your endpoint the way a paying agent does, show your track record with a badge, and prove payments on-chain.">
+<meta name="description" content="Free tools for x402 sellers: check your endpoint the way a paying agent does, show your track record with a badge, prove payments on-chain, and get a Telegram alert when your endpoint breaks.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap">
@@ -96,6 +96,12 @@
     <p style="margin:0"><a href="/settlement">Open the payment proof check →</a></p>
   </div>
 
+  <div class="tool">
+    <h3>4. Get told the moment it breaks <span class="free" style="color:var(--accent);white-space:nowrap">1 free · 10 with Pro</span></h3>
+    <p>The Fizzl endpoint monitor calls your endpoint every hour the way a paying agent does, without paying. If it stops asking for payment correctly (a 5xx, a 200 without payment, a broken challenge), you get a Telegram message, and another when it works again. One endpoint is free; Pro watches 10 for $5 per 30 days in USDC.</p>
+    <p style="margin:0"><a href="https://wallet.fizzl.eu/#/account">Watch my endpoint →</a> <span style="color:var(--text-soft);font-size:13px">(sign in with your wallet, no e-mail)</span></p>
+  </div>
+
   <h2>What agents check before paying you</h2>
   <p>Agents using x402 Doctor's pre-payment check (<code>GET /api/v1/preflight</code>, also in <code>x402-safe-fetch</code>) get <b>go</b>, <b>caution</b> or <b>no_go</b>. You get <i>caution</i> or <i>no_go</i> when:</p>
   <ul>
@@ -111,6 +117,7 @@
     <li><b>Describe your resource</b>: a clear description, input and output schema, <code>serviceName</code>, <code>tags</code> and an icon in your route config, and a <code>/.well-known/x402</code>.</li>
     <li><b>Stay payable</b>: check yourself with step 1 after every deploy (or in CI: <code>npx github:Fizzl13/x402-doctor &lt;url&gt;</code> exits 1 on failures).</li>
     <li><b>Show it</b>: the badge from step 2 on your README and site.</li>
+    <li><b>Watch it</b>: let the endpoint monitor (step 4) tell you on Telegram when it breaks, before your buyers notice.</li>
   </ol>
 
   <footer>For agents and code: <code>GET /api/v1/diagnose</code> ($0.01), <code>/api/v1/fix</code> ($0.05, code changes for your stack), <code>/api/v1/preflight</code> ($0.001), all via x402 · MCP: <code>https://x402-doctor.fizzl.eu/mcp</code> · <a href="/trust">Trust Index</a> · <a href="/openapi.json">OpenAPI</a></footer>
