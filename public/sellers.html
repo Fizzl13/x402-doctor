@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>x402 Doctor for sellers</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"%3E%3Crect width="128" height="128" rx="28" fill="%23020708"/%3E%3Cpath d="M78 30 A22 22 0 0 0 52 52 V104" fill="none" stroke="%23f4f8f7" stroke-width="16" stroke-linecap="round"/%3E%3Cpath d="M36 68 H72" stroke="%23f4f8f7" stroke-width="16" stroke-linecap="round"/%3E%3Cg fill="%2361f5c3"%3E%3Ccircle cx="92" cy="72" r="8"/%3E%3Ccircle cx="100" cy="52" r="5"/%3E%3Ccircle cx="104" cy="38" r="3"/%3E%3C/g%3E%3C/svg%3E">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Free tools for x402 sellers: check your endpoint the way a paying agent does, show your track record with a badge, and prove payments on-chain.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+  :root {
+    --bg: #020708; --panel: #041212; --line: rgba(97,245,195,.16); --text: #f4f8f7; --text-soft: #a8b5b2;
+    --go: #3fb950; --caution: #d29922; --nogo: #f85149; --none: #484f58; --accent: #61f5c3; --on-accent: #02100c;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --bg: #f6f8fa; --panel: #ffffff; --line: #d0d7de; --text: #1f2328; --text-soft: #57606a;
+      --go: #1a7f37; --caution: #9a6700; --nogo: #cf222e; --none: #d0d7de; --accent: #0a7a5c; --on-accent: #ffffff; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: 'DM Sans', system-ui, sans-serif; line-height: 1.55; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 48px 16px 80px; }
+  h1 { font-family: 'Space Grotesk', 'DM Sans', sans-serif; font-size: 1.6rem; letter-spacing: -.02em; margin: 0 0 8px; }
+  h2 { font-size: 0.8rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-soft); margin: 32px 0 10px; }
+  .sub { color: var(--text-soft); margin: 0 0 24px; }
+  .headline { font-size: 17px; margin: 0 0 12px; }
+  .headline strong { font-variant-numeric: tabular-nums; }
+  .share { display: flex; gap: 2px; height: 34px; border-radius: 6px; overflow: hidden; background: var(--panel); }
+  .share .seg { min-width: 4px; height: 100%; cursor: default; outline-offset: 2px; }
+  .share .seg:focus-visible { outline: 2px solid var(--text); }
+  .seg.g { background: var(--go); } .seg.c { background: var(--caution); }
+  .seg.n { background: var(--nogo); background-image: repeating-linear-gradient(135deg, rgba(0,0,0,.28) 0 3px, transparent 3px 7px); }
+  .share-legend { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+  .share-legend > div { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+  .share-legend .k { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
+  .share-legend .sw { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+  .share-legend .v { font-size: 1.25rem; font-weight: 600; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .share-legend .p { color: var(--text-soft); font-size: 13px; font-weight: 400; margin-left: 4px; }
+  .reasons { display: flex; flex-direction: column; gap: 10px; }
+  .reason { display: grid; grid-template-columns: minmax(0, 1fr) 64px; gap: 2px 12px; align-items: center; outline-offset: 3px; border-radius: 4px; }
+  .reason:focus-visible { outline: 2px solid var(--text); }
+  .reason .t { font-size: 14px; grid-column: 1 / -1; }
+  .reason .track { height: 12px; }
+  .reason .bar { height: 100%; min-width: 3px; background: var(--accent); border-radius: 0 4px 4px 0; }
+  .reason .n { font-size: 13.5px; font-variant-numeric: tabular-nums; text-align: right; color: var(--text); }
+  .note { color: var(--text-soft); font-size: 12.5px; margin-top: 10px; }
+  details { margin-top: 10px; font-size: 13.5px; } summary { cursor: pointer; color: var(--text-soft); }
+  table { border-collapse: collapse; margin-top: 8px; width: 100%; font-size: 13.5px; }
+  td, th { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); } td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  #tip { position: fixed; z-index: 10; pointer-events: none; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 13px; box-shadow: 0 6px 20px rgba(0,0,0,.25); max-width: 280px; }
+  form { display: flex; gap: 8px; flex-wrap: wrap; }
+  input[type=url] { flex: 1 1 320px; min-width: 0; font-family: 'SF Mono', Consolas, monospace; font-size: 14px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+  button { font: inherit; font-weight: 600; font-size: 14px; background: var(--accent); color: var(--on-accent); border: none; border-radius: 8px; padding: 12px 20px; cursor: pointer; }
+  .result { margin-top: 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; overflow-wrap: anywhere; }
+  .days { display: flex; gap: 3px; margin: 10px 0 6px; flex-wrap: wrap; }
+  .day { width: 14px; height: 22px; border-radius: 3px; background: var(--none); }
+  .day.g { background: var(--go); } .day.c { background: var(--caution); } .day.n, .day.x { background: var(--nogo); }
+  .legend { font-size: 12.5px; color: var(--text-soft); }
+  ul { padding-left: 20px; } li { margin: 4px 0; }
+  code { font-family: 'SF Mono', Consolas, monospace; font-size: 13px; }
+  a { color: var(--accent); }
+  .snippet { display: block; margin-top: 6px; padding: 8px 10px; border-radius: 6px; background: var(--bg); border: 1px solid var(--line); font-size: 12px; overflow-wrap: anywhere; user-select: all; }
+  footer { margin-top: 40px; color: var(--text-soft); font-size: 12.5px; }
+  .tool { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin-top: 12px; }
+  .tool h3 { margin: 0 0 4px; font-size: 16px; } .tool p { margin: 4px 0 10px; color: var(--text-soft); font-size: 14px; }
+  .tool form { display: flex; gap: 8px; flex-wrap: wrap; }
+  .tool input { flex: 1 1 280px; min-width: 0; font-family: 'SF Mono', Consolas, monospace; font-size: 14px; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 11px 13px; }
+  .tool .free { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--go); margin-left: 6px; }
+  .steps { counter-reset: s; list-style: none; padding: 0; } .steps li { counter-increment: s; margin: 10px 0; padding-left: 34px; position: relative; }
+  .steps li::before { content: counter(s); position: absolute; left: 0; top: 0; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-weight: 700; font-size: 13px; display: grid; place-items: center; }
+</style>
+<style>.by-fizzl{margin:28px 0 0;font-size:12.5px;line-height:1}.by-fizzl a{display:inline-flex;align-items:center;gap:6px;color:inherit;opacity:.75;text-decoration:none}.by-fizzl a:hover,.by-fizzl a:focus-visible{opacity:1}.by-fizzl svg{height:20px;width:auto;display:block}.by-fizzl .b{fill:#61f5c3}@media (prefers-color-scheme: light){.by-fizzl .b{fill:#0b7a57}}</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>For x402 sellers</h1>
+  <p class="sub">AI agents decide in milliseconds whether to pay you. These free tools show you what they see, and let you prove you're worth paying.</p>
+
+  <div class="tool">
+    <h3>1. Check your endpoint <span class="free">free</span></h3>
+    <p>Every check a paying agent would run, without paying: the 402 challenge, every payment option, Solana readiness, which wallets can pay, Bazaar and OpenAPI discovery. Each problem comes with a fix.</p>
+    <form action="/" method="get"><input type="url" name="url" required placeholder="https://api.example.com/paid" aria-label="Your x402 endpoint"><button type="submit">Check</button></form>
+  </div>
+
+  <div class="tool">
+    <h3>2. Your track record and badge <span class="free">free</span></h3>
+    <p>x402 Doctor scans every resource in the CDP Bazaar once a day. Agents get this record before they pay you. Look yours up, then put the badge in your README or on your site: it updates daily and links to your record.</p>
+    <p><img src="/badge.svg?url=https%3A%2F%2Fx402-doctor.fizzl.eu%2Fapi%2Fv1%2Fdiagnose" alt="x402 payable badge, example" height="20"></p>
+    <form action="/trust" method="get"><input type="url" name="url" required placeholder="https://api.example.com/paid" aria-label="Your x402 resource"><button type="submit">Get my badge</button></form>
+  </div>
+
+  <div class="tool">
+    <h3>3. Prove a payment <span class="free">free</span></h3>
+    <p>A buyer says they paid? Paste the <code>PAYMENT-RESPONSE</code> header (or a transaction and network) and see whether it's on-chain, succeeded, and how much USDC went from whom to whom.</p>
+    <p style="margin:0"><a href="/settlement">Open the payment proof check →</a></p>
+  </div>
+
+  <h2>What agents check before paying you</h2>
+  <p>Agents using x402 Doctor's pre-payment check (<code>GET /api/v1/preflight</code>, also in <code>x402-safe-fetch</code>) get <b>go</b>, <b>caution</b> or <b>no_go</b>. You get <i>caution</i> or <i>no_go</i> when:</p>
+  <ul>
+    <li>a payment would fail: wrong amount units, an unknown token, a missing Solana token account, a bad EIP-712 domain;</li>
+    <li>the price is higher than your OpenAPI says, or the page isn't HTTPS;</li>
+    <li>you were payable on fewer than half of your scanned days;</li>
+    <li>several buyers reported failed payments after paying you.</li>
+  </ul>
+
+  <h2>Get found in the Bazaar</h2>
+  <ol class="steps">
+    <li><b>Settle through the CDP facilitator</b> (set your CDP API keys): resources that settle there (and declare discovery metadata) can be listed in the CDP Bazaar.</li>
+    <li><b>Describe your resource</b>: a clear description, input and output schema, <code>serviceName</code>, <code>tags</code> and an icon in your route config, and a <code>/.well-known/x402</code>.</li>
+    <li><b>Stay payable</b>: check yourself with step 1 after every deploy (or in CI: <code>npx github:Fizzl13/x402-doctor &lt;url&gt;</code> exits 1 on failures).</li>
+    <li><b>Show it</b>: the badge from step 2 on your README and site.</li>
+  </ol>
+
+  <footer>For agents and code: <code>GET /api/v1/diagnose</code> ($0.01), <code>/api/v1/fix</code> ($0.05, code changes for your stack), <code>/api/v1/preflight</code> ($0.001), all via x402 · MCP: <code>https://x402-doctor.fizzl.eu/mcp</code> · <a href="/trust">Trust Index</a> · <a href="/openapi.json">OpenAPI</a></footer>
+  <p class="by-fizzl"><a href="https://fizzl.eu" title="Fizzl: all pay-per-call tools for AI agents, with live demos">by <svg viewBox="-6 -14 236 126" role="img" aria-label="fizzl"><g fill="none" stroke="currentColor" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"><path d="M44 12 A20 20 0 0 0 20 32 V100"/><path d="M6 48 H38"/><path d="M64 56 V100"/><path d="M88 52 H124 L88 100 H124"/><path d="M144 52 H180 L144 100 H180"/><path d="M200 8 V84 A16 16 0 0 0 216 100"/></g><g class="b"><circle cx="64" cy="26" r="9"/><circle cx="78" cy="10" r="5"/><circle cx="90" cy="-2" r="3"/></g></svg><span>· all tools and live demos at fizzl.eu</span></a></p>
+</div>
+</body>
+</html>

@@ -96,6 +96,7 @@
   <p>Agents get this track record in every <a href="/openapi.json">pre-payment check</a> (<code>GET /api/v1/preflight</code>, $0.001): a seller that was payable on fewer than half of its scanned days gets a <em>caution</em>.</p>
 
   <h2>For sellers</h2>
+  <p>All seller tools on one page: <a href="/sellers">x402 Doctor for sellers</a>.</p>
   <ul>
     <li>The scan sends one request (GET, or POST when you declared POST) per resource per day, plus one <code>/openapi.json</code> per origin, with at most two requests to your host at a time. It never pays and never sends a payment header.</li>
     <li>User-Agent: <code>x402-doctor-trust-scan/1.0 (+https://x402-doctor.fizzl.eu/trust; …)</code></li>
