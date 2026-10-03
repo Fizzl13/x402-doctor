@@ -23,6 +23,7 @@ const { createUsageReader } = require('./lib/usage-reader');
 const { createPublicStats, statsCors } = require('./lib/public-stats');
 const { setupsFunnel } = require('./lib/usage-funnel');
 const { checkSettlement } = require('./lib/settlement');
+const { createStatus } = require('./lib/status');
 
 const PORT = process.env.PORT || 3001;
 // Payout addresses shown by /demo/broken (it never settles, so nothing is paid).
@@ -141,7 +142,7 @@ function trustProxyHops(env) {
   return Number.isInteger(n) && n >= 0 && n <= 10 && String(env.TRUST_PROXY_HOPS).trim() !== '' ? n : 3;
 }
 
-function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, trustIndex = createTrustIndex(), media = createMediaCache(), usageLog = createUsageLog({ service: 'doctor', env }), usageReader = createUsageReader({ env }), publicStats = createPublicStats({ usageReader }), settlementFetch = globalThis.fetch } = {}) {
+function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, trustIndex = createTrustIndex(), media = createMediaCache(), usageLog = createUsageLog({ service: 'doctor', env }), usageReader = createUsageReader({ env }), publicStats = createPublicStats({ usageReader }), settlementFetch = globalThis.fetch, status = null } = {}) {
   const app = express();
   const safeFetch = createSafeFetch({ allowPrivate });
   // POST /feedback (and the MCP tool feedback): agents report a bug or a missing
@@ -228,6 +229,8 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     }
   });
 
+  // status.fizzl.eu (a custom domain on this service) opens the status page.
+  app.get('/', (req, res, next) => (req.hostname === 'status.fizzl.eu' ? res.sendFile(path.join(__dirname, 'public', 'status.html')) : next()));
   app.use(express.static(path.join(__dirname, 'public')));
 
   // Paid agent API (x402). The web page below stays free and rate-limited.
@@ -290,6 +293,18 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   });
   app.get('/trust', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'trust.html')));
   app.get('/settlement', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'settlement.html')));
+  // Public status of the Fizzl services (lib/status.js); also the home page of status.fizzl.eu when that domain points here.
+  const statusBoard = status || createStatus({ trustIndex });
+  app.get('/status', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'status.html')));
+  app.use('/api/status', fizzlCors);
+  app.get('/api/status', async (_req, res) => {
+    try {
+      res.set('Cache-Control', 'public, max-age=60');
+      res.json(await statusBoard.snapshot());
+    } catch (err) {
+      res.status(502).json({ error: err.message });
+    }
+  });
   app.use('/api/settlement', fizzlCors);
   app.post('/api/settlement', rateLimit(limits), express.json({ limit: '32kb' }), async (req, res) => {
     const b = req.body || {};
