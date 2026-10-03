@@ -41,9 +41,3 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
-// one-off: free stock data sources
-for (const u of ["https://stooq.com/q/d/l/?s=aapl.us&i=d", "https://stooq.com/q/d/l/?s=spy.us&i=d", "https://query1.finance.yahoo.com/v8/finance/chart/AAPL?range=3mo&interval=1d"]) {
-  try { const r = await fetch(u, { headers: { "user-agent": "Mozilla/5.0" } }); const t = await r.text(); console.log("STOCK", r.status, u, JSON.stringify(t.slice(0, 160)), "len", t.length); } catch (e) { console.log("STOCK ERR", u, e.message); }
-}
-try { const r = await fetch("https://api.kraken.com/0/public/AssetPairs"); const j = await r.json(); const x = Object.entries(j.result || {}).filter(([k, v]) => /x\/|X\//.test(v.wsname || "") && /USD/.test(v.wsname || "")).map(([k, v]) => `${k}=${v.wsname}`); console.log("KRAKEN xstocks", x.length, x.slice(0, 80).join(" ")); } catch (e) { console.log("KRAKEN ERR", e.message); }
-try { const r = await fetch("https://api.kraken.com/0/public/OHLC?pair=AAPLxUSD&interval=1440"); console.log("KRAKEN OHLC", r.status, (await r.text()).slice(0, 300)); } catch (e) { console.log("KRAKEN OHLC ERR", e.message); }
