@@ -45,7 +45,7 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
 // one-off: MPP challenge live on x402 Doctor
 {
   const h = await (await fetch('https://x402-doctor.fizzl.eu/health')).json().catch(() => null);
-  console.log('health mpp:', JSON.stringify(h && (h.paid_api || h).mpp || h && JSON.stringify(h).match(/"mpp":[^}]*}/)?.[0]));
+  console.log('health:', JSON.stringify(h).slice(0, 900));
   for (const r of ['/api/v1/diagnose', '/api/v1/preflight']) {
     const res = await fetch(`https://x402-doctor.fizzl.eu${r}`, { headers: { accept: 'application/json' } });
     const w = res.headers.get('www-authenticate');
