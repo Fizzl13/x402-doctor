@@ -360,3 +360,13 @@ test('feedback in the app: a long report passes (its own parser, not the 4 kB on
   assert.equal(recorded[0].feedback.message, message);
   server.close();
 });
+
+test('protocolOf tells x402, MPP, both and none apart for the usage log', () => {
+  const { protocolOf } = require('../server');
+  assert.equal(protocolOf({ overall: 'pass', checks: [], challenge: { x402Version: 2 } }), 'x402');
+  assert.equal(protocolOf({ overall: 'warn', checks: [], challenge: null, mpp: [{ method: 'tempo' }] }), 'mpp');
+  assert.equal(protocolOf({ overall: 'pass', checks: [], challenge: {}, mpp: [{ method: 'evm' }] }), 'both');
+  assert.equal(protocolOf({ overall: 'fail', checks: [], challenge: null }), 'none');
+  assert.equal(protocolOf({ error: 'bad url' }), undefined);
+  assert.equal(protocolOf(null), undefined);
+});

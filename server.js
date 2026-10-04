@@ -53,16 +53,26 @@ function rateLimit({ windowMs, max }) {
 
 // allowPrivate is only for tests and local CLI use; the web service never
 // diagnoses internal addresses.
+// Which payment protocol a diagnosed endpoint speaks, for the usage log: x402, mpp, both or none.
+function protocolOf(b) {
+  if (!b || typeof b !== 'object' || (!b.checks && !b.overall)) return undefined;
+  const mpp = Array.isArray(b.mpp) && b.mpp.length;
+  if (mpp && b.challenge) return 'both';
+  if (mpp) return 'mpp';
+  return b.challenge ? 'x402' : 'none';
+}
+const mppMethods = (b) => (b && Array.isArray(b.mpp) && b.mpp.length ? [...new Set(b.mpp.map((c) => c && c.method).filter(Boolean))].join(', ') : undefined);
+
 // What each Doctor call was about, for the usage log (null = not logged).
 function describeDoctorCall(req, _res, body) {
   // Who reads the EIP-8004 registration (e.g. agent registries such as Metaplex).
   if (req.method === 'GET' && req.path === '/.well-known/agent-registration.json') return { route: 'agent registration', via: 'discovery', input: {}, result: { status: _res.statusCode } };
   const b = body || {};
   if (req.method === 'POST' && req.path === '/api/diagnose') {
-    return { route: 'diagnose', via: 'web', input: { url: req.body && req.body.url, method: req.body && req.body.method }, result: { overall: b.overall, error: b.error } };
+    return { route: 'diagnose', via: 'web', input: { url: req.body && req.body.url, method: req.body && req.body.method }, result: { overall: b.overall, protocol: protocolOf(b), mpp: mppMethods(b), error: b.error } };
   }
   if (req.method === 'GET' && req.path === PAID_ROUTE) {
-    return { route: 'diagnose', via: 'api', input: { url: req.query.url, method: req.query.method }, result: { overall: b.overall, error: b.error } };
+    return { route: 'diagnose', via: 'api', input: { url: req.query.url, method: req.query.method }, result: { overall: b.overall, protocol: protocolOf(b), mpp: mppMethods(b), error: b.error } };
   }
   if (req.method === 'GET' && req.path === FIX_ROUTE) {
     return { route: 'fix', via: 'api', input: { url: req.query.url, method: req.query.method, stack: req.query.stack }, result: { stack: b.stack && b.stack.id, fixes: Array.isArray(b.fixes) ? b.fixes.map((f) => f.recipe).join(', ') || 'none' : undefined, error: b.error } };
@@ -91,7 +101,7 @@ function describeDoctorCall(req, _res, body) {
       route: call.tool,
       via: 'mcp',
       input: { url: a.url, method: a.method, max_usd: a.max_usd, stack: a.stack },
-      result: { overall: parsed && parsed.overall, verdict: parsed && parsed.verdict, error: reply.result && reply.result.isError ? String(text).slice(0, 200) : undefined },
+      result: { overall: parsed && parsed.overall, protocol: call.tool === 'x402_diagnose' ? protocolOf(parsed) : undefined, mpp: call.tool === 'x402_diagnose' ? mppMethods(parsed) : undefined, verdict: parsed && parsed.verdict, error: reply.result && reply.result.isError ? String(text).slice(0, 200) : undefined },
       payment: mcpPayment(req.body, body),
     };
   }
@@ -589,6 +599,7 @@ module.exports = {
   app,
   createApp,
   isPrivateIp,
+  protocolOf,
   PORT,
   decodeChallengeValue: diagnoseLib.decodeChallengeValue,
   checkEnvelope: diagnoseLib.checkEnvelope,
