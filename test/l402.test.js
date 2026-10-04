@@ -107,3 +107,12 @@ test('preflight: L402-only is payable in sats, with l402_only and priced_in_sats
   assert.deepEqual([o.protocol, o.amount, o.network, o.payable], ['l402', '10', 'lightning:bitcoin', true]);
   assert.match(r.summary, /10 sats on Lightning \(bitcoin\)/);
 });
+
+test('an MPP expires written as a Unix timestamp is named as such', async () => {
+  const { checkMpp } = require('../lib/mpp');
+  const request = Buffer.from(JSON.stringify({ amount: '100', currency: 'sat', recipient: 'x' })).toString('base64url');
+  const res = new Response('{}', { status: 402, headers: { 'www-authenticate': `Payment id="a", realm="127.0.0.1", method="lightning", intent="charge", request="${request}", expires="1791138724"` } });
+  const checks = [];
+  await checkMpp({ res, url: 'http://127.0.0.1/x', method: 'GET' }, checks);
+  assert.match(checks.find((c) => c.id === 'mpp-expires').message, /not an ISO 8601 date \(it looks like a Unix timestamp\)/);
+});
