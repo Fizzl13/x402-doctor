@@ -41,3 +41,24 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
+// one-off: live MPP challenges from mpp.dev/api/services (read-only, no credential)
+{ const d = await (await fetch("https://mpp.dev/api/services")).json();
+  const list = Array.isArray(d) ? d : d.services ?? d.items ?? d.data ?? [];
+  console.log("MPPAPI keys", Array.isArray(d) ? "array" : Object.keys(d).join(","), "n", list.length, "sample", JSON.stringify(list[0] ?? {}).slice(0, 600));
+  const cands = [];
+  for (const s of list) {
+    const base = s.serviceUrl ?? s.url ?? s.baseUrl ?? s.endpoint ?? s.origin;
+    for (const e of s.endpoints ?? s.routes ?? []) {
+      const path = e.path ?? e.route ?? e.url; const method = (e.method ?? "GET").toUpperCase();
+      if (base && path && !/\{|:/.test(path.replace(/^https?:/, ""))) cands.push([new URL(path, base).href, method]);
+    }
+  }
+  console.log("MPPAPI endpoints", cands.length);
+  let shown = 0;
+  for (const [u, m] of cands.slice(0, 120)) {
+    const r = await fetch(u, { method: m, headers: m === "GET" ? {} : { "content-type": "application/json" }, body: m === "GET" ? undefined : "{}", signal: AbortSignal.timeout(8000) }).catch(() => null);
+    const w = r?.headers.get("www-authenticate");
+    if (r?.status === 402 && w && /Payment\s/i.test(w)) { console.log("MPPLIVE", m, u, "| x402:", !!r.headers.get("payment-required"), "|", w.slice(0, 500)); if (++shown >= 6) break; }
+  }
+  console.log("MPPAPI live shown", shown);
+}
