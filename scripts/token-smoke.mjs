@@ -41,14 +41,3 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
-
-// one-off: MPPScan's discovery (@agentcash/discovery) on the four services, after the deploy
-{
-  const { execSync } = await import('node:child_process');
-  for (const o of ['x402-doctor.fizzl.eu', 'ichimoku-signal.fizzl.eu', 'presign-guard.fizzl.eu', 'plaintext.fizzl.eu']) {
-    try {
-      const out = execSync(`npx -y @agentcash/discovery@1.7.5 discover ${o} --json`, { encoding: 'utf8', timeout: 120000 });
-      console.log('ACD', o, out.replace(/\s+/g, ' ').slice(0, 1500));
-    } catch (e) { console.log('ACD', o, 'error', String(e.stdout || e.message).slice(0, 300)); }
-  }
-}
