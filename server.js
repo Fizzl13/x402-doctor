@@ -25,7 +25,7 @@ const { setupsFunnel } = require('./lib/usage-funnel');
 const { checkSettlement } = require('./lib/settlement');
 const { createStatus } = require('./lib/status');
 const { renderBadge, badgeFor } = require('./lib/badge');
-const { atomicUsdc, BASE_USDC } = require('./lib/mpp-pay');
+const { addMppOffers } = require('./lib/mpp-pay');
 
 const PORT = process.env.PORT || 3001;
 // Payout addresses shown by /demo/broken (it never settles, so nothing is paid).
@@ -583,21 +583,8 @@ function openApi(origin, payment) {
       },
     },
   };
-  // MPP discovery (paymentauth.org draft-payment-discovery, read by MPPScan): the MPP offer
-  // per paid operation next to the x402 fields, and service metadata at the root.
-  if (payment.mpp) {
-    spec['x-service-info'] = {
-      categories: ['payments', 'developer-tools', 'security'],
-      docs: { homepage: origin, apiReference: `${origin}/openapi.json`, llms: `${origin}/skill.md` },
-    };
-    for (const methods of Object.values(spec.paths)) {
-      for (const op of Object.values(methods)) {
-        const info = op['x-payment-info'];
-        if (!info || !info.price) continue;
-        info.offers = [{ amount: atomicUsdc(info.price.amount), currency: BASE_USDC, description: op.summary, intent: 'charge', method: 'evm' }];
-      }
-    }
-  }
+  // MPP discovery for MPPScan (mpp-pay.js): the evm offer next to the x402 fields.
+  if (payment.mpp) addMppOffers(spec, { categories: ['payments', 'developer-tools', 'security'], docs: { homepage: origin, apiReference: `${origin}/openapi.json`, llms: `${origin}/skill.md` } });
   return spec;
 }
 
