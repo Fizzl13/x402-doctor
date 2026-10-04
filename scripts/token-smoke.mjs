@@ -41,3 +41,15 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
+{
+  // One-off: payTo per service and which icon URLs exist (GET only, no payment).
+  const svc = [['https://x402-doctor.fizzl.eu', '/api/v1/preflight?url=https://example.com', 'GET'], ['https://ichimoku-signal.fizzl.eu', '/signal/BTC-USDT', 'GET'], ['https://presign-guard.fizzl.eu', '/v1/check', 'POST'], ['https://plaintext.fizzl.eu', '/api/check-wallet', 'POST']];
+  for (const [o, p, m] of svc) {
+    const r = await fetch(o + p, { method: m, headers: { 'content-type': 'application/json', accept: 'application/json' }, body: m === 'POST' ? '{}' : undefined });
+    let pr = null; try { pr = JSON.parse(Buffer.from(r.headers.get('payment-required') || '', 'base64').toString()); } catch {}
+    const acc = (pr?.accepts || []).map((a) => `${a.network}:${a.payTo}:${a.amount}`).join(' ');
+    const icons = [];
+    for (const ic of ['/icon.png', '/logo.png', '/favicon.ico', '/og.jpg', '/og.png']) { const x = await fetch(o + ic, { method: 'HEAD' }); icons.push(`${ic}=${x.status}`); }
+    console.log('PAYTO', o, r.status, acc, '| icons', icons.join(' '));
+  }
+}
