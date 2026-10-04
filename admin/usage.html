@@ -122,6 +122,10 @@
   <div class="tiles" id="packages" style="margin-top:0"></div>
   <p class="sub" id="packagesNote" style="margin-top:8px"></p>
 
+  <h2>MPP (Machine Payments Protocol)</h2>
+  <div class="tiles" id="mpp" style="margin-top:0"></div>
+  <p class="sub" id="mppNote" style="margin-top:8px"></p>
+
   <h2>Ichimoku: free preview → paid setups</h2>
   <div class="tiles" id="funnel" style="margin-top:0"></div>
   <p class="sub" id="funnelNote" style="margin-top:8px"></p>
@@ -252,6 +256,7 @@
     renderTiles(events);
     renderServices(events);
     renderPackages();
+    renderMpp();
     renderFunnel(d.funnel);
     renderChart(events);
     renderTops(events);
@@ -289,6 +294,29 @@
     tiles.push(tile('Outcome reports', outcomes.length.toLocaleString(), outcomes.length ? `${outcomes.filter((e) => e.input && e.input.outcome !== 'paid_ok').length} failed payments reported` : 'from x402-safe-fetch shareOutcomes'));
     $('packages').replaceChildren(...tiles);
     $('packagesNote').textContent = 'Installs are not visible: a package shows up here from its first call. Tick "npm packages only" above to see just these calls in the table and chart.';
+  }
+
+  // MPP over the whole range (service chips and "hide monitors" apply): payments to our services over MPP
+  // (protocol "mpp", since 4 Oct 2026), refused MPP credentials, Doctor checks of MPP endpoints, Trust Index.
+  function renderMpp() {
+    const all = (state.data.events || []).filter((e) => state.services.has(e.service) && (!state.hideBots || !isBot(e)));
+    const tile = (k, v, d) => el('div', { className: 'tile' }, el('div', { className: 'k', textContent: k }), el('div', { className: 'v', textContent: v }), el('div', { className: 'd', textContent: d }));
+    const paid = all.filter((e) => e.paid && e.protocol === 'mpp');
+    const refused = all.filter((e) => e.quote && e.payment_failed && e.protocol === 'mpp');
+    const perSvc = (list) => SERVICES.map((s) => [s.name, list.filter((e) => e.service === s.id).length]).filter(([, n]) => n).map(([n, c]) => `${n} ${c}`).join(' · ');
+    const checks = all.filter((e) => e.service === 'doctor' && (e.route === 'diagnose' || e.route === 'x402_diagnose') && e.result && e.result.protocol);
+    const mppChecks = checks.filter((e) => e.result.protocol === 'mpp' || e.result.protocol === 'both');
+    const t = state.data.trust && state.data.trust.by_protocol;
+    const trustTile = t && t.mpp
+      ? tile('Trust Index: MPP', t.mpp.resources.toLocaleString(), `go ${t.mpp.go} · caution ${t.mpp.caution} · no-go ${t.mpp.no_go} · unreachable ${t.mpp.unreachable} · x402: ${t.x402 ? t.x402.resources.toLocaleString() : 0}`)
+      : tile('Trust Index: MPP', '–', 'no MPP scan yet (the daily scan adds MPP from 5 Oct 2026)');
+    $('mpp').replaceChildren(
+      tile('Paid over MPP', paid.length.toLocaleString(), paid.length ? `${usd(paid.reduce((s, e) => s + (Number(e.usd) || 0), 0))} · ${perSvc(paid)}` : 'no MPP payments yet'),
+      tile('Refused MPP payments', refused.length.toLocaleString(), refused.length ? perSvc(refused) : 'an MPP credential we could not accept'),
+      tile('Doctor checks of MPP endpoints', mppChecks.length.toLocaleString(), checks.length ? `of ${checks.length} checks · MPP only ${mppChecks.filter((e) => e.result.protocol === 'mpp').length}, both ${mppChecks.filter((e) => e.result.protocol === 'both').length}` : 'logged since 4 Oct 2026'),
+      trustTile,
+    );
+    $('mppNote').textContent = 'All four services accept MPP (method evm, USDC on Base) next to x402 since 4 Oct 2026. MPP payments are also in the totals above; the Paid filter and the calls table include them.';
   }
 
   // Same visitor code within the window after a preview. An agent paying from
@@ -457,7 +485,7 @@
     const rows = latest.map((e) => {
       const when = new Date(e.t);
       const pay = e.paid
-        ? el('span', {}, el('span', { className: 'paid', textContent: e.usd ? usd(Number(e.usd)) : 'paid' }), ` ${e.network || ''} `, txLink(e))
+        ? el('span', {}, el('span', { className: 'paid', textContent: e.usd ? usd(Number(e.usd)) : 'paid' }), ` ${e.network || ''} `, e.protocol === 'mpp' ? el('span', { className: 'pill', textContent: 'MPP', style: 'margin-right:4px' }) : null, txLink(e))
         : el('span', { className: 'pill', textContent: 'free' });
       const status = e.status >= 400 ? el('span', { className: 'err', textContent: ` (HTTP ${e.status})` }) : null;
       return el('tr', {},

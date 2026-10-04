@@ -240,7 +240,9 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     const days = Math.min(365, Math.max(1, Number(req.query.days) || 30));
     try {
       const data = await usageReader.load({ days });
-      res.json({ ...data, funnel: setupsFunnel(data.events || []) });
+      let trust = null;
+      try { trust = trustIndex.summary(); } catch { /* not loaded yet */ }
+      res.json({ ...data, funnel: setupsFunnel(data.events || []), trust: trust && trust.by_protocol ? { by_protocol: trust.by_protocol } : null });
     } catch (err) {
       res.status(502).json({ error: err.message });
     }
