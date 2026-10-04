@@ -142,3 +142,31 @@ test('Doctor\'s own MPP check reads the challenge without errors', async (t) => 
   const bad = checks.filter((x) => x.status === 'fail' && x.id !== 'mpp-realm');
   assert.deepEqual(bad, []);
 });
+
+test('routes with parameters match, and an answer that bypasses res.send is refused, not served unpaid', async (t) => {
+  const calls = { settle: 0 };
+  const facilitator = { async verify() { return { isValid: true }; }, async settle() { calls.settle++; return { success: true, transaction: '0x1' }; } };
+  const mpp = createMppPay({ secret: 's', realm: 'doctor.test', recipient: PAY_TO, routes: { 'GET /signal/:pair': '$0.02', 'GET /raw': '$0.01' }, facilitator, log: quiet });
+  const app = express();
+  app.use(mpp.middleware);
+  app.use(unlessMppPaid((req, res, next) => (req.path === '/free' ? next() : res.status(402).json({}))));
+  app.get('/signal/:pair', (req, res) => res.type('text').send(`signal ${req.params.pair}`));
+  app.get('/raw', (req, res) => { res.status(200); res.end('raw'); });
+  const server = await new Promise((r) => { const s = http.createServer(app).listen(0, () => r(s)); });
+  t.after(() => server.close());
+  const base = `http://127.0.0.1:${server.address().port}`;
+
+  const [{ params, request }] = parseChallenges((await fetch(`${base}/signal/BTC-USDT`)).headers.get('www-authenticate'));
+  assert.equal(request.amount, '20000');
+  const c = { ...params, request, requestRaw: params.request };
+  let res = await fetch(`${base}/signal/BTC-USDT`, { headers: { authorization: await credentialFor(c) } });
+  assert.equal(res.status, 200);
+  assert.equal(await res.text(), 'signal BTC-USDT');
+  assert.ok(res.headers.get('payment-receipt'));
+  assert.equal(calls.settle, 1);
+
+  const raw = parseChallenges((await fetch(`${base}/raw`)).headers.get('www-authenticate'))[0];
+  res = await fetch(`${base}/raw`, { headers: { authorization: await credentialFor({ ...raw.params, request: raw.request, requestRaw: raw.params.request }) } });
+  assert.equal(res.status, 402);
+  assert.equal(calls.settle, 1);
+});

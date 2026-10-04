@@ -490,3 +490,12 @@ test('MPP: the 402 also carries an MPP evm challenge; a signed MPP credential is
   const receipt = JSON.parse(Buffer.from(res.headers.get('payment-receipt'), 'base64url').toString());
   assert.deepEqual([receipt.method, receipt.reference, receipt.status], ['evm', '0xsettled', 'success']);
 });
+
+test('MPP discovery: openapi.json has an evm offer per paid operation and x-service-info, next to the x402 fields', async () => {
+  const spec = await (await fetch(`${api}/openapi.json`)).json();
+  assert.ok(spec['x-service-info'].docs.homepage);
+  const op = spec.paths['/api/v1/preflight'].get['x-payment-info'];
+  assert.deepEqual(op.protocols, ['x402']);
+  assert.deepEqual(op.offers, [{ amount: '1000', currency: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', description: spec.paths['/api/v1/preflight'].get.summary, intent: 'charge', method: 'evm' }]);
+  assert.equal(spec.paths['/api/v1/fix'].get['x-payment-info'].offers[0].amount, '50000');
+});
