@@ -41,3 +41,15 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
+
+// one-off: is the x402 upto proxy live on Base, and which facilitators advertise upto?
+{
+  const rpc = async (url, method, params) => (await (await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) })).json()).result;
+  for (const [n, u] of [['base', 'https://mainnet.base.org'], ['base-sepolia', 'https://sepolia.base.org'], ['polygon', 'https://polygon-rpc.com']]) {
+    try { const c = await rpc(u, 'eth_getCode', ['0x4020A4f3b7b90ccA423B9fabCc0CE57C6C240002', 'latest']); console.log('UPTO proxy', n, c ? c.length : c); } catch (e) { console.log('UPTO proxy', n, 'err', e.message); }
+    try { const c = await rpc(u, 'eth_getCode', ['0x000000000022D473030F116dDEE9F6B43aC78BA3', 'latest']); console.log('UPTO permit2', n, c ? c.length : c); } catch (e) { console.log('UPTO permit2', n, 'err', e.message); }
+  }
+  for (const u of ['https://facilitator.payai.network/supported', 'https://x402.org/facilitator/supported', 'https://facilitator.x402.rs/supported']) {
+    try { const j = await (await fetch(u)).json(); const k = (j.kinds || []).filter((x) => x.scheme === 'upto'); console.log('UPTO fac', u, 'upto kinds:', JSON.stringify(k.map((x) => `${x.network} ${JSON.stringify(x.extra || {})}`)).slice(0, 600)); } catch (e) { console.log('UPTO fac', u, 'err', e.message); }
+  }
+}
