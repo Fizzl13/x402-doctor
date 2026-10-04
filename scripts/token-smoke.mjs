@@ -41,3 +41,16 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
+{
+  // One-off: satring submit form fields and categories (GET only).
+  for (const u of ['https://satring.com/submit', 'https://satring.com/api', 'https://satring.com/api/v1/categories']) {
+    try {
+      const r = await fetch(u, { headers: { accept: 'text/html,application/json' } });
+      const t = await r.text();
+      const fields = [...t.matchAll(/<(input|select|textarea)[^>]*>/gi)].map((m) => { const s = m[0]; const g = (k) => (new RegExp(k + '="([^"]*)"', 'i').exec(s) || [])[1]; return `${m[1]}:${g('name')}:${g('type') || ''}:${g('placeholder') || ''}:${/required/.test(s) ? 'req' : ''}`; });
+      const opts = [...t.matchAll(/<option[^>]*value="([^"]*)"[^>]*>([^<]*)/gi)].map((m) => `${m[1]}=${m[2].trim()}`);
+      const labels = [...t.matchAll(/<label[^>]*>([^<]{2,80})/gi)].map((m) => m[1].trim());
+      console.log('SAT', u, r.status, '\nSAT fields', fields.join(' | '), '\nSAT options', opts.join(' | ').slice(0, 1500), '\nSAT labels', labels.join(' | '), '\nSAT text', t.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 2500));
+    } catch (e) { console.log('SAT', u, 'error', e.message); }
+  }
+}
