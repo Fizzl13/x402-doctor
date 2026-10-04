@@ -1,1 +1,0 @@
-{ "name": "tempo-e2e", "private": true, "type": "module", "dependencies": { "mppx": "0.13.1", "viem": "2.57.2", "express": "^4.21.2" } }

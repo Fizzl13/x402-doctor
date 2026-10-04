@@ -41,10 +41,3 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
-{
-  // One-off: real mppx client pays our Tempo push acceptance on the Moderato testnet (faucet tokens, throwaway keys).
-  const { execSync } = await import('node:child_process');
-  const dir = new URL('./tempo-e2e/', import.meta.url).pathname;
-  execSync('npm install --no-audit --no-fund --legacy-peer-deps', { cwd: dir, stdio: 'inherit' });
-  try { execSync('node e2e.mjs', { cwd: dir, stdio: 'inherit', timeout: 180000 }); } catch (e) { console.log('e2e exited', e.status); }
-}
