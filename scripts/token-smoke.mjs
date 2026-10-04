@@ -41,20 +41,3 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
-// one-off: find live MPP endpoints and show their WWW-Authenticate challenge (read-only, no credential)
-{ const pages = ["https://mpp.dev/services", "https://mpp.dev/api/services", "https://mpp.dev/llms.txt", "https://mpp.dev/services.json"];
-  const urls = new Set();
-  for (const p of pages) {
-    const r = await fetch(p, { signal: AbortSignal.timeout(15000) }).catch(() => null);
-    const t = r ? await r.text() : "";
-    console.log("MPPDIR", p, r?.status, t.length);
-    for (const m of t.matchAll(/https:\/\/[a-z0-9.-]+\.[a-z]{2,}(?:\/[A-Za-z0-9._~\/-]*)?/g)) if (!/mpp\.dev|github|stripe\.com|tempo\.xyz|twitter|x\.com|ietf|w3\.org|schema|vercel|cloudflare\.com\/|fonts|cdn/.test(m[0])) urls.add(m[0]);
-  }
-  let shown = 0;
-  for (const u of [...urls].slice(0, 80)) {
-    const r = await fetch(u, { signal: AbortSignal.timeout(8000) }).catch(() => null);
-    const w = r?.headers.get("www-authenticate");
-    if (r?.status === 402 && w && /Payment\s/i.test(w)) { console.log("MPPLIVE", u, "|", w.slice(0, 400)); if (++shown >= 5) break; }
-  }
-  console.log("MPP candidates", urls.size, "live shown", shown);
-}
