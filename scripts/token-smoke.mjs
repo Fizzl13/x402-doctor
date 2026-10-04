@@ -41,15 +41,3 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
-// one-off: ERC-8004 verification of the four services (read-only)
-{ const rpc = "https://mainnet.base.org", REG = "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432";
-  const call = async (data) => (await (await fetch(rpc, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_call", params: [{ to: REG, data }, "latest"] }) })).json()).result ?? "";
-  for (const [host, id] of [["x402-doctor.fizzl.eu", 97519], ["presign-guard.fizzl.eu", 97520], ["ichimoku-signal.fizzl.eu", 97522], ["plaintext.fizzl.eu", 97523]]) {
-    const d = (await call("0xc87b56dd" + id.toString(16).padStart(64, "0"))).slice(2);
-    const len = parseInt(d.slice(64, 128), 16); const uri = Buffer.from(d.slice(128, 128 + len * 2), "hex").toString();
-    const file = await (await fetch(`https://${host}/.well-known/agent-registration.json`)).json().catch(() => ({}));
-    const listed = (file.registrations ?? []).some((r) => String(r.agentId) === String(id) && /^eip155:8453:/i.test(r.agentRegistry));
-    const back = uri === `https://${host}/.well-known/agent-registration.json`;
-    console.log(`ID ${host} #${id} | on-chain uri ok: ${back}${back ? "" : " (" + uri + ")"} | file lists it: ${listed}`);
-  }
-}
