@@ -68,10 +68,11 @@
 <body>
 <div class="wrap">
   <h1>x402 Trust Index</h1>
-  <p class="sub">Once a day, x402 Doctor checks every resource listed in the CDP Bazaar the way a paying agent would, and stops at the 402 challenge. Would a payment settle today, and how often did it over the last 30 days?</p>
+  <p class="sub">Once a day, x402 Doctor checks every resource listed in the CDP Bazaar (x402) and in the MPP directory (Stripe + Tempo) the way a paying agent would, and stops at the 402 challenge. Would a payment settle today, and how often did it over the last 30 days?</p>
 
   <h2>Can an AI agent pay?</h2>
   <p class="headline" id="headline" aria-live="polite">Loading today's scan…</p>
+  <p class="note" id="protocols" hidden></p>
   <div class="share" id="share" role="img" aria-label="Share of x402 services an agent can pay"></div>
   <div class="share-legend" id="shareLegend"></div>
 
@@ -113,6 +114,7 @@
   const $ = (id) => document.getElementById(id);
   // Reason codes in everyday words (codes from lib/preflight.js).
   const REASON = {
+    server_error: 'Server error (5xx)', mpp_challenge_unreadable: 'MPP challenge unreadable', mpp_expired: 'MPP challenge already expired', mpp_no_expires: 'MPP challenge never expires (replay risk)', mpp_realm_mismatch: 'MPP realm is another domain', mpp_bad_fields: 'MPP payment request incomplete',
     suspicious_amount: 'The price looks wrong, e.g. dollars written instead of token units',
     no_402: "Doesn't ask for payment at all (offline or broken)",
     resource_mismatch: 'Charges for a different address than the one called',
@@ -146,7 +148,7 @@
     const total = s.resources;
     const fail = s.latest.no_go + s.latest.unreachable;
     $('headline').innerHTML = '';
-    $('headline').append('Of ', Object.assign(document.createElement('strong'), { textContent: fmt(total) }), ' paid x402 services checked, an agent could pay ',
+    $('headline').append('Of ', Object.assign(document.createElement('strong'), { textContent: fmt(total) }), ' paid services checked (x402 and MPP), an agent could pay ',
       Object.assign(document.createElement('strong'), { textContent: pct(s.latest.go + s.latest.caution, total) }), ' without a failed payment.');
     const parts = [
       { cls: 'g', icon: '✓', label: 'Works', n: s.latest.go, info: 'A payment would settle' },
@@ -201,6 +203,12 @@
     if (!s && tries > 0) return setTimeout(() => loadSummary(tries - 1), 3000);
     if (!s) { $('headline').textContent = 'The index is not available right now. Try again in a minute.'; return; }
     renderShare(s);
+    const bp = s.by_protocol;
+    if (bp && bp.mpp && bp.mpp.resources) {
+      const line = (name, v) => `${name}: ${fmt(v.resources)} services, ${pct(v.go + v.caution, v.go + v.caution + v.no_go + v.unreachable)} payable today`;
+      $('protocols').textContent = `${line('x402', bp.x402)} · ${line('MPP (Stripe + Tempo)', bp.mpp)}`;
+      $('protocols').hidden = false;
+    }
     renderReasons(s);
   });
   loadSummary(10);

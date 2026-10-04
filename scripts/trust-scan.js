@@ -4,13 +4,13 @@
 //   node scripts/trust-scan.js --out trust-data [--limit 200]
 //
 // Reads <out>/index.json (the previous 30-day index, if any), scans every
-// resource in the CDP Bazaar with the pre-payment check, and writes
+// resource in the CDP Bazaar (x402) and the MPP directory (Stripe + Tempo), and writes
 // <out>/index.json and <out>/summary.json.
 
 const fs = require('fs');
 const path = require('path');
 const { createSafeFetch } = require('../lib/safe-fetch');
-const { loadCatalog, scan, mergeIndex, summarize } = require('../lib/trust-scan');
+const { loadCatalog, loadMppCatalog, scan, mergeIndex, summarize } = require('../lib/trust-scan');
 
 function arg(name, fallback) {
   const i = process.argv.indexOf(`--${name}`);
@@ -26,6 +26,12 @@ async function main() {
 
   let resources = await loadCatalog();
   console.log(`catalog: ${resources.length} resources`);
+  // The MPP directory too (Stripe + Tempo). An endpoint already in the Bazaar is checked once, as x402.
+  const mpp = await loadMppCatalog().catch((err) => (console.warn(`MPP directory: ${err.message}`), []));
+  const seen = new Set(resources.map((r) => r.key));
+  const mppOnly = mpp.filter((r) => !seen.has(r.key));
+  console.log(`MPP directory: ${mpp.length} endpoints, ${mppOnly.length} not in the Bazaar`);
+  resources = [...resources, ...mppOnly];
   if (limit > 0) resources = resources.slice(0, limit);
 
   const started = Date.now();
