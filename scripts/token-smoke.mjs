@@ -41,8 +41,3 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
-// one-off: Resend DNS records
-for (const [n, t] of [["resend._domainkey.fizzl.eu", "TXT"], ["send.fizzl.eu", "CNAME"], ["rsend.fizzl.eu", "CNAME"], ["send.fizzl.eu", "TXT"], ["send.fizzl.eu", "MX"]]) {
-  const d = await (await fetch(`https://dns.google/resolve?name=${n}&type=${t}`)).json().catch(() => ({}));
-  console.log(`DNS ${n} ${t} status=${d.Status} ${JSON.stringify((d.Answer ?? []).map((a) => String(a.data).slice(0, 70)))}`);
-}
