@@ -1,4 +1,4 @@
-// Monitor: the four fizzl x402 services (read-only, never pays). Output is data only. Run 2026-10-04T18:27Z.
+// Monitor: the four fizzl x402 services (read-only, never pays). Output is data only. Run 2026-10-04T21:26Z.
 const SVC = [
   { name: 'ichimoku', home: 'https://ichimoku-signal.fizzl.eu/', paid: 'https://ichimoku-signal.fizzl.eu/signal/BTC-USDT' },
   { name: 'presign', home: 'https://presign-guard.fizzl.eu/', paid: 'https://presign-guard.fizzl.eu/v1/token?chain=base&address=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' },
@@ -40,4 +40,24 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const h = await get('/health'), dash = await get('/'), api = await get('/api/state'), v1 = await get('/v1/spending');
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
+}
+{
+  const svc = [['x402-doctor.fizzl.eu', '/api/v1/diagnose?url=https://example.com', 'GET'], ['ichimoku-signal.fizzl.eu', '/signal/BTC-USDT', 'GET'], ['presign-guard.fizzl.eu', '/v1/token?chain=base&address=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', 'GET'], ['plaintext.fizzl.eu', '/api/check-wallet', 'POST']];
+  for (const [host, path, m] of svc) {
+    try {
+      const r = await fetch(`https://${host}${path}`, { method: m, headers: { 'content-type': 'application/json', accept: 'application/json' }, body: m === 'POST' ? '{}' : undefined });
+      const w = r.headers.get('www-authenticate') || '';
+      const ch = [...w.matchAll(/method="([a-z]+)"[^]*?intent="([a-z]+)"/g)].map((x) => x[1] + '/' + x[2]);
+      const realms = [...new Set([...w.matchAll(/realm="([^"]+)"/g)].map((x) => x[1]))];
+      const o = await (await fetch(`https://${host}/openapi.json`)).text();
+      console.log('MPPMON', host, r.status, ch.join(','), realms.length === 1 && realms[0] === host ? 'realm OK' : 'REALM? ' + realms.join(','), 'offers evm', (o.match(/"method":"evm"/g) || []).length, 'tempo', (o.match(/"method":"tempo"/g) || []).length);
+    } catch (e) { console.log('MPPMON', host, 'error', e.message); }
+  }
+  try {
+    const h = { headers: { 'user-agent': 'fizzl-monitor' } };
+    const p = await (await fetch('https://api.github.com/repos/tempoxyz/mpp/pulls/1045', h)).json();
+    const c = await (await fetch('https://api.github.com/repos/tempoxyz/mpp/issues/1045/comments', h)).json();
+    const rv = await (await fetch('https://api.github.com/repos/tempoxyz/mpp/pulls/1045/reviews', h)).json();
+    console.log('PR1045', p.state, 'merged', p.merged, 'updated', p.updated_at, 'humans', Array.isArray(c) ? c.filter((x) => x.user.type !== 'Bot').map((x) => `${x.user.login}: ${x.body.slice(0, 150)}`).join(' || ') : '?', 'reviews', Array.isArray(rv) ? rv.map((x) => `${x.user.login}:${x.state}`).join(',') : '');
+  } catch (e) { console.log('PR1045 error', e.message); }
 }
