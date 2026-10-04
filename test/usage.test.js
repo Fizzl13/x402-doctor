@@ -370,3 +370,26 @@ test('protocolOf tells x402, MPP, both and none apart for the usage log', () => 
   assert.equal(protocolOf({ error: 'bad url' }), undefined);
   assert.equal(protocolOf(null), undefined);
 });
+
+test('middleware: a refused MPP credential is payment_failed with protocol mpp; an MPP payment is paid with protocol mpp', async () => {
+  const gh = fakeGitHub();
+  const usageLog = createUsageLog({ service: 'doctor', env: { USAGE_LOG_TOKEN: 't' }, fetchFn: gh.fetchFn, now: () => new Date('2026-10-04T10:00:00Z'), log: quiet });
+  const express = require('express');
+  const app = express();
+  app.use(usageLog.middleware(() => ({ route: 'diagnose', input: {}, result: {} })));
+  app.get('/paid', (req, res) => {
+    if (req.query.ok) { res.locals.mppPayment = { usd: 0.01, network: 'Base', payer: '0xabc', tx: '0x1', protocol: 'mpp' }; return res.json({ ok: true }); }
+    res.status(402).json({});
+  });
+  const { server, base } = await listen(app);
+  await fetch(`${base}/paid`, { headers: { authorization: 'Payment eyJ4IjoxfQ' } });
+  await fetch(`${base}/paid`, { headers: { authorization: 'Bearer abc' } });
+  await fetch(`${base}/paid?ok=1`, { headers: { authorization: 'Payment eyJ4IjoxfQ' } });
+  await new Promise((r) => setTimeout(r, 30));
+  await usageLog.flush();
+  server.close();
+  const lines = gh.files.get('events/doctor/2026-10-04.jsonl').trim().split('\n').map((l) => JSON.parse(l));
+  assert.deepEqual([lines[0].quote, lines[0].payment_failed, lines[0].protocol], [true, true, 'mpp']);
+  assert.deepEqual([lines[1].quote, lines[1].payment_failed, lines[1].protocol], [true, undefined, undefined]);
+  assert.deepEqual([lines[2].paid, lines[2].usd, lines[2].protocol, lines[2].payer], [true, 0.01, 'mpp', '0xabc']);
+});
