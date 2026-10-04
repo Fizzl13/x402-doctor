@@ -157,7 +157,7 @@
   </header>
   <div class="eyebrow"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>x402 · Base + Solana · for builders and agents</div>
   <h1>Check any x402 endpoint the way a <em>paying agent</em> would.</h1>
-  <p class="sub">Paste a paid endpoint URL: x402 (HTTP or MCP), and MPP from Stripe and Tempo too. Read-only diagnostics: no wallet, no payment, no risk. <a href="#" id="exampleLink" data-url="https://plaintext.fizzl.eu/api/check-wallet">Try an example</a>.</p>
+  <p class="sub">Paste a paid endpoint URL: x402 (HTTP or MCP), MPP from Stripe and Tempo, and L402 (Lightning) too. Read-only diagnostics: no wallet, no payment, no risk. <a href="#" id="exampleLink" data-url="https://plaintext.fizzl.eu/api/check-wallet">Try an example</a>.</p>
 
   <form id="form">
     <input type="url" id="urlInput" required placeholder="https://api.example.com/paid-endpoint" aria-label="Endpoint URL">
@@ -270,7 +270,7 @@
 <script>
 const $ = (id) => document.getElementById(id);
 const GROUPS = {
-  mpp: 'MPP (Stripe / Tempo)',
+  mpp: 'MPP (Stripe / Tempo)', l402: 'L402 (Lightning)',
   challenge: '402 challenge', mcp: 'MCP (payment per tool call)', accepts: 'Payment options', resource: 'Resource',
   settlement: 'Settlement', wallets: 'Who can pay', discovery: 'Discovery', browser: 'Browser'
 };

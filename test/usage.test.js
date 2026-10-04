@@ -367,6 +367,8 @@ test('protocolOf tells x402, MPP, both and none apart for the usage log', () => 
   assert.equal(protocolOf({ overall: 'warn', checks: [], challenge: null, mpp: [{ method: 'tempo' }] }), 'mpp');
   assert.equal(protocolOf({ overall: 'pass', checks: [], challenge: {}, mpp: [{ method: 'evm' }] }), 'both');
   assert.equal(protocolOf({ overall: 'fail', checks: [], challenge: null }), 'none');
+  assert.equal(protocolOf({ overall: 'pass', checks: [], challenge: null, l402: [{ sats: 10 }] }), 'l402');
+  assert.equal(protocolOf({ overall: 'pass', checks: [], challenge: {}, l402: [{ sats: 10 }] }), 'x402+l402');
   assert.equal(protocolOf({ error: 'bad url' }), undefined);
   assert.equal(protocolOf(null), undefined);
 });
