@@ -41,21 +41,3 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
-// one-off: Bazaar / Agentic.Market listing of the fizzl services
-{ const base = "https://api.cdp.coinbase.com/platform/v2/x402/discovery/resources";
-  let all = [], offset = 0;
-  for (let i = 0; i < 60; i++) {
-    const r = await fetch(`${base}?limit=100&offset=${offset}`).then((x) => x.json()).catch((e) => ({ err: e.message }));
-    const items = r.items ?? r.resources ?? [];
-    if (i === 0) console.log("BZ keys", Object.keys(r).join(","), "total", r.pagination?.total ?? r.total);
-    all.push(...items); if (items.length < 100) break; offset += 100;
-  }
-  console.log("BZ fetched", all.length);
-  for (const it of all.filter((x) => JSON.stringify(x).includes("fizzl"))) {
-    const a = (it.accepts ?? [])[0] ?? {};
-    console.log("BZ", it.resource, "| type", it.type, "| desc:", String(a.description ?? it.description ?? "").slice(0, 90), "| nets", (it.accepts ?? []).map((x) => x.network).join(","), "| outSchema", !!a.outputSchema, "| meta", JSON.stringify(it.metadata ?? {}).slice(0, 160), "| updated", it.lastUpdated);
-  }
-}
-for (const u of ["https://agentic.market/", "https://www.agentic.market/", "https://agentic.market/search?q=fizzl", "https://agentic.market/api/services?q=fizzl"]) {
-  try { const r = await fetch(u, { redirect: "follow", signal: AbortSignal.timeout(15000) }); const t = await r.text(); console.log("AM", r.status, u, "len", t.length, "fizzl?", t.includes("fizzl"), "|", (t.match(/<title>[^<]*/) ?? [""])[0], "|", [...t.matchAll(/https?:\/\/[a-z0-9.-]*agentic\.market\/api[^"' ]*/g)].slice(0, 3).map((m) => m[0]).join(" ")); } catch (e) { console.log("AM ERR", u, e.message); }
-}
