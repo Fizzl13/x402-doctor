@@ -46,3 +46,15 @@ test('no usable wallet at all', () => {
   assert.deepEqual(walletCompatibility([{ scheme: 'exact', network: 'cosmos:hub' }], []), []);
   assert.match(summaryCheck([], []).message, /No payment option/);
 });
+
+test('upto: browser wallets cannot pay it (Permit2, not EIP-3009); x402 agents can, with an upto client', () => {
+  const upto = { scheme: 'upto', network: 'eip155:8453', amount: '100000', asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', payTo: '0x408C4610F6879a75c25722cfCd18A2Eff99dc20F', extra: { assetTransferMethod: 'permit2', facilitatorAddress: '0x1111111111111111111111111111111111111111' } };
+  const wallets = walletCompatibility([upto], []);
+  const mm = wallets.find((w) => w.wallet === 'MetaMask');
+  assert.deepEqual(mm.yes, []);
+  assert.match(mm.no[0].reason, /Permit2/);
+  const agents = wallets.find((w) => w.agent);
+  assert.deepEqual(agents.yes, ['Base']);
+  assert.match(agents.needs[0], /upto client and a Permit2 approval/);
+  assert.match(summaryCheck([upto], wallets).message, /x402 agents ✓ Base \(with an upto client\)/);
+});

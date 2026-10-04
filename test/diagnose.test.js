@@ -616,9 +616,11 @@ test('MPP: a WWW-Authenticate: Payment challenge is read and checked; MPP-only i
   assert.match(parseChallenges('Payment id="x", realm="h", method="tempo", intent="charge", request="not base64!"')[0].error, /base64url/);
 
   let mode = 'mpp-good';
+  const seenTestAgents = new Set();
   const api = await listen((req, res) => {
     const host = 'localhost';
     const credential = req.headers.authorization;
+    if (credential) seenTestAgents.add(req.headers['user-agent']);
     const good = `Payment id="c1", realm="${host}", method="tempo", intent="charge", request="${b64u(tempo)}", expires="${soon}"`;
     if (mode === 'mpp-good') {
       res.statusCode = 402;
@@ -649,6 +651,7 @@ test('MPP: a WWW-Authenticate: Payment challenge is read and checked; MPP-only i
   assert.deepEqual(byId(good, 'mpp-fields').map((c) => c.status), ['pass', 'pass']);
   assert.match(byId(good, 'mpp-fields')[1].message, /1\.00 USD via Stripe/);
   assert.equal(byId(good, 'mpp-bad-credential')[0].status, 'pass');
+  assert.deepEqual([...seenTestAgents], ['x402-doctor (MPP bad-credential test)'], 'the bad-credential test names itself, so sellers can tell it from a real refused payment');
   assert.ok(!good.checks.some((c) => c.group === 'mpp' && c.status === 'fail'));
   assert.equal(good.mpp.length, 2);
 
@@ -666,4 +669,47 @@ test('MPP: a WWW-Authenticate: Payment challenge is read and checked; MPP-only i
   assert.equal(byId(both, 'protocols')[0].status, 'pass');
   assert.match(byId(both, 'protocols')[0].message, /both x402 and MPP \(tempo\)/);
   assert.equal(byId(both, 'protocol-version')[0].status, 'pass');
+});
+
+test('upto scheme: EVM needs facilitatorAddress and permit2, buyers are told about Permit2; Solana needs receiverAuthorizer', () => {
+  const checks = [];
+  const base = { network: 'eip155:8453', amount: '100000', asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', payTo: '0x408C4610F6879a75c25722cfCd18A2Eff99dc20F', maxTimeoutSeconds: 300 };
+  checkAccepts([
+    { scheme: 'upto', ...base, extra: { assetTransferMethod: 'permit2', facilitatorAddress: '0x1111111111111111111111111111111111111111' } },
+    { scheme: 'upto', ...base, extra: { assetTransferMethod: 'permit2' } },
+    { scheme: 'upto', ...base, extra: { assetTransferMethod: 'eip3009', facilitatorAddress: '0x1111111111111111111111111111111111111111' } },
+    { scheme: 'upto', network: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp', amount: '100000', asset: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', payTo: 'ATWJ82T8nRdQwZnaysB68N5EpaSvLRsQP4h6eWmaJBH9', maxTimeoutSeconds: 300, extra: { feePayer: '2wKupLR9q6wXYppw8Gr2NvWxKBUqm4PPJKkQfoxHDBg4' } },
+  ], checks);
+  const get = (id) => checks.find((c) => c.id === id);
+  assert.equal(get('accepts[0]-extra').status, 'pass');
+  assert.equal(get('accepts[0]-scheme'), undefined, 'upto is a known scheme');
+  assert.equal(get('accepts[0]-upto').status, 'info');
+  assert.match(get('accepts[0]-upto').message, /Permit2 approval/);
+  assert.equal(get('accepts[1]-extra').status, 'fail');
+  assert.match(get('accepts[1]-extra').message, /facilitatorAddress/);
+  assert.equal(get('accepts[2]-extra').status, 'warn');
+  assert.equal(get('accepts[3]-upto').status, 'fail');
+  assert.match(get('accepts[3]-upto').message, /receiverAuthorizer/);
+});
+
+test('upto proxy: fail when it has no code on the network, pass when deployed, silent when the RPC does not answer', async (t) => {
+  const { checkUptoProxy } = require('../lib/diagnose');
+  let reply = '0x';
+  const server = http.createServer((req, res) => { let b = ''; req.on('data', (c) => (b += c)); req.on('end', () => { res.setHeader('content-type', 'application/json'); res.end(reply === null ? '{"jsonrpc":"2.0","id":1,"error":{"code":-32000,"message":"down"}}' : JSON.stringify({ jsonrpc: '2.0', id: 1, result: reply })); }); }).listen(0);
+  t.after(() => server.close());
+  await new Promise((r) => server.once('listening', r));
+  // RPC answers are cached per URL for 10 minutes: one URL per case.
+  const rpcs = (tag) => ({ 'eip155:8453': `http://127.0.0.1:${server.address().port}/${tag}` });
+  const option = { scheme: 'upto', network: 'eip155:8453', amount: '1', asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', payTo: '0x408C4610F6879a75c25722cfCd18A2Eff99dc20F' };
+  let checks = [];
+  await checkUptoProxy([option], checks, { evmRpcUrls: rpcs('empty') });
+  assert.equal(checks.find((c) => c.id === 'upto-proxy').status, 'fail');
+  reply = '0x6080604052';
+  checks = [];
+  await checkUptoProxy([option, { ...option, scheme: 'exact' }], checks, { evmRpcUrls: rpcs('deployed') });
+  assert.deepEqual(checks.map((c) => [c.id, c.status]), [['upto-proxy', 'pass']]);
+  reply = null;
+  checks = [];
+  await checkUptoProxy([option], checks, { evmRpcUrls: rpcs('down') });
+  assert.deepEqual(checks, []);
 });
