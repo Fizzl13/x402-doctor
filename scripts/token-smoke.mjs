@@ -41,14 +41,3 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
-{
-  // One-off: does Doctor's 402 offer MPP tempo now? (no payment)
-  for (const u of ['https://x402-doctor.fizzl.eu/api/v1/preflight?url=https://example.com', 'https://x402-doctor.fizzl.eu/api/v1/diagnose?url=https://example.com']) {
-    const r = await fetch(u, { headers: { accept: 'application/json' } });
-    const w = r.headers.get('www-authenticate') || '';
-    const t = [...w.matchAll(/method="tempo"[^]*?request="([^"]+)"/g)].map((x) => Buffer.from(x[1], 'base64url').toString())[0];
-    console.log('TEMPO doctor', r.status, [...w.matchAll(/method="([a-z]+)"/g)].map((x) => x[1]).join(','), t || '');
-  }
-  const o = await (await fetch('https://x402-doctor.fizzl.eu/openapi.json')).text();
-  console.log('TEMPO doctor openapi tempo offers', (o.match(/"method":"tempo"/g) || []).length);
-}
