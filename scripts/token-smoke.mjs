@@ -41,3 +41,24 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
+// one-off: full Bazaar scan for fizzl + what our 402 challenges carry for discovery
+{ const base = "https://api.cdp.coinbase.com/platform/v2/x402/discovery/resources";
+  let all = [], offset = 0;
+  for (let i = 0; i < 120; i++) {
+    const r = await fetch(`${base}?type=http&limit=500&offset=${offset}`).then((x) => x.json()).catch(() => ({}));
+    const items = r.items ?? [];
+    all.push(...items); if (items.length < 500) break; offset += 500;
+  }
+  const mine = all.filter((x) => /fizzl|onrender\.com/.test(x.resource) && /x402-doctor|presign-guard|ichimoku|plaintext|smartcontractexplainer/.test(x.resource));
+  console.log("BZ2 fetched", all.length, "ours", mine.length);
+  for (const it of mine) console.log("BZ2", it.resource, "| updated", it.lastUpdated, "| outSchema", !!(it.accepts ?? [])[0]?.outputSchema, "| ext", Object.keys(it.extensions ?? {}).join(","));
+  const sample = all.find((x) => (x.accepts ?? [])[0]?.outputSchema);
+  console.log("BZ2 sample with outputSchema:", sample?.resource, JSON.stringify((sample?.accepts ?? [])[0]?.outputSchema ?? {}).slice(0, 300));
+}
+for (const [u, m] of [["https://presign-guard.fizzl.eu/v1/check", "POST"], ["https://plaintext.fizzl.eu/api/check-wallet", "POST"], ["https://ichimoku-signal.fizzl.eu/signal/BTC-USDT", "GET"]]) {
+  const r = await fetch(u, { method: m, headers: { "content-type": "application/json" }, body: m === "POST" ? "{}" : undefined });
+  const h = r.headers.get("payment-required"); let j = null; try { j = JSON.parse(Buffer.from(h ?? "", "base64").toString()); } catch {}
+  if (!j) { try { j = await r.json(); } catch {} }
+  console.log("CH", u, r.status, "keys", Object.keys(j ?? {}).join(","), "ext", JSON.stringify(j?.extensions ?? {}).slice(0, 400));
+}
+{ const t = await (await fetch("https://agentic.market/api/markdown")).text().catch(() => ""); console.log("AMD len", t.length, "fizzl?", t.includes("fizzl"), "| head:", t.slice(0, 300).replace(/\n/g, " ")); }
