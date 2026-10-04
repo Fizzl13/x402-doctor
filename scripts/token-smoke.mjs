@@ -1,4 +1,4 @@
-// Monitor: the four fizzl x402 services (read-only, never pays). Output is data only. Run 2026-10-04T03:25:13Z.
+// Monitor: the four fizzl x402 services (read-only, never pays). Output is data only. Run 2026-10-04T15:30:01Z.
 const SVC = [
   { name: 'ichimoku', home: 'https://ichimoku-signal.fizzl.eu/', paid: 'https://ichimoku-signal.fizzl.eu/signal/BTC-USDT' },
   { name: 'presign', home: 'https://presign-guard.fizzl.eu/', paid: 'https://presign-guard.fizzl.eu/v1/token?chain=base&address=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' },
@@ -40,4 +40,29 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const h = await get('/health'), dash = await get('/'), api = await get('/api/state'), v1 = await get('/v1/spending');
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
+}
+
+{
+// one-off: MPP live on all four services
+const SVC = [
+  ['doctor', 'https://x402-doctor.fizzl.eu', 'GET', '/api/v1/preflight'],
+  ['ichimoku', 'https://ichimoku-signal.fizzl.eu', 'GET', '/signal/BTC-USDT'],
+  ['presign', 'https://presign-guard.fizzl.eu', 'POST', '/v1/check'],
+  ['plaintext', 'https://plaintext.fizzl.eu', 'POST', '/api/check-wallet'],
+];
+for (const [name, origin, method, path] of SVC) {
+  try {
+    const res = await fetch(origin + path, { method, headers: { accept: 'application/json', 'content-type': 'application/json' }, body: method === 'POST' ? '{}' : undefined });
+    const w = res.headers.get('www-authenticate');
+    const req = w && /request="([^"]+)"/.exec(w);
+    const realm = w && /realm="([^"]+)"/.exec(w);
+    const spec = await (await fetch(origin + '/openapi.json')).json();
+    const offers = Object.entries(spec.paths || {}).flatMap(([p, ms]) => Object.entries(ms).filter(([, o]) => o['x-payment-info']?.offers).map(([m, o]) => `${m.toUpperCase()} ${p}=${o['x-payment-info'].offers[0].amount}`));
+    console.log('MPPLIVE', name, res.status, 'x402', !!res.headers.get('payment-required'), 'mpp', !!w, realm && realm[1], req && Buffer.from(req[1], 'base64url').toString().slice(0, 140), '| offers:', offers.join(' '), '| service-info', !!spec['x-service-info']);
+  } catch (e) { console.log('MPPLIVE', name, 'error', e.message); }
+}
+}
+{
+  try { const pr = await (await fetch('https://api.github.com/repos/tempoxyz/mpp/pulls/1045', { headers: { 'user-agent': 'fizzl-monitor' } })).json(); console.log('MPPDIR state', pr.state, 'merged', pr.merged, 'comments', pr.comments, 'review_comments', pr.review_comments, 'updated', pr.updated_at); } catch (e) { console.log('MPPDIR err', e.message); }
+  try { const c = await (await fetch('https://api.github.com/repos/tempoxyz/mpp/issues/1045/comments', { headers: { 'user-agent': 'fizzl-monitor' } })).json(); for (const x of c) console.log('MPPDIR comment', x.user?.login, String(x.body).replace(/\s+/g, ' ').slice(0, 200)); } catch {}
 }
