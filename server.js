@@ -26,6 +26,7 @@ const { checkSettlement } = require('./lib/settlement');
 const { createStatus } = require('./lib/status');
 const { renderBadge, badgeFor } = require('./lib/badge');
 const { addMppOffers } = require('./lib/mpp-pay');
+const { createOutreachHook } = require('./lib/outreach-hook');
 
 const PORT = process.env.PORT || 3001;
 // Payout addresses shown by /demo/broken (it never settles, so nothing is paid).
@@ -162,9 +163,11 @@ function trustProxyHops(env) {
   return Number.isInteger(n) && n >= 0 && n <= 10 && String(env.TRUST_PROXY_HOPS).trim() !== '' ? n : 3;
 }
 
-function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, trustIndex = createTrustIndex(), media = createMediaCache(), usageLog = createUsageLog({ service: 'doctor', env }), usageReader = createUsageReader({ env }), publicStats = createPublicStats({ usageReader }), settlementFetch = globalThis.fetch, status = null } = {}) {
+function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, trustIndex = createTrustIndex(), media = createMediaCache(), usageLog = createUsageLog({ service: 'doctor', env }), usageReader = createUsageReader({ env }), publicStats = createPublicStats({ usageReader }), settlementFetch = globalThis.fetch, status = null, outreachHook: outreachHookOverride = null } = {}) {
   const app = express();
   const safeFetch = createSafeFetch({ allowPrivate });
+  // Outreach drafts for the owner (lib/outreach-hook.js); off without OUTREACH_URL and OUTREACH_KEY.
+  const outreachHook = outreachHookOverride || createOutreachHook({ url: env.OUTREACH_URL, key: env.OUTREACH_KEY, safeFetch, publicUrl: env.PUBLIC_URL || 'https://x402-doctor.fizzl.eu' });
   // POST /feedback (and the MCP tool feedback): agents report a bug or a missing
   // feature. Free; it lands in the usage log and a person reads it (lib/feedback.js).
   const feedback = createFeedback({ service: 'doctor', record: usageLog.record, agentOf });
@@ -411,6 +414,8 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     if (/^https?:\/\/[^/?#]*https?:/i.test(targetUrl)) return res.status(400).json({ error: 'This looks like two URLs pasted into each other; send only the endpoint URL.' });
     try {
       const report = await diagnoseLib.diagnose(targetUrl, { safeFetch, method, bazaarIndex: bazaar });
+      // A broken endpoint with a published contact: a draft for the owner's outreach (never sent from here).
+      outreachHook.maybeDraft(targetUrl, report).catch(() => {});
       // The page's own share link, for callers that only see JSON (curl, scripts):
       // opening it runs the same check again in the browser.
       const share = new URLSearchParams({ url: targetUrl, ...(method ? { method } : {}) });
