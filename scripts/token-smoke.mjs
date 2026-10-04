@@ -42,6 +42,7 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
 
+{
 // one-off: MPP live on all four services
 const SVC = [
   ['doctor', 'https://x402-doctor.fizzl.eu', 'GET', '/api/v1/preflight'],
@@ -59,4 +60,5 @@ for (const [name, origin, method, path] of SVC) {
     const offers = Object.entries(spec.paths || {}).flatMap(([p, ms]) => Object.entries(ms).filter(([, o]) => o['x-payment-info']?.offers).map(([m, o]) => `${m.toUpperCase()} ${p}=${o['x-payment-info'].offers[0].amount}`));
     console.log('MPPLIVE', name, res.status, 'x402', !!res.headers.get('payment-required'), 'mpp', !!w, realm && realm[1], req && Buffer.from(req[1], 'base64url').toString().slice(0, 140), '| offers:', offers.join(' '), '| service-info', !!spec['x-service-info']);
   } catch (e) { console.log('MPPLIVE', name, 'error', e.message); }
+}
 }
