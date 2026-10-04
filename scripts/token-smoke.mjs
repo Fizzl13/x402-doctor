@@ -41,3 +41,22 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
+{
+  // One-off: free Doctor check of a seller endpoint (read-only, nothing paid) + its homepage/contacts.
+  const u = 'https://api.warppay402.com/api/v1/tools/deploy-contract';
+  try {
+    const r = await fetch('https://x402-doctor.fizzl.eu/api/diagnose', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: u }) });
+    const d = await r.json();
+    console.log('WP overall', d.overall, 'method', d.method, 'probes', JSON.stringify(d.probes));
+    for (const c of d.checks || []) if (c.status !== 'pass') console.log('WP', c.status, c.id, '|', c.message.slice(0, 260), c.hint ? '| hint: ' + c.hint.slice(0, 200) : '');
+    console.log('WP passes', (d.checks || []).filter((c) => c.status === 'pass').map((c) => c.id).join(','));
+  } catch (e) { console.log('WP error', e.message); }
+  for (const h of ['https://warppay402.com', 'https://api.warppay402.com', 'https://api.warppay402.com/openapi.json', 'https://api.warppay402.com/.well-known/x402']) {
+    try {
+      const r = await fetch(h, { headers: { accept: 'text/html,application/json' } });
+      const t = await r.text();
+      const contacts = [...new Set([...t.matchAll(/(?:https?:\/\/(?:x|twitter|github|t)\.(?:com|me)\/[A-Za-z0-9_\/-]+|mailto:[^"'\s<>]+|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[a-z]{2,})/g)].map((m) => m[0]))].slice(0, 10);
+      console.log('WPH', h, r.status, t.length, '| contacts', contacts.join(' '), '| text', t.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 400));
+    } catch (e) { console.log('WPH', h, 'error', e.message); }
+  }
+}
