@@ -2,7 +2,7 @@ name: token verdict live smoke (one-off research)
 on:
   push:
     branches: [research/x402-market]
-    paths: ['scripts/token-smoke.mjs', '.github/workflows/token-smoke.yml']
+    paths: ['scripts/token-smoke.mjs', 'scripts/wallet-tempo-e2e/**', '.github/workflows/token-smoke.yml']
 jobs:
   smoke:
     runs-on: ubuntu-latest

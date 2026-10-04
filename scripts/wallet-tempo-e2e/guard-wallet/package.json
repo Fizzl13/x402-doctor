@@ -1,0 +1,77 @@
+{
+  "name": "presign-guard-wallet",
+  "version": "0.7.0",
+  "description": "A viem wallet for AI agents that asks presign-guard ($0.01 over x402) before every transaction, contract write and typed-data signature, refuses to sign red, and keeps to per-token spending limits, with approval from your phone over the limit.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    },
+    "./file-store": {
+      "types": "./file-store.d.ts",
+      "default": "./file-store.js"
+    },
+    "./telegram": {
+      "types": "./telegram.d.ts",
+      "default": "./telegram.js"
+    },
+    "./limits": {
+      "default": "./limits.js"
+    }
+  },
+  "main": "./index.js",
+  "types": "./index.d.ts",
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "limits.js",
+    "file-store.js",
+    "file-store.d.ts",
+    "telegram.js",
+    "remote.js",
+    "telegram.d.ts",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "x402-safe-fetch": "^0.4.0"
+  },
+  "peerDependencies": {
+    "@x402/fetch": "^2.27.0",
+    "viem": "^2.30.0"
+  },
+  "devDependencies": {
+    "@x402/fetch": "^2.27.0",
+    "viem": "^2.56.9"
+  },
+  "keywords": [
+    "x402",
+    "agents",
+    "wallet",
+    "viem",
+    "security",
+    "presign",
+    "approvals",
+    "permit2",
+    "drainer",
+    "usdc",
+    "spending-limits",
+    "budget",
+    "telegram",
+    "human-in-the-loop"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Fizzl13/x402-examples.git",
+    "directory": "guard-wallet"
+  },
+  "homepage": "https://github.com/Fizzl13/x402-examples/tree/main/guard-wallet#readme",
+  "license": "MIT"
+}
