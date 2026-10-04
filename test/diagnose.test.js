@@ -600,3 +600,70 @@ test('ERC-8004 identity: verified when the registered agent points back to this 
   assert.equal(missing.status, 'warn');
   assert.match(missing.message, /doesn't exist/);
 });
+
+test('MPP: a WWW-Authenticate: Payment challenge is read and checked; MPP-only is not "broken"; both protocols are noted', async () => {
+  const { parseChallenges } = require('../lib/mpp');
+  const b64u = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
+  const soon = new Date(Date.now() + 5 * 60_000).toISOString();
+  const tempo = { amount: '10000', currency: '0x20c0000000000000000000000000000000000000', recipient: '0x1111111111111111111111111111111111111111' };
+  const stripe = { amount: '100', currency: 'usd', methodDetails: { networkId: 'profile_123', paymentMethodTypes: ['card'] } };
+
+  // The parser: several challenges in one header, quoted strings with escapes, a token value.
+  const two = parseChallenges(`Payment id="a1", realm="api.example.com", method="tempo", intent=charge, request="${b64u(tempo)}", description="say \\"hi\\"", Payment id="b2", realm="api.example.com", method="stripe", intent="charge", request="${b64u(stripe)}"`);
+  assert.deepEqual(two.map((c) => [c.params.id, c.params.method, c.params.intent]), [['a1', 'tempo', 'charge'], ['b2', 'stripe', 'charge']]);
+  assert.equal(two[0].params.description, 'say "hi"');
+  assert.equal(two[0].request.amount, '10000');
+  assert.match(parseChallenges('Payment id="x", realm="h", method="tempo", intent="charge", request="not base64!"')[0].error, /base64url/);
+
+  let mode = 'mpp-good';
+  const api = await listen((req, res) => {
+    const host = 'localhost';
+    const credential = req.headers.authorization;
+    const good = `Payment id="c1", realm="${host}", method="tempo", intent="charge", request="${b64u(tempo)}", expires="${soon}"`;
+    if (mode === 'mpp-good') {
+      res.statusCode = 402;
+      res.setHeader('www-authenticate', good + `, Payment id="c2", realm="${host}", method="stripe", intent="charge", request="${b64u(stripe)}", expires="${soon}"`);
+      return res.end('{}');
+    }
+    if (mode === 'mpp-bad') {
+      if (credential) { res.statusCode = 500; return res.end('boom'); }
+      res.statusCode = 402;
+      res.setHeader('www-authenticate', `Payment id="c1", realm="elsewhere.example", method="evm", intent="charge", request="${b64u({ amount: '1.5', currency: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', recipient: '0x1111111111111111111111111111111111111111' })}"`);
+      return res.end('{}');
+    }
+    if (mode === 'both') {
+      res.statusCode = 402;
+      res.setHeader('www-authenticate', good);
+      res.setHeader('payment-required', Buffer.from(JSON.stringify({ x402Version: 2, resource: { url: `http://${req.headers.host}/paid` }, accepts: [{ scheme: 'exact', network: BASE, amount: '10000', asset: USDC_BASE, payTo: '0x1111111111111111111111111111111111111111', maxTimeoutSeconds: 60, extra: { name: 'USD Coin', version: '2' } }] })).toString('base64'));
+      return res.end('{}');
+    }
+  });
+  const safeFetch = createSafeFetch({ allowPrivate: true });
+  const run = () => diagnose(`${api.replace('127.0.0.1', 'localhost')}/paid`, { safeFetch, method: 'GET', rpcUrl: 'http://127.0.0.1:1', evmRpcUrls: {} });
+  const byId = (report, id) => report.checks.filter((c) => c.id === id);
+
+  const good = await run();
+  assert.equal(byId(good, 'protocol-version')[0].status, 'info', 'no x402 challenge is not a failure when MPP is there');
+  assert.equal(byId(good, 'mpp-challenge')[0].status, 'pass');
+  assert.match(byId(good, 'mpp-challenge')[0].message, /2 payment options: tempo\/charge, stripe\/charge/);
+  assert.deepEqual(byId(good, 'mpp-fields').map((c) => c.status), ['pass', 'pass']);
+  assert.match(byId(good, 'mpp-fields')[1].message, /1\.00 USD via Stripe/);
+  assert.equal(byId(good, 'mpp-bad-credential')[0].status, 'pass');
+  assert.ok(!good.checks.some((c) => c.group === 'mpp' && c.status === 'fail'));
+  assert.equal(good.mpp.length, 2);
+
+  mode = 'mpp-bad';
+  const bad = await run();
+  assert.equal(bad.overall, 'fail');
+  assert.equal(byId(bad, 'mpp-realm')[0].status, 'warn');
+  assert.equal(byId(bad, 'mpp-expires')[0].status, 'warn');
+  assert.equal(byId(bad, 'mpp-amount')[0].status, 'fail');
+  assert.equal(byId(bad, 'mpp-chain')[0].status, 'fail');
+  assert.equal(byId(bad, 'mpp-bad-credential')[0].status, 'fail');
+
+  mode = 'both';
+  const both = await run();
+  assert.equal(byId(both, 'protocols')[0].status, 'pass');
+  assert.match(byId(both, 'protocols')[0].message, /both x402 and MPP \(tempo\)/);
+  assert.equal(byId(both, 'protocol-version')[0].status, 'pass');
+});
