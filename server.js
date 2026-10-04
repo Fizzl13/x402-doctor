@@ -298,7 +298,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
       return res.status(400).json({ error: 'url is required, e.g. /api/trust?url=https://api.example.com/paid' });
     }
     const record = await trustIndex.lookup(parsed.href, { waitMs: 5000 });
-    if (!record) return res.status(404).json({ url: parsed.href, error: 'not in the trust index (only resources listed in the CDP Bazaar are scanned, once a day)', index: trustIndex.summary() });
+    if (!record) return res.status(404).json({ url: parsed.href, error: 'not in the trust index (only resources listed in the CDP Bazaar or the MPP directory are scanned, once a day)', index: trustIndex.summary() });
     res.json({ url: parsed.href, ...record });
   });
   // A "payable" badge for sellers' READMEs and sites (lib/badge.js): one resource, or a whole origin.

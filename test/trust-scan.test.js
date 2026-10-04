@@ -204,3 +204,53 @@ test('trust summary: failure reasons of the latest scan and one row per day', as
     { date: '2026-09-24', go: 0, caution: 1, no_go: 2, unreachable: 0 },
   ]);
 });
+
+test('MPP in the Trust Index: the directory becomes scan entries; challenges get go / caution / no_go; the summary splits x402 and MPP', async () => {
+  const { loadMppCatalog } = require('../lib/trust-scan');
+  const directory = { version: 1, services: [
+    { id: 'a', serviceUrl: 'https://api.a.example', status: 'active', endpoints: [{ method: 'GET', path: '/price' }, { method: 'POST', path: '/v1/run' }, { method: 'GET', path: '/items/{id}' }, { method: 'GET', path: '/price' }] },
+    { id: 'b', url: 'https://b.example', status: 'deprecated', endpoints: [{ method: 'GET', path: '/x' }] },
+  ] };
+  const list = await loadMppCatalog({ fetchImpl: async () => Response.json(directory) });
+  assert.deepEqual(list.map((r) => [r.url, r.method, r.p]), [['https://api.a.example/price', 'GET', 'mpp'], ['https://api.a.example/v1/run', 'POST', 'mpp']]);
+
+  const b64u = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
+  const soon = new Date(Date.now() + 300_000).toISOString();
+  const usdc = { amount: '10000', currency: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', recipient: '0x1111111111111111111111111111111111111111', methodDetails: { chainId: 8453, decimals: 6 } };
+  const after = [];
+  const api = await new Promise((resolve) => {
+    const server = http.createServer((req, res) => {
+      const host = 'localhost';
+      if (req.url === '/good') { res.statusCode = 402; res.setHeader('www-authenticate', `Payment id="1", realm="${host}", method="evm", intent="charge", request="${b64u(usdc)}", expires="${soon}"`); return res.end(); }
+      if (req.url === '/meh') { res.statusCode = 402; res.setHeader('www-authenticate', `Payment id="1", realm="other.example", method="evm", intent="charge", request="${b64u(usdc)}"`); return res.end(); }
+      if (req.url === '/old') { res.statusCode = 402; res.setHeader('www-authenticate', `Payment id="1", realm="${host}", method="evm", intent="charge", request="${b64u(usdc)}", expires="2020-01-01T00:00:00Z"`); return res.end(); }
+      res.statusCode = 404; res.end();
+    }).listen(0, () => resolve(`http://localhost:${server.address().port}`));
+    after.push(() => server.close());
+  });
+  const safeFetch = createSafeFetch({ allowPrivate: true });
+  const entries = ['good', 'meh', 'old', 'gone'].map((p) => ({ key: `${api}/${p}`, url: `${api}/${p}`, method: 'GET', p: 'mpp' }));
+  const results = await scan(entries, { safeFetch, rpcUrl: 'http://127.0.0.1:1' });
+  const by = Object.fromEntries(results.map((r) => [r.url.split('/').pop(), r]));
+  assert.equal(by.good.verdict, 'go');
+  assert.equal(by.good.price_usd, 0.01);
+  assert.deepEqual(by.good.networks, ['mpp:evm:8453']);
+  assert.equal(by.good.p, 'mpp');
+  assert.equal(by.meh.verdict, 'caution');
+  assert.deepEqual(by.meh.codes.sort(), ['mpp_no_expires', 'mpp_realm_mismatch']);
+  assert.equal(by.old.verdict, 'no_go');
+  assert.deepEqual(by.old.codes, ['mpp_expired']);
+  assert.equal(by.gone.verdict, 'no_go');
+  assert.deepEqual(by.gone.codes, ['no_402']);
+
+  const index = mergeIndex(null, [...results, { key: 'https://x.example/a', url: 'https://x.example/a', method: 'GET', verdict: 'go', codes: [], price_usd: 0.01, networks: [], ms: 1 }], { date: '2026-10-04' });
+  assert.equal(index.resources[`${api}/good`].p, 'mpp');
+  assert.equal(index.resources['https://x.example/a'].p, undefined);
+  const trust = createTrustIndex({ fetchImpl: async () => Response.json(index) });
+  await trust.refresh();
+  const s = trust.summary();
+  assert.deepEqual(s.by_protocol.mpp, { resources: 4, go: 1, caution: 1, no_go: 2, unreachable: 0 });
+  assert.deepEqual(s.by_protocol.x402, { resources: 1, go: 1, caution: 0, no_go: 0, unreachable: 0 });
+  assert.equal((await trust.lookup(`${api}/good`)).protocol, 'mpp');
+  for (const f of after) f();
+});
