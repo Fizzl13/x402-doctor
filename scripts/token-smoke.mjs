@@ -41,13 +41,3 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
-{
-  // One-off: is the outreach hook live (401 without key = set up; 404 = not configured)? Then one free Doctor check of warppay402 (makes a draft only).
-  const h = await fetch('https://wallet.fizzl.eu/hooks/outreach-draft', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
-  console.log('OUTREACH hook without key:', h.status, (await h.text()).slice(0, 120));
-  if (h.status === 401) {
-    const r = await fetch('https://x402-doctor.fizzl.eu/api/diagnose', { method: 'POST', headers: { 'content-type': 'application/json', 'user-agent': 'fizzl-monitor (outreach first draft)' }, body: JSON.stringify({ url: 'https://api.warppay402.com/api/v1/tools/deploy-contract' }) });
-    const d = await r.json().catch(() => ({}));
-    console.log('OUTREACH doctor check:', r.status, d.overall, (d.checks || []).filter((c) => c.status === 'fail').map((c) => c.id).join(','));
-  }
-}
