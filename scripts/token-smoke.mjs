@@ -41,14 +41,3 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
-
-// one-off: how dual x402+MPP services write x-payment-info
-for (const u of ['https://laso.finance/openapi.json', 'https://api.apex-db.org/openapi.json']) {
-  try {
-    const j = await (await fetch(u)).json();
-    const ops = Object.entries(j.paths || {}).flatMap(([p, m]) => Object.entries(m).map(([k, o]) => [p, k, o]));
-    const paid = ops.filter(([, , o]) => o && o['x-payment-info']).slice(0, 2);
-    console.log('OAPI', u, 'x-service-info:', JSON.stringify(j['x-service-info'] || null).slice(0, 300));
-    for (const [p, k, o] of paid) console.log('OAPI', p, k, JSON.stringify(o['x-payment-info']).slice(0, 600));
-  } catch (e) { console.log('OAPI', u, 'error', e.message); }
-}
