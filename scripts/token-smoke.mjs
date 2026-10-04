@@ -41,17 +41,3 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
-
-// one-off: MPP challenge live on x402 Doctor
-{
-  const h = await (await fetch('https://x402-doctor.fizzl.eu/health')).json().catch(() => null);
-  console.log('health:', JSON.stringify(h).slice(0, 900));
-  for (const r of ['/api/v1/diagnose', '/api/v1/preflight']) {
-    const res = await fetch(`https://x402-doctor.fizzl.eu${r}`, { headers: { accept: 'application/json' } });
-    const w = res.headers.get('www-authenticate');
-    console.log(r, res.status, 'x402:', !!res.headers.get('payment-required'), 'mpp:', w);
-    if (w) { const m = /request="([^"]+)"/.exec(w); console.log('  request:', Buffer.from(m[1], 'base64url').toString()); }
-  }
-  const d = await (await fetch('https://x402-doctor.fizzl.eu/api/diagnose', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: 'https://x402-doctor.fizzl.eu/api/v1/preflight' }) })).json();
-  console.log('self-diagnose:', d.overall, (d.checks || []).filter((c) => c.group === 'mpp' || c.id === 'protocols').map((c) => `${c.id}:${c.status}`).join(' '));
-}
