@@ -41,3 +41,21 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
+// one-off: ERC-8004 registrations by Frits's wallet on Base (read-only)
+{ const rpc = "https://mainnet.base.org", REG = "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432";
+  const call = async (method, params) => (await (await fetch(rpc, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) })).json());
+  const head = parseInt((await call("eth_blockNumber", [])).result, 16);
+  const TRANSFER = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
+  const found = [];
+  for (let to = head; to > head - 6000; to -= 1000) {
+    const r = await call("eth_getLogs", [{ address: REG, fromBlock: "0x" + (to - 999).toString(16), toBlock: "0x" + to.toString(16), topics: [TRANSFER, "0x" + "0".repeat(64)] }]);
+    for (const l of r.result ?? []) { const owner = "0x" + l.topics[2].slice(26); if (/^0x2c7c5/i.test(owner) && /b128b$/i.test(owner)) found.push({ id: BigInt(l.topics[3]).toString(), tx: l.transactionHash, owner }); }
+    if (r.error) console.log("8004 err", JSON.stringify(r.error).slice(0, 150));
+  }
+  for (const f of found) {
+    const d = (await call("eth_call", [{ to: REG, data: "0xc87b56dd" + BigInt(f.id).toString(16).padStart(64, "0") }, "latest"])).result ?? "";
+    const len = parseInt(d.slice(130, 194), 16); const uri = Buffer.from(d.slice(194, 194 + len * 2), "hex").toString();
+    console.log(`8004 agent ${f.id} owner ${f.owner} tx ${f.tx} uri ${uri}`);
+  }
+  console.log("8004 done, found", found.length, "head", head);
+}
