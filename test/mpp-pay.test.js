@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
 const express = require('express');
-const { keccak256, stringToHex } = require('viem');
+const { keccak256, stringToHex, getAddress } = require('viem');
 const { privateKeyToAccount } = require('viem/accounts');
 const { createMppPay, unlessMppPaid, atomicUsdc, BASE_USDC } = require('../lib/mpp-pay');
 const { parseChallenges } = require('../lib/mpp');
@@ -181,4 +181,148 @@ test('a challenge from another service with the same secret and route is refused
   assert.equal(res.status, 402);
   assert.match((await res.json()).detail, /another service/);
   assert.equal(s.calls.verify, 0);
+});
+
+// Tempo (push mode): the agent pays on Tempo itself and sends the hash; a fake RPC holds the receipts.
+const TEMPO_PAY_TO = '0x1111111111111111111111111111111111111111';
+const TEMPO_USDC = getAddress('0x20c000000000000000000000b9537d11c60e8b50');
+const TOPIC = keccak256(stringToHex('TransferWithMemo(address,address,uint256,bytes32)'));
+const pad = (addr) => `0x${addr.slice(2).toLowerCase().padStart(64, '0')}`;
+// The mppx memo: keccak("mpp")[0:4], 01, keccak(realm)[0:10], client [10], keccak(id)[0:7].
+const memoFor = (realm, id) => `0x${keccak256(stringToHex('mpp')).slice(2, 10)}01${keccak256(stringToHex(realm)).slice(2, 22)}${'0'.repeat(20)}${keccak256(stringToHex(id)).slice(2, 16)}`;
+const transferLog = ({ from = agent.address, to = TEMPO_PAY_TO, amount = 10000n, memo, token = TEMPO_USDC }) => ({
+  address: token.toLowerCase(), topics: [TOPIC, pad(from), pad(to), memo], data: `0x${amount.toString(16).padStart(64, '0')}`,
+});
+
+function serveTempo({ status = 200, rpcDown = false } = {}) {
+  const receipts = new Map();
+  const calls = { x402: 0, handler: 0 };
+  const mpp = createMppPay({
+    secret: 'test-secret', realm: 'doctor.test', recipient: PAY_TO, routes: { 'GET /paid': '$0.01' },
+    facilitator: { async verify() { return { isValid: true }; }, async settle() { return { success: true, transaction: '0xabc' }; } },
+    tempo: { recipient: TEMPO_PAY_TO, getReceipt: async (hash) => { if (rpcDown) throw new Error('down'); return receipts.get(hash) || null; } },
+    log: quiet,
+  });
+  const app = express();
+  app.use(mpp.middleware);
+  app.use(unlessMppPaid((req, res, next) => { if (req.path !== '/paid') return next(); calls.x402++; res.status(402).json({ x402Version: 2, accepts: [] }); }));
+  app.get('/paid', (req, res) => { calls.handler++; res.on('finish', () => { calls.locals = res.locals.mppPayment; }); res.status(status).json({ ok: status === 200, locals: res.locals.mppPayment || null }); });
+  return new Promise((resolve) => {
+    const server = http.createServer(app).listen(0, () => resolve({ base: `http://127.0.0.1:${server.address().port}`, receipts, calls, mpp, close: () => server.close() }));
+  });
+}
+
+async function tempoChallenge(base) {
+  const res = await fetch(`${base}/paid`);
+  assert.equal(res.status, 402);
+  const all = parseChallenges(res.headers.get('www-authenticate'));
+  const t = all.find((c) => c.params.method === 'tempo');
+  return { ...t.params, request: t.request, requestRaw: t.params.request, all };
+}
+const tempoCredential = (c, hash, { source = `did:pkh:eip155:4217:${agent.address}`, type = 'hash' } = {}) => {
+  const { request, requestRaw, all, ...rest } = c;
+  return `Payment ${Buffer.from(JSON.stringify({ challenge: { ...rest, request: requestRaw }, payload: { hash, type }, ...(source ? { source } : {}) })).toString('base64url')}`;
+};
+const HASH = `0x${'ab'.repeat(32)}`;
+
+test('the 402 offers tempo (push only, USDC.e on chain 4217) next to evm', async (t) => {
+  const s = await serveTempo();
+  t.after(s.close);
+  const c = await tempoChallenge(s.base);
+  assert.deepEqual(c.all.map((x) => x.params.method), ['evm', 'tempo']);
+  assert.deepEqual(c.request, { amount: '10000', currency: TEMPO_USDC, methodDetails: { chainId: 4217, supportedModes: ['push'] }, recipient: TEMPO_PAY_TO });
+  assert.equal(s.mpp.tempo.network, 'Tempo');
+});
+
+test('a Tempo hash with the bound memo is served once, with a receipt', async (t) => {
+  const s = await serveTempo();
+  t.after(s.close);
+  const c = await tempoChallenge(s.base);
+  s.receipts.set(HASH, { status: '0x1', from: agent.address.toLowerCase(), logs: [transferLog({ memo: memoFor('doctor.test', c.id) })] });
+  const auth = tempoCredential(c, HASH);
+  const res = await fetch(`${s.base}/paid`, { headers: { authorization: auth } });
+  assert.equal(res.status, 200);
+  await res.json();
+  assert.deepEqual(s.calls.locals, { usd: 0.01, network: 'Tempo', payer: agent.address, tx: HASH, protocol: 'mpp' });
+  const receipt = JSON.parse(Buffer.from(res.headers.get('payment-receipt'), 'base64url').toString());
+  assert.equal(receipt.method, 'tempo');
+  assert.equal(receipt.reference, HASH);
+  assert.equal(s.calls.x402, 1); // only the first, unpaid request
+  const again = await fetch(`${s.base}/paid`, { headers: { authorization: auth } });
+  assert.equal(again.status, 402);
+  assert.match((await again.json()).detail, /already paid/);
+});
+
+test('a failed answer frees the hash, so the same credential can be sent again', async (t) => {
+  const s = await serveTempo({ status: 500 });
+  t.after(s.close);
+  const c = await tempoChallenge(s.base);
+  s.receipts.set(HASH, { status: '0x1', from: agent.address, logs: [transferLog({ memo: memoFor('doctor.test', c.id) })] });
+  const auth = tempoCredential(c, HASH);
+  assert.equal((await fetch(`${s.base}/paid`, { headers: { authorization: auth } })).status, 500);
+  assert.equal((await fetch(`${s.base}/paid`, { headers: { authorization: auth } })).status, 500);
+  assert.equal(s.calls.handler, 2);
+});
+
+test('refuses Tempo payments that pay the wrong amount, recipient, token, payer or challenge', async (t) => {
+  const s = await serveTempo();
+  t.after(s.close);
+  const c = await tempoChallenge(s.base);
+  const memo = memoFor('doctor.test', c.id);
+  const cases = {
+    amount: transferLog({ memo, amount: 9999n }),
+    recipient: transferLog({ memo, to: PAY_TO }),
+    token: transferLog({ memo, token: '0x20c0000000000000000000000000000000000000' }),
+    payer: transferLog({ memo, from: TEMPO_PAY_TO }),
+    otherChallenge: transferLog({ memo: memoFor('doctor.test', 'another-id') }),
+    otherRealm: transferLog({ memo: memoFor('other.test', c.id) }),
+  };
+  let i = 0;
+  for (const [name, log] of Object.entries(cases)) {
+    const hash = `0x${String(++i).padStart(64, '0')}`;
+    s.receipts.set(hash, { status: '0x1', from: agent.address, logs: [log] });
+    const res = await fetch(`${s.base}/paid`, { headers: { authorization: tempoCredential(c, hash) } });
+    assert.equal(res.status, 402, name);
+    assert.match((await res.json()).detail, /No transfer/, name);
+  }
+  const reverted = `0x${'cd'.repeat(32)}`;
+  s.receipts.set(reverted, { status: '0x0', from: agent.address, logs: [transferLog({ memo })] });
+  assert.match((await (await fetch(`${s.base}/paid`, { headers: { authorization: tempoCredential(c, reverted) } })).json()).detail, /failed on Tempo/);
+  assert.match((await (await fetch(`${s.base}/paid`, { headers: { authorization: tempoCredential(c, `0x${'ee'.repeat(32)}`) } })).json()).detail, /isn't on Tempo/);
+  assert.match((await (await fetch(`${s.base}/paid`, { headers: { authorization: tempoCredential(c, HASH, { type: 'transaction' }) } })).json()).detail, /push mode/);
+  assert.match((await (await fetch(`${s.base}/paid`, { headers: { authorization: tempoCredential(c, HASH, { source: `did:pkh:eip155:8453:${agent.address}` }) } })).json()).detail, /source must be/);
+  assert.equal(s.calls.handler, 0);
+});
+
+test('without a source the transaction sender is the payer; an RPC outage is retryable', async (t) => {
+  const s = await serveTempo();
+  t.after(s.close);
+  const c = await tempoChallenge(s.base);
+  s.receipts.set(HASH, { status: '0x1', from: agent.address, logs: [transferLog({ memo: memoFor('doctor.test', c.id) })] });
+  assert.equal((await fetch(`${s.base}/paid`, { headers: { authorization: tempoCredential(c, HASH, { source: null }) } })).status, 200);
+  const down = await serveTempo({ rpcDown: true });
+  t.after(down.close);
+  const c2 = await tempoChallenge(down.base);
+  const res = await fetch(`${down.base}/paid`, { headers: { authorization: tempoCredential(c2, HASH) } });
+  assert.equal(res.status, 402);
+  assert.match((await res.json()).detail, /could not be checked right now/);
+});
+
+test('Doctor\'s own MPP check reads both challenges (evm and tempo) without errors', async (t) => {
+  const s = await serveTempo(); t.after(s.close);
+  const { checkMpp } = require('../lib/mpp');
+  const res = await fetch(`${s.base}/paid`);
+  const checks = [];
+  await checkMpp({ res, url: `${s.base}/paid`, method: 'GET', safeFetch: (u, o) => fetch(u, o) }, checks);
+  assert.deepEqual(checks.filter((x) => x.status === 'fail' && x.id !== 'mpp-realm'), []);
+  assert.ok(checks.some((x) => /tempo/i.test(`${x.message || ''}${x.detail || ''}${x.title || ''}`)), JSON.stringify(checks.map((x) => x.id)));
+});
+
+test('offers list tempo next to evm when it is on', () => {
+  const { addMppOffers } = require('../lib/mpp-pay');
+  const spec = { info: {}, paths: { '/paid': { get: { summary: 'Paid', 'x-payment-info': { price: { mode: 'fixed', amount: '0.01', currency: 'USD' } } } } } };
+  addMppOffers(spec, { tempo: { currency: TEMPO_USDC } });
+  const info = spec.paths['/paid'].get['x-payment-info'];
+  assert.deepEqual(info.offers.map((o) => [o.method, o.currency, o.amount]), [['evm', BASE_USDC, '10000'], ['tempo', TEMPO_USDC, '10000']]);
+  assert.deepEqual(info.protocols.map((p) => Object.keys(p)[0]), ['x402', 'mpp', 'mpp']);
 });
