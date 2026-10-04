@@ -170,3 +170,15 @@ test('routes with parameters match, and an answer that bypasses res.send is refu
   assert.equal(res.status, 402);
   assert.equal(calls.settle, 1);
 });
+
+test('a challenge from another service with the same secret and route is refused', async (t) => {
+  const s = await serve(); t.after(s.close);
+  const facilitator = { async verify() { return { isValid: true }; }, async settle() { return { success: true }; } };
+  const other = createMppPay({ secret: 'test-secret', realm: 'other.test', recipient: PAY_TO, routes: { 'GET /paid': '$0.01' }, facilitator, log: quiet });
+  const oc = other.challengeFor('GET /paid');
+  const c = { ...oc, requestRaw: Buffer.from(require('../lib/mpp-pay').canonical(oc.request)).toString('base64url') };
+  const res = await fetch(`${s.base}/paid`, { headers: { authorization: await credentialFor(c) } });
+  assert.equal(res.status, 402);
+  assert.match((await res.json()).detail, /another service/);
+  assert.equal(s.calls.verify, 0);
+});
