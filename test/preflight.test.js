@@ -168,3 +168,57 @@ test('what other agents reported after paying: a failing majority from three wal
   const none = await run(url);
   assert.equal(none.signals.agent_outcomes, null);
 });
+
+// An MPP seller: /paid answers 402 with WWW-Authenticate: Payment challenges (and an x402 challenge when given).
+async function mppSeller({ challenges, accepts = null }) {
+  const origin = await listen((req, res) => {
+    res.setHeader('content-type', 'application/json');
+    if (req.url === '/openapi.json') { res.statusCode = 404; return res.end('{}'); }
+    res.statusCode = 402;
+    const host = new URL(origin).hostname;
+    res.setHeader('www-authenticate', challenges.map((c) => `Payment id="${c.id || 'c1'}", realm="${c.realm ?? host}", method="${c.method}", intent="charge", request="${Buffer.from(JSON.stringify(c.request)).toString('base64url')}", expires="${c.expires || new Date(Date.now() + 300000).toISOString()}"`).join(', '));
+    if (accepts) {
+      const challenge = { x402Version: 2, resource: { url: `${origin}${req.url}`, mimeType: 'application/json', description: 'x' }, accepts };
+      res.setHeader('PAYMENT-REQUIRED', Buffer.from(JSON.stringify(challenge)).toString('base64'));
+    }
+    res.end('{}');
+  });
+  return `${origin}/paid/1`;
+}
+const evmRequest = (amount) => ({ amount, currency: USDC_BASE, methodDetails: { chainId: 8453, credentialTypes: ['authorization'], decimals: 6 }, recipient: PAY_TO_BASE });
+const tempoRequest = (amount) => ({ amount, currency: '0x20c000000000000000000000b9537d11c60e8b50', recipient: PAY_TO_BASE, methodDetails: { decimals: 6 } });
+
+test('MPP only (evm, USDC on Base): go, the MPP option is recommended, with an mpp_only note', async () => {
+  const url = await mppSeller({ challenges: [{ method: 'evm', request: evmRequest('20000') }] });
+  const r = await preflight(url, { safeFetch, rpcUrl, maxUsd: 0.05 });
+  assert.equal(r.verdict, 'go', JSON.stringify(r.reasons));
+  const best = r.options[r.recommended_option];
+  assert.deepEqual([best.protocol, best.method, best.network, best.asset_symbol, best.usd, best.pay_to], ['mpp', 'evm', BASE, 'USDC', 0.02, PAY_TO_BASE]);
+  assert.ok(r.reasons.some((x) => x.code === 'mpp_only' && x.level === 'info'));
+  assert.deepEqual(r.signals.protocols, ['mpp']);
+  assert.deepEqual(r.signals.mpp_methods, ['evm']);
+  const over = await preflight(url, { safeFetch, rpcUrl, maxUsd: 0.01 });
+  assert.equal(over.verdict, 'no_go');
+  assert.ok(over.reasons.some((x) => x.code === 'over_budget'));
+});
+
+test('MPP only: Tempo and Stripe options are priced; an expired challenge is not payable', async () => {
+  let url = await mppSeller({ challenges: [{ method: 'tempo', request: tempoRequest('50000') }, { id: 'c2', method: 'stripe', request: { amount: '5', currency: 'usd', decimals: 2 } }] });
+  let r = await preflight(url, { safeFetch, rpcUrl });
+  assert.equal(r.verdict, 'go', JSON.stringify(r.reasons));
+  assert.deepEqual(r.options.map((o) => [o.method, o.network_name, o.asset_symbol, o.usd]), [['tempo', 'Tempo', 'USDC.e', 0.05], ['stripe', 'Stripe (card)', 'USD', 0.05]]);
+  url = await mppSeller({ challenges: [{ method: 'evm', request: evmRequest('20000'), expires: '2020-01-01T00:00:00Z' }] });
+  r = await preflight(url, { safeFetch, rpcUrl });
+  assert.equal(r.verdict, 'no_go');
+  assert.match(r.options[0].problems[0], /expired/);
+});
+
+test('x402 and MPP both offered: the x402 option stays recommended, MPP options are listed after it', async () => {
+  const url = await mppSeller({ challenges: [{ method: 'evm', request: evmRequest('10000') }], accepts: [baseOption('20000')] });
+  const r = await preflight(url, { safeFetch, rpcUrl });
+  assert.equal(r.verdict, 'go', JSON.stringify(r.reasons));
+  assert.deepEqual(r.options.map((o) => [o.index, o.protocol]), [[0, 'x402'], [1, 'mpp']]);
+  assert.equal(r.recommended_option, 0);
+  assert.deepEqual(r.signals.protocols, ['x402', 'mpp']);
+  assert.ok(!r.reasons.some((x) => x.code === 'mpp_only'));
+});
