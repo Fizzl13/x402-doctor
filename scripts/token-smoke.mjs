@@ -41,20 +41,3 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
-// one-off: Doctor's agent-identity check on the four services, after deploy
-{ const targets = [["x402-doctor.fizzl.eu", "https://x402-doctor.fizzl.eu/api/v1/diagnose", "GET"], ["presign-guard.fizzl.eu", "https://presign-guard.fizzl.eu/v1/token", "GET"], ["ichimoku-signal.fizzl.eu", "https://ichimoku-signal.fizzl.eu/signal/BTC-USDT", "GET"], ["plaintext.fizzl.eu", "https://plaintext.fizzl.eu/api/check-wallet", "POST"]];
-  const done = new Set();
-  for (let i = 0; i < 48 && done.size < 4; i++) {
-    for (const [host, url, method] of targets) {
-      if (done.has(host)) continue;
-      const file = await (await fetch(`https://${host}/.well-known/agent-registration.json`)).json().catch(() => ({}));
-      if (!(file.registrations ?? []).some((r) => /^eip155:8453:/.test(r.agentRegistry))) continue;
-      const r = await (await fetch("https://x402-doctor.fizzl.eu/api/diagnose", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url, method }) })).json().catch((e) => ({ err: e.message }));
-      const c = (r.checks ?? []).find((x) => x.id === "agent-identity");
-      if (!c) continue; // doctor not deployed yet
-      console.log(`AID ${host} after ${i * 15}s: ${c.status} | ${c.message}`); done.add(host);
-    }
-    if (done.size < 4) await new Promise((ok) => setTimeout(ok, 15000));
-  }
-  console.log("AID done", done.size);
-}
