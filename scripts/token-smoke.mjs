@@ -41,18 +41,3 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
-{
-  // One-off: do all four 402s offer MPP tempo now? (no payment)
-  const urls = [['doctor', 'https://x402-doctor.fizzl.eu/api/v1/preflight?url=https://example.com', 'GET'], ['ichimoku', 'https://ichimoku-signal.fizzl.eu/signal/BTC-USDT', 'GET'], ['presign', 'https://presign-guard.fizzl.eu/v1/check', 'POST'], ['plaintext', 'https://plaintext.fizzl.eu/api/check-wallet', 'POST']];
-  for (const [n, u, m] of urls) {
-    try {
-      const r = await fetch(u, { method: m, headers: { 'content-type': 'application/json', accept: 'application/json' }, body: m === 'POST' ? '{}' : undefined });
-      const w = r.headers.get('www-authenticate') || '';
-      const methods = [...w.matchAll(/method="([a-z]+)"/g)].map((x) => x[1]);
-      const t = [...w.matchAll(/method="tempo"[^]*?request="([^"]+)"/g)].map((x) => Buffer.from(x[1], 'base64url').toString())[0];
-      console.log('TEMPO', n, r.status, methods.join(','), t || '');
-      const o = await (await fetch(new URL('/openapi.json', u))).text();
-      console.log('TEMPO', n, 'openapi tempo offers', (o.match(/"method":"tempo"/g) || []).length);
-    } catch (e) { console.log('TEMPO', n, 'error', e.message); }
-  }
-}
