@@ -321,6 +321,7 @@ Or the CLI in a plain `run:` step:
 | `FACILITATOR_URL` | x402 facilitator (default PayAI, `https://facilitator.payai.network`) |
 | `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET` | Use Coinbase's CDP facilitator for Base (PayAI stays the fallback). Payments settled through CDP get the route listed in the CDP Bazaar |
 | `DOCTOR_SOLANA_FACILITATOR` | With CDP keys set, Solana is settled by PayAI (CDP takes over if PayAI is down). Set to `cdp` to settle Solana through CDP too |
+| `MPP_SECRET` | Turns on MPP payment (method `evm`, USDC on Base, via the same facilitator) next to x402 on the paid routes, for agents that speak MPP (mppx). Any long random string; it signs the challenge ids. Without it only x402 is offered |
 
 | `USAGE_LOG_TOKEN` | Fine-grained GitHub token with Contents read/write on the usage-log repo only. Every call is logged there (see below) |
 | `USAGE_LOG_REPO` | The private usage-log repo (default `Fizzl13/usage-log`) |

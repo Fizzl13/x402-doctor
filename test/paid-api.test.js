@@ -88,7 +88,7 @@ test.before(async () => {
     json(res, challenge);
   });
 
-  const env = { AGENT_PAYOUT_WALLET: PAY_TO_BASE, AGENT_PAYOUT_WALLET_SOLANA: PAY_TO_SOLANA, FACILITATOR_URL: facilitatorUrl, RECEIPT_SIGNER_SECRET: 'paid-api-test-secret-long-enough-0123456789' };
+  const env = { AGENT_PAYOUT_WALLET: PAY_TO_BASE, AGENT_PAYOUT_WALLET_SOLANA: PAY_TO_SOLANA, FACILITATOR_URL: facilitatorUrl, RECEIPT_SIGNER_SECRET: 'paid-api-test-secret-long-enough-0123456789', MPP_SECRET: 'paid-api-mpp-secret-0123456789' };
   const trustIndex = {
     lookup: async (u) => (u.startsWith(targetUrl) ? { days_checked: 5, days_payable: 1, payable_ratio: 0.2, history: 'nnngn', last: 'n', streak: 1 } : null),
     seller: async (u) => (u.startsWith(targetUrl) ? { origin: new URL(targetUrl).origin, resources: 4, payable_now: 1, avg_payable_ratio: 0.25, unreliable: 3 } : null),
@@ -457,4 +457,36 @@ test('preflight deep: $0.01; the preflight plus the full diagnosis, daily histor
   assert.ok(Array.isArray(out.domain.checks));
   assert.equal(out.receipt.route, 'GET /api/v1/preflight/deep');
   assert.equal(state.settle, 1);
+});
+
+test('MPP: the 402 also carries an MPP evm challenge; a signed MPP credential is verified, served and settled once', async () => {
+  const { keccak256, stringToHex } = require('viem');
+  const { parseChallenges } = require('../lib/mpp');
+  const unpaid = await fetch(diagnoseUrl(targetUrl));
+  assert.equal(unpaid.status, 402);
+  assert.ok(unpaid.headers.get('payment-required'), 'x402 challenge still there');
+  const [{ params, request }] = parseChallenges(unpaid.headers.get('www-authenticate'));
+  assert.equal(params.method, 'evm');
+  assert.equal(params.realm, 'x402-doctor.fizzl.eu');
+  assert.equal(request.amount, '10000');
+  assert.equal(request.recipient, PAY_TO_BASE);
+
+  const account = privateKeyToAccount(generatePrivateKey());
+  const nonce = keccak256(stringToHex(JSON.stringify([params.id, params.realm])));
+  const validBefore = String(Math.floor(Date.parse(params.expires) / 1000));
+  const message = { from: account.address, to: request.recipient, value: BigInt(request.amount), validAfter: 0n, validBefore: BigInt(validBefore), nonce };
+  const signature = await account.signTypedData({
+    domain: { name: 'USD Coin', version: '2', chainId: 8453, verifyingContract: request.currency },
+    types: { TransferWithAuthorization: [{ name: 'from', type: 'address' }, { name: 'to', type: 'address' }, { name: 'value', type: 'uint256' }, { name: 'validAfter', type: 'uint256' }, { name: 'validBefore', type: 'uint256' }, { name: 'nonce', type: 'bytes32' }] },
+    primaryType: 'TransferWithAuthorization',
+    message,
+  });
+  const credential = { challenge: params, payload: { type: 'authorization', from: account.address, to: request.recipient, value: request.amount, validAfter: '0', validBefore, nonce, signature } };
+  const res = await fetch(diagnoseUrl(targetUrl), { headers: { authorization: `Payment ${Buffer.from(JSON.stringify(credential)).toString('base64url')}` } });
+  assert.equal(res.status, 200);
+  assert.ok((await res.json()).checks);
+  assert.equal(state.verify, 1);
+  assert.equal(state.settle, 1);
+  const receipt = JSON.parse(Buffer.from(res.headers.get('payment-receipt'), 'base64url').toString());
+  assert.deepEqual([receipt.method, receipt.reference, receipt.status], ['evm', '0xsettled', 'success']);
 });
