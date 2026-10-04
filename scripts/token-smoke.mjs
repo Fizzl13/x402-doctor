@@ -41,3 +41,19 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
+// one-off: ERC-8004 registrations by Frits's wallet on Base (read-only)
+{ const rpc = "https://mainnet.base.org", REG = "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432";
+  const call = async (method, params) => (await (await fetch(rpc, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) })).json());
+  const head = parseInt((await call("eth_blockNumber", [])).result, 16);
+  const TRANSFER = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
+  const owner = "0x0000000000000000000000002c7c52d15339e8b46e0e09245bb247cd7e6b128b";
+  for (let to = head; to > head - 6000; to -= 1000) {
+    const r = await call("eth_getLogs", [{ address: REG, fromBlock: "0x" + (to - 999).toString(16), toBlock: "0x" + to.toString(16), topics: [TRANSFER, "0x" + "0".repeat(64), owner] }]);
+    for (const l of r.result ?? []) {
+      const id = BigInt(l.topics[3]).toString();
+      const d = ((await call("eth_call", [{ to: REG, data: "0xc87b56dd" + BigInt(id).toString(16).padStart(64, "0") }, "latest"])).result ?? "").slice(2);
+      const len = parseInt(d.slice(64, 128), 16); const uri = Buffer.from(d.slice(128, 128 + len * 2), "hex").toString();
+      console.log(`8004 agent ${id} uri ${uri}`);
+    }
+  }
+}
