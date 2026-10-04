@@ -41,9 +41,3 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
-{
-  // One-off: where is warppay402's contact in its openapi.json?
-  const r = await fetch('https://api.warppay402.com/openapi.json');
-  const j = await r.json().catch(() => null);
-  console.log('OUTREACH2 openapi', r.status, 'info.contact =', JSON.stringify(j?.info?.contact), '| x-service-info =', JSON.stringify(j?.['x-service-info'] ?? null).slice(0, 200));
-}
