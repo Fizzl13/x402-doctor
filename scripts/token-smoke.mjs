@@ -41,3 +41,10 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
+// one-off: e-mail sign-in live? (config only; no mail is sent)
+for (let i = 0; i < 40; i++) {
+  const h = await (await fetch("https://wallet.fizzl.eu/")).text().catch(() => "");
+  if (h.includes('id="emailLogin"')) { const c = await (await fetch("https://wallet.fizzl.eu/api/config")).json(); console.log(`MAIL deployed after ${i * 15}s, config.email=${c.email}`); break; }
+  if (i === 39) console.log("MAIL not deployed after 10 min");
+  await new Promise((ok) => setTimeout(ok, 15000));
+}
