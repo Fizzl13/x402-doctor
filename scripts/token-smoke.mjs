@@ -41,3 +41,9 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
+{
+  // One-off: Doctor's L402 checks (feature branch) on live L402 endpoints. Read-only, nothing paid.
+  const { execSync } = await import('node:child_process');
+  execSync('git fetch -q origin claude/x402-agents-solana-payments-nceg9b && rm -rf /tmp/dr && git worktree add -q /tmp/dr FETCH_HEAD && cd /tmp/dr && npm ci --silent --no-audit --no-fund', { stdio: 'inherit', shell: '/bin/bash' });
+  try { execSync('node ' + new URL('./l402-live.cjs', import.meta.url).pathname, { stdio: 'inherit', cwd: '/tmp/dr', timeout: 120000 }); } catch (e) { console.log('exit', e.status); }
+}
