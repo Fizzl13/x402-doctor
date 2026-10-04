@@ -41,3 +41,9 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
+// one-off: Resend DKIM record (only its shape is printed)
+for (const r of ["dns.google/resolve", "cloudflare-dns.com/dns-query"]) {
+  const d = await (await fetch(`https://${r}?name=resend._domainkey.fizzl.eu&type=TXT`, { headers: { accept: "application/dns-json" } })).json().catch(() => ({}));
+  const v = (d.Answer ?? []).map((a) => String(a.data).replace(/"/g, "").replace(/\s+/g, ""));
+  console.log(`DKIM ${r} answers=${v.length} ${v.map((x) => `starts=${x.slice(0, 8)} len=${x.length} apikey=${/re_[A-Za-z0-9_]{10,}/.test(x)}`).join(" | ")}`);
+}
