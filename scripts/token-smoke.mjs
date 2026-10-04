@@ -41,14 +41,3 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
-{
-  // One-off: find public L402 endpoints (no payment, GET only).
-  for (const u of ['https://satring.com', 'https://satring.com/api/v1/services', 'https://satring.com/api/services', 'https://l402.tech', 'https://www.l402.tech']) {
-    try {
-      const r = await fetch(u, { headers: { accept: 'application/json,text/html' }, signal: AbortSignal.timeout(15000) });
-      const t = await r.text();
-      const links = [...new Set([...t.matchAll(/https?:\/\/[a-z0-9.-]+\.[a-z]{2,}[^\s"'<>)]*/gi)].map((m) => m[0]))].filter((x) => !/satring\.com\/(static|assets)|fonts|google|cdn|\.css|\.js|\.png|\.svg|\.ico/.test(x)).slice(0, 60);
-      console.log('L4 page', u, r.status, t.length, '\nL4 text', t.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 1200), '\nL4 links', links.join(' '));
-    } catch (e) { console.log('L4 page', u, 'error', e.message); }
-  }
-}
