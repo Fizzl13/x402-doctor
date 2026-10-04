@@ -41,26 +41,3 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
-{
-  // One-off: Bazaar check for the 8 routes paid on 4 Oct, and leftover onrender.com entries.
-  const all = [];
-  for (let offset = 0; offset < 50000; offset += 500) {
-    let page;
-    for (let t = 0; t < 3; t++) {
-      const r = await fetch(`https://api.cdp.coinbase.com/platform/v2/x402/discovery/resources?type=http&limit=500&offset=${offset}`);
-      if (r.ok) { page = await r.json(); break; }
-      console.log('BAZ http', r.status, 'offset', offset); await new Promise((s) => setTimeout(s, 3000));
-    }
-    const items = (page && (page.items || page.resources)) || [];
-    all.push(...items);
-    if (items.length < 500) break;
-  }
-  console.log('BAZ total', all.length);
-  const ours = all.map((i) => i.resource).filter((u) => /fizzl\.eu|onrender\.com/.test(u) && /presign|plaintext|ichimoku|x402-doctor|doctor|smart|explain/i.test(u));
-  for (const u of [...new Set(ours)].sort()) console.log('BAZ ours', u);
-  const want = ['presign-guard.fizzl.eu/v1/check', 'presign-guard.fizzl.eu/v1/check/explain', 'presign-guard.fizzl.eu/v1/approvals', 'plaintext.fizzl.eu/api/check-wallet', 'ichimoku-signal.fizzl.eu/levels/', 'ichimoku-signal.fizzl.eu/scan', 'ichimoku-signal.fizzl.eu/setups', 'x402-doctor.fizzl.eu/api/v1/fix'];
-  for (const w of want) {
-    const hit = ours.filter((u) => u.replace(/^https?:\/\//, '').split('?')[0].startsWith(w) && (w.endsWith('/') || /^[^?]*$/.test(u.replace(/^https?:\/\//, '').slice(w.length).split('?')[0]) && u.replace(/^https?:\/\//, '').split('?')[0].slice(w.length) === ''));
-    console.log('BAZ want', w, hit.length ? 'FOUND ' + hit.join(' ') : 'MISSING');
-  }
-}
