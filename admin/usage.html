@@ -302,7 +302,10 @@
     const all = (state.data.events || []).filter((e) => state.services.has(e.service) && (!state.hideBots || !isBot(e)));
     const tile = (k, v, d) => el('div', { className: 'tile' }, el('div', { className: 'k', textContent: k }), el('div', { className: 'v', textContent: v }), el('div', { className: 'd', textContent: d }));
     const paid = all.filter((e) => e.paid && e.protocol === 'mpp');
-    const refused = all.filter((e) => e.quote && e.payment_failed && e.protocol === 'mpp');
+    // Doctor's own bad-credential test (every Doctor check of an MPP endpoint sends a made-up credential) is not a
+    // refused payment: leave out the agent "x402-doctor" and the addresses it ran from (its older runs said "undici").
+    const ownProbe = new Set((state.data.events || []).filter((e) => /^x402-doctor/i.test(e.agent || '') && e.visitor).map((e) => e.visitor));
+    const refused = all.filter((e) => e.quote && e.payment_failed && e.protocol === 'mpp' && !/^x402-doctor/i.test(e.agent || '') && !ownProbe.has(e.visitor));
     const perSvc = (list) => SERVICES.map((s) => [s.name, list.filter((e) => e.service === s.id).length]).filter(([, n]) => n).map(([n, c]) => `${n} ${c}`).join(' · ');
     const checks = all.filter((e) => e.service === 'doctor' && (e.route === 'diagnose' || e.route === 'x402_diagnose') && e.result && e.result.protocol);
     const mppChecks = checks.filter((e) => e.result.protocol === 'mpp' || e.result.protocol === 'both');
@@ -312,11 +315,11 @@
       : tile('Trust Index: MPP', '–', 'no MPP scan yet (the daily scan adds MPP from 5 Oct 2026)');
     $('mpp').replaceChildren(
       tile('Paid over MPP', paid.length.toLocaleString(), paid.length ? `${usd(paid.reduce((s, e) => s + (Number(e.usd) || 0), 0))} · ${perSvc(paid)}` : 'no MPP payments yet'),
-      tile('Refused MPP payments', refused.length.toLocaleString(), refused.length ? perSvc(refused) : 'an MPP credential we could not accept'),
+      tile('Refused MPP payments', refused.length.toLocaleString(), refused.length ? perSvc(refused) : 'none from outside (Doctor\'s own credential test is left out)'),
       tile('Doctor checks of MPP endpoints', mppChecks.length.toLocaleString(), checks.length ? `of ${checks.length} checks · MPP only ${mppChecks.filter((e) => e.result.protocol === 'mpp').length}, both ${mppChecks.filter((e) => e.result.protocol === 'both').length}` : 'logged since 4 Oct 2026'),
       trustTile,
     );
-    $('mppNote').textContent = 'All four services accept MPP (method evm, USDC on Base) next to x402 since 4 Oct 2026. MPP payments are also in the totals above; the Paid filter and the calls table include them.';
+    $('mppNote').textContent = 'All four services accept MPP next to x402 since 4 Oct 2026: method evm (USDC on Base) and, since that evening, method tempo (USDC.e on Tempo). MPP payments are also in the totals above; the Paid filter and the calls table include them.';
   }
 
   // Same visitor code within the window after a preview. An agent paying from
