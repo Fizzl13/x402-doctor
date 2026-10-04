@@ -41,10 +41,3 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
-// one-off: wallet PWA live?
-for (let i = 0; i < 40; i++) {
-  const r = await fetch("https://wallet.fizzl.eu/manifest.webmanifest").catch(() => null);
-  if (r?.status === 200) { const s = await fetch("https://wallet.fizzl.eu/sw.js"); const ic = await fetch("https://wallet.fizzl.eu/app/icon-192.png"); console.log(`PWA live after ${i * 15}s: manifest 200, sw ${s.status}, icon ${ic.status}`); break; }
-  if (i === 39) console.log("PWA not live after 10 min, manifest", r?.status);
-  await new Promise((ok) => setTimeout(ok, 15000));
-}
