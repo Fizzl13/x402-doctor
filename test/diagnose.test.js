@@ -616,9 +616,11 @@ test('MPP: a WWW-Authenticate: Payment challenge is read and checked; MPP-only i
   assert.match(parseChallenges('Payment id="x", realm="h", method="tempo", intent="charge", request="not base64!"')[0].error, /base64url/);
 
   let mode = 'mpp-good';
+  const seenTestAgents = new Set();
   const api = await listen((req, res) => {
     const host = 'localhost';
     const credential = req.headers.authorization;
+    if (credential) seenTestAgents.add(req.headers['user-agent']);
     const good = `Payment id="c1", realm="${host}", method="tempo", intent="charge", request="${b64u(tempo)}", expires="${soon}"`;
     if (mode === 'mpp-good') {
       res.statusCode = 402;
@@ -649,6 +651,7 @@ test('MPP: a WWW-Authenticate: Payment challenge is read and checked; MPP-only i
   assert.deepEqual(byId(good, 'mpp-fields').map((c) => c.status), ['pass', 'pass']);
   assert.match(byId(good, 'mpp-fields')[1].message, /1\.00 USD via Stripe/);
   assert.equal(byId(good, 'mpp-bad-credential')[0].status, 'pass');
+  assert.deepEqual([...seenTestAgents], ['x402-doctor (MPP bad-credential test)'], 'the bad-credential test names itself, so sellers can tell it from a real refused payment');
   assert.ok(!good.checks.some((c) => c.group === 'mpp' && c.status === 'fail'));
   assert.equal(good.mpp.length, 2);
 
