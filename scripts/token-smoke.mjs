@@ -41,10 +41,3 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
-// one-off: Doctor's agent-identity check on Ichimoku
-for (let i = 0; i < 20; i++) {
-  const r = await (await fetch("https://x402-doctor.fizzl.eu/api/diagnose", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url: `https://ichimoku-signal.fizzl.eu/signal/ETH-USDT?x=${Date.now()}`, method: "GET" }) })).json().catch(() => ({}));
-  const c = (r.checks ?? []).find((x) => x.id === "agent-identity");
-  if (c && (c.status === "pass" || i === 19)) { console.log(`AID ichimoku after ${i * 20}s: ${c.status} | ${c.message} | overall ${r.overall}`); break; }
-  await new Promise((ok) => setTimeout(ok, 20000));
-}
