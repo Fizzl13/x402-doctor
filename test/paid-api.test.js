@@ -273,7 +273,7 @@ test('discovery: OpenAPI with x-payment-info and /.well-known/x402 listing the r
   assert.equal(agent.type, 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1');
   assert.deepEqual(agent.services.map((x) => [x.name, x.endpoint]), [['web', 'https://x402-doctor.fizzl.eu/'], ['MCP', 'https://x402-doctor.fizzl.eu/mcp']], 'always the public address');
   assert.strictEqual(agent.x402Support, true);
-  assert.deepStrictEqual(agent.registrations, [{ agentId: 'CLgJCXbmpJeL4v8KeXb6UGLHcVG4AkNDXKBWQjm1dupj', agentRegistry: 'solana:101:metaplex' }]);
+  assert.deepStrictEqual(agent.registrations, [{ agentId: 'CLgJCXbmpJeL4v8KeXb6UGLHcVG4AkNDXKBWQjm1dupj', agentRegistry: 'solana:101:metaplex' }, { agentId: 97519, agentRegistry: 'eip155:8453:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432' }]);
   const signerDoc = await (await fetch(`${api}/.well-known/x402-doctor-signer.json`)).json();
   assert.equal(signerDoc.authority, '0x6B0F4651eD42893ab58139938175E4a69f175F25', 'the payout wallet authorises keys');
   assert.equal(signerDoc.certificate, null, 'no certificate configured in tests');
