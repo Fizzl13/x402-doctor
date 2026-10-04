@@ -585,8 +585,8 @@ function openApi(origin, payment) {
       },
     },
   };
-  // MPP discovery for MPPScan (mpp-pay.js): the evm offer next to the x402 fields.
-  if (payment.mpp) addMppOffers(spec, { categories: ['payments', 'developer-tools', 'security'], docs: { homepage: origin, apiReference: `${origin}/openapi.json`, llms: `${origin}/skill.md` }, contact: { name: 'Fizzl', url: 'https://fizzl.eu' } });
+  // MPP discovery for MPPScan (mpp-pay.js): the evm (and tempo) offer next to the x402 fields.
+  if (payment.mpp) addMppOffers(spec, { categories: ['payments', 'developer-tools', 'security'], docs: { homepage: origin, apiReference: `${origin}/openapi.json`, llms: `${origin}/skill.md` }, contact: { name: 'Fizzl', url: 'https://fizzl.eu' }, tempo: payment.mpp.tempo });
   return spec;
 }
 

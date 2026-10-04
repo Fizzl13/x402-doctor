@@ -322,6 +322,9 @@ Or the CLI in a plain `run:` step:
 | `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET` | Use Coinbase's CDP facilitator for Base (PayAI stays the fallback). Payments settled through CDP get the route listed in the CDP Bazaar |
 | `DOCTOR_SOLANA_FACILITATOR` | With CDP keys set, Solana is settled by PayAI (CDP takes over if PayAI is down). Set to `cdp` to settle Solana through CDP too |
 | `MPP_SECRET` | Turns on MPP payment (method `evm`, USDC on Base, via the same facilitator) next to x402 on the paid routes, for agents that speak MPP (mppx). Any long random string; it signs the challenge ids. Without it only x402 is offered |
+| `MPP_TEMPO_RECIPIENT` | With `MPP_SECRET`: also accepts MPP method `tempo` (push mode: the agent sends USDC.e on Tempo with the MPP memo and answers with the transaction hash, which the Doctor checks on a Tempo RPC). The address that receives it on Tempo; make sure you hold its key in a wallet that supports Tempo. Without it only `evm` is offered |
+| `MPP_TEMPO_CHAIN` | `4217` (Tempo, default) or `42431` (Moderato testnet, pays in pathUSD) |
+| `MPP_TEMPO_RPC` | Overrides the Tempo RPC (default `https://rpc.tempo.xyz`, or the Moderato one) |
 
 | `USAGE_LOG_TOKEN` | Fine-grained GitHub token with Contents read/write on the usage-log repo only. Every call is logged there (see below) |
 | `USAGE_LOG_REPO` | The private usage-log repo (default `Fizzl13/usage-log`) |
