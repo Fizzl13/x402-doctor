@@ -54,10 +54,13 @@ function rateLimit({ windowMs, max }) {
 
 // allowPrivate is only for tests and local CLI use; the web service never
 // diagnoses internal addresses.
-// Which payment protocol a diagnosed endpoint speaks, for the usage log: x402, mpp, both or none.
+// Which payment protocol a diagnosed endpoint speaks, for the usage log: x402, mpp, l402, both (x402 + MPP),
+// a "+"-list for other combinations, or none.
 function protocolOf(b) {
   if (!b || typeof b !== 'object' || (!b.checks && !b.overall)) return undefined;
   const mpp = Array.isArray(b.mpp) && b.mpp.length;
+  const l402 = Array.isArray(b.l402) && b.l402.length;
+  if (l402) return [b.challenge && 'x402', mpp && 'mpp', 'l402'].filter(Boolean).join('+');
   if (mpp && b.challenge) return 'both';
   if (mpp) return 'mpp';
   return b.challenge ? 'x402' : 'none';
@@ -468,7 +471,7 @@ function openApi(origin, payment) {
     info: {
       title: 'x402 Doctor',
       version: '2.5.0',
-      description: "Diagnoses why an x402 or MPP payment endpoint is broken, without a funded wallet: challenge format (x402 and MPP), accepts[], resource URL, Solana settlement readiness, discovery and browser paywall.",
+      description: "Diagnoses why an x402, MPP or L402 payment endpoint is broken, without a funded wallet: challenge format (x402, MPP and L402 / Lightning), accepts[], resource URL, Solana settlement readiness, discovery and browser paywall.",
       'x-guidance': 'Before paying an unknown x402 endpoint, call GET /api/v1/preflight?url=<endpoint>&max_usd=<budget> ($0.001): it answers go, caution or no_go with the recommended payment option and the reasons. Checking several endpoints at once: GET /api/v1/preflight/batch?url=<a>&url=<b> (up to 10, $0.005). Before an expensive call: GET /api/v1/preflight/deep?url=<endpoint> ($0.01) adds the full diagnosis, the daily history, the other endpoints of the same seller and domain moves. To debug your own endpoint, call GET /api/v1/diagnose?url=<endpoint> ($0.01): every check with pass/warn/fail and a fix hint. To get the code that fixes it, call GET /api/v1/fix?url=<endpoint> ($0.05): per problem the concrete change for your stack, filled in with your own values. None of them ever pays the endpoint. Every paid answer carries a signed receipt: keep it to prove later which verdict you got (for example why you paid an endpoint); the signer is at /.well-known/x402-doctor-signer.json and POST /api/v1/verify checks one for free.',
     },
     servers: [{ url: origin }],
