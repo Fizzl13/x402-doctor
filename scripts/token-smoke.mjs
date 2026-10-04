@@ -41,3 +41,14 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
+// one-off: ERC-8004 check after setAgentURI (read-only)
+{ const rpc = "https://mainnet.base.org", REG = "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432";
+  const j = async (method, params) => (await (await fetch(rpc, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) })).json()).result;
+  const uriOf = async (id) => { const d = (await j("eth_call", [{ to: REG, data: "0xc87b56dd" + id.toString(16).padStart(64, "0") }, "latest"]) ?? "").slice(2); const len = parseInt(d.slice(64, 128), 16); return Buffer.from(d.slice(128, 128 + len * 2), "hex").toString(); };
+  for (const id of [97519, 97520, 97521, 97522, 97523]) console.log(`ID #${id} ${await uriOf(id)}`);
+  const head = parseInt(await j("eth_blockNumber", []), 16);
+  const owner = "0x0000000000000000000000002c7c52d15339e8b46e0e09245bb247cd7e6b128b";
+  let mints = [];
+  for (let to = head; to > head - 3000; to -= 1000) { const logs = await j("eth_getLogs", [{ address: REG, fromBlock: "0x" + (to - 999).toString(16), toBlock: "0x" + to.toString(16), topics: ["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef", "0x" + "0".repeat(64), owner] }]) ?? []; mints.push(...logs.map((l) => BigInt(l.topics[3]).toString())); }
+  console.log("ID mints by Frits in last ~100 min:", mints.sort().join(","));
+}
