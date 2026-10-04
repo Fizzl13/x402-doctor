@@ -553,3 +553,50 @@ test('paywall: the testnet flag is read from JSON config too (as the Python x402
   assert.equal((await run('{"testnet": false}')).message, 'Browser paywall present (mainnet mode).');
   assert.equal((await run('{"amount": 0.01}')).message, 'Browser paywall present.', 'no flag: the wallet code later in the page does not count');
 });
+
+test('ERC-8004 identity: verified when the registered agent points back to this domain; flagged when it points elsewhere or does not exist', async () => {
+  const { checkAgentIdentity } = require('../lib/diagnose');
+  const abiString = (s) => {
+    const hex = Buffer.from(s).toString('hex');
+    return `0x${'20'.padStart(64, '0')}${s.length.toString(16).padStart(64, '0')}${hex.padEnd(Math.ceil(hex.length / 64) * 64, '0')}`;
+  };
+  let site = null;
+  const rpc = await listen(async (req, res) => {
+    const body = JSON.parse(await readBody(req));
+    const id = parseInt(body.params[0].data.slice(10), 16);
+    res.setHeader('content-type', 'application/json');
+    if (id === 7) res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, result: abiString(`${site}/.well-known/agent-registration.json`) }));
+    else if (id === 8) res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, result: abiString('https://someone-else.example/agent.json') }));
+    else res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, error: { code: 3, message: 'execution reverted: ERC721NonexistentToken' } }));
+  });
+  let doc = null;
+  site = await listen((req, res) => {
+    if (req.url !== '/.well-known/agent-registration.json' || !doc) { res.statusCode = 404; return res.end(); }
+    res.setHeader('content-type', 'application/json');
+    res.end(JSON.stringify(doc));
+  });
+  const safeFetch = createSafeFetch({ allowPrivate: true });
+  const run = async () => { const checks = []; await checkAgentIdentity(site, safeFetch, checks, { evmRpcUrls: { [BASE]: rpc } }); return checks[0]; };
+  const REG = 'eip155:8453:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432';
+  const base = { type: 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1', name: 'Test service', services: [] };
+
+  assert.equal((await run()).status, 'info', 'no file: optional');
+  doc = { hello: 'world' };
+  assert.equal((await run()).status, 'warn', 'not an ERC-8004 file');
+  doc = { ...base, registrations: [{ agentId: 'abc', agentRegistry: 'solana:101:metaplex' }] };
+  const solOnly = await run();
+  assert.equal(solOnly.status, 'info');
+  assert.match(solOnly.message, /Solana registry/);
+  doc = { ...base, registrations: [{ agentId: 7, agentRegistry: REG }] };
+  const ok = await run();
+  assert.equal(ok.status, 'pass');
+  assert.match(ok.message, /agent #7 on Base/);
+  doc = { ...base, registrations: [{ agentId: 8, agentRegistry: REG }] };
+  const other = await run();
+  assert.equal(other.status, 'warn');
+  assert.match(other.message, /points to https:\/\/someone-else\.example/);
+  doc = { ...base, registrations: [{ agentId: 99, agentRegistry: REG }] };
+  const missing = await run();
+  assert.equal(missing.status, 'warn');
+  assert.match(missing.message, /doesn't exist/);
+});
