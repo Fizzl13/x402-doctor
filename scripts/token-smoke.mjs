@@ -41,3 +41,5 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
+// one-off: device sign-in live?
+{ const h = await (await fetch("https://wallet.fizzl.eu/")).text(); console.log(`DEV page has deviceLogin: ${h.includes('id="deviceLogin"')}`); }
