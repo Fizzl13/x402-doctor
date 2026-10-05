@@ -210,9 +210,16 @@ test('MPP in the Trust Index: the directory becomes scan entries; challenges get
   const directory = { version: 1, services: [
     { id: 'a', serviceUrl: 'https://api.a.example', status: 'active', endpoints: [{ method: 'GET', path: '/price' }, { method: 'POST', path: '/v1/run' }, { method: 'GET', path: '/items/{id}' }, { method: 'GET', path: '/price' }] },
     { id: 'b', url: 'https://b.example', status: 'deprecated', endpoints: [{ method: 'GET', path: '/x' }] },
+    // Free routes (payment null, amount "0") never answer 402: left out. A priced or dynamic one stays.
+    { id: 'c', serviceUrl: 'https://c.example', status: 'active', endpoints: [
+      { method: 'GET', path: '/v0/inboxes', payment: null },
+      { method: 'POST', path: '/sign-up', payment: { intent: 'charge', amount: '0' } },
+      { method: 'POST', path: '/v0/inboxes', payment: { intent: 'charge', amount: '2000000' } },
+      { method: 'POST', path: '/top-up', payment: { intent: 'charge', dynamic: true } },
+    ] },
   ] };
   const list = await loadMppCatalog({ fetchImpl: async () => Response.json(directory) });
-  assert.deepEqual(list.map((r) => [r.url, r.method, r.p]), [['https://api.a.example/price', 'GET', 'mpp'], ['https://api.a.example/v1/run', 'POST', 'mpp']]);
+  assert.deepEqual(list.map((r) => [r.url, r.method, r.p]), [['https://api.a.example/price', 'GET', 'mpp'], ['https://api.a.example/v1/run', 'POST', 'mpp'], ['https://c.example/v0/inboxes', 'POST', 'mpp'], ['https://c.example/top-up', 'POST', 'mpp']]);
 
   const b64u = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
   const soon = new Date(Date.now() + 300_000).toISOString();
@@ -223,13 +230,14 @@ test('MPP in the Trust Index: the directory becomes scan entries; challenges get
       const host = 'localhost';
       if (req.url === '/good') { res.statusCode = 402; res.setHeader('www-authenticate', `Payment id="1", realm="${host}", method="evm", intent="charge", request="${b64u(usdc)}", expires="${soon}"`); return res.end(); }
       if (req.url === '/meh') { res.statusCode = 402; res.setHeader('www-authenticate', `Payment id="1", realm="other.example", method="evm", intent="charge", request="${b64u(usdc)}"`); return res.end(); }
+      if (req.url === '/strict') { res.statusCode = 400; return res.end('{"error":"symbol is required"}'); }
       if (req.url === '/old') { res.statusCode = 402; res.setHeader('www-authenticate', `Payment id="1", realm="${host}", method="evm", intent="charge", request="${b64u(usdc)}", expires="2020-01-01T00:00:00Z"`); return res.end(); }
       res.statusCode = 404; res.end();
     }).listen(0, () => resolve(`http://localhost:${server.address().port}`));
     after.push(() => server.close());
   });
   const safeFetch = createSafeFetch({ allowPrivate: true });
-  const entries = ['good', 'meh', 'old', 'gone'].map((p) => ({ key: `${api}/${p}`, url: `${api}/${p}`, method: 'GET', p: 'mpp' }));
+  const entries = ['good', 'meh', 'old', 'gone', 'strict'].map((p) => ({ key: `${api}/${p}`, url: `${api}/${p}`, method: 'GET', p: 'mpp' }));
   const results = await scan(entries, { safeFetch, rpcUrl: 'http://127.0.0.1:1' });
   const by = Object.fromEntries(results.map((r) => [r.url.split('/').pop(), r]));
   assert.equal(by.good.verdict, 'go');
@@ -242,6 +250,7 @@ test('MPP in the Trust Index: the directory becomes scan entries; challenges get
   assert.deepEqual(by.old.codes, ['mpp_expired']);
   assert.equal(by.gone.verdict, 'no_go');
   assert.deepEqual(by.gone.codes, ['no_402']);
+  assert.equal(by.strict.verdict, 'needs_input'); // checks input before the 402: not judged
 
   const index = mergeIndex(null, [...results, { key: 'https://x.example/a', url: 'https://x.example/a', method: 'GET', verdict: 'go', codes: [], price_usd: 0.01, networks: [], ms: 1 }], { date: '2026-10-04' });
   assert.equal(index.resources[`${api}/good`].p, 'mpp');
