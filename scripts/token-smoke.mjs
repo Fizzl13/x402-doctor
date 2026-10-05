@@ -41,28 +41,3 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
-
-{
-// monitor add-on (read-only): MPP challenges + offers, mpp.dev PR state
-const SVC = [
-  ['doctor', 'https://x402-doctor.fizzl.eu', 'GET', '/api/v1/diagnose?url=https://example.com'],
-  ['ichimoku', 'https://ichimoku-signal.fizzl.eu', 'GET', '/signal/BTC-USDT'],
-  ['presign', 'https://presign-guard.fizzl.eu', 'GET', '/v1/token?chain=base&address=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'],
-  ['plaintext', 'https://plaintext.fizzl.eu', 'POST', '/api/check-wallet'],
-];
-for (const [name, origin, method, path] of SVC) {
-  try {
-    const res = await fetch(origin + path, { method, headers: { accept: 'application/json', 'content-type': 'application/json' }, body: method === 'POST' ? '{}' : undefined });
-    const w = res.headers.get('www-authenticate') || '';
-    const methods = [...w.matchAll(/method="([^"]+)"/g)].map((m) => m[1]);
-    const realms = [...new Set([...w.matchAll(/realm="([^"]+)"/g)].map((m) => m[1]))];
-    const spec = (await (await fetch(origin + '/openapi.json')).text()).replace(/\s/g, '');
-    console.log('MPPMON', name, res.status, 'methods', methods.join(','), 'realm', realms.join(','), '| offers evm', (spec.match(/"method":"evm"/g) || []).length, 'tempo', (spec.match(/"method":"tempo"/g) || []).length);
-  } catch (e) { console.log('MPPMON', name, 'error', e.message); }
-}
-try {
-  const g = (p) => fetch('https://api.github.com/repos/tempoxyz/mpp' + p, { headers: { 'user-agent': 'fizzl-monitor' } }).then((r) => r.json());
-  const pr = await g('/pulls/1045'); const cs = await g('/issues/1045/comments'); const rv = await g('/pulls/1045/reviews');
-  console.log('MPPPR', pr.state, 'merged', pr.merged, 'comments', Array.isArray(cs) ? cs.map((c) => `${c.user?.login}@${c.created_at}`).join(' ') : '', '| reviews', Array.isArray(rv) ? rv.map((r) => `${r.user?.login}:${r.state}`).join(' ') : '');
-} catch (e) { console.log('MPPPR error', e.message); }
-}
