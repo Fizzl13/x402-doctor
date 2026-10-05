@@ -41,18 +41,3 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
-
-// one-off (read-only): wait for presign-guard's new /health with the Jev status
-{
-  const until = Date.now() + 12 * 60_000;
-  let last = null;
-  while (Date.now() < until) {
-    try {
-      const j = await (await fetch('https://presign-guard.fizzl.eu/health', { signal: AbortSignal.timeout(15000) })).json();
-      last = j;
-      if (j.jev && j.jev.selfTest !== 'not run') break;
-    } catch (e) { last = { error: e.message }; }
-    await new Promise((r) => setTimeout(r, 20000));
-  }
-  console.log('JEVHEALTH ' + JSON.stringify(last));
-}
