@@ -69,3 +69,20 @@ test('weekly stats: test, staging and tunnel endpoints are left out of the numbe
   assert.match(markdown, /Left out: \*\*2\*\* test, staging or tunnel endpoints on 2 hosts/);
   assert.match(posts.discord, /2 test\/staging endpoints left out/);
 });
+
+test('weekly stats: x402 and MPP counted apart, MPP reasons in plain words', () => {
+  const mpp = (url, h, last) => [url, { url, h, last, p: 'mpp' }];
+  const withMpp = { ...index, resources: { ...index.resources, ...Object.fromEntries([
+    mpp('https://m.example/a', 'gggggggg', go(0.01)),
+    mpp('https://m.example/b', 'cccccccc', { verdict: 'caution', codes: ['mpp_no_expires'], price_usd: 0.01, networks: [BASE] }),
+  ]) } };
+  assert.equal(weeklyStats(index).protocols.length, 1);
+  const s = weeklyStats(withMpp);
+  assert.deepEqual(s.protocols.find((p) => p.protocol === 'mpp'), { protocol: 'mpp', resources: 2, clean_pct: 50, payable_pct: 100 });
+  assert.equal(s.reasons.find((r) => r.code === 'mpp_no_expires').why, 'send an MPP challenge without an expiry');
+  const { markdown, posts } = weeklyReport(withMpp);
+  assert.match(markdown, /By protocol: x402 \d+ \([\d.]+% clean, [\d.]+% payable\), MPP 2 \(50% clean, 100% payable\)/);
+  assert.match(markdown, /CDP Bazaar and the MPP directory/);
+  assert.match(posts.discord, /By protocol: .*MPP 2/);
+  assert.doesNotMatch(markdown, /Mpp_/);
+});

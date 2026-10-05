@@ -28,6 +28,7 @@ const { renderBadge, badgeFor } = require('./lib/badge');
 const { addMppOffers } = require('./lib/mpp-pay');
 const { createOutreachHook } = require('./lib/outreach-hook');
 const { createTriage } = require('./lib/jev-triage');
+const { createDescribe } = require('./lib/jev-describe');
 
 const PORT = process.env.PORT || 3001;
 // Payout addresses shown by /demo/broken (it never settles, so nothing is paid).
@@ -164,7 +165,7 @@ function trustProxyHops(env) {
   return Number.isInteger(n) && n >= 0 && n <= 10 && String(env.TRUST_PROXY_HOPS).trim() !== '' ? n : 3;
 }
 
-function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, trustIndex = createTrustIndex(), media = createMediaCache(), usageLog = createUsageLog({ service: 'doctor', env }), usageReader = createUsageReader({ env }), publicStats = createPublicStats({ usageReader }), settlementFetch = globalThis.fetch, status = null, outreachHook: outreachHookOverride = null } = {}) {
+function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, trustIndex = createTrustIndex(), media = createMediaCache(), usageLog = createUsageLog({ service: 'doctor', env }), usageReader = createUsageReader({ env }), publicStats = createPublicStats({ usageReader }), settlementFetch = globalThis.fetch, status = null, outreachHook: outreachHookOverride = null, describe = createDescribe({ apiKey: env.TYPESAFE_API_KEY }) } = {}) {
   const app = express();
   const safeFetch = createSafeFetch({ allowPrivate });
   // Outreach drafts for the owner (lib/outreach-hook.js); off without OUTREACH_URL and OUTREACH_KEY.
@@ -414,7 +415,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     }
     if (/^https?:\/\/[^/?#]*https?:/i.test(targetUrl)) return res.status(400).json({ error: 'This looks like two URLs pasted into each other; send only the endpoint URL.' });
     try {
-      const report = await diagnoseLib.diagnose(targetUrl, { safeFetch, method, bazaarIndex: bazaar });
+      const report = await diagnoseLib.diagnose(targetUrl, { safeFetch, method, bazaarIndex: bazaar, describe });
       // A broken endpoint with a published contact: a draft for the owner's outreach (never sent from here).
       outreachHook.maybeDraft(targetUrl, report).catch(() => {});
       // The page's own share link, for callers that only see JSON (curl, scripts):
