@@ -41,3 +41,19 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
+
+// one-off (read-only): Jev live checks (wallet search ranking, replydesk triage)
+{
+  const until = Date.now() + 10 * 60_000;
+  let s = null;
+  while (Date.now() < until) {
+    try { s = await (await fetch('https://wallet.fizzl.eu/api/public/services/search?q=' + encodeURIComponent('is this token safe to buy'), { signal: AbortSignal.timeout(30000) })).json(); if (s.results?.some((r) => r.relevance !== undefined)) break; } catch (e) { s = { error: e.message }; }
+    await new Promise((r) => setTimeout(r, 30000));
+  }
+  console.log('JEVSEARCH ' + JSON.stringify((s.results || []).slice(0, 6).map((r) => [r.host, r.relevance ?? null, (r.description || '').slice(0, 60)])) + (s.error ? ' ' + s.error : ''));
+  try {
+    const r = await fetch('https://replydesk.onrender.com/api/draft', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ message: "Hi, for the third time this week my paper didn't arrive. I'm getting tired of this. Can you sort it out?" }), signal: AbortSignal.timeout(60000) });
+    const j = await r.json();
+    console.log('JEVREPLY', r.status, JSON.stringify(j.triage ?? null), j.case_type, j.error || '');
+  } catch (e) { console.log('JEVREPLY error', e.message); }
+}
