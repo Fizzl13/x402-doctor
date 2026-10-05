@@ -41,3 +41,21 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
+
+// one-off (read-only): weekly Ichimoku post data + Thursday watch
+try {
+  const p = await (await fetch('https://ichimoku-signal.fizzl.eu/setups/preview', { signal: AbortSignal.timeout(20000) })).json();
+  console.log('PREVIEW ' + JSON.stringify({ history: p.history, history_summary: p.history_summary }));
+} catch (e) { console.log('PREVIEW error', e.message); }
+for (const sym of ['BTCUSDT', 'ETHUSDT']) {
+  try {
+    const start = Date.parse('2026-10-02T00:00:00Z');
+    const k = await (await fetch(`https://api.binance.us/api/v3/klines?symbol=${sym}&interval=1h&startTime=${start}&limit=1000`, { signal: AbortSignal.timeout(20000) })).json();
+    const by = {}; const days = {};
+    for (let i = 1; i < k.length; i++) {
+      const t = new Date(k[i][0]); const d = t.getUTCDay(); const r = Math.log(Number(k[i][4]) / Number(k[i - 1][4]));
+      by[d] = (by[d] || 0) + r; (days[d] ||= new Set()).add(t.toISOString().slice(0, 10));
+    }
+    console.log('THU', sym, 'candles', k.length, 'last', new Date(k[k.length - 1][0]).toISOString(), JSON.stringify(Object.fromEntries(Object.entries(by).map(([d, v]) => [d, [+(v * 100).toFixed(3), days[d].size]]))));
+  } catch (e) { console.log('THU', sym, 'error', e.message); }
+}
