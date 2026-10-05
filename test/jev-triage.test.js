@@ -2,7 +2,7 @@
 // findings; off or failing means drafts as before.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createTriage, testByAddress } = require('../lib/jev-triage');
+const { createTriage, testByAddress, ruleOf } = require('../lib/jev-triage');
 const { createOutreachHook } = require('../lib/outreach-hook');
 
 const quiet = { warn() {}, log() {} };
@@ -16,7 +16,7 @@ const jevFetch = (answers, status = 200, claude = null) => {
   };
   return { fetch, calls };
 };
-const findings = [{ id: 'resource-url', message: 'resource.url https://127.0.0.1:9078/v1/embed differs from the requested URL.' }];
+const findings = [{ id: 'resource-url', message: 'resource.url https://api.seller.test/v1/embed differs from the requested URL https://seller.test/v1/embed.' }];
 
 test('triage: off without a key; sure answers decide; in between is worth a mail', async () => {
   assert.equal(await createTriage({ apiKey: '' }).judge({ url: 'https://a.test', findings }), null);
@@ -69,4 +69,21 @@ test('outreach hook: an unsure case still becomes a draft (the owner decides)', 
   const walletFetch = async () => new Response(JSON.stringify({ draft: { id: 'ow_1' } }), { status: 200 });
   const h = createOutreachHook({ url: 'https://wallet.test', key: 'k', safeFetch, fetch: walletFetch, log: quiet, triage: createTriage({ apiKey: 'k', anthropicKey: '', fetch: jevFetch({ test_service: 0.3, real_problem: 0.5 }).fetch, log: quiet }) });
   assert.deepEqual(await h.maybeDraft('https://api.seller.test/x', failing), { drafted: 'api.seller.test' });
+});
+
+test('rules decide clear real problems without asking Jev; aliases and small price gaps go to Jev', async () => {
+  const f = (id, message) => [{ id, message }];
+  assert.match(ruleOf(f('resource-url', 'resource.url is http://a.test/x but the endpoint is served over https.'), 'https://a.test/x'), /http on an https/);
+  assert.match(ruleOf(f('resource_mismatch', 'resource.url https://127.0.0.1:9078/v1/embed differs from the requested URL https://api.grip.test/v1/embed.'), 'https://api.grip.test/v1/embed'), /internal address/);
+  assert.match(ruleOf(f('resource_mismatch', 'resource.url https://abc.lambda-url.us-east-1.on.aws/x differs from the requested URL https://x.test/x.'), 'https://x.test/x'), /raw cloud-function/);
+  assert.equal(ruleOf(f('price_above_advertised', 'Charges $0.015 but its OpenAPI advertises $0.002 for this route.'), 'https://a.test'), 'charges 7.5x the advertised price');
+  assert.equal(ruleOf(f('price_above_advertised', 'Charges $0.0172 but its OpenAPI advertises $0.0129 for this route.'), 'https://a.test'), null);
+  assert.equal(ruleOf(f('resource_mismatch', 'resource.url https://api.oblique.test/x differs from the requested URL https://oblique.test/x.'), 'https://oblique.test/x'), null);
+  assert.equal(ruleOf(f('no_payable_option', 'No payment option would settle.'), 'https://a.test'), 'no payment option would settle');
+  const j = jevFetch({});
+  const r = await createTriage({ apiKey: 'k', fetch: j.fetch, log: quiet }).judge({ url: 'https://url.openverbs.test/v1/q', findings: f('resource_mismatch', 'resource.url is http://url.openverbs.test/v1/q but the endpoint is served over https.') });
+  assert.deepEqual([r.worth, r.decidedBy], [true, 'rule']);
+  assert.equal(j.calls.length, 0);
+  // A test address wins over a rule: no mail for a staging service.
+  assert.equal((await createTriage({ apiKey: 'k', fetch: j.fetch, log: quiet }).judge({ url: 'https://staging.a.test/x', findings: f('no_payable_option', 'No payment option would settle.') })).decidedBy, 'address');
 });
