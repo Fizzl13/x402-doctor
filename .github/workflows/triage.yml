@@ -1,0 +1,37 @@
+name: Outreach triage (Jev)
+
+# By hand: which Trust Index sellers are worth an outreach mail. Re-runs the free pre-payment check on
+# the caution/no_go candidates (read-only, nothing is paid, nobody is contacted) and asks TypeSafe's Jev
+# whether each is a test service and whether its findings really hurt a paying agent. The table is in
+# the run summary. Needs the repository secret TYPESAFE_API_KEY.
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "How many hosts to check"
+        required: false
+        default: "40"
+
+permissions:
+  contents: read
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Trust Index
+        run: |
+          mkdir -p trust-data
+          git fetch --depth 1 origin trust-data
+          git show FETCH_HEAD:index.json > trust-data/index.json
+      - name: Triage
+        run: node scripts/triage-candidates.js --index trust-data/index.json --limit "${{ github.event.inputs.limit || '40' }}"
+        env:
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
