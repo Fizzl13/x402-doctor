@@ -27,6 +27,7 @@ const { createStatus } = require('./lib/status');
 const { renderBadge, badgeFor } = require('./lib/badge');
 const { addMppOffers } = require('./lib/mpp-pay');
 const { createOutreachHook } = require('./lib/outreach-hook');
+const { createTriage } = require('./lib/jev-triage');
 
 const PORT = process.env.PORT || 3001;
 // Payout addresses shown by /demo/broken (it never settles, so nothing is paid).
@@ -167,7 +168,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   const app = express();
   const safeFetch = createSafeFetch({ allowPrivate });
   // Outreach drafts for the owner (lib/outreach-hook.js); off without OUTREACH_URL and OUTREACH_KEY.
-  const outreachHook = outreachHookOverride || createOutreachHook({ url: env.OUTREACH_URL, key: env.OUTREACH_KEY, safeFetch, publicUrl: env.PUBLIC_URL || 'https://x402-doctor.fizzl.eu' });
+  const outreachHook = outreachHookOverride || createOutreachHook({ url: env.OUTREACH_URL, key: env.OUTREACH_KEY, safeFetch, publicUrl: env.PUBLIC_URL || 'https://x402-doctor.fizzl.eu', triage: createTriage({ apiKey: env.TYPESAFE_API_KEY }) });
   // POST /feedback (and the MCP tool feedback): agents report a bug or a missing
   // feature. Free; it lands in the usage log and a person reads it (lib/feedback.js).
   const feedback = createFeedback({ service: 'doctor', record: usageLog.record, agentOf });
