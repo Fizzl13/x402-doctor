@@ -45,6 +45,18 @@ async function seller({ accepts, advertised = '0.02', status = 402 }) {
   return `${origin}/paid/1`;
 }
 
+// A v1 seller: the challenge is only in the body, networks have plain names, the price is maxAmountRequired.
+async function sellerV1({ network = 'base', asset = USDC_BASE, amount = '20000' } = {}) {
+  let origin;
+  origin = await listen((req, res) => {
+    res.setHeader('content-type', 'application/json');
+    if (req.url === '/openapi.json') { res.statusCode = 404; return res.end('{}'); }
+    res.statusCode = 402;
+    res.end(JSON.stringify({ x402Version: 1, error: 'X-PAYMENT header is required', accepts: [{ scheme: 'exact', network, maxAmountRequired: amount, resource: `${origin}${req.url.split('?')[0]}`, description: 'x', mimeType: 'application/json', payTo: PAY_TO_BASE, maxTimeoutSeconds: 60, asset, extra: { name: 'USD Coin', version: '2' } }] }));
+  });
+  return `${origin}/paid/1`;
+}
+
 let rpcUrl;
 test.before(async () => {
   rpcUrl = await listen(async (req, res) => {
@@ -221,4 +233,24 @@ test('x402 and MPP both offered: the x402 option stays recommended, MPP options 
   assert.equal(r.recommended_option, 0);
   assert.deepEqual(r.signals.protocols, ['x402', 'mpp']);
   assert.ok(!r.reasons.some((x) => x.code === 'mpp_only'));
+});
+
+test('v1 challenge on "base" is Base mainnet USDC, not testnet_only/unknown_asset', async () => {
+  const r = await run(await sellerV1());
+  const codes = r.reasons.map((x) => x.code);
+  assert.ok(!codes.includes('testnet_only'), JSON.stringify(r.reasons));
+  assert.ok(!codes.includes('unknown_asset'), JSON.stringify(r.reasons));
+  assert.equal(r.options[0].network, BASE);
+  assert.equal(r.options[0].network_name, 'Base');
+  assert.equal(r.options[0].usd, 0.02);
+  assert.equal((await run(await sellerV1(), { network: BASE })).recommended_option, 0);
+  const sepolia = await run(await sellerV1({ network: 'base-sepolia', asset: '0x036CbD53842c5426634e7929541eC2318f3dCF7e' }));
+  assert.ok(sepolia.reasons.some((x) => x.code === 'testnet_only'));
+});
+
+test('a lowercase USDC address is still USDC (EVM addresses are case-insensitive)', async () => {
+  const r = await run(await seller({ accepts: [baseOption('20000', { asset: USDC_BASE.toLowerCase() })] }));
+  assert.equal(r.verdict, 'go', JSON.stringify(r.reasons));
+  assert.equal(r.options[0].asset_symbol, 'USDC');
+  assert.equal(r.options[0].usd, 0.02);
 });
