@@ -713,3 +713,16 @@ test('upto proxy: fail when it has no code on the network, pass when deployed, s
   await checkUptoProxy([option], checks, { evmRpcUrls: rpcs('down') });
   assert.deepEqual(checks, []);
 });
+
+test('description quality: opt-in, an info line from the describe judge, verdict unchanged', async () => {
+  const seen = [];
+  const describe = { enabled: true, rate: async (d) => { seen.push(d); return { score: 0.5, says_output: 0.1, says_when: 0.2 }; } };
+  const plain = await diagnose(`${healthyUrl}/signal/BTC-USDT`, { safeFetch, rpcUrl });
+  const rated = await diagnose(`${healthyUrl}/signal/BTC-USDT`, { safeFetch, rpcUrl, describe });
+  assert.equal(plain.checks.some((c) => c.id === 'description-quality'), false);
+  const line = rated.checks.find((c) => c.id === 'description-quality');
+  assert.equal(line.status, 'info');
+  assert.equal(line.group, 'resource');
+  assert.equal(typeof seen[0], 'string');
+  assert.equal(rated.overall, plain.overall);
+});
