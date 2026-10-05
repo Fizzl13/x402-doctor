@@ -41,3 +41,22 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
+// One-off: rate our own paid descriptions (what an agent reads in the 402 and the Bazaar).
+{
+  const hosts = ['x402-doctor', 'presign-guard', 'ichimoku-signal', 'plaintext'];
+  for (const h of hosts) {
+    let res = [];
+    try { const j = await (await fetch(`https://${h}.fizzl.eu/.well-known/x402`, { headers: UA, signal: AbortSignal.timeout(60000) })).json(); res = j.resources || j.items || []; console.log(`WK ${h} ${JSON.stringify(j).slice(0, 300)}`); } catch (e) { console.log(`WK ${h} ERR ${e.message}`); }
+    for (const r0 of res.slice(0, 25)) {
+      const url = typeof r0 === 'string' ? r0 : (r0.resource || r0.url);
+      if (!url) continue;
+      try {
+        const d = await (await fetch('https://x402-doctor.fizzl.eu/api/diagnose', { method: 'POST', headers: { 'content-type': 'application/json', ...UA }, body: JSON.stringify({ url }), signal: AbortSignal.timeout(90000) })).json();
+        const c = (d.checks || []).find((x) => x.id === 'description-quality');
+        let desc = '';
+        try { const m = (typeof r0 === 'object' && r0.method) || 'GET'; const pr = await fetch(url, { method: m, headers: { ...UA, accept: 'application/json', ...(m === 'POST' ? { 'content-type': 'application/json' } : {}) }, ...(m === 'POST' ? { body: '{}' } : {}), signal: AbortSignal.timeout(60000) }); const hd = pr.headers.get('payment-required'); const ch = hd ? JSON.parse(Buffer.from(hd, 'base64').toString()) : await pr.json(); desc = ch.resource?.description ?? ch.accepts?.[0]?.description ?? ''; } catch (e) { desc = `ERR ${e.message}`; }
+        console.log(`DESC ${url}\n  check: ${c ? JSON.stringify({ status: c.status, rating: c.rating, hint: c.hint }) : 'none'} overall ${d.overall}\n  desc: ${desc}`);
+      } catch (e) { console.log(`DESC ${url} ERR ${e.message}`); }
+    }
+  }
+}
