@@ -41,3 +41,21 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
+// One-off: how does the MPP directory mark paid vs free endpoints? (read-only, data only)
+{
+  const d = await (await fetch('https://mpp.dev/api/services', { signal: AbortSignal.timeout(30000) })).json();
+  const s = Array.isArray(d) ? d : d.services || [];
+  const keys = {}, ekeys = {};
+  for (const x of s) { for (const k of Object.keys(x)) keys[k] = (keys[k] || 0) + 1; for (const e of x.endpoints || []) for (const k of Object.keys(e)) ekeys[k] = (ekeys[k] || 0) + 1; }
+  console.log('MPPDIR services', s.length, 'svcKeys', JSON.stringify(keys));
+  console.log('MPPDIR endpointKeys', JSON.stringify(ekeys));
+  for (const name of ['orthogonal', 'agentmail', 'buildwithlocus', 'alphavantage']) {
+    const x = s.find((v) => JSON.stringify(v).toLowerCase().includes(name));
+    if (!x) continue;
+    console.log('MPPDIR svc', name, JSON.stringify({ ...x, endpoints: undefined }).slice(0, 600));
+    for (const e of (x.endpoints || []).slice(0, 4)) console.log('MPPDIR ep', name, JSON.stringify(e).slice(0, 400));
+  }
+  const dist = {};
+  for (const x of s) for (const e of x.endpoints || []) { const v = JSON.stringify(e.payment ?? e.price ?? e.pricing ?? e.cost ?? e.amount ?? null).slice(0, 40); dist[v] = (dist[v] || 0) + 1; }
+  console.log('MPPDIR priceDist', JSON.stringify(Object.entries(dist).sort((a, b) => b[1] - a[1]).slice(0, 15)));
+}
