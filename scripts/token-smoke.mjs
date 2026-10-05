@@ -41,3 +41,11 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
+
+// one-off (read-only): TypeSafe docs for an integration
+for (const p of ['/llms.txt', '/api.md', '/sdk/javascript.md', '/primitives.md', '/primitives/noul.md', '/primitives/choice.md', '/primitives/score.md', '/confidence.md', '/concepts/state.md', '/cookbooks/sde_cascade.md']) {
+  try {
+    const t = await (await fetch('https://docs.typesafe.ai' + p, { signal: AbortSignal.timeout(20000) })).text();
+    console.log('DOC_BEGIN ' + p + '\n' + t.slice(0, 14000).split('\n').map((l) => 'DOC| ' + l).join('\n') + '\nDOC_END ' + p);
+  } catch (e) { console.log('DOC_ERR', p, e.message); }
+}
