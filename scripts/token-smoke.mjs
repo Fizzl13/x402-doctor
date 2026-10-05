@@ -41,15 +41,3 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
-
-// one-off (read-only): public Mollie vacancy list (Framer search index)
-try {
-  const idx = await (await fetch('https://framerusercontent.com/sites/mAGzyWnNHWyhLvNhBVzfP/searchIndex-m00O1mHoRudq.json', { signal: AbortSignal.timeout(20000) })).json();
-  const rows = Object.entries(idx).filter(([k]) => k.startsWith('/vacancies/'));
-  for (const [k, v] of rows) {
-    const text = JSON.stringify(v);
-    const loc = /(Amsterdam|Milan|Lisbon|London|Paris|Berlin|Munich|Ghent|Brussels|Barcelona|Madrid|Remote|Netherlands)/.exec(text);
-    console.log('JOB', k, '|', (v.title || v.h1?.[0] || '').toString().slice(0, 100), '|', loc ? loc[1] : '');
-  }
-  console.log('JOBS', rows.length, 'keys', Object.keys(idx).length);
-} catch (e) { console.log('JOBS error', e.message); }
