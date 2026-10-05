@@ -247,3 +247,10 @@ test('v1 challenge on "base" is Base mainnet USDC, not testnet_only/unknown_asse
   const sepolia = await run(await sellerV1({ network: 'base-sepolia', asset: '0x036CbD53842c5426634e7929541eC2318f3dCF7e' }));
   assert.ok(sepolia.reasons.some((x) => x.code === 'testnet_only'));
 });
+
+test('a lowercase USDC address is still USDC (EVM addresses are case-insensitive)', async () => {
+  const r = await run(await seller({ accepts: [baseOption('20000', { asset: USDC_BASE.toLowerCase() })] }));
+  assert.equal(r.verdict, 'go', JSON.stringify(r.reasons));
+  assert.equal(r.options[0].asset_symbol, 'USDC');
+  assert.equal(r.options[0].usd, 0.02);
+});
