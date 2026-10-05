@@ -41,3 +41,15 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
+
+// one-off (read-only): public Mollie vacancy list
+try {
+  const html = await (await fetch('https://jobs.mollie.com/vacancies', { headers: { 'user-agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(20000) })).text();
+  const seen = new Set();
+  for (const m of html.matchAll(/href="(\/vacancies\/[^"#?]+)"[^>]*>([\s\S]{0,400}?)<\/a>/g)) {
+    const t = m[2].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!seen.has(m[1])) { seen.add(m[1]); console.log('JOB', m[1], '|', t.slice(0, 160)); }
+  }
+  console.log('JOBS', seen.size, 'html', html.length);
+  if (!seen.size) console.log('JOBHTML', html.replace(/\s+/g, ' ').slice(0, 1500));
+} catch (e) { console.log('JOBS error', e.message); }
