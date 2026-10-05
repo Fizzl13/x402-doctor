@@ -42,10 +42,11 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
 
-// one-off (read-only): TypeSafe docs for an integration
-for (const p of ['/llms.txt', '/api.md', '/sdk/javascript.md', '/primitives.md', '/primitives/noul.md', '/primitives/choice.md', '/primitives/score.md', '/confidence.md', '/concepts/state.md', '/cookbooks/sde_cascade.md']) {
+// one-off (read-only): TypeSafe JS SDK from npm (auth header, helpers, defaults)
+{
+  const { execSync } = await import('node:child_process');
   try {
-    const t = await (await fetch('https://docs.typesafe.ai' + p, { signal: AbortSignal.timeout(20000) })).text();
-    console.log('DOC_BEGIN ' + p + '\n' + t.slice(0, 14000).split('\n').map((l) => 'DOC| ' + l).join('\n') + '\nDOC_END ' + p);
-  } catch (e) { console.log('DOC_ERR', p, e.message); }
+    const out = execSync('cd /tmp && npm view @typesafe-ai/sdk version dist.tarball license && npm pack @typesafe-ai/sdk --silent && tar xzf typesafe-ai-sdk-*.tgz && ls package package/dist && grep -rhoE ".{0,120}(uthorization|Bearer|baseURL|baseUrl|api.typesafe.ai|jev-|timeout|maxRetries).{0,120}" package/dist/*.js | sort -u | head -40 && grep -rhoE "export \\{[^}]{0,600}\\}" package/dist/index.js | head -3', { encoding: 'utf8' });
+    console.log(out.split('\n').map((l) => 'SDK| ' + l.replace(/[A-Za-z0-9_-]{40,}/g, '<long>')).join('\n'));
+  } catch (e) { console.log('SDK error', e.message.slice(0, 500)); }
 }
