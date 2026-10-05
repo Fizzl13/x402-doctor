@@ -41,10 +41,3 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
-
-// one-off: replydesk triage live check (one demo draft)
-try {
-  const r = await fetch('https://replydesk-kvu8.onrender.com/api/draft', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ message: "Hi, for the third time this week my paper didn't arrive. I'm getting tired of this. Can you sort it out?" }), signal: AbortSignal.timeout(90000) });
-  const j = await r.json();
-  console.log('JEVREPLY', r.status, JSON.stringify(j.triage ?? null), j.case_type, j.error || '');
-} catch (e) { console.log('JEVREPLY error', e.message); }
