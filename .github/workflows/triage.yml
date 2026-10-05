@@ -1,17 +1,28 @@
 name: Outreach triage (Jev)
 
-# By hand: which Trust Index sellers are worth an outreach mail. Re-runs the free pre-payment check on
+# Every Monday after the Trust Index scan, and by hand: which Trust Index sellers are worth an outreach mail. Re-runs the free pre-payment check on
 # the caution/no_go candidates (read-only, nothing is paid, nobody is contacted) and asks TypeSafe's Jev
 # whether each is a test service and whether its findings really hurt a paying agent. The table is in
 # the run summary. Needs the repository secret TYPESAFE_API_KEY; with ANTHROPIC_API_KEY too, Claude decides
 # the cases Jev is unsure about.
+#
+# Drafts: with the secrets OUTREACH_URL and OUTREACH_KEY (the same values as on Render x402-doctor), the
+# sellers worth a mail that publish a contact address become drafts on the wallet server, at most 10 a run.
+# The owner gets them on Telegram and decides; nothing is sent from here. One mail per address, ever, and a
+# draft the owner discarded is not made again.
 on:
+  schedule:
+    - cron: "13 12 * * 1" # Monday 12:13 UTC, after the 09:17 scan has published
   workflow_dispatch:
     inputs:
       limit:
         description: "How many hosts to check (0 = all)"
         required: false
         default: "0"
+      draft:
+        description: "Make drafts for the sellers worth a mail (the owner sends them)"
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -33,7 +44,9 @@ jobs:
           git fetch --depth 1 origin trust-data
           git show FETCH_HEAD:index.json > trust-data/index.json
       - name: Triage
-        run: node scripts/triage-candidates.js --index trust-data/index.json --limit "${{ github.event.inputs.limit || '0' }}"
+        run: node scripts/triage-candidates.js --index trust-data/index.json --limit "${{ github.event.inputs.limit || '0' }}" ${{ github.event.inputs.draft != 'false' && '--draft' || '' }}
         env:
+          OUTREACH_URL: ${{ secrets.OUTREACH_URL }}
+          OUTREACH_KEY: ${{ secrets.OUTREACH_KEY }}
           TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
