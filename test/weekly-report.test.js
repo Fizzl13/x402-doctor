@@ -86,3 +86,11 @@ test('weekly stats: x402 and MPP counted apart, MPP reasons in plain words', () 
   assert.match(posts.discord, /By protocol: .*MPP 2/);
   assert.doesNotMatch(markdown, /Mpp_/);
 });
+
+test('weekly stats: MPP endpoints that need input are not judged, but counted apart', () => {
+  const withInput = { ...index, resources: { ...index.resources, 'https://m.example/q': { url: 'https://m.example/q', p: 'mpp', h: '-------', last: { verdict: 'needs_input', codes: ['needs_input'], networks: [] } } } };
+  const s = weeklyStats(withInput);
+  assert.equal(s.resources, weeklyStats(index).resources);
+  assert.equal(s.not_judged_needs_input, 1);
+  assert.match(weeklyReport(withInput).markdown, /Not counted: \*\*1\*\* MPP endpoints that check their input/);
+});
