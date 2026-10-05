@@ -41,3 +41,13 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
+
+// one-off (read-only): Metaplex agent verification
+for (const [n, id] of [['doctor', 'CLgJCXbmpJeL4v8KeXb6UGLHcVG4AkNDXKBWQjm1dupj'], ['presign', '9NN5M9jSUv2opiU47huXeRunHvJa1DdEAtapLtrJbnG4'], ['ichimoku', 'zWMVHbd4xN1UEZ8ssGY7aCmqhyRzPtZhKtR1LeLc3WC']]) {
+  try {
+    const r = await fetch(`https://api.metaplex.com/v1/agents/${id}?network=solana-mainnet`, { signal: AbortSignal.timeout(15000) });
+    const j = await r.json().catch(() => null);
+    const a = j?.agent ?? j?.data ?? j;
+    console.log('MPLX', n, r.status, 'verifiedAt', a?.verifiedAt ?? null, JSON.stringify(a ?? {}).slice(0, 300));
+  } catch (e) { console.log('MPLX', n, 'error', e.message); }
+}
