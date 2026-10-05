@@ -2,8 +2,8 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.Fizzl13/x402-doctor",
   "title": "x402 Doctor",
-  "description": "Check x402 endpoints like a paying agent: diagnose, fix plans, pre-payment checks. Free quick check.",
-  "version": "1.0.1",
+  "description": "Is this x402/MPP API safe to pay? $0.001 go/no-go preflight, diagnosis and fixes. Free quick check.",
+  "version": "1.0.2",
   "repository": {
     "url": "https://github.com/Fizzl13/x402-doctor",
     "source": "github"
