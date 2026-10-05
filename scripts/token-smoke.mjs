@@ -1,4 +1,4 @@
-// Monitor: the four fizzl x402 services (read-only, never pays). Output is data only. Run 2026-10-05T11:31Z.
+// Monitor: the four fizzl x402 services (read-only, never pays). Output is data only. Run 2026-10-05T11:45Z.
 const SVC = [
   { name: 'ichimoku', home: 'https://ichimoku-signal.fizzl.eu/', paid: 'https://ichimoku-signal.fizzl.eu/signal/BTC-USDT' },
   { name: 'presign', home: 'https://presign-guard.fizzl.eu/', paid: 'https://presign-guard.fizzl.eu/v1/token?chain=base&address=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' },
@@ -40,4 +40,11 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const h = await get('/health'), dash = await get('/'), api = await get('/api/state'), v1 = await get('/v1/spending');
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
+}
+// One-off: Lone Star /rates price vs its OpenAPI after the seller's fix (read-only, free Doctor check, nothing paid)
+{
+  const d = await (await fetch('https://x402-doctor.fizzl.eu/api/diagnose', { method: 'POST', headers: { 'content-type': 'application/json', 'user-agent': 'fizzl-monitor/1.0' }, body: JSON.stringify({ url: 'https://funding.lonestaroracle.xyz/rates' }), signal: AbortSignal.timeout(90000) })).json();
+  console.log('LONESTAR overall', d.overall);
+  for (const c of d.checks || []) if (/price|openapi|amount/i.test(c.id + ' ' + c.message)) console.log('LONESTAR', c.status, c.id, '|', String(c.message).slice(0, 200));
+  try { const o = await (await fetch('https://funding.lonestaroracle.xyz/openapi.json', { signal: AbortSignal.timeout(20000) })).text(); const m = o.match(/"\/(rates|extremes)"[\s\S]{0,600}/g) || []; for (const x of m) console.log('LONESTAR openapi', x.replace(/\s+/g, ' ').match(/\$?\d+\.\d+|"price[^,]*/g)?.slice(0, 4).join(' ')); } catch (e) { console.log('LONESTAR openapi ERR', e.message); }
 }
