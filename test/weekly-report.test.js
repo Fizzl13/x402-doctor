@@ -56,3 +56,16 @@ test('weekly report: markdown and posts name no seller, and the X post fits', ()
 test('weekly report: an empty index is an error, not an empty report', () => {
   assert.throws(() => weeklyReport({ days: [], resources: {} }), /empty index/);
 });
+
+test('weekly stats: test, staging and tunnel endpoints are left out of the numbers and counted apart', () => {
+  const withTest = { ...index, resources: { ...index.resources, ...Object.fromEntries([
+    res('https://staging.h.example/x', 'cccccccc', { verdict: 'caution', codes: ['testnet_only'], networks: ['eip155:84532'] }),
+    res('https://demo.ngrok-free.dev/y', 'nnnnnnnn', { verdict: 'no_go', codes: ['no_402'], networks: [] }),
+  ]) } };
+  const s = weeklyStats(withTest);
+  assert.equal(s.resources, weeklyStats(index).resources);
+  assert.deepEqual(s.left_out_test, { resources: 2, hosts: 2 });
+  const { markdown, posts } = weeklyReport(withTest);
+  assert.match(markdown, /Left out: \*\*2\*\* test, staging or tunnel endpoints on 2 hosts/);
+  assert.match(posts.discord, /2 test\/staging endpoints left out/);
+});
