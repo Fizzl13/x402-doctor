@@ -41,8 +41,9 @@
     {
       "code": "mpp_no_expires",
       "count": 10,
-      "why": "mpp_no_expires",
-      "fix": ""
+      "why": "send an MPP challenge without an expiry",
+      "short": "send MPP challenges without an expiry",
+      "fix": "set expires on each challenge (a few minutes ahead), so a captured challenge cannot be replayed later"
     },
     {
       "code": "price_above_advertised",
@@ -68,8 +69,9 @@
     {
       "code": "mpp_realm_mismatch",
       "count": 4,
-      "why": "mpp_realm_mismatch",
-      "fix": ""
+      "why": "name another host as the MPP realm than the one they're served on",
+      "short": "name the wrong MPP realm",
+      "fix": "set realm to the public host name of the endpoint"
     },
     {
       "code": "unreachable",
@@ -323,5 +325,19 @@
   "left_out_test": {
     "resources": 84,
     "hosts": 52
-  }
+  },
+  "protocols": [
+    {
+      "protocol": "x402",
+      "resources": 34312,
+      "clean_pct": 96,
+      "payable_pct": 97.1
+    },
+    {
+      "protocol": "mpp",
+      "resources": 994,
+      "clean_pct": 22,
+      "payable_pct": 23.4
+    }
+  ]
 }
