@@ -210,6 +210,8 @@ test('MPP in the Trust Index: the directory becomes scan entries; challenges get
   const directory = { version: 1, services: [
     { id: 'a', serviceUrl: 'https://api.a.example', status: 'active', endpoints: [{ method: 'GET', path: '/price' }, { method: 'POST', path: '/v1/run' }, { method: 'GET', path: '/items/{id}' }, { method: 'GET', path: '/price' }] },
     { id: 'b', url: 'https://b.example', status: 'deprecated', endpoints: [{ method: 'GET', path: '/x' }] },
+    // A service URL with a path of its own: the endpoint path goes after it.
+    { id: 'd', serviceUrl: 'https://mpp.d.example/jobs/', status: 'active', endpoints: [{ method: 'GET', path: '/v1/feed', payment: { intent: 'charge', amount: '1000' } }] },
     // Free routes (payment null, amount "0") never answer 402: left out. A priced or dynamic one stays.
     { id: 'c', serviceUrl: 'https://c.example', status: 'active', endpoints: [
       { method: 'GET', path: '/v0/inboxes', payment: null },
@@ -219,7 +221,7 @@ test('MPP in the Trust Index: the directory becomes scan entries; challenges get
     ] },
   ] };
   const list = await loadMppCatalog({ fetchImpl: async () => Response.json(directory) });
-  assert.deepEqual(list.map((r) => [r.url, r.method, r.p]), [['https://api.a.example/price', 'GET', 'mpp'], ['https://api.a.example/v1/run', 'POST', 'mpp'], ['https://c.example/v0/inboxes', 'POST', 'mpp'], ['https://c.example/top-up', 'POST', 'mpp']]);
+  assert.deepEqual(list.map((r) => [r.url, r.method, r.p]), [['https://api.a.example/price', 'GET', 'mpp'], ['https://api.a.example/v1/run', 'POST', 'mpp'], ['https://mpp.d.example/jobs/v1/feed', 'GET', 'mpp'], ['https://c.example/v0/inboxes', 'POST', 'mpp'], ['https://c.example/top-up', 'POST', 'mpp']]);
 
   const b64u = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
   const soon = new Date(Date.now() + 300_000).toISOString();
