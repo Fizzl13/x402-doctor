@@ -41,3 +41,6 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
 }
+
+// one-off (read-only): presign-guard /health (Jev status)
+try { console.log('JEVHEALTH ' + JSON.stringify(await (await fetch('https://presign-guard.fizzl.eu/health', { signal: AbortSignal.timeout(15000) })).json())); } catch (e) { console.log('JEVHEALTH error', e.message); }
