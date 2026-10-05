@@ -4,39 +4,46 @@
     "to": "2026-10-05",
     "days": 7
   },
-  "resources": 35306,
-  "hosts": 2129,
-  "payable": 33548,
-  "payable_pct": 95,
-  "clean": 33161,
-  "clean_pct": 93.9,
-  "caution_pct": 1.1,
+  "resources": 35106,
+  "hosts": 2107,
+  "payable": 33629,
+  "payable_pct": 95.8,
+  "clean": 33290,
+  "clean_pct": 94.8,
+  "caution_pct": 1,
   "payable_pct_week_start": 95.8,
-  "no_go": 1758,
-  "no_go_pct": 5,
-  "caution": 387,
-  "hosts_with_payable": 1954,
+  "no_go": 1477,
+  "no_go_pct": 4.2,
+  "caution": 339,
+  "hosts_with_payable": 1981,
   "reasons": [
     {
       "code": "no_402",
-      "count": 1748,
+      "count": 1460,
       "why": "don't answer 402 at all, so there is nothing to pay",
       "short": "don't answer 402",
       "fix": "make the listed route answer 402 (a moved or renamed endpoint stays listed under its old URL until a payment goes through the new one)"
     },
     {
       "code": "resource_mismatch",
-      "count": 244,
+      "count": 196,
       "why": "name another URL in their 402 than the one requested",
       "short": "name the wrong URL in their 402",
       "fix": "build resource.url from your public origin (behind a TLS proxy: trust proxy, so it stays https)"
     },
     {
       "code": "testnet_only",
-      "count": 125,
+      "count": 126,
       "why": "offer only testnet payment options",
       "short": "are testnet only",
       "fix": "add a mainnet option (for example Base, eip155:8453) or delist the test endpoint"
+    },
+    {
+      "code": "invalid_challenge",
+      "count": 14,
+      "why": "answer 402 without a valid x402 challenge",
+      "short": "send a broken 402",
+      "fix": "send the PaymentRequired object (base64 JSON in the PAYMENT-REQUIRED header, mirrored in the body)"
     },
     {
       "code": "mpp_no_expires",
@@ -47,7 +54,7 @@
     },
     {
       "code": "price_above_advertised",
-      "count": 9,
+      "count": 8,
       "why": "charge more than their OpenAPI advertises",
       "short": "charge more than advertised",
       "fix": "keep the price in openapi.json in step with the 402"
@@ -60,13 +67,6 @@
       "fix": "use atomic units: \"10000\" is $0.01 USDC"
     },
     {
-      "code": "invalid_challenge",
-      "count": 5,
-      "why": "answer 402 without a valid x402 challenge",
-      "short": "send a broken 402",
-      "fix": "send the PaymentRequired object (base64 JSON in the PAYMENT-REQUIRED header, mirrored in the body)"
-    },
-    {
       "code": "mpp_realm_mismatch",
       "count": 4,
       "why": "name another host as the MPP realm than the one they're served on",
@@ -74,50 +74,50 @@
       "fix": "set realm to the public host name of the endpoint"
     },
     {
-      "code": "unreachable",
-      "count": 3,
-      "why": "timed out or could not be reached",
-      "short": "are unreachable",
-      "fix": "check that the host is up and answers within 10 seconds"
-    },
-    {
       "code": "no_payable_option",
       "count": 2,
       "why": "list payment options that would all fail",
       "short": "offer no working payment option",
       "fix": "fix the blocking problem per option (network name, payTo, amount in atomic units)"
+    },
+    {
+      "code": "unreachable",
+      "count": 1,
+      "why": "timed out or could not be reached",
+      "short": "are unreachable",
+      "fix": "check that the host is up and answers within 10 seconds"
     }
   ],
   "networks": [
     {
       "network": "eip155:8453",
-      "count": 33102,
+      "count": 33206,
       "pct": 98.7
     },
     {
       "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
-      "count": 6555,
-      "pct": 19.5
+      "count": 6689,
+      "pct": 19.9
     },
     {
       "network": "eip155:137",
-      "count": 4045,
-      "pct": 12.1
+      "count": 4038,
+      "pct": 12
+    },
+    {
+      "network": "tempo",
+      "count": 2365,
+      "pct": 7
     },
     {
       "network": "eip155:42161",
-      "count": 2351,
+      "count": 2344,
       "pct": 7
     },
     {
       "network": "eip155:84532",
-      "count": 2313,
+      "count": 2311,
       "pct": 6.9
-    },
-    {
-      "network": "tempo",
-      "count": 2260,
-      "pct": 6.7
     },
     {
       "network": "eip155:10",
@@ -131,18 +131,18 @@
     },
     {
       "network": "eip155:143",
-      "count": 901,
+      "count": 900,
       "pct": 2.7
     },
     {
       "network": "eip155:43114",
-      "count": 735,
+      "count": 737,
       "pct": 2.2
     },
     {
       "network": "eip155:4663",
       "count": 723,
-      "pct": 2.2
+      "pct": 2.1
     },
     {
       "network": "eip155:42220",
@@ -156,7 +156,7 @@
     },
     {
       "network": "xrpl:0",
-      "count": 637,
+      "count": 638,
       "pct": 1.9
     },
     {
@@ -171,17 +171,17 @@
     },
     {
       "network": "eip155:480",
-      "count": 326,
+      "count": 323,
       "pct": 1
     },
     {
       "network": "mpp:tempo",
-      "count": 232,
-      "pct": 0.7
+      "count": 208,
+      "pct": 0.6
     },
     {
       "network": "eip155:196",
-      "count": 125,
+      "count": 126,
       "pct": 0.4
     },
     {
@@ -191,13 +191,18 @@
     },
     {
       "network": "eip155:56",
-      "count": 101,
+      "count": 100,
       "pct": 0.3
     },
     {
       "network": "eip155:999",
       "count": 85,
       "pct": 0.3
+    },
+    {
+      "network": "stripe",
+      "count": 79,
+      "pct": 0.2
     },
     {
       "network": "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k",
@@ -207,11 +212,6 @@
     {
       "network": "stacks:1",
       "count": 62,
-      "pct": 0.2
-    },
-    {
-      "network": "stripe",
-      "count": 58,
       "pct": 0.2
     },
     {
@@ -317,27 +317,28 @@
   ],
   "median_price_usd": 0.01,
   "this_week": {
-    "broke": 412,
-    "fixed": 228,
-    "added": 6098,
-    "flaky": 358
+    "broke": 261,
+    "fixed": 234,
+    "added": 5905,
+    "flaky": 387
   },
   "left_out_test": {
     "resources": 84,
     "hosts": 52
   },
+  "not_judged_needs_input": 182,
   "protocols": [
     {
       "protocol": "x402",
-      "resources": 34312,
-      "clean_pct": 96,
-      "payable_pct": 97.1
+      "resources": 34355,
+      "clean_pct": 96.3,
+      "payable_pct": 97.3
     },
     {
       "protocol": "mpp",
-      "resources": 994,
-      "clean_pct": 22,
-      "payable_pct": 23.4
+      "resources": 751,
+      "clean_pct": 26,
+      "payable_pct": 27.8
     }
   ]
 }
