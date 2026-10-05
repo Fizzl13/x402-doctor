@@ -1,4 +1,4 @@
-// Monitor: the four fizzl x402 services (read-only, never pays). Output is data only. Run 2026-10-05T17:13Z.
+// Monitor: the four fizzl x402 services (read-only, never pays). Output is data only. Run 2026-10-05T12:25Z.
 const SVC = [
   { name: 'ichimoku', home: 'https://ichimoku-signal.fizzl.eu/', paid: 'https://ichimoku-signal.fizzl.eu/signal/BTC-USDT' },
   { name: 'presign', home: 'https://presign-guard.fizzl.eu/', paid: 'https://presign-guard.fizzl.eu/v1/token?chain=base&address=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' },
@@ -40,14 +40,4 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const h = await get('/health'), dash = await get('/'), api = await get('/api/state'), v1 = await get('/v1/spending');
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
-}
-// One-off: Base Batches program pages (public, read-only)
-for (const u of ['https://blog.base.org/introducing-base-batches-004', 'https://www.base.org/batches', 'https://www.basebatches.xyz/']) {
-  try {
-    const r = await fetch(u, { signal: AbortSignal.timeout(20000), headers: { 'user-agent': 'Mozilla/5.0', accept: 'text/html' } });
-    let t = await r.text();
-    t = t.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<style[\s\S]*?<\/style>/g, ' ').replace(/<[^>]+>/g, '\n').replace(/&quot;/g, '"').replace(/&#x27;|&#39;|&rsquo;/g, "'").replace(/&amp;/g, '&').replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n');
-    console.log('BB ===', u, r.status, t.length);
-    for (const line of t.split('\n')) if (line.trim().length > 2) console.log('BB', line.trim().slice(0, 300));
-  } catch (e) { console.log('BB ERR', u, e.message); }
 }
