@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Which sellers in the Trust Index are worth an outreach mail? (run by .github/workflows/triage.yml)
 //
-//   node scripts/triage-candidates.js --index trust-data/index.json [--limit 40]
+//   node scripts/triage-candidates.js --index trust-data/index.json [--limit 0]   (0 = every candidate)
 //
 // Takes the resources whose last verdict is caution or no_go for a reason a gateway would fix (not merely
 // unreachable), one per host, runs the free pre-payment check on each again (read-only, nothing is paid),
@@ -29,7 +29,7 @@ async function contactOf(safeFetch, origin) {
 
 async function main() {
   const index = JSON.parse(fs.readFileSync(arg('index', 'trust-data/index.json'), 'utf8'));
-  const limit = Number(arg('limit', 40));
+  const limit = Number(arg('limit', 0));
   const perHost = new Map();
   for (const r of Object.values(index.resources || {})) {
     const codes = r.last?.codes || [];
@@ -39,28 +39,37 @@ async function main() {
     if (/(^|\.)fizzl\.eu$|\.onrender\.com$/.test(host) || /\/:[a-z_]+|\{[a-z_]+\}/i.test(r.url)) continue; // own, and template paths
     if (!perHost.has(host)) perHost.set(host, r);
   }
-  const picks = [...perHost.values()].slice(0, limit);
+  const picks = limit > 0 ? [...perHost.values()].slice(0, limit) : [...perHost.values()];
   console.error(`${perHost.size} hosts with a fixable caution/no_go; checking ${picks.length}`);
 
   const safeFetch = createSafeFetch({ allowPrivate: false, timeoutMs: 10000 });
   const triage = createTriage({ log: { warn: (m) => console.error(m) } });
   const rows = [];
-  for (const r of picks) {
+  // A few at a time: each host is asked once, the preflight is read-only.
+  const one = async (r) => {
     const p = await preflight(r.url, { safeFetch, preferMethod: r.m || undefined }).catch((e) => ({ verdict: 'error', reasons: [{ code: 'error', message: e.message }] }));
     const findings = (p.reasons || []).filter((x) => WANT.has(x.code) || x.code === 'error').map((x) => ({ id: x.code, message: x.message }));
-    if (!findings.length) { rows.push({ url: r.url, verdict: p.verdict, findings: 'fixed since the scan', jev: null, contact: null }); continue; }
+    if (!findings.length) { rows.push({ url: r.url, verdict: p.verdict, findings: 'no longer flagged (fixed, or an old Doctor false alarm)', jev: null, contact: null, cleared: true }); return; }
     const [jev, contact] = await Promise.all([triage.judge({ url: r.url, findings }), contactOf(safeFetch, new URL(r.url).origin)]);
     rows.push({ url: r.url, verdict: p.verdict, findings: findings.map((f) => `${f.id}: ${f.message}`).join(' · '), jev, contact });
-  }
-  const rank = (x) => (x.jev ? (x.jev.worth ? 2 + x.jev.real : x.jev.real) : 1);
+  };
+  const queue = [...picks];
+  await Promise.all(Array.from({ length: 6 }, async () => { while (queue.length) await one(queue.shift()); }));
+  const rank = (x) => (x.cleared ? -2 : !x.jev ? 0 : x.jev.worth === true ? 3 + (x.jev.real ?? 0) : x.jev.worth === null ? 2 + (x.jev.real ?? 0) : -1);
   rows.sort((a, b) => rank(b) - rank(a));
   const cell = (s) => String(s ?? '').replace(/\|/g, '\\|').replace(/\s+/g, ' ').slice(0, 300);
   const lines = [
     '| Worth a mail | Endpoint | Verdict now | Findings | Jev | Contact |',
     '|---|---|---|---|---|---|',
-    ...rows.map((x) => `| ${x.jev ? (x.jev.worth ? 'yes' : 'no') : '?'} | ${cell(x.url)} | ${x.verdict} | ${cell(x.findings)} | ${x.jev ? cell(`${x.jev.why} (test ${Math.round(x.jev.test * 100)}%, real ${Math.round(x.jev.real * 100)}%)`) : triage.enabled ? 'no answer' : 'off'} | ${cell(x.contact || '')} |`),
+    ...rows.map((x) => {
+      const worth = x.cleared ? '–' : !x.jev ? '?' : x.jev.worth === true ? 'yes' : x.jev.worth === false ? 'no' : 'unsure';
+      const pct = (v) => (typeof v === 'number' ? `${Math.round(v * 100)}%` : '–');
+      const jev = x.cleared ? '–' : x.jev ? `${x.jev.why} [${x.jev.decidedBy}; test ${pct(x.jev.test)}, real ${pct(x.jev.real)}]` : triage.enabled ? 'no answer' : 'off';
+      return `| ${worth} | ${cell(x.url)} | ${x.verdict} | ${cell(x.findings)} | ${cell(jev)} | ${cell(x.contact || '')} |`;
+    }),
   ];
-  const md = `## Outreach candidates (${new Date().toISOString().slice(0, 10)})\n\n${lines.join('\n')}\n`;
+  const count = (f) => rows.filter(f).length;
+  const md = `## Outreach candidates (${new Date().toISOString().slice(0, 10)})\n\n${count((x) => x.jev?.worth === true)} worth a mail, ${count((x) => x.jev?.worth === null)} unsure, ${count((x) => x.jev?.worth === false)} not (test service or harmless), ${count((x) => x.cleared)} no longer flagged, of ${rows.length} hosts.\n\n${lines.join('\n')}\n`;
   console.log(md);
   if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, md);
 }
