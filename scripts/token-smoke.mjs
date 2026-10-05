@@ -1,4 +1,4 @@
-// Monitor: the four fizzl x402 services (read-only, never pays). Output is data only. Run 2026-10-05T11:45Z.
+// Monitor: the four fizzl x402 services (read-only, never pays). Output is data only. Run 2026-10-05T12:25Z.
 const SVC = [
   { name: 'ichimoku', home: 'https://ichimoku-signal.fizzl.eu/', paid: 'https://ichimoku-signal.fizzl.eu/signal/BTC-USDT' },
   { name: 'presign', home: 'https://presign-guard.fizzl.eu/', paid: 'https://presign-guard.fizzl.eu/v1/token?chain=base&address=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' },
@@ -40,4 +40,23 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const h = await get('/health'), dash = await get('/'), api = await get('/api/state'), v1 = await get('/v1/spending');
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
+}
+// MPP check (read-only): challenge methods/realms per paid route, offers per openapi.json; mpp.dev PR state.
+{
+  const R = [['ichimoku', 'https://ichimoku-signal.fizzl.eu/signal/BTC-USDT', 'GET'], ['presign', 'https://presign-guard.fizzl.eu/v1/token?chain=base&address=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', 'GET'], ['doctor', 'https://x402-doctor.fizzl.eu/api/v1/diagnose?url=https://example.com', 'GET'], ['plaintext', 'https://plaintext.fizzl.eu/api/check-wallet', 'POST']];
+  for (const [n, u, m] of R) {
+    try {
+      const r = await fetch(u, { method: m, headers: { 'user-agent': 'fizzl-monitor/1.0', ...(m === 'POST' ? { 'content-type': 'application/json' } : {}) }, ...(m === 'POST' ? { body: '{}' } : {}), signal: AbortSignal.timeout(60000) });
+      const h = r.headers.get('www-authenticate') || '';
+      const ch = [...h.matchAll(/method="([^"]+)"[^]*?realm="([^"]+)"|realm="([^"]+)"[^]*?method="([^"]+)"/g)].map((x) => `${x[1] || x[4]}@${x[2] || x[3]}`);
+      const o = await (await fetch(new URL(u).origin + '/openapi.json', { signal: AbortSignal.timeout(30000) })).text();
+      console.log('MPP', n, r.status, 'challenges', [...new Set(ch)].join(','), '| offers evm', (o.match(/"method":\s*"evm"/g) || []).length, 'tempo', (o.match(/"method":\s*"tempo"/g) || []).length);
+    } catch (e) { console.log('MPP', n, 'ERR', e.message); }
+  }
+  try {
+    const p = await (await fetch('https://api.github.com/repos/tempoxyz/mpp/pulls/1045', { headers: { 'user-agent': 'fizzl-monitor' } })).json();
+    const c = await (await fetch('https://api.github.com/repos/tempoxyz/mpp/issues/1045/comments', { headers: { 'user-agent': 'fizzl-monitor' } })).json();
+    const v = await (await fetch('https://api.github.com/repos/tempoxyz/mpp/pulls/1045/reviews', { headers: { 'user-agent': 'fizzl-monitor' } })).json();
+    console.log('PR1045', p.state, 'merged', p.merged, '| comments', Array.isArray(c) ? c.map((x) => `${x.user?.login}(${x.user?.type})@${x.created_at}`).join(' ') : 'ERR', '| reviews', Array.isArray(v) ? v.map((x) => `${x.user?.login}:${x.state}`).join(' ') : 'ERR');
+  } catch (e) { console.log('PR1045 ERR', e.message); }
 }
