@@ -239,6 +239,9 @@ one letter per day (`g` go, `c` caution, `n` no-go, `x` unreachable, `-` not sca
   payable on fewer than half of at least 3 scanned days.
 - `GET /api/trust?url=<resource>` (free, 30/min per IP): the track record of one resource.
   `GET /api/trust/summary`: totals of the latest scan. `/trust`: the public page, with lookup and the scan's rules.
+- `GET /api/trust/network?network=xrpl` (or an id like `xrpl:0`, free): every scanned x402 endpoint that offers a network,
+  payable there today or not and why (the scan records `unpayable` networks with their first problem), grouped per
+  seller site. `/xrpl`: the public status page of x402 on the XRP Ledger, with the ledger checks of each payout account.
 - Run it yourself: `node scripts/trust-scan.js --out trust-data --limit 200`.
 
 ### Weekly x402 health report

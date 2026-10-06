@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>x402 on the XRP Ledger: status</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"%3E%3Crect width="128" height="128" rx="28" fill="%23020708"/%3E%3Cpath d="M78 30 A22 22 0 0 0 52 52 V104" fill="none" stroke="%23f4f8f7" stroke-width="16" stroke-linecap="round"/%3E%3Cpath d="M36 68 H72" stroke="%23f4f8f7" stroke-width="16" stroke-linecap="round"/%3E%3Cg fill="%2361f5c3"%3E%3Ccircle cx="92" cy="72" r="8"/%3E%3Ccircle cx="100" cy="52" r="5"/%3E%3Ccircle cx="104" cy="38" r="3"/%3E%3C/g%3E%3C/svg%3E">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Every x402 endpoint that takes XRP or RLUSD, checked daily on the XRP Ledger: does the payout account exist, accept payments and hold the RLUSD trust line? Free, read-only.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+  :root {
+    --bg: #020708; --panel: #041212; --line: rgba(97,245,195,.16); --text: #f4f8f7; --text-soft: #a8b5b2;
+    --go: #3fb950; --caution: #d29922; --nogo: #f85149; --none: #484f58; --accent: #61f5c3; --on-accent: #02100c;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --bg: #f6f8fa; --panel: #ffffff; --line: #d0d7de; --text: #1f2328; --text-soft: #57606a;
+      --go: #1a7f37; --caution: #9a6700; --nogo: #cf222e; --none: #d0d7de; --accent: #0a7a5c; --on-accent: #ffffff; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: 'DM Sans', system-ui, sans-serif; line-height: 1.55; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 48px 16px 80px; }
+  h1 { font-family: 'Space Grotesk', 'DM Sans', sans-serif; font-size: 1.6rem; letter-spacing: -.02em; margin: 0 0 8px; }
+  h2 { font-size: 0.8rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-soft); margin: 32px 0 10px; }
+  .sub { color: var(--text-soft); margin: 0 0 24px; }
+  .headline { font-size: 17px; margin: 0 0 12px; }
+  .headline strong { font-variant-numeric: tabular-nums; }
+  .share { display: flex; gap: 2px; height: 34px; border-radius: 6px; overflow: hidden; background: var(--panel); }
+  .share .seg { min-width: 4px; height: 100%; cursor: default; outline-offset: 2px; }
+  .share .seg:focus-visible { outline: 2px solid var(--text); }
+  .seg.g { background: var(--go); } .seg.c { background: var(--caution); }
+  .seg.n { background: var(--nogo); background-image: repeating-linear-gradient(135deg, rgba(0,0,0,.28) 0 3px, transparent 3px 7px); }
+  .share-legend { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+  .share-legend > div { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+  .share-legend .k { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
+  .share-legend .sw { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+  .share-legend .v { font-size: 1.25rem; font-weight: 600; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .share-legend .p { color: var(--text-soft); font-size: 13px; font-weight: 400; margin-left: 4px; }
+  .reasons { display: flex; flex-direction: column; gap: 10px; }
+  .reason { display: grid; grid-template-columns: minmax(0, 1fr) 64px; gap: 2px 12px; align-items: center; outline-offset: 3px; border-radius: 4px; }
+  .reason:focus-visible { outline: 2px solid var(--text); }
+  .reason .t { font-size: 14px; grid-column: 1 / -1; }
+  .reason .track { height: 12px; }
+  .reason .bar { height: 100%; min-width: 3px; background: var(--accent); border-radius: 0 4px 4px 0; }
+  .reason .n { font-size: 13.5px; font-variant-numeric: tabular-nums; text-align: right; color: var(--text); }
+  .note { color: var(--text-soft); font-size: 12.5px; margin-top: 10px; }
+  details { margin-top: 10px; font-size: 13.5px; } summary { cursor: pointer; color: var(--text-soft); }
+  table { border-collapse: collapse; margin-top: 8px; width: 100%; font-size: 13.5px; }
+  td, th { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); } td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  #tip { position: fixed; z-index: 10; pointer-events: none; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 13px; box-shadow: 0 6px 20px rgba(0,0,0,.25); max-width: 280px; }
+  form { display: flex; gap: 8px; flex-wrap: wrap; }
+  input[type=url] { flex: 1 1 320px; min-width: 0; font-family: 'SF Mono', Consolas, monospace; font-size: 14px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+  button { font: inherit; font-weight: 600; font-size: 14px; background: var(--accent); color: var(--on-accent); border: none; border-radius: 8px; padding: 12px 20px; cursor: pointer; }
+  .result { margin-top: 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; overflow-wrap: anywhere; }
+  .days { display: flex; gap: 3px; margin: 10px 0 6px; flex-wrap: wrap; }
+  .day { width: 14px; height: 22px; border-radius: 3px; background: var(--none); }
+  .day.g { background: var(--go); } .day.c { background: var(--caution); } .day.n, .day.x { background: var(--nogo); }
+  .legend { font-size: 12.5px; color: var(--text-soft); }
+  ul { padding-left: 20px; } li { margin: 4px 0; }
+  code { font-family: 'SF Mono', Consolas, monospace; font-size: 13px; }
+  a { color: var(--accent); }
+  .snippet { display: block; margin-top: 6px; padding: 8px 10px; border-radius: 6px; background: var(--bg); border: 1px solid var(--line); font-size: 12px; overflow-wrap: anywhere; user-select: all; }
+  footer { margin-top: 40px; color: var(--text-soft); font-size: 12.5px; }
+</style>
+<style>.by-fizzl{margin:28px 0 0;font-size:12.5px;line-height:1}.by-fizzl a{display:inline-flex;align-items:center;gap:6px;color:inherit;opacity:.75;text-decoration:none}.by-fizzl a:hover,.by-fizzl a:focus-visible{opacity:1}.by-fizzl svg{height:20px;width:auto;display:block}.by-fizzl .b{fill:#61f5c3}@media (prefers-color-scheme: light){.by-fizzl .b{fill:#0b7a57}}</style>
+<style>
+  .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .stats > div { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+  .stats .k { font-size: 13px; color: var(--text-soft); } .stats .v { font-size: 1.4rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .filter { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0 10px; }
+  .filter input { flex: 1 1 240px; min-width: 0; font: inherit; font-size: 14px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; }
+  .filter label { font-size: 13.5px; color: var(--text-soft); display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .ep { display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; gap: 4px 10px; padding: 10px 2px; border-bottom: 1px solid var(--line); align-items: start; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; margin-top: 6px; background: var(--none); }
+  .dot.ok { background: var(--go); } .dot.bad { background: var(--nogo); }
+  .ep .u { font-family: 'SF Mono', Consolas, monospace; font-size: 12.5px; overflow-wrap: anywhere; }
+  .ep .d { color: var(--text-soft); font-size: 13px; } .ep .why { color: var(--nogo); font-size: 13px; }
+  .ep .r { text-align: right; font-size: 13px; white-space: nowrap; } .ep .r a { font-size: 12.5px; }
+  .strip { display: inline-flex; gap: 2px; vertical-align: middle; } .strip i { width: 5px; height: 12px; border-radius: 1px; background: var(--none); }
+  .strip i.g { background: var(--go); } .strip i.c { background: var(--caution); } .strip i.n, .strip i.x { background: var(--nogo); }
+  @media (max-width: 520px) { .stats { grid-template-columns: 1fr 1fr; } .ep { grid-template-columns: 14px minmax(0, 1fr); } .ep .r { grid-column: 2; text-align: left; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>x402 on the XRP Ledger</h1>
+  <p class="sub">Every x402 endpoint that takes XRP or RLUSD, checked once a day by x402 Doctor the way a paying agent would, plus what the XRP Ledger itself says about the seller's payout account. Read-only: it stops at the 402 challenge and never pays.</p>
+
+  <h2>Today</h2>
+  <div class="stats" id="stats"><div><div class="k">Endpoints</div><div class="v">…</div></div><div><div class="k">Payable on XRPL now</div><div class="v">…</div></div><div><div class="k">Sellers</div><div class="v">…</div></div></div>
+  <p class="note" id="updated"></p>
+
+  <h2>Sellers</h2>
+  <table id="sellers"><thead><tr><th>Seller</th><th class="num">Endpoints</th><th class="num">Payable now</th></tr></thead><tbody></tbody></table>
+
+  <h2>Endpoints</h2>
+  <div class="filter">
+    <input id="q" type="search" placeholder="Filter by URL or description" aria-label="Filter endpoints">
+    <label><input type="checkbox" id="broken"> Only not payable</label>
+  </div>
+  <div id="list" aria-live="polite"></div>
+  <p class="note" id="more"></p>
+
+  <h2>What is checked on the ledger</h2>
+  <ul>
+    <li><b>The payout account exists.</b> An XRPL account must be activated with the XRP reserve; a payment to an address that was never activated fails.</li>
+    <li><b>It accepts payments.</b> No Deposit Authorization (which refuses payments from anyone not pre-authorised), and a destination tag in the challenge when the account requires one.</li>
+    <li><b>The trust line.</b> For RLUSD (or another issued token) the payout account needs an unfrozen trust line to the issuer, or it cannot receive the token.</li>
+    <li><b>The real RLUSD.</b> A token called RLUSD from another issuer than Ripple's (<code>rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De</code>) is flagged.</li>
+    <li>Plus the x402 basics: a valid challenge, a valid r-address with checksum, XRP priced in drops and tokens in decimals.</li>
+  </ul>
+  <p>Check one endpoint yourself, for free, with every finding and a fix: <a href="/">x402 Doctor</a>. Agents get the same verdict before paying from the <a href="/openapi.json">pre-payment check</a> ($0.001).</p>
+
+  <footer>Data: <code>GET /api/trust/network?network=xrpl</code> (free, JSON). Endpoints come from the CDP Bazaar; the full daily index is on the <a href="https://github.com/Fizzl13/x402-doctor/tree/trust-data">trust-data</a> branch. All networks: <a href="/trust">x402 Trust Index</a>.</footer>
+  <p class="by-fizzl"><a href="https://fizzl.eu" title="Fizzl: all pay-per-call tools for AI agents, with live demos">by <svg viewBox="-6 -14 236 126" role="img" aria-label="fizzl"><g fill="none" stroke="currentColor" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"><path d="M44 12 A20 20 0 0 0 20 32 V100"/><path d="M6 48 H38"/><path d="M64 56 V100"/><path d="M88 52 H124 L88 100 H124"/><path d="M144 52 H180 L144 100 H180"/><path d="M200 8 V84 A16 16 0 0 0 216 100"/></g><g class="b"><circle cx="64" cy="26" r="9"/><circle cx="78" cy="10" r="5"/><circle cx="90" cy="-2" r="3"/></g></svg><span>· all tools and live demos at fizzl.eu</span></a></p>
+</div>
+</div>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const fmt = (n) => n.toLocaleString('en-US');
+  const usd = (n) => n == null ? '' : n < 0.01 ? `$${n.toFixed(4).replace(/0+$/, '')}` : `$${n.toFixed(2)}`;
+  const PAGE = 60;
+  let data = null, shown = PAGE;
+  function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  function strip(h) { const s = el('span', 'strip'); s.setAttribute('aria-hidden', 'true'); for (const c of String(h || '').slice(-14)) s.append(el('i', c)); return s; }
+  function render() {
+    const q = $('q').value.trim().toLowerCase(), broken = $('broken').checked;
+    const rows = data.resources.filter((r) => (!broken || !r.payable) && (!q || `${r.url} ${r.description}`.toLowerCase().includes(q)));
+    const list = $('list'); list.replaceChildren();
+    for (const r of rows.slice(0, shown)) {
+      const row = el('div', 'ep');
+      row.append(el('span', `dot ${r.payable ? 'ok' : 'bad'}`));
+      const mid = el('div');
+      mid.append(el('div', 'u', r.url));
+      if (r.description) mid.append(el('div', 'd', r.description));
+      if (!r.payable) mid.append(el('div', 'why', r.problem || (r.verdict === 'no_go' ? 'Not payable today (see the full check).' : `Verdict: ${r.verdict}`)));
+      const right = el('div', 'r');
+      right.append(el('div', null, usd(r.price_usd)), strip(r.history));
+      const a = el('a', null, 'check →'); a.href = `/?url=${encodeURIComponent(r.url)}`; right.append(el('div')); right.lastChild.append(a);
+      row.append(mid, right);
+      list.append(row);
+    }
+    $('more').textContent = rows.length > shown ? `Showing ${shown} of ${fmt(rows.length)}.` : `${fmt(rows.length)} endpoint${rows.length === 1 ? '' : 's'}.`;
+    if (rows.length > shown) { const b = el('button', null, 'Show more'); b.type = 'button'; b.onclick = () => { shown += PAGE; render(); }; $('more').append(' ', b); }
+  }
+  fetch('/api/trust/network?network=xrpl').then((r) => r.json()).then((d) => {
+    if (!d.resources) throw new Error(d.error || 'no data');
+    data = d;
+    const v = $('stats').querySelectorAll('.v');
+    v[0].textContent = fmt(d.endpoints); v[1].textContent = fmt(d.payable_now); v[2].textContent = fmt(d.sellers.length);
+    $('updated').textContent = `From the daily scan of ${d.days[d.days.length - 1]} (updated ${new Date(d.updated).toLocaleString()}). The 14 bars per endpoint are the last 14 scans, newest right. The ledger checks of the payout account run in every scan since 7 Oct 2026.`;
+    const tb = $('sellers').tBodies[0];
+    for (const s of d.sellers.slice(0, 25)) { const tr = el('tr'); tr.append(el('td', null, s.host), el('td', 'num', fmt(s.endpoints)), el('td', 'num', fmt(s.payable))); tb.append(tr); }
+    render();
+  }).catch((e) => { $('list').textContent = `Could not load the scan (${e.message}). Try again in a minute.`; });
+  $('q').addEventListener('input', () => { shown = PAGE; render(); });
+  $('broken').addEventListener('change', () => { shown = PAGE; render(); });
+</script>
+</body>
+</html>
