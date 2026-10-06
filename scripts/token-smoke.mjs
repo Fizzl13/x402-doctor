@@ -25,6 +25,10 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const n = async (period) => { try { return (await (await fetch(`https://api.npmjs.org/downloads/point/${period}/${pkg}`, { signal: AbortSignal.timeout(20000) })).json()).downloads ?? '?'; } catch (e) { return `ERR ${e.message}`; } };
   console.log(`NPM ${pkg} last-day ${await n('last-day')} last-week ${await n('last-week')} last-month ${await n('last-month')}`);
 }
+// PyPI downloads of the Python package (pypistats; a new package has no stats for its first day or two).
+{
+  try { const r = await fetch('https://pypistats.org/api/packages/fizzl/recent', { headers: UA, signal: AbortSignal.timeout(20000) }); const j = r.ok ? await r.json() : null; console.log(`PYPI fizzl ${j ? `last-day ${j.data.last_day} last-week ${j.data.last_week} last-month ${j.data.last_month}` : `HTTP ${r.status}`}`); } catch (e) { console.log(`PYPI fizzl ERR ${e.message}`); }
+}
 // presign-guard credit packs: 200 with both packs means they are on.
 {
   const c = await timed('https://presign-guard.fizzl.eu/v1/credits', { headers: { accept: 'application/json' } });
