@@ -31,14 +31,15 @@ the medicine, the exact code that fixes each problem for your stack, in the brow
 | | `mcp-payment-required` | One unpaid `tools/call` per paid-looking tool (at most 2; explicitly paid tools first — "Paid …" or a price / "via x402" in the title; never tools that call themselves free, destructive tools, or write tools unless explicitly paid). A free answer warns only for an explicitly paid tool, otherwise it is info: the x402 payment requirement in the tool result with `isError: true` (as `@x402/mcp`), or an HTTP 402 with `PAYMENT-REQUIRED` instead (payable over HTTP, not by `@x402/mcp` clients), a JSON-RPC error, a tool that answers for free, or example arguments refused before the payment step (publish one valid call as `_meta.examples` to avoid that). The requirement then gets the payment-option, settlement and wallet checks below |
 | | `mcp-payment-text`, `mcp-payment-structured` | The requirement only in `structuredContent` (the x402 MCP transport requires JSON text in `content[0]`), or only as text (structuredContent preferred) |
 | Payment options | `accepts[i]-scheme`, `-network` | Missing scheme; legacy names like `base` / `solana:mainnet` instead of CAIP-2 |
-| | `accepts[i]-payto`, `-asset` | Invalid EVM/Solana addresses; asset that is not USDC, or USDC of another network (e.g. Base Sepolia USDC on Base) |
+| | `accepts[i]-payto`, `-asset` | Invalid EVM, Solana, XRPL or Algorand addresses (Algorand with its checksum); asset that is not USDC, or USDC of another network (e.g. Base Sepolia USDC on Base); on Algorand an asset that is not an ASA id (USDC is ASA 31566704) |
 | | `accepts[i]-amount` | Decimal dollar amounts (`"0.02"`) instead of atomic units, zero or non-integer amounts |
 | | `accepts[i]-extra` | Solana without `extra.feePayer` (clients throw "feePayer is required"), EVM without the EIP-712 `name`/`version` |
 | Resource | `resource-url` | `http://` resource URL on an `https://` endpoint (Express behind a TLS proxy without `trust proxy`) |
 | | `resource-metadata` | Missing description / mimeType |
 | Settlement | `solana-payout-account` | Solana payout wallet without a token account for the asset: every settlement fails on-chain |
+| | `algorand-payout-optin` | Algorand payout address that has not opted in to the asset (an account can only receive an ASA after opting in): every payment fails |
 | | `solana-wallets` | Solana settled by PayAI, which rejects Phantom (Lighthouse instructions before the transfer) |
-| Who can pay | `wallets` | Per wallet (MetaMask, Coinbase Wallet, Rabby, Phantom, Solflare, Backpack, x402 agents): the networks where payment works and where it fails, and why. Also in the JSON report as `wallets` |
+| Who can pay | `wallets` | Per wallet (MetaMask, Coinbase Wallet, Rabby, Phantom, Solflare, Backpack, Pera, Defly, x402 agents): the networks where payment works and where it fails, and why. Also in the JSON report as `wallets` |
 | | `metamask-site-scan` | Only with `METAMASK_SCAN=on` (off by default: the endpoint has no published API or licence). MetaMask's site scanner (Blockaid) blocks the domain (e.g. "wallet drainer"): MetaMask users can't open the site or pay in the browser. With how to report a false positive. Agents are not affected |
 | | `evm-payto-eoa` | EVM payout wallet is a regular wallet (EOA): MetaMask's Blockaid check may flag the payment signature as "a deceptive request". Info, with how to get it cleared |
 | Discovery | `bazaar`, `bazaar-output` | Missing or invalid Bazaar declaration, output example not matching its schema |
