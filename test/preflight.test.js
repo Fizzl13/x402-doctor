@@ -254,3 +254,22 @@ test('a lowercase USDC address is still USDC (EVM addresses are case-insensitive
   assert.equal(r.options[0].asset_symbol, 'USDC');
   assert.equal(r.options[0].usd, 0.02);
 });
+
+test('bait check (TypeSafe Jev, opt-in): caution or info added, never no_go; skipped when not payable', async () => {
+  const url = await seller({ accepts: [baseOption('20000')] });
+  const calls = [];
+  const lure = (j) => ({ enabled: true, judge: async (host, claims) => { calls.push({ host, claims }); return j; } });
+  const r = await run(url, { lure: lure({ impersonation: 0.95, lure: 0.6, mismatch: null }) });
+  assert.equal(r.verdict, 'caution', JSON.stringify(r.reasons));
+  assert.equal(r.safe_to_pay, true);
+  assert.deepEqual(r.reasons.filter((x) => /brand|lure|mismatch/.test(x.code)).map((x) => [x.level, x.code]), [['caution', 'brand_impersonation'], ['info', 'lure_description']]);
+  assert.deepEqual(r.signals.jev_lure, { impersonation: 0.95, lure: 0.6, mismatch: null });
+  assert.equal(calls[0].claims.description, 'x');
+  const clean = await run(url, { lure: lure({ impersonation: 0.1, lure: 0.1, mismatch: null }) });
+  assert.equal(clean.verdict, 'go');
+  const before = calls.length;
+  const over = await run(url, { maxUsd: 0.001, lure: lure({ impersonation: 0.99, lure: 0.99, mismatch: 0.99 }) });
+  assert.equal(over.verdict, 'no_go');
+  assert.equal(calls.length, before, 'not asked when the payment would not be made anyway');
+  assert.equal((await run(url, { lure: lure(null) })).verdict, 'go');
+});
