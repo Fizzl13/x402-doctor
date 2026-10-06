@@ -147,6 +147,11 @@
   .sev { font-size: 11px; padding: 1px 8px; border-radius: 999px; border: 1px solid currentColor; font-weight: 700; }
   .sev.fail { color: var(--fail); } .sev.warn { color: var(--warn); }
   [hidden] { display: none !important; }
+  .prices { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 22px; }
+  .prices .pill { background: var(--ink-2); border: 1px solid var(--line); border-radius: 14px; padding: 9px 13px; font-size: 14px; color: var(--soft); text-decoration: none; }
+  .prices .pill b { color: var(--mint); font-weight: 600; }
+  .prices .pill.save { border-color: var(--mint-line); }
+  .prices a.pill:hover { border-color: var(--mint); }
 </style>
 </head>
 <body>
@@ -158,6 +163,14 @@
   <div class="eyebrow"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>x402 · Base + Solana · for builders and agents</div>
   <h1>Check any x402 endpoint the way a <em>paying agent</em> would.</h1>
   <p class="sub">Paste a paid endpoint URL: x402 (HTTP or MCP), MPP from Stripe and Tempo, and L402 (Lightning) too. Read-only diagnostics: no wallet, no payment, no risk. <a href="#" id="exampleLink" data-url="https://plaintext.fizzl.eu/api/check-wallet">Try an example</a>.</p>
+  <div class="prices" aria-label="Prices">
+    <span class="pill"><b>Free</b> web check</span>
+    <a class="pill" href="#buyerTitle"><b>$0.001</b> preflight</a>
+    <span class="pill"><b>$0.01</b> diagnosis</span>
+    <span class="pill"><b>$0.05</b> fix code</span>
+    <a class="pill save" href="#credits" data-credits hidden><b>$0.80</b> for 1000 credits · 20% off</a>
+    <a class="pill save" href="#credits" data-credits hidden><b>$7.00</b> for 10,000 · 30% off</a>
+  </div>
 
   <form id="form">
     <input type="url" id="urlInput" required placeholder="https://api.example.com/paid-endpoint" aria-label="Endpoint URL">
@@ -223,6 +236,12 @@
         <p>Before an expensive call: the verdict plus the full diagnosis, 30 days of daily scans, the seller's other endpoints and domain moves.</p>
         <pre>GET /api/v1/preflight/deep?url=…</pre>
       </div>
+      <div class="card" id="credits" data-credits hidden>
+        <span class="price">$0.80 for 1000 · $7.00 for 10,000</span>
+        <h3>Prepaid credits</h3>
+        <p>Checking often? Pay once, 20% or 30% off, valid a year. A credit is $0.001: a preflight costs 1, a diagnosis 10. Send the key as <code>x-credit-key</code> instead of paying per call.</p>
+        <pre>GET /api/v1/credits/1000</pre>
+      </div>
     </div>
     <p class="buyer-note">Paid per call in USDC via x402 on Base or Solana, with a signed receipt. They never pay the endpoint. Also as MCP tools at <code>/mcp</code>; details in the <a href="/openapi.json">OpenAPI</a>.</p>
   </section>
@@ -268,6 +287,11 @@
 </div>
 
 <script>
+  // Prepaid credits: shown only while packs are on sale.
+  fetch('/api/v1/credits').then((r) => (r.ok ? r.json() : null)).then((j) => {
+    if (j && j.on_sale) document.querySelectorAll('[data-credits]').forEach((el) => { el.hidden = false; });
+  }).catch(() => {});
+
 const $ = (id) => document.getElementById(id);
 const GROUPS = {
   mpp: 'MPP (Stripe / Tempo)', l402: 'L402 (Lightning)',
