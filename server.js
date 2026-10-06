@@ -17,6 +17,8 @@ const { createTrustIndex } = require('./lib/trust-index');
 const { createMediaCache } = require('./lib/media');
 const crypto = require('crypto');
 const { createUsageLog, mcpToolCall, mcpPayment, agentOf, visitorOf } = require('./lib/usage-log');
+const { NETWORKS } = require('./lib/networks');
+const { languageOf, createAgentKinds, createDownloads } = require('./lib/usage-insights');
 const { createFeedback } = require('./lib/feedback');
 const { createOutcomes } = require('./lib/outcomes');
 const { createUsageReader } = require('./lib/usage-reader');
@@ -60,6 +62,20 @@ function rateLimit({ windowMs, max }) {
 // diagnoses internal addresses.
 // Which payment protocol a diagnosed endpoint speaks, for the usage log: x402, mpp, l402, both (x402 + MPP),
 // a "+"-list for other combinations, or none.
+// The payment networks a checked endpoint offers, by name ("Base, Solana"; MPP methods as "MPP evm"/"MPP tempo"),
+// so the usage log shows which networks the checked traffic is about.
+function networksOf(b) {
+  if (!b || typeof b !== 'object') return undefined;
+  const names = new Set();
+  const accepts = b.challenge && Array.isArray(b.challenge.accepts) ? b.challenge.accepts : [];
+  for (const a of accepts) {
+    const n = a && a.network;
+    if (n) names.add((NETWORKS[n] && NETWORKS[n].name) || String(n).slice(0, 40));
+  }
+  if (Array.isArray(b.mpp)) for (const m of b.mpp) if (m && m.method) names.add(`MPP ${String(m.method).slice(0, 20)}`);
+  return names.size ? [...names].slice(0, 8).join(', ') : undefined;
+}
+
 function protocolOf(b) {
   if (!b || typeof b !== 'object' || (!b.checks && !b.overall)) return undefined;
   const mpp = Array.isArray(b.mpp) && b.mpp.length;
@@ -77,10 +93,10 @@ function describeDoctorCall(req, _res, body) {
   if (req.method === 'GET' && req.path === '/.well-known/agent-registration.json') return { route: 'agent registration', via: 'discovery', input: {}, result: { status: _res.statusCode } };
   const b = body || {};
   if (req.method === 'POST' && req.path === '/api/diagnose') {
-    return { route: 'diagnose', via: 'web', input: { url: req.body && req.body.url, method: req.body && req.body.method }, result: { overall: b.overall, protocol: protocolOf(b), mpp: mppMethods(b), error: b.error } };
+    return { route: 'diagnose', via: 'web', input: { url: req.body && req.body.url, method: req.body && req.body.method }, result: { overall: b.overall, protocol: protocolOf(b), mpp: mppMethods(b), networks: networksOf(b), error: b.error } };
   }
   if (req.method === 'GET' && req.path === PAID_ROUTE) {
-    return { route: 'diagnose', via: 'api', input: { url: req.query.url, method: req.query.method }, result: { overall: b.overall, protocol: protocolOf(b), mpp: mppMethods(b), error: b.error } };
+    return { route: 'diagnose', via: 'api', input: { url: req.query.url, method: req.query.method }, result: { overall: b.overall, protocol: protocolOf(b), mpp: mppMethods(b), networks: networksOf(b), error: b.error } };
   }
   if (req.method === 'GET' && req.path === FIX_ROUTE) {
     return { route: 'fix', via: 'api', input: { url: req.query.url, method: req.query.method, stack: req.query.stack }, result: { stack: b.stack && b.stack.id, fixes: Array.isArray(b.fixes) ? b.fixes.map((f) => f.recipe).join(', ') || 'none' : undefined, error: b.error } };
@@ -109,7 +125,7 @@ function describeDoctorCall(req, _res, body) {
       route: call.tool,
       via: 'mcp',
       input: { url: a.url, method: a.method, max_usd: a.max_usd, stack: a.stack },
-      result: { overall: parsed && parsed.overall, protocol: call.tool === 'x402_diagnose' ? protocolOf(parsed) : undefined, mpp: call.tool === 'x402_diagnose' ? mppMethods(parsed) : undefined, verdict: parsed && parsed.verdict, error: reply.result && reply.result.isError ? String(text).slice(0, 200) : undefined },
+      result: { overall: parsed && parsed.overall, protocol: call.tool === 'x402_diagnose' ? protocolOf(parsed) : undefined, mpp: call.tool === 'x402_diagnose' ? mppMethods(parsed) : undefined, networks: call.tool === 'x402_diagnose' ? networksOf(parsed) : undefined, verdict: parsed && parsed.verdict, error: reply.result && reply.result.isError ? String(text).slice(0, 200) : undefined },
       payment: mcpPayment(req.body, body),
     };
   }
@@ -166,7 +182,7 @@ function trustProxyHops(env) {
   return Number.isInteger(n) && n >= 0 && n <= 10 && String(env.TRUST_PROXY_HOPS).trim() !== '' ? n : 3;
 }
 
-function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, trustIndex = createTrustIndex(), media = createMediaCache(), usageLog = createUsageLog({ service: 'doctor', env }), usageReader = createUsageReader({ env }), publicStats = createPublicStats({ usageReader }), settlementFetch = globalThis.fetch, status = null, outreachHook: outreachHookOverride = null, describe = createDescribe({ apiKey: env.TYPESAFE_API_KEY }), poison = createPoisonCheck({ apiKey: env.TYPESAFE_API_KEY }), creditStore } = {}) {
+function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, trustIndex = createTrustIndex(), media = createMediaCache(), usageLog = createUsageLog({ service: 'doctor', env }), usageReader = createUsageReader({ env }), publicStats = createPublicStats({ usageReader }), settlementFetch = globalThis.fetch, status = null, outreachHook: outreachHookOverride = null, describe = createDescribe({ apiKey: env.TYPESAFE_API_KEY }), poison = createPoisonCheck({ apiKey: env.TYPESAFE_API_KEY }), creditStore, agentKinds = createAgentKinds({ apiKey: env.TYPESAFE_API_KEY }), downloads = createDownloads() } = {}) {
   const app = express();
   const safeFetch = createSafeFetch({ allowPrivate });
   // Outreach drafts for the owner (lib/outreach-hook.js); off without OUTREACH_URL and OUTREACH_KEY.
@@ -257,10 +273,18 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
       const data = await usageReader.load({ days });
       let trust = null;
       try { trust = trustIndex.summary(); } catch { /* not loaded yet */ }
-      res.json({ ...data, funnel: setupsFunnel(data.events || []), trust: trust && trust.by_protocol ? { by_protocol: trust.by_protocol } : null });
+      const events = data.events || [];
+      const languages = {};
+      for (const e of events) if (e.agent && !languages[e.agent]) languages[e.agent] = languageOf(e.agent);
+      res.json({ ...data, funnel: setupsFunnel(events), trust: trust && trust.by_protocol ? { by_protocol: trust.by_protocol } : null, languages, agent_kinds: agentKinds.kindsFor(events), agent_kinds_by_jev: agentKinds.enabled });
     } catch (err) {
       res.status(502).json({ error: err.message });
     }
+  });
+  // Daily npm (JavaScript) and PyPI (Python) downloads of our packages, cached for 6 hours.
+  app.get('/admin/usage/downloads', admin, async (_req, res) => {
+    res.set('Cache-Control', 'no-store');
+    try { res.json(await downloads.load()); } catch (err) { res.status(502).json({ error: err.message }); }
   });
 
   // status.fizzl.eu (a custom domain on this service) opens the status page.
@@ -632,6 +656,7 @@ module.exports = {
   createApp,
   isPrivateIp,
   protocolOf,
+  networksOf,
   PORT,
   decodeChallengeValue: diagnoseLib.decodeChallengeValue,
   checkEnvelope: diagnoseLib.checkEnvelope,

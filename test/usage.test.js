@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
-const { createUsageLog, paymentOf, mcpToolCall, mcpPayment, agentOf } = require('../lib/usage-log');
+const { createUsageLog, paymentOf, attemptedNetwork, mcpToolCall, mcpPayment, agentOf } = require('../lib/usage-log');
 const { createUsageReader } = require('../lib/usage-reader');
 const { createApp } = require('../server');
 const { setupsFunnel } = require('../lib/usage-funnel');
@@ -394,4 +394,25 @@ test('middleware: a refused MPP credential is payment_failed with protocol mpp; 
   assert.deepEqual([lines[0].quote, lines[0].payment_failed, lines[0].protocol], [true, true, 'mpp']);
   assert.deepEqual([lines[1].quote, lines[1].payment_failed, lines[1].protocol], [true, undefined, undefined]);
   assert.deepEqual([lines[2].paid, lines[2].usd, lines[2].protocol, lines[2].payer], [true, 0.01, 'mpp', '0xabc']);
+});
+
+test('attemptedNetwork: the network a refused payment was tried on (x402 header or MPP method)', () => {
+  const b64u = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
+  const req = (headers) => ({ headers });
+  assert.equal(attemptedNetwork(req({ 'payment-signature': b64({ accepted: { network: 'eip155:8453' } }) })), 'base');
+  assert.equal(attemptedNetwork(req({ 'x-payment': b64({ network: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp' }) })), 'solana');
+  assert.equal(attemptedNetwork(req({ 'payment-signature': b64({ accepted: { network: 'xrpl:0' } }) })), 'xrpl:0');
+  assert.equal(attemptedNetwork(req({ authorization: `Payment ${b64u({ challenge: { method: 'tempo' } })}` })), 'Tempo');
+  assert.equal(attemptedNetwork(req({ authorization: `Payment ${b64u({ challenge: { method: 'evm' } })}` })), 'base');
+  assert.equal(attemptedNetwork(req({ authorization: 'Payment eyJ4IjoxfQ' })), null);
+  assert.equal(attemptedNetwork(req({ 'payment-signature': b64({ bad: true }) })), null);
+  assert.equal(attemptedNetwork(req({})), null);
+});
+
+test('networksOf: the payment networks a checked endpoint offers, for the usage log', () => {
+  const { networksOf } = require('../server');
+  assert.equal(networksOf({ challenge: { accepts: [{ network: 'eip155:8453' }, { network: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp' }, { network: 'eip155:8453' }] }, mpp: [{ method: 'tempo' }] }), 'Base, Solana, MPP tempo');
+  assert.equal(networksOf({ challenge: { accepts: [{ network: 'xrpl:0' }] } }), 'XRP Ledger');
+  assert.equal(networksOf({ overall: 'fail' }), undefined);
+  assert.equal(networksOf(null), undefined);
 });
