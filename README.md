@@ -140,6 +140,10 @@ plus
   `caution` (`unreliable_seller`);
 - `domain`: the domain-move checks (`well-known`, `bazaar-listing`), e.g. a Bazaar listing only under an old domain.
 
+### Prepaid credits: `GET /api/v1/credits/1000`
+
+Agents that check often can prepay: one x402 payment of **$0.80 for 1000 credits** or **$7.00 for 10,000** (20% and 30% off), valid for a year. A credit is $0.001: a preflight costs 1, a batch 5, a deep preflight or a diagnosis 10, the fix 50. The pack answers with a `credit_key`; send it as the `x-credit-key` header with any paid call instead of paying. `GET /api/v1/credits` (free) shows the prices and, with the header, your balance. A call that fails gives its credits back; with no key or too few credits the normal 402 applies. Needs `CREDITS_REDIS_URL` (a persistent Redis such as Upstash; the presign-guard instance is fine, the keys are apart); without it, no packs are sold.
+
 ### The fix, as code: `GET /api/v1/fix`
 
 `GET /api/v1/fix?url=<endpoint>&method=GET|POST&stack=<optional>`, **$0.05 USDC per call**: diagnoses the endpoint,

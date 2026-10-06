@@ -165,7 +165,7 @@ function trustProxyHops(env) {
   return Number.isInteger(n) && n >= 0 && n <= 10 && String(env.TRUST_PROXY_HOPS).trim() !== '' ? n : 3;
 }
 
-function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, trustIndex = createTrustIndex(), media = createMediaCache(), usageLog = createUsageLog({ service: 'doctor', env }), usageReader = createUsageReader({ env }), publicStats = createPublicStats({ usageReader }), settlementFetch = globalThis.fetch, status = null, outreachHook: outreachHookOverride = null, describe = createDescribe({ apiKey: env.TYPESAFE_API_KEY }) } = {}) {
+function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, trustIndex = createTrustIndex(), media = createMediaCache(), usageLog = createUsageLog({ service: 'doctor', env }), usageReader = createUsageReader({ env }), publicStats = createPublicStats({ usageReader }), settlementFetch = globalThis.fetch, status = null, outreachHook: outreachHookOverride = null, describe = createDescribe({ apiKey: env.TYPESAFE_API_KEY }), creditStore } = {}) {
   const app = express();
   const safeFetch = createSafeFetch({ allowPrivate });
   // Outreach drafts for the owner (lib/outreach-hook.js); off without OUTREACH_URL and OUTREACH_KEY.
@@ -187,7 +187,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   // Free payment-proof check (lib/settlement.js): the PAYMENT-RESPONSE header → the on-chain transaction.
   const rpcUrls = { ...(env.BASE_RPC_URL ? { 'eip155:8453': env.BASE_RPC_URL } : {}), ...(env.SOLANA_RPC_URL ? { 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp': env.SOLANA_RPC_URL } : {}) };
   const checkPaymentProof = (header) => checkSettlement(header, { fetch: settlementFetch, rpcUrls });
-  paidApi = createPaidApi({ safeFetch, env, trustIndex, feedback, bazaarIndex: bazaar, outcomes, checkPaymentProof });
+  paidApi = createPaidApi({ safeFetch, env, trustIndex, feedback, bazaarIndex: bazaar, outcomes, checkPaymentProof, creditStore });
 
   // Doctor's requests reach the app through three proxies (the caller, then two
   // hops, the last a private Render address: measured 26 Sep), so Express has to
@@ -235,7 +235,13 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   });
   app.use(feedback.router(express)); // its own 16 kB JSON parser, before the 4 kB one
   app.use(express.json({ limit: '4kb' }));
-  app.use(usageLog.middleware(describeDoctorCall));
+  app.use(usageLog.middleware((req, res, body) => {
+    // Prepaid credits (credits.js): a pack sale, or a call paid from credits.
+    const pack = req.method === 'GET' && /^\/api\/v1\/credits\/(\d+)$/.exec(req.path);
+    if (pack) return { route: 'credits pack', via: 'api', input: { pack: Number(pack[1]) }, result: { status: res.statusCode, error: body && body.error } };
+    const d = describeDoctorCall(req, res, body);
+    return d && req.fizzlCredits ? { ...d, via: 'credits', credits: req.fizzlCredits.cost } : d;
+  }));
 
   // Usage dashboard for the owner: every call to the Fizzl services, from the usage log.
   const admin = adminAuth(env);
