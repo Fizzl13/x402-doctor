@@ -1,4 +1,4 @@
-// Monitor: the four fizzl x402 services (read-only, never pays). Output is data only. Run 2026-10-06T09:24Z.
+// Monitor: the four fizzl x402 services (read-only, never pays). Output is data only. Run 2026-10-06T11:49Z.
 const SVC = [
   { name: 'ichimoku', home: 'https://ichimoku-signal.fizzl.eu/', paid: 'https://ichimoku-signal.fizzl.eu/signal/BTC-USDT' },
   { name: 'presign', home: 'https://presign-guard.fizzl.eu/', paid: 'https://presign-guard.fizzl.eu/v1/token?chain=base&address=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' },
@@ -32,6 +32,13 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   try { const j = await c.r.json(); packs = Object.entries(j.packs || {}).map(([s, p]) => `${s}=$${p.price_usd}`).join(' '); } catch {}
   console.log(`CREDITS presign ${c.r ? c.r.status : 'ERR'} ${packs || 'no packs'}`);
 }
+// x402 Doctor credit packs (since 6 Oct 2026): 200 with on_sale true.
+{
+  const c = await timed('https://x402-doctor.fizzl.eu/api/v1/credits', { headers: { accept: 'application/json' } });
+  let packs = '', onSale = '?';
+  try { const j = await c.r.json(); onSale = String(j.on_sale); packs = Object.entries(j.packs || {}).map(([s, p]) => `${s}=$${p.price_usd}`).join(' '); } catch {}
+  console.log(`CREDITS doctor ${c.r ? c.r.status : 'ERR'} on_sale ${onSale} ${packs || 'no packs'}`);
+}
 // Agent wallet server: up, and refusing anyone without a login or agent key.
 // (Free Render plan: the first call after a quiet spell can take up to a minute.)
 {
@@ -40,4 +47,20 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const h = await get('/health'), dash = await get('/'), api = await get('/api/state'), v1 = await get('/v1/spending');
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
+}
+// MPP + PR checks (read-only).
+{
+  const R = [
+    ['https://ichimoku-signal.fizzl.eu/signal/BTC-USDT', 'GET'], ['https://presign-guard.fizzl.eu/v1/token?chain=base&address=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', 'GET'],
+    ['https://x402-doctor.fizzl.eu/api/v1/diagnose?url=https://example.com', 'GET'], ['https://plaintext.fizzl.eu/api/check-wallet', 'POST'],
+  ];
+  for (const [u, m] of R) {
+    try {
+      const r = await fetch(u, { method: m, headers: { ...UA, accept: 'application/json', 'content-type': 'application/json' }, ...(m === 'POST' ? { body: '{}' } : {}), signal: AbortSignal.timeout(60000) });
+      const w = r.headers.get('www-authenticate') || '';
+      const ch = [...w.matchAll(/Payment\s+([^]*?)(?=,\s*Payment\s|$)/g)].map((x) => `${(x[1].match(/method="([^"]+)"/) || [])[1]}@${(x[1].match(/realm="([^"]+)"/) || [])[1]}/${(x[1].match(/intent="([^"]+)"/) || [])[1]}`);
+      const o = await (await fetch(new URL('/openapi.json', u), { headers: UA, signal: AbortSignal.timeout(60000) })).text();
+      console.log(`MPP ${new URL(u).host} ${r.status} challenges ${ch.join(' ') || 'NONE'} | openapi evm ${(o.match(/"method":\s*"evm"/g) || []).length} tempo ${(o.match(/"method":\s*"tempo"/g) || []).length}`);
+    } catch (e) { console.log(`MPP ${u} ERR ${e.message}`); }
+  }
 }
