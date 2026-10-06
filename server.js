@@ -18,6 +18,7 @@ const { createMediaCache } = require('./lib/media');
 const crypto = require('crypto');
 const { createUsageLog, mcpToolCall, mcpPayment, agentOf, visitorOf } = require('./lib/usage-log');
 const { NETWORKS } = require('./lib/networks');
+const { languageOf, createAgentKinds, createDownloads } = require('./lib/usage-insights');
 const { createFeedback } = require('./lib/feedback');
 const { createOutcomes } = require('./lib/outcomes');
 const { createUsageReader } = require('./lib/usage-reader');
@@ -181,7 +182,7 @@ function trustProxyHops(env) {
   return Number.isInteger(n) && n >= 0 && n <= 10 && String(env.TRUST_PROXY_HOPS).trim() !== '' ? n : 3;
 }
 
-function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, trustIndex = createTrustIndex(), media = createMediaCache(), usageLog = createUsageLog({ service: 'doctor', env }), usageReader = createUsageReader({ env }), publicStats = createPublicStats({ usageReader }), settlementFetch = globalThis.fetch, status = null, outreachHook: outreachHookOverride = null, describe = createDescribe({ apiKey: env.TYPESAFE_API_KEY }), poison = createPoisonCheck({ apiKey: env.TYPESAFE_API_KEY }), creditStore } = {}) {
+function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, trustIndex = createTrustIndex(), media = createMediaCache(), usageLog = createUsageLog({ service: 'doctor', env }), usageReader = createUsageReader({ env }), publicStats = createPublicStats({ usageReader }), settlementFetch = globalThis.fetch, status = null, outreachHook: outreachHookOverride = null, describe = createDescribe({ apiKey: env.TYPESAFE_API_KEY }), poison = createPoisonCheck({ apiKey: env.TYPESAFE_API_KEY }), creditStore, agentKinds = createAgentKinds({ apiKey: env.TYPESAFE_API_KEY }), downloads = createDownloads() } = {}) {
   const app = express();
   const safeFetch = createSafeFetch({ allowPrivate });
   // Outreach drafts for the owner (lib/outreach-hook.js); off without OUTREACH_URL and OUTREACH_KEY.
@@ -272,10 +273,18 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
       const data = await usageReader.load({ days });
       let trust = null;
       try { trust = trustIndex.summary(); } catch { /* not loaded yet */ }
-      res.json({ ...data, funnel: setupsFunnel(data.events || []), trust: trust && trust.by_protocol ? { by_protocol: trust.by_protocol } : null });
+      const events = data.events || [];
+      const languages = {};
+      for (const e of events) if (e.agent && !languages[e.agent]) languages[e.agent] = languageOf(e.agent);
+      res.json({ ...data, funnel: setupsFunnel(events), trust: trust && trust.by_protocol ? { by_protocol: trust.by_protocol } : null, languages, agent_kinds: agentKinds.kindsFor(events), agent_kinds_by_jev: agentKinds.enabled });
     } catch (err) {
       res.status(502).json({ error: err.message });
     }
+  });
+  // Daily npm (JavaScript) and PyPI (Python) downloads of our packages, cached for 6 hours.
+  app.get('/admin/usage/downloads', admin, async (_req, res) => {
+    res.set('Cache-Control', 'no-store');
+    try { res.json(await downloads.load()); } catch (err) { res.status(502).json({ error: err.message }); }
   });
 
   // status.fizzl.eu (a custom domain on this service) opens the status page.

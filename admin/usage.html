@@ -11,12 +11,14 @@
     --bg: #0d1117; --panel: #161b22; --line: #30363d; --grid: #21262d; --text: #e6edf3; --text-soft: #8b949e; --accent: #58a6ff;
     --s-doctor: #3987e5; --s-plaintext: #d95926; --s-ichimoku: #199e70; --s-presign: #c98500;
     --ok: #3fb950; --bad: #f85149;
+    --v1: #3987e5; --v2: #d95926; --v3: #199e70;
   }
   @media (prefers-color-scheme: light) {
     :root { color-scheme: light;
       --bg: #f6f8fa; --panel: #ffffff; --line: #d0d7de; --grid: #eaeef2; --text: #1f2328; --text-soft: #57606a; --accent: #0969da;
       --s-doctor: #2a78d6; --s-plaintext: #eb6834; --s-ichimoku: #1baf7a; --s-presign: #eda100;
-      --ok: #1a7f37; --bad: #cf222e; }
+      --ok: #1a7f37; --bad: #cf222e;
+      --v1: #2a78d6; --v2: #eb6834; --v3: #1baf7a; }
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 -apple-system, 'Segoe UI', sans-serif; }
@@ -78,7 +80,19 @@
   a { color: var(--accent); }
   details { margin-top: 10px; font-size: 13.5px; } summary { cursor: pointer; color: var(--text-soft); }
   .notice { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-top: 18px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .panel h3 { margin: 0 0 10px; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+  .hbars { display: grid; grid-template-columns: minmax(90px, max-content) 1fr auto; gap: 6px 10px; align-items: center; font-size: 13px; }
+  .hbars .lbl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 190px; }
+  .hbars .track { display: flex; gap: 2px; height: 14px; border-radius: 0 4px 4px 0; cursor: default; }
+  .hbars .track:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .hbars .seg { height: 100%; min-width: 2px; }
+  .hbars .seg:last-child { border-radius: 0 4px 4px 0; }
+  .hbars .val { font-variant-numeric: tabular-nums; text-align: right; color: var(--text); white-space: nowrap; }
+  .hbars .val small { color: var(--text-soft); }
+  .note { color: var(--text-soft); font-size: 12.5px; margin: 10px 0 0; }
   @media (max-width: 760px) {
+    .grid2 { grid-template-columns: 1fr; }
     .tiles, .services { grid-template-columns: repeat(2, 1fr); }
     .tops { grid-template-columns: 1fr; }
     /* Recent calls as one card per call */
@@ -118,13 +132,42 @@
   <h2>Per service</h2>
   <div class="services" id="services"></div>
 
+  <h2>Who is calling</h2>
+  <div class="grid2">
+    <div class="panel">
+      <h3>Language of the caller</h3>
+      <div class="hbars" id="langChart"></div>
+      <details><summary>Show as table</summary><div class="scroll"><table id="langTable"></table></div></details>
+      <p class="note">From the user agent: "node", "axios" and our npm packages are JavaScript, "python-httpx" and fizzl are Python, "Go-http-client" is Go. A made-up name such as "CarbonMonitor/0.1" doesn't say: "own name".</p>
+    </div>
+    <div class="panel">
+      <h3>Kind of caller <span class="pill" id="jevPill">Jev</span></h3>
+      <div class="hbars" id="kindChart"></div>
+      <details><summary>Show as table</summary><div class="scroll"><table id="kindTable"></table></div></details>
+      <p class="note" id="kindNote"></p>
+    </div>
+  </div>
+
+  <h2>Networks</h2>
+  <div class="panel">
+    <div class="legend" id="netLegend"></div>
+    <div class="hbars" id="netChart"></div>
+    <details><summary>Show as table</summary><div class="scroll"><table id="netTable"></table></div></details>
+    <p class="note" id="networksNote"></p>
+  </div>
+
+  <h2>Package downloads per day: JavaScript (npm) and Python (PyPI)</h2>
+  <div class="panel">
+    <div class="legend" id="dlLegend"></div>
+    <div id="dlChart"><p class="empty">Loading downloads…</p></div>
+    <div class="scroll" style="margin-top:12px"><table id="dlTable"></table></div>
+    <p class="note">Downloads are not users: mirrors, CI and bots count too. Real use shows up above, from a package's first call. PyPI counts without mirrors. A new package shows up in the registries' counts after a day or two.</p>
+  </div>
+
   <h2>Our packages (npm and PyPI)</h2>
   <div class="tiles" id="packages" style="margin-top:0"></div>
   <p class="sub" id="packagesNote" style="margin-top:8px"></p>
 
-  <h2>Networks</h2>
-  <div class="tiles" id="networks" style="margin-top:0"></div>
-  <p class="sub" id="networksNote" style="margin-top:8px"></p>
 
   <h2>MPP (Machine Payments Protocol)</h2>
   <div class="tiles" id="mpp" style="margin-top:0"></div>
@@ -236,6 +279,7 @@
     }
     state.data = data;
     render();
+    if (!state.downloads) loadDownloads();
   }
 
   // A 402 (quote) is not a call: the caller only saw the price. Counted separately.
@@ -264,7 +308,9 @@
     renderTiles(events);
     renderServices(events);
     renderPackages();
+    renderCallers(events);
     renderNetworks();
+    renderDownloads();
     renderMpp();
     renderFunnel(d.funnel);
     renderChart(events);
@@ -306,13 +352,89 @@
     $('packagesNote').textContent = 'Installs are not visible: a package shows up here from its first call. "Free" = the free quick check presign-guard-ai-sdk and fizzl (fizzl-py) fall back to without payment. Tick "our packages only" above to see just these calls in the table and chart.';
   }
 
-  // Which network the traffic is about: the network paid on (or tried, for a refused payment, logged since 7 Oct
-  // 2026), and the chain a check asks about (presign-guard and PlainText input.chain/chainId, the networks the endpoint
-  // Doctor checked offers, logged since 7 Oct 2026). One call can touch several networks.
+  // ---- Shared pieces for the bar charts below ----
+  const tipBox = (title, rows) => {
+    const t = $('tip');
+    t.replaceChildren(el('div', { className: 't', textContent: title }), ...rows.map(([k, v, c]) => el('div', { className: 'r' }, el('span', {}, c ? (() => { const s = el('span', { className: 'sw' }); s.style.background = c; return s; })() : null, k), el('span', { textContent: v }))));
+    t.style.display = 'block';
+  };
+  const placeTip = (ev) => {
+    const t = $('tip'); const r = ev.target.getBoundingClientRect();
+    const x = ev.clientX !== undefined && ev.clientX ? ev.clientX : r.left + r.width / 2;
+    const y = ev.clientY !== undefined && ev.clientY ? ev.clientY : r.top;
+    t.style.left = `${Math.min(window.innerWidth - t.offsetWidth - 8, x + 14)}px`;
+    t.style.top = `${Math.max(8, y - t.offsetHeight - 10)}px`;
+  };
+  const table = (id, head, rows, numFrom = 1) => {
+    $(id).replaceChildren(
+      el('thead', {}, el('tr', {}, ...head.map((h, i) => el('th', { className: i >= numFrom ? 'num' : '', textContent: h })))),
+      el('tbody', {}, ...rows.map((r) => el('tr', {}, ...r.map((v, i) => el('td', { className: i >= numFrom ? 'num' : '', textContent: typeof v === 'number' ? v.toLocaleString() : String(v) }))))));
+  };
+  // Horizontal bars: rows [{ label, parts: [value per key], value, tip: [[k, v, color]] }], keys [{ label, color }].
+  // One shared scale; a 2px gap between stacked parts; the value (and an optional note) at the end of each row.
+  function hbars(id, rows, keys, { note = () => '' } = {}) {
+    const box = $(id);
+    if (!rows.length) { box.replaceChildren(el('p', { className: 'empty', textContent: 'Nothing in this range.' })); return; }
+    const max = Math.max(1, ...rows.map((r) => r.parts.reduce((a, b) => a + b, 0)));
+    const kids = [];
+    for (const r of rows) {
+      const track = el('div', { className: 'track', tabIndex: 0 });
+      const total = r.parts.reduce((a, b) => a + b, 0);
+      track.style.width = `${Math.max(1, (total / max) * 100)}%`;
+      r.parts.forEach((v, i) => { if (!v) return; const seg = el('div', { className: 'seg' }); seg.style.flex = `${v} 0 0`; seg.style.background = keys[i].color; track.append(seg); });
+      track.setAttribute('aria-label', `${r.label}: ${r.parts.map((v, i) => `${keys[i].label} ${v}`).join(', ')}`);
+      const show = (ev) => { tipBox(r.label, r.tip || r.parts.map((v, i) => [keys[i].label, v.toLocaleString(), keys[i].color])); placeTip(ev); };
+      track.addEventListener('mousemove', show); track.addEventListener('focus', show);
+      track.addEventListener('mouseleave', hideTip); track.addEventListener('blur', hideTip);
+      const wrap = el('div', {}, track);
+      kids.push(el('div', { className: 'lbl', textContent: r.label, title: r.label }), wrap, el('div', { className: 'val' }, r.value, note(r) ? el('small', { textContent: ` ${note(r)}` }) : null));
+    }
+    box.replaceChildren(...kids);
+  }
+  const legend = (id, keys) => $(id).replaceChildren(...keys.map((k) => { const s = el('span', { className: 'sw' }); s.style.background = k.color; return el('span', {}, s, k.label); }));
+  const pctOf = (n, d) => (d ? `${Math.round((n / d) * 100)}%` : '–');
+
+  // ---- Who is calling: language and kind of caller (calls shown with the filters above) ----
+  function renderCallers(events) {
+    const langs = state.data.languages || {}, kinds = state.data.agent_kinds || {};
+    const group = (keyOf) => {
+      const m = new Map();
+      for (const e of events) {
+        const k = keyOf(e);
+        const g = m.get(k) || { calls: 0, paid: 0, visitors: new Set(), agents: new Map() };
+        g.calls++; if (e.paid) g.paid++; if (e.visitor) g.visitors.add(e.visitor);
+        g.agents.set(e.agent || 'none', (g.agents.get(e.agent || 'none') || 0) + 1);
+        m.set(k, g);
+      }
+      return [...m].sort((a, b) => b[1].calls - a[1].calls);
+    };
+    const top = (g) => [...g.agents].sort((a, b) => b[1] - a[1]).slice(0, 4);
+    const draw = (chartId, tableId, groups, firstHead) => {
+      const total = groups.reduce((s, [, g]) => s + g.calls, 0);
+      hbars(chartId, groups.slice(0, 10).map(([k, g]) => ({
+        label: k, parts: [g.calls], value: g.calls.toLocaleString(), share: pctOf(g.calls, total),
+        tip: [['Calls', g.calls.toLocaleString(), 'var(--v1)'], ['Visitors', g.visitors.size.toLocaleString()], ['Paid', g.paid.toLocaleString()], ...top(g).map(([a, n]) => [a, n.toLocaleString()])],
+      })), [{ label: 'Calls', color: 'var(--v1)' }], { note: (r) => r.share });
+      table(tableId, [firstHead, 'Calls', 'Share', 'Visitors', 'Paid', 'Top user agents'], groups.map(([k, g]) => [k, g.calls, pctOf(g.calls, total), g.visitors.size, g.paid, top(g).map(([a, n]) => `${a} (${n})`).join(', ')]), 1);
+      // the last column is text
+      for (const td of $(tableId).querySelectorAll('tbody td:last-child')) td.className = 'mono';
+    };
+    draw('langChart', 'langTable', group((e) => langs[e.agent] || 'Not sent'), 'Language');
+    draw('kindChart', 'kindTable', group((e) => kinds[e.agent] || 'Unknown'), 'Kind');
+    const jev = state.data.agent_kinds_by_jev;
+    $('jevPill').style.display = jev ? '' : 'none';
+    $('kindNote').textContent = jev
+      ? 'HTTP libraries, browsers and our packages are recognised by name. Other made-up names are judged once each by TypeSafe Jev (monitor or probe, directory or indexer, agent or app); new names show as "Unknown" until Jev has looked at them, usually by the next refresh.'
+      : 'HTTP libraries, browsers and our packages are recognised by name; obvious monitors and crawlers by words in the name. Set TYPESAFE_API_KEY to let Jev judge the other made-up names.';
+  }
+
+  // ---- Networks: which chain the traffic is about ----
+  // The network paid on (or tried, for a refused payment, logged since 7 Oct 2026), and the chain a check asks about
+  // (presign-guard and PlainText input.chain/chainId, the networks the endpoint Doctor checked offers, logged since
+  // 7 Oct 2026). One call can touch several networks.
   const CHAIN_IDS = { 1: 'Ethereum', 8453: 'Base', 84532: 'Base Sepolia', 137: 'Polygon', 42161: 'Arbitrum', 10: 'Optimism', 43114: 'Avalanche', 4217: 'Tempo' };
   const NET_ALIASES = { base: 'Base', 'eip155:8453': 'Base', 'mpp evm': 'Base', solana: 'Solana', ethereum: 'Ethereum', eth: 'Ethereum', xrpl: 'XRP Ledger', 'xrpl:0': 'XRP Ledger', 'xrp ledger': 'XRP Ledger', tempo: 'Tempo', 'mpp tempo': 'Tempo', polygon: 'Polygon', arbitrum: 'Arbitrum', optimism: 'Optimism', avalanche: 'Avalanche', algorand: 'Algorand', stellar: 'Stellar', sui: 'Sui', aptos: 'Aptos' };
-  const netName = (v) => { const k = String(v).trim(); return NET_ALIASES[k.toLowerCase()] || (CHAIN_IDS[k] || CHAIN_IDS[k.replace(/^eip155:/, '')]) || k; };
-  function paidNetworkOf(e) { return (e.paid || e.payment_failed) && e.network ? netName(e.network) : null; }
+  const netName = (v) => { const k = String(v).trim(); return NET_ALIASES[k.toLowerCase()] || CHAIN_IDS[k] || CHAIN_IDS[k.replace(/^eip155:/, '')] || k; };
   function checkedNetworksOf(e) {
     const i = e.input || {}, r = e.result || {};
     const out = new Set();
@@ -323,22 +445,97 @@
     if (r.networks) for (const n of String(r.networks).split(',')) if (n.trim()) out.add(netName(n));
     return [...out];
   }
-
-  // Networks over the whole range (service chips and "hide monitors" apply).
+  const NET_KEYS = [{ label: 'Checks about it', color: 'var(--v1)' }, { label: 'Paid on it', color: 'var(--v3)' }, { label: 'Refused on it', color: 'var(--v2)' }];
   function renderNetworks() {
     const all = (state.data.events || []).filter((e) => state.services.has(e.service) && (!state.hideBots || !isBot(e)));
     const by = new Map();
-    const row = (n) => { if (!by.has(n)) by.set(n, { calls: 0, paid: 0, usd: 0, refused: 0, checks: 0 }); return by.get(n); };
+    const row = (n) => { if (!by.has(n)) by.set(n, { checks: 0, paid: 0, usd: 0, refused: 0, visitors: new Set() }); return by.get(n); };
     for (const e of all) {
-      const pn = paidNetworkOf(e);
-      if (pn) { const r = row(pn); if (e.paid) { r.paid++; r.usd += Number(e.usd) || 0; } else r.refused++; }
-      if (!e.quote) for (const n of checkedNetworksOf(e)) row(n).checks++;
+      if ((e.paid || e.payment_failed) && e.network) { const r = row(netName(e.network)); if (e.paid) { r.paid++; r.usd += Number(e.usd) || 0; } else r.refused++; if (e.visitor) r.visitors.add(e.visitor); }
+      if (!e.quote && e.status < 400) for (const n of checkedNetworksOf(e)) { const r = row(n); r.checks++; if (e.visitor) r.visitors.add(e.visitor); }
     }
-    for (const r of by.values()) r.calls = r.paid + r.checks;
-    const tile = (k, v, d) => el('div', { className: 'tile' }, el('div', { className: 'k', textContent: k }), el('div', { className: 'v', textContent: v }), el('div', { className: 'd', textContent: d }));
-    const rows = [...by].sort((a, b) => b[1].calls + b[1].refused - (a[1].calls + a[1].refused));
-    $('networks').replaceChildren(...(rows.length ? rows.map(([n, r]) => tile(n, r.calls.toLocaleString(), `${r.checks} check(s) about it · ${r.paid} paid${r.paid ? ` (${usd(r.usd)})` : ''}${r.refused ? ` · ${r.refused} refused` : ''}`)) : [tile('Networks', '–', 'nothing with a network in this range')]));
-    $('networksNote').textContent = 'Per network: the checks that ask about it (presign-guard and PlainText chain, the networks of an endpoint Doctor checked) and the payments made on it. A 402 without a payment has no network yet: the caller has not chosen one. Refused payments and Doctor\'s checked networks are logged since 7 Oct 2026.';
+    const rows = [...by].sort((a, b) => (b[1].checks + b[1].paid + b[1].refused) - (a[1].checks + a[1].paid + a[1].refused));
+    legend('netLegend', NET_KEYS);
+    hbars('netChart', rows.map(([n, r]) => ({
+      label: n, parts: [r.checks, r.paid, r.refused], value: (r.checks + r.paid + r.refused).toLocaleString(), usd: r.usd,
+      tip: [['Checks about it', r.checks.toLocaleString(), NET_KEYS[0].color], ['Paid on it', `${r.paid} (${usd(r.usd)})`, NET_KEYS[1].color], ['Refused on it', r.refused.toLocaleString(), NET_KEYS[2].color], ['Visitors', r.visitors.size.toLocaleString()]],
+    })), NET_KEYS, { note: (r) => (r.usd ? usd(r.usd) : '') });
+    table('netTable', ['Network', 'Checks', 'Paid', 'Revenue', 'Refused', 'Visitors'], rows.map(([n, r]) => [n, r.checks, r.paid, usd(r.usd), r.refused, r.visitors.size]));
+    $('networksNote').textContent = 'Per network: checks that ask about it (presign-guard and PlainText chain, the networks of an endpoint Doctor checked) and payments made or refused on it. A 402 without a payment has no network yet: the caller has not chosen one. Refused payments and Doctor\'s checked networks are logged since 7 Oct 2026. Service chips and "hide monitors" apply.';
+  }
+
+  // ---- Package downloads per day (npm = JavaScript, PyPI = Python), loaded separately and cached ----
+  const LANG_KEYS = [{ key: 'JavaScript', label: 'JavaScript (npm)', color: 'var(--v1)' }, { key: 'Python', label: 'Python (PyPI)', color: 'var(--v2)' }];
+  async function loadDownloads() {
+    try {
+      const res = await fetch('/admin/usage/downloads', { cache: 'no-store' });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || `HTTP ${res.status}`);
+      state.downloads = d;
+    } catch (err) {
+      state.downloads = { error: err.message, packages: [] };
+    }
+    renderDownloads();
+  }
+  function renderDownloads() {
+    const d = state.downloads;
+    if (!d) return;
+    legend('dlLegend', LANG_KEYS);
+    const pkgs = d.packages || [];
+    let allDays = [...new Set(pkgs.flatMap((p) => Object.keys(p.days || {})))].sort().slice(-30);
+    // Start a day before the first download, so the chart isn't mostly empty days.
+    const first = allDays.findIndex((day) => pkgs.some((p) => p.days[day]));
+    if (first > 1) allDays = allDays.slice(first - 1);
+    if (!allDays.length) { $('dlChart').replaceChildren(el('p', { className: 'empty', textContent: d.error ? `Could not load downloads: ${d.error}` : 'No downloads yet.' })); $('dlTable').replaceChildren(); return; }
+    const per = allDays.map((day) => ({ day, by: Object.fromEntries(LANG_KEYS.map((k) => [k.key, pkgs.filter((p) => p.language === k.key).reduce((s, p) => s + (p.days[day] || 0), 0)])) }));
+    const W = Math.max(320, $('dlChart').clientWidth || 700), H = 220, L = 40, R = 6, T = 10, B = 24;
+    const max = Math.max(1, ...per.map((p) => LANG_KEYS.reduce((s, k) => s + p.by[k.key], 0)));
+    const step = niceStep(max), topV = Math.ceil(max / step) * step;
+    const y = (v) => T + (H - T - B) * (1 - v / topV);
+    const bw = (W - L - R) / per.length, barW = Math.max(2, Math.min(24, bw - 3));
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('width', '100%'); svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', 'Package downloads per day, stacked by language');
+    const add = (tag, attrs, text) => { const n = document.createElementNS(ns, tag); for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v); if (text !== undefined) n.textContent = text; svg.append(n); return n; };
+    for (let v = 0; v <= topV; v += step) {
+      add('line', { x1: L, x2: W - R, y1: y(v), y2: y(v), stroke: 'var(--grid)', 'stroke-width': 1 });
+      add('text', { x: L - 6, y: y(v) + 3.5, 'text-anchor': 'end' }, v.toLocaleString());
+    }
+    const labelEvery = Math.ceil(per.length / Math.max(2, Math.min(8, Math.floor((W - L) / 64))));
+    per.forEach((p, i) => {
+      const x = L + i * bw + (bw - barW) / 2;
+      let base = 0;
+      const segs = LANG_KEYS.filter((k) => p.by[k.key]);
+      segs.forEach((k, j) => {
+        const v = p.by[k.key];
+        const y0 = y(base), y1 = y(base + v);
+        const h = Math.max(1, y0 - y1 - (j > 0 ? 2 : 0));
+        const r = j === segs.length - 1 ? Math.min(4, barW / 2, h) : 0;
+        add('path', { d: `M${x},${y1 + h} L${x},${y1 + r} Q${x},${y1} ${x + r},${y1} L${x + barW - r},${y1} Q${x + barW},${y1} ${x + barW},${y1 + r} L${x + barW},${y1 + h} Z`, fill: k.color });
+        base += v;
+      });
+      const last = i === per.length - 1;
+      if ((i % labelEvery === 0 && (last || per.length - 1 - i >= labelEvery / 2 + 1)) || last) {
+        const dt = new Date(p.day + 'T12:00:00');
+        add('text', last ? { x: W - R, y: H - 6, 'text-anchor': 'end' } : { x: L + i * bw + bw / 2, y: H - 6, 'text-anchor': i === 0 ? 'start' : 'middle' }, dt.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }));
+      }
+      const hit = add('rect', { x: L + i * bw, y: T, width: bw, height: H - T - B, class: 'hit', tabindex: 0 });
+      const show = (ev) => { tipBox(new Date(p.day + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' }), [...LANG_KEYS.map((k) => [k.label, p.by[k.key].toLocaleString(), k.color]), ...pkgs.filter((q) => q.days[p.day]).sort((a, b) => b.days[p.day] - a.days[p.day]).map((q) => [q.name, q.days[p.day].toLocaleString()])]); placeTip(ev); };
+      hit.setAttribute('aria-label', `${p.day}: ${LANG_KEYS.map((k) => `${k.label} ${p.by[k.key]}`).join(', ')}`);
+      hit.addEventListener('mousemove', show); hit.addEventListener('focus', show);
+      hit.addEventListener('mouseleave', hideTip); hit.addEventListener('blur', hideTip);
+    });
+    add('line', { x1: L, x2: W - R, y1: y(0), y2: y(0), stroke: 'var(--line)', 'stroke-width': 1 });
+    $('dlChart').replaceChildren(svg);
+    const sum = (p, n) => allDays.slice(-n).reduce((s, day) => s + (p.days[day] || 0), 0);
+    const isNew = (p) => !Object.keys(p.days || {}).length && !p.error;
+    const rows = pkgs.map((p) => isNew(p) ? [p.name, `${p.language} · ${p.registry === 'npm' ? 'npm' : 'PyPI'}`, 'new: not counted yet', '–', '–'] : [p.name, `${p.language} · ${p.registry === 'npm' ? 'npm' : 'PyPI'}`, sum(p, 1), sum(p, 7), sum(p, 30)]).sort((a, b) => (Number(b[3]) || -1) - (Number(a[3]) || -1));
+    const tot = (lang) => pkgs.filter((p) => p.language === lang);
+    for (const k of LANG_KEYS) rows.push([`All ${k.key}`, '', tot(k.key).reduce((s, p) => s + sum(p, 1), 0), tot(k.key).reduce((s, p) => s + sum(p, 7), 0), tot(k.key).reduce((s, p) => s + sum(p, 30), 0)]);
+    table('dlTable', ['Package', 'Language', 'Last day', 'Last 7 days', 'Last 30 days'], rows, 2);
+    const failed = pkgs.filter((p) => p.error).map((p) => p.name);
+    if (failed.length) $('dlTable').append(el('caption', { className: 'note', style: 'caption-side:bottom;text-align:left', textContent: `Not refreshed this time: ${failed.join(', ')}.` }));
   }
 
   // MPP over the whole range (service chips and "hide monitors" apply): payments to our services over MPP
