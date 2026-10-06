@@ -726,3 +726,19 @@ test('description quality: opt-in, an info line from the describe judge, verdict
   assert.equal(typeof seen[0], 'string');
   assert.equal(rated.overall, plain.overall);
 });
+
+test('more EVM chains with native USDC are known: World Chain, Monad, HyperEVM, Ethereum, Unichain, Sei', () => {
+  const opt = (network, asset) => ({ scheme: 'exact', network, asset, amount: '15000', payTo: '0x408C4610F6879a75c25722cfCd18A2Eff99dc20F', maxTimeoutSeconds: 300, extra: { name: 'USDC', version: '2' } });
+  const checks = [];
+  checkAccepts([
+    opt('eip155:480', '0x79A02482A880bCe3F13E09da970dC34dB4cD24D1'),
+    opt('eip155:143', '0x754704Bc059F8C67012fEd69BC8A327a5aafb603'),
+    opt('eip155:999', '0xb88339CB7199b77E23DB6E890353E22632Ba630f'),
+    opt('eip155:1', '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'),
+    opt('eip155:480', '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'),
+  ], checks);
+  const status = (id) => checks.find((c) => c.id === id)?.status;
+  for (const i of [0, 1, 2, 3]) { assert.equal(status(`accepts[${i}]-network`), 'pass'); assert.equal(status(`accepts[${i}]-asset`), undefined); }
+  assert.match(checks.find((c) => c.id === 'accepts[0]-amount').message, /\$0\.015 USDC/);
+  assert.equal(status('accepts[4]-asset'), 'fail', 'Ethereum USDC on World Chain is a mismatch');
+});

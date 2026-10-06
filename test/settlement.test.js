@@ -72,7 +72,7 @@ test('Base: reverted, not found, from someone else, or a broken header each say 
   assert.match(noTx.checks.find((c) => c.id === 'success').message, /insufficient_funds/);
   assert.ok(noTx.checks.some((c) => c.id === 'transaction' && c.status === 'fail'));
 
-  const unknown = await checkSettlement(b64({ success: true, transaction: 'abc', network: 'eip155:999' }), { fetch: rpcStub({}).fetch });
+  const unknown = await checkSettlement(b64({ success: true, transaction: 'abc', network: 'eip155:424242' }), { fetch: rpcStub({}).fetch });
   assert.equal(unknown.overall, 'warn');
   assert.equal(unknown.onchain, null);
 });

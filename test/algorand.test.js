@@ -86,3 +86,12 @@ test('preflight: an Algorand USDC seller is go with its dollar price; no_go when
     server.close();
   }
 });
+
+test('the short CAIP-2 Algorand id (first 32 characters of the genesis hash) is the same network', () => {
+  const { NETWORKS } = require('../lib/networks');
+  assert.equal(NETWORKS['algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k'], NETWORKS[ALGO]);
+  const checks = [];
+  checkAccepts([option({ network: 'algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k' })], checks);
+  assert.deepEqual(checks.filter((c) => c.status !== 'pass').map((c) => c.id), []);
+  assert.match(checks.find((c) => c.id === 'accepts[0]-network').message, /Algorand/);
+});
