@@ -4,13 +4,14 @@
 //   node scripts/trust-scan.js --out trust-data [--limit 200]
 //
 // Reads <out>/index.json (the previous 30-day index, if any), scans every
-// resource in the CDP Bazaar (x402) and the MPP directory (Stripe + Tempo), and writes
+// resource in the CDP Bazaar (x402), the MPP directory (Stripe + Tempo) and the GoPlausible facilitator's
+// discovery list (x402 on Algorand), and writes
 // <out>/index.json and <out>/summary.json.
 
 const fs = require('fs');
 const path = require('path');
 const { createSafeFetch } = require('../lib/safe-fetch');
-const { loadCatalog, loadMppCatalog, scan, mergeIndex, summarize } = require('../lib/trust-scan');
+const { loadCatalog, loadMppCatalog, loadGoPlausibleCatalog, scan, mergeIndex, summarize } = require('../lib/trust-scan');
 
 function arg(name, fallback) {
   const i = process.argv.indexOf(`--${name}`);
@@ -32,6 +33,12 @@ async function main() {
   const mppOnly = mpp.filter((r) => !seen.has(r.key));
   console.log(`MPP directory: ${mpp.length} endpoints, ${mppOnly.length} not in the Bazaar`);
   resources = [...resources, ...mppOnly];
+  // The GoPlausible facilitator's listings (mostly Algorand, not in the Bazaar); one check per endpoint.
+  const goplausible = await loadGoPlausibleCatalog().catch((err) => (console.warn(`GoPlausible discovery: ${err.message}`), []));
+  const known = new Set(resources.map((r) => r.key));
+  const gpOnly = goplausible.filter((r) => !known.has(r.key));
+  console.log(`GoPlausible discovery: ${goplausible.length} endpoints, ${gpOnly.length} new`);
+  resources = [...resources, ...gpOnly];
   if (limit > 0) resources = resources.slice(0, limit);
 
   const started = Date.now();

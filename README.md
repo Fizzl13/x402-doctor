@@ -228,7 +228,7 @@ Same format as [presign-guard](https://github.com/Fizzl13/presign-guard#signed-v
 ### x402 Trust Index
 
 Once a day, [`trust-scan.yml`](.github/workflows/trust-scan.yml) runs the pre-payment check against every resource in
-the CDP Bazaar (read-only: it stops at the 402 challenge, at most two requests per host at a time, one
+the CDP Bazaar, the MPP directory and the [GoPlausible](https://facilitator.goplausible.xyz/discovery/resources) facilitator's discovery list (x402 on Algorand, about 2,500 endpoints the Bazaar doesn't list) (read-only: it stops at the 402 challenge, at most two requests per host at a time, one
 `/openapi.json` per origin, a User-Agent that links to `/trust`). The results roll into a 30-day history per resource,
 one letter per day (`g` go, `c` caution, `n` no-go, `x` unreachable, `-` not scanned), published as
 `index.json` + `summary.json` on the `trust-data` branch.

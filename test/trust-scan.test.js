@@ -265,3 +265,23 @@ test('MPP in the Trust Index: the directory becomes scan entries; challenges get
   assert.equal((await trust.lookup(`${api}/good`)).protocol, 'mpp');
   for (const f of after) f();
 });
+
+test('GoPlausible catalog: resourceUrl and method, https only, one per origin + path, pages until the total', async () => {
+  const { loadGoPlausibleCatalog } = require('../lib/trust-scan');
+  const page = (offset) => offset === 0
+    ? { items: [
+      { resourceUrl: 'https://a.example/v1/signal?x=1', method: 'GET', description: 'Signal', accepts: [] },
+      { resourceUrl: 'https://a.example/v1/signal?x=2', method: 'GET', description: 'dup', accepts: [] },
+      { resourceUrl: 'http://b.example/pay', method: 'POST', description: 'plain http', accepts: [] },
+      ...Array.from({ length: 497 }, (_, i) => ({ resourceUrl: `https://c.example/r/${i}`, discoveryInfo: { input: { method: 'POST' } } })),
+    ], pagination: { limit: 500, offset: 0, total: 501 } }
+    : { items: [{ resourceUrl: 'https://d.example/last', method: 'DELETE' }], pagination: { limit: 500, offset: 500, total: 501 } };
+  const urls = [];
+  const list = await loadGoPlausibleCatalog({ fetchImpl: async (u) => { urls.push(u); return Response.json(page(Number(new URL(u).searchParams.get('offset')))); } });
+  assert.equal(urls.length, 2);
+  assert.equal(list.length, 1 + 497 + 1);
+  assert.equal(list[0].method, 'GET');
+  assert.equal(list.find((r) => r.url === 'https://c.example/r/0').method, 'POST');
+  assert.equal(list.find((r) => r.url === 'https://d.example/last').method, undefined);
+  assert.ok(!list.some((r) => r.url.startsWith('http://')));
+});
