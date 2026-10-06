@@ -29,6 +29,7 @@ the medicine, the exact code that fixes each problem for your stack, in the brow
 | MCP (payment per tool call) | `mcp-server` | When the URL answers no 402 but speaks MCP (Streamable HTTP, JSON or SSE, with or without a session): initialize and `tools/list` without payment |
 | | `mcp-paid-tools` | No tool description says it is paid (x402, USDC, a price), so agents can't tell |
 | | `mcp-payment-required` | One unpaid `tools/call` per paid-looking tool (at most 2; explicitly paid tools first — "Paid …" or a price / "via x402" in the title; never tools that call themselves free, destructive tools, or write tools unless explicitly paid). A free answer warns only for an explicitly paid tool, otherwise it is info: the x402 payment requirement in the tool result with `isError: true` (as `@x402/mcp`), or an HTTP 402 with `PAYMENT-REQUIRED` instead (payable over HTTP, not by `@x402/mcp` clients), a JSON-RPC error, a tool that answers for free, or example arguments refused before the payment step (publish one valid call as `_meta.examples` to avoid that). The requirement then gets the payment-option, settlement and wallet checks below |
+| | `mcp-tool-poisoning` | Hidden orders for the agent in tool descriptions (tool poisoning): hidden Unicode characters, `<IMPORTANT>` blocks, reading `~/.ssh` or `.env`, "do not tell the user", sending the maximum USDC (code rules), then TypeSafe Jev per tool (with `TYPESAFE_API_KEY`). A sure finding is `warn`, an unsure one `info`. Calibrated on 755 tools of 96 servers from the official MCP registry: no false alarm, and five made-up poisoned tools all caught |
 | | `mcp-payment-text`, `mcp-payment-structured` | The requirement only in `structuredContent` (the x402 MCP transport requires JSON text in `content[0]`), or only as text (structuredContent preferred) |
 | Payment options | `accepts[i]-scheme`, `-network` | Missing scheme; legacy names like `base` / `solana:mainnet` instead of CAIP-2 |
 | | `accepts[i]-payto`, `-asset` | Invalid EVM, Solana, XRPL or Algorand addresses (Algorand with its checksum); asset that is not USDC, or USDC of another network (e.g. Base Sepolia USDC on Base); on Algorand an asset that is not an ASA id (USDC is ASA 31566704) |
@@ -228,7 +229,7 @@ Same format as [presign-guard](https://github.com/Fizzl13/presign-guard#signed-v
 ### x402 Trust Index
 
 Once a day, [`trust-scan.yml`](.github/workflows/trust-scan.yml) runs the pre-payment check against every resource in
-the CDP Bazaar (read-only: it stops at the 402 challenge, at most two requests per host at a time, one
+the CDP Bazaar, the MPP directory and the [GoPlausible](https://facilitator.goplausible.xyz/discovery/resources) facilitator's discovery list (x402 on Algorand, about 2,500 endpoints the Bazaar doesn't list) (read-only: it stops at the 402 challenge, at most two requests per host at a time, one
 `/openapi.json` per origin, a User-Agent that links to `/trust`). The results roll into a 30-day history per resource,
 one letter per day (`g` go, `c` caution, `n` no-go, `x` unreachable, `-` not scanned), published as
 `index.json` + `summary.json` on the `trust-data` branch.
