@@ -122,6 +122,10 @@
   <div class="tiles" id="packages" style="margin-top:0"></div>
   <p class="sub" id="packagesNote" style="margin-top:8px"></p>
 
+  <h2>Networks</h2>
+  <div class="tiles" id="networks" style="margin-top:0"></div>
+  <p class="sub" id="networksNote" style="margin-top:8px"></p>
+
   <h2>MPP (Machine Payments Protocol)</h2>
   <div class="tiles" id="mpp" style="margin-top:0"></div>
   <p class="sub" id="mppNote" style="margin-top:8px"></p>
@@ -260,6 +264,7 @@
     renderTiles(events);
     renderServices(events);
     renderPackages();
+    renderNetworks();
     renderMpp();
     renderFunnel(d.funnel);
     renderChart(events);
@@ -299,6 +304,41 @@
     tiles.push(tile('Outcome reports', outcomes.length.toLocaleString(), outcomes.length ? `${outcomes.filter((e) => e.input && e.input.outcome !== 'paid_ok').length} failed payments reported` : 'from x402-safe-fetch shareOutcomes'));
     $('packages').replaceChildren(...tiles);
     $('packagesNote').textContent = 'Installs are not visible: a package shows up here from its first call. "Free" = the free quick check presign-guard-ai-sdk and fizzl (fizzl-py) fall back to without payment. Tick "our packages only" above to see just these calls in the table and chart.';
+  }
+
+  // Which network the traffic is about: the network paid on (or tried, for a refused payment, logged since 7 Oct
+  // 2026), and the chain a check asks about (presign-guard and PlainText input.chain/chainId, the networks the endpoint
+  // Doctor checked offers, logged since 7 Oct 2026). One call can touch several networks.
+  const CHAIN_IDS = { 1: 'Ethereum', 8453: 'Base', 84532: 'Base Sepolia', 137: 'Polygon', 42161: 'Arbitrum', 10: 'Optimism', 43114: 'Avalanche', 4217: 'Tempo' };
+  const NET_ALIASES = { base: 'Base', 'eip155:8453': 'Base', 'mpp evm': 'Base', solana: 'Solana', ethereum: 'Ethereum', eth: 'Ethereum', xrpl: 'XRP Ledger', 'xrpl:0': 'XRP Ledger', 'xrp ledger': 'XRP Ledger', tempo: 'Tempo', 'mpp tempo': 'Tempo', polygon: 'Polygon', arbitrum: 'Arbitrum', optimism: 'Optimism', avalanche: 'Avalanche', algorand: 'Algorand', stellar: 'Stellar', sui: 'Sui', aptos: 'Aptos' };
+  const netName = (v) => { const k = String(v).trim(); return NET_ALIASES[k.toLowerCase()] || (CHAIN_IDS[k] || CHAIN_IDS[k.replace(/^eip155:/, '')]) || k; };
+  function paidNetworkOf(e) { return (e.paid || e.payment_failed) && e.network ? netName(e.network) : null; }
+  function checkedNetworksOf(e) {
+    const i = e.input || {}, r = e.result || {};
+    const out = new Set();
+    if (i.chain) out.add(netName(i.chain));
+    if (i.chainId) out.add(netName(i.chainId));
+    if (i.network) out.add(netName(i.network));
+    if (i.type === 'xrpl') out.add('XRP Ledger');
+    if (r.networks) for (const n of String(r.networks).split(',')) if (n.trim()) out.add(netName(n));
+    return [...out];
+  }
+
+  // Networks over the whole range (service chips and "hide monitors" apply).
+  function renderNetworks() {
+    const all = (state.data.events || []).filter((e) => state.services.has(e.service) && (!state.hideBots || !isBot(e)));
+    const by = new Map();
+    const row = (n) => { if (!by.has(n)) by.set(n, { calls: 0, paid: 0, usd: 0, refused: 0, checks: 0 }); return by.get(n); };
+    for (const e of all) {
+      const pn = paidNetworkOf(e);
+      if (pn) { const r = row(pn); if (e.paid) { r.paid++; r.usd += Number(e.usd) || 0; } else r.refused++; }
+      if (!e.quote) for (const n of checkedNetworksOf(e)) row(n).checks++;
+    }
+    for (const r of by.values()) r.calls = r.paid + r.checks;
+    const tile = (k, v, d) => el('div', { className: 'tile' }, el('div', { className: 'k', textContent: k }), el('div', { className: 'v', textContent: v }), el('div', { className: 'd', textContent: d }));
+    const rows = [...by].sort((a, b) => b[1].calls + b[1].refused - (a[1].calls + a[1].refused));
+    $('networks').replaceChildren(...(rows.length ? rows.map(([n, r]) => tile(n, r.calls.toLocaleString(), `${r.checks} check(s) about it · ${r.paid} paid${r.paid ? ` (${usd(r.usd)})` : ''}${r.refused ? ` · ${r.refused} refused` : ''}`)) : [tile('Networks', '–', 'nothing with a network in this range')]));
+    $('networksNote').textContent = 'Per network: the checks that ask about it (presign-guard and PlainText chain, the networks of an endpoint Doctor checked) and the payments made on it. A 402 without a payment has no network yet: the caller has not chosen one. Refused payments and Doctor\'s checked networks are logged since 7 Oct 2026.';
   }
 
   // MPP over the whole range (service chips and "hide monitors" apply): payments to our services over MPP
