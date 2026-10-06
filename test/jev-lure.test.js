@@ -23,6 +23,7 @@ test('claimsOf: v2 description first, then v1; output from the Bazaar example or
   const v1 = claimsOf({ accepts: [{ description: 'Weather', outputSchema: { output: { temp: 'number' } } }] });
   assert.equal(v1.description, 'Weather');
   assert.match(v1.output, /temp/);
+  assert.equal(v1.output, '{"temp":"number"}', 'only the output side of a v1 { input, output } schema');
   const ex = claimsOf({ resource: { description: 'Funding rates' }, accepts: [{}], extensions: { bazaar: { info: { output: { example: { rate: 0.01 } } } } } });
   assert.equal(ex.output, '{"rate":0.01}');
 });
@@ -52,5 +53,6 @@ test('lureReasons: caution when sure, info in between, nothing below', () => {
   const r = lureReasons({ impersonation: 0.9, lure: 0.6, mismatch: 0.3 });
   assert.deepEqual(r.map((x) => [x.level, x.code]), [['caution', 'brand_impersonation'], ['info', 'lure_description']]);
   assert.match(r[0].message, /TypeSafe Jev/);
-  assert.deepEqual(lureReasons({ impersonation: null, lure: 0.1, mismatch: 0.86 }).map((x) => x.code), ['output_mismatch']);
+  assert.deepEqual(lureReasons({ impersonation: null, lure: 0.1, mismatch: 0.89 }).map((x) => [x.level, x.code]), [['info', 'output_mismatch']]);
+  assert.deepEqual(lureReasons({ impersonation: null, lure: 0.1, mismatch: 0.97 }).map((x) => x.level), ['caution']);
 });

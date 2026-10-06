@@ -104,8 +104,15 @@ call it before your agent pays an x402 endpoint it has not used before. It never
 | Verdict | When |
 |---|---|
 | `no_go` | No 402 or no valid challenge; every option would fail to settle (bad payTo/amount, missing fee payer or EIP-712 domain, Solana payout wallet without a token account); cheapest option above `max_usd`; no payable option on the requested `network` |
-| `caution` | Charges more than its OpenAPI advertises; not HTTPS; not a known USDC contract; decimal amount; resource URL differs from the requested URL; testnet only |
+| `caution` | Charges more than its OpenAPI advertises; not HTTPS; not a known USDC contract; decimal amount; resource URL differs from the requested URL; testnet only; bait (below) |
 | `go` | None of the above. `recommended_option` is the cheapest payable USDC option (on `network` if given) |
+
+**Bait check** (TypeSafe's Jev, when `TYPESAFE_API_KEY` is set): for an endpoint that could be paid, Jev judges
+what the protocol checks can't. Does it present itself as an official service of a brand that doesn't own its
+domain (`brand_impersonation`), lure with free tokens, airdrops or guaranteed returns (`lure_description`), or
+promise something its declared output doesn't deliver (`output_mismatch`)? A clear yes is a `caution`, an
+in-between answer `info`; it never makes a verdict `no_go` and never turns one into `go`. The probabilities are
+in `signals.jev_lure`. On 300 real CDP Bazaar listings it raised no caution for brand or lure wording.
 
 Not being listed in the CDP Bazaar is reported as `info` only. Results are cached for 10 minutes per URL, budget
 and network (`cached: true`), so checking before every payment stays fast.
