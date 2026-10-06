@@ -1,4 +1,4 @@
-// Monitor: the four fizzl x402 services (read-only, never pays). Output is data only. Run 2026-10-06T00:26Z.
+// Monitor: the four fizzl x402 services (read-only, never pays). Output is data only. Run 2026-10-06T03:24Z.
 const SVC = [
   { name: 'ichimoku', home: 'https://ichimoku-signal.fizzl.eu/', paid: 'https://ichimoku-signal.fizzl.eu/signal/BTC-USDT' },
   { name: 'presign', home: 'https://presign-guard.fizzl.eu/', paid: 'https://presign-guard.fizzl.eu/v1/token?chain=base&address=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' },
@@ -40,4 +40,23 @@ for (const pkg of ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-age
   const h = await get('/health'), dash = await get('/'), api = await get('/api/state'), v1 = await get('/v1/spending');
   const ok = h.s === 200 && /"ok":true/.test(h.body ?? '') && dash.s === 200 && api.s === 401 && v1.s === 401;
   console.log(`WALLET ${ok ? 'ok' : 'PROBLEM'} health ${h.s} ${h.ms}ms | dashboard ${dash.s} | api ${api.s} | agent-api ${v1.s}`);
+}
+// MPP + PR checks (read-only).
+{
+  const R = [
+    ['https://ichimoku-signal.fizzl.eu/signal/BTC-USDT', 'GET'], ['https://presign-guard.fizzl.eu/v1/token?chain=base&address=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', 'GET'],
+    ['https://x402-doctor.fizzl.eu/api/v1/diagnose?url=https://example.com', 'GET'], ['https://plaintext.fizzl.eu/api/check-wallet', 'POST'],
+  ];
+  for (const [u, m] of R) {
+    try {
+      const r = await fetch(u, { method: m, headers: { ...UA, accept: 'application/json', 'content-type': 'application/json' }, ...(m === 'POST' ? { body: '{}' } : {}), signal: AbortSignal.timeout(60000) });
+      const w = r.headers.get('www-authenticate') || '';
+      const ch = [...w.matchAll(/Payment\s+([^]*?)(?=,\s*Payment\s|$)/g)].map((x) => `${(x[1].match(/method="([^"]+)"/) || [])[1]}@${(x[1].match(/realm="([^"]+)"/) || [])[1]}/${(x[1].match(/intent="([^"]+)"/) || [])[1]}`);
+      const o = await (await fetch(new URL('/openapi.json', u), { headers: UA, signal: AbortSignal.timeout(60000) })).text();
+      console.log(`MPP ${new URL(u).host} ${r.status} challenges ${ch.join(' ') || 'NONE'} | openapi evm ${(o.match(/"method":\s*"evm"/g) || []).length} tempo ${(o.match(/"method":\s*"tempo"/g) || []).length}`);
+    } catch (e) { console.log(`MPP ${u} ERR ${e.message}`); }
+  }
+  for (const [repo, n] of [['tempoxyz/mpp', 1045], ['xpaysh/awesome-x402', 1728]]) {
+    try { const g = async (p) => (await fetch(`https://api.github.com/repos/${repo}/${p}`, { headers: UA, signal: AbortSignal.timeout(30000) })).json(); const pr = await g(`pulls/${n}`); const c = await g(`issues/${n}/comments`); const rv = await g(`pulls/${n}/reviews`); console.log(`PR ${repo}#${n} ${pr.state} merged ${pr.merged_at} comments ${(Array.isArray(c) ? c : []).map((x) => x.user.login).join(',')} reviews ${(Array.isArray(rv) ? rv : []).map((x) => `${x.user.login}:${x.state}`).join(',')}`); } catch (e) { console.log(`PR ${repo}#${n} ERR ${e.message}`); }
+  }
 }
