@@ -107,7 +107,7 @@
     </div>
     <span id="chips" style="display:inline-flex;gap:6px;flex-wrap:wrap"></span>
     <label class="toggle"><input type="checkbox" id="paidOnly"> Paid only</label>
-    <label class="toggle"><input type="checkbox" id="pkgOnly"> npm packages only</label>
+    <label class="toggle"><input type="checkbox" id="pkgOnly"> our packages only</label>
     <label class="toggle"><input type="checkbox" id="hideBots" checked> Hide monitors &amp; probes</label>
   </div>
 
@@ -118,7 +118,7 @@
   <h2>Per service</h2>
   <div class="services" id="services"></div>
 
-  <h2>npm packages: x402-safe-fetch and presign-guard-wallet</h2>
+  <h2>Our packages (npm and PyPI)</h2>
   <div class="tiles" id="packages" style="margin-top:0"></div>
   <p class="sub" id="packagesNote" style="margin-top:8px"></p>
 
@@ -200,8 +200,12 @@
   }
 
   const state = { days: 30, services: new Set(SERVICES.map((s) => s.id)), paidOnly: false, pkgOnly: false, hideBots: true, data: null, rows: 25 };
-  // Calls made by our npm packages: they send "user-agent: <package>/<version>", logged as the agent.
-  const PACKAGES = ['x402-safe-fetch', 'presign-guard-wallet'];
+  // Calls made by our packages (npm and PyPI): they send "user-agent: <package>/<version>", logged as the agent.
+  const PACKAGES = ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-wallet-mcp', 'presign-guard-agentkit', 'presign-guard-ai-sdk', 'fizzl-py'];
+  // Our own tests of the AI SDK and Python packages (6 Oct 2026) are not use.
+  const PACKAGE_TESTS_UNTIL = { 'presign-guard-ai-sdk': '2026-10-06T15:00:00Z', 'fizzl-py': '2026-10-06T15:00:00Z' };
+  // The free quick checks that presign-guard-ai-sdk and fizzl fall back to when no payment is set up.
+  const FREE_ROUTES = new Set(['token_quick', 'presign_quick_check', 'diagnose']);
   // Our own monitor (fizzl-monitor/…), directory probes, crawlers and uptime checks.
   // A paid call is never hidden: whoever pays is a customer, whatever it calls itself.
   const BOTS = /monitor|probe|bot\b|bot\/|crawl|spider|uptime|pingdom|health-?check|verifier|x402-doctor/i;
@@ -212,7 +216,7 @@
   const isPlaceholderProbe = (e) => e.status >= 400 && e.status < 500
     && Object.values(e.input || {}).flat().some((v) => typeof v === 'string' && (PLACEHOLDER.test(v.trim()) || PLACEHOLDER_URL.test(v.trim())));
   const isBot = (e) => !e.paid && (BOTS.test(String(e.agent || '')) || isPlaceholderProbe(e));
-  const packageOf = (e) => PACKAGES.find((p) => String(e.agent || '').startsWith(p + '/')) || null;
+  const packageOf = (e) => { const p = PACKAGES.find((n) => String(e.agent || '').startsWith(n + '/')) || null; return p && !(PACKAGE_TESTS_UNTIL[p] && e.t <= PACKAGE_TESTS_UNTIL[p]) ? p : null; };
 
   async function load() {
     $('sub').textContent = 'Loading…';
@@ -278,7 +282,7 @@
     );
   }
 
-  // Use of the npm packages, over the whole range (not affected by the other filters).
+  // Use of our packages, over the whole range (not affected by the other filters).
   function renderPackages() {
     const all = (state.data.events || []).filter((e) => packageOf(e));
     const tile = (k, v, d) => el('div', { className: 'tile' }, el('div', { className: 'k', textContent: k }), el('div', { className: 'v', textContent: v }), el('div', { className: 'd', textContent: d }));
@@ -288,12 +292,13 @@
       const users = new Set(mine.map((e) => e.payer || e.visitor).filter(Boolean));
       const versions = [...new Set(mine.map((e) => String(e.agent).split('/')[1]).filter(Boolean))].join(', ');
       const last = mine.length ? new Date(mine[0].t).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : null;
-      return tile(p, calls.length.toLocaleString(), mine.length ? `${calls.filter((e) => e.paid).length} paid · ${users.size} wallet(s)/visitor(s) · v${versions} · last ${last}` : 'no calls yet');
+      const free = calls.filter((e) => FREE_ROUTES.has(e.route)).length;
+      return tile(p, calls.length.toLocaleString(), mine.length ? `${calls.filter((e) => e.paid).length} paid${free ? ` · ${free} free` : ''} · ${users.size} wallet(s)/visitor(s) · v${versions} · last ${last}` : 'no calls yet');
     });
     const outcomes = (state.data.events || []).filter((e) => e.route === 'outcome');
     tiles.push(tile('Outcome reports', outcomes.length.toLocaleString(), outcomes.length ? `${outcomes.filter((e) => e.input && e.input.outcome !== 'paid_ok').length} failed payments reported` : 'from x402-safe-fetch shareOutcomes'));
     $('packages').replaceChildren(...tiles);
-    $('packagesNote').textContent = 'Installs are not visible: a package shows up here from its first call. Tick "npm packages only" above to see just these calls in the table and chart.';
+    $('packagesNote').textContent = 'Installs are not visible: a package shows up here from its first call. "Free" = the free quick check presign-guard-ai-sdk and fizzl (fizzl-py) fall back to without payment. Tick "our packages only" above to see just these calls in the table and chart.';
   }
 
   // MPP over the whole range (service chips and "hide monitors" apply): payments to our services over MPP
