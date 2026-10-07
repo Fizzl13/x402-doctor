@@ -9,8 +9,8 @@ const { walletCompatibility } = require('../lib/wallets');
 const PAY_TO = 'rMnHeutYALco8RYFVcmuU4BCgSzBpPEh32'; // a real x402 payout account (OnchainPulse listing)
 const RLUSD = '524C555344000000000000000000000000000000';
 const ISSUER = 'rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De'; // Ripple's RLUSD issuer on mainnet
-const xrp = (extra = {}) => ({ scheme: 'exact', network: 'xrpl:0', asset: 'XRP', amount: '15000', payTo: PAY_TO, maxTimeoutSeconds: 300, extra: {}, ...extra });
-const rlusd = (extra = {}) => ({ scheme: 'exact', network: 'xrpl:0', asset: RLUSD, amount: '0.015', payTo: PAY_TO, maxTimeoutSeconds: 300, extra: { issuer: ISSUER }, ...extra });
+const xrp = (extra = {}) => ({ scheme: 'exact', network: 'xrpl:0', asset: 'XRP', amount: '15000', payTo: PAY_TO, maxTimeoutSeconds: 300, extra: { invoiceId: 'example.com GET /x', sourceTag: 804681468 }, ...extra });
+const rlusd = (extra = {}) => ({ scheme: 'exact', network: 'xrpl:0', asset: RLUSD, amount: '0.015', payTo: PAY_TO, maxTimeoutSeconds: 300, extra: { issuer: ISSUER, invoiceId: 'example.com GET /x', sourceTag: 804681468 }, ...extra });
 
 // A stand-in XRPL node: account_info and account_lines answers by method.
 function node({ info, lines = [] }) {
@@ -43,6 +43,15 @@ test('checkAccepts: XRP in drops and Ripple RLUSD pass; decimal XRP and a fake R
   assert.equal(by['accepts[0]-amount'], 'fail');
   assert.equal(by['accepts[1]-asset'], 'warn');
   assert.match(bad.find((c) => c.id === 'accepts[1]-asset').message, /not the RLUSD stablecoin/);
+});
+
+test('checkAccepts: an XRPL option without extra.invoiceId warns (t54-built agents refuse it); without sourceTag is info', () => {
+  const run = (extra) => { const checks = []; checkAccepts([rlusd({ extra })], checks); return checks.find((c) => c.id === 'accepts[0]-invoice'); };
+  const none = run({ issuer: ISSUER });
+  assert.equal(none.status, 'warn');
+  assert.match(none.message, /t54/);
+  assert.equal(run({ issuer: ISSUER, invoiceId: 'x' }).status, 'info');
+  assert.equal(run({ issuer: ISSUER, invoiceId: 'x', sourceTag: 804681468 }).status, 'pass');
 });
 
 test('checkXrpl: an active account with the RLUSD trust line passes; the node is asked the right things', async () => {
