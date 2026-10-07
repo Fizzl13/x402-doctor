@@ -295,10 +295,12 @@ The CLI can diagnose `localhost`, so you can run it against a dev server.
 
 Check your x402 endpoints on every push. The step fails on a broken 402, each
 problem shows up as an annotation on the run and the PR, and the job summary
-lists what is wrong with the fix next to it.
+lists what is wrong with the fix next to it. On the
+[GitHub Marketplace](https://github.com/marketplace/actions/x402-doctor-check)
+as **x402 Doctor check**; a public endpoint that passes also gets a badge snippet.
 
 ```yaml
-- uses: Fizzl13/x402-doctor@master
+- uses: Fizzl13/x402-doctor-action@v1
   with:
     urls: |
       https://your-api.example.com/paid
