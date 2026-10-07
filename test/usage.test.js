@@ -381,6 +381,7 @@ test('middleware: a refused MPP credential is payment_failed with protocol mpp; 
   app.use(usageLog.middleware(() => ({ route: 'diagnose', input: {}, result: {} })));
   app.get('/paid', (req, res) => {
     if (req.query.ok) { res.locals.mppPayment = { usd: 0.01, network: 'Base', payer: '0xabc', tx: '0x1', protocol: 'mpp' }; return res.json({ ok: true }); }
+    if (/^Payment /.test(req.headers.authorization || '')) res.locals.mppRefused = 'That challenge has expired. Ask again for a fresh 402.';
     res.status(402).json({});
   });
   const { server, base } = await listen(app);
@@ -391,7 +392,7 @@ test('middleware: a refused MPP credential is payment_failed with protocol mpp; 
   await usageLog.flush();
   server.close();
   const lines = gh.files.get('events/doctor/2026-10-04.jsonl').trim().split('\n').map((l) => JSON.parse(l));
-  assert.deepEqual([lines[0].quote, lines[0].payment_failed, lines[0].protocol], [true, true, 'mpp']);
+  assert.deepEqual([lines[0].quote, lines[0].payment_failed, lines[0].protocol, lines[0].reason], [true, true, 'mpp', 'That challenge has expired. Ask again for a fresh 402.']);
   assert.deepEqual([lines[1].quote, lines[1].payment_failed, lines[1].protocol], [true, undefined, undefined]);
   assert.deepEqual([lines[2].paid, lines[2].usd, lines[2].protocol, lines[2].payer], [true, 0.01, 'mpp', '0xabc']);
 });
