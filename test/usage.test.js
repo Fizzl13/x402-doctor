@@ -429,3 +429,16 @@ test('paymentConfig: RLUSD on the XRP Ledger in production (CDP), off in tests, 
   const { usdOf } = require('../lib/usage-log');
   assert.equal(usdOf({ network: 'xrpl:0', asset: '524C555344000000000000000000000000000000', amount: '0.001' }), 0.001);
 });
+
+test('XRPL: t54-format payments go to t54, accepts carry the x402 SourceTag', async () => {
+  const { createXrplFacilitator, X402_SOURCE_TAG } = require('../lib/xrpl-facilitator');
+  const calls = [];
+  const t54 = { verify: async () => (calls.push('t54 verify'), { isValid: true }), settle: async () => (calls.push('t54 settle'), { success: true }) };
+  const fac = createXrplFacilitator({ wsUrl: 'wss://127.0.0.1:9', t54 });
+  await fac.verify({ x402Version: 2, payload: { signedTxBlob: 'AB', invoiceId: 'x' } }, {});
+  await fac.settle({ x402Version: 2, payload: { signedTxBlob: 'AB', invoiceId: 'x' } }, {});
+  assert.deepEqual(calls, ['t54 verify', 't54 settle']);
+  const { paymentConfig } = require('../lib/paid-api');
+  const x = paymentConfig({ AGENT_PAYOUT_WALLET: '0x6B0F4651eD42893ab58139938175E4a69f175F25', XRPL_PAY_TO: 'r9xmBsRr8Ao7jRgjjxreMiAwGiCK2FGwqw' }).accepts.find((a) => a.network === 'xrpl:0');
+  assert.equal(x.extra.sourceTag, X402_SOURCE_TAG);
+});
