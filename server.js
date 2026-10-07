@@ -214,8 +214,8 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   app.set('trust proxy', trustProxyHops(env));
   app.disable('x-powered-by');
   app.use(securityHeaders);
-  // HEAD on a paid route gets the 402 instead of running the handler for free (lib/head-guard.js).
-  app.use(headGuard((p) => /^\/api\/v1\/(diagnose|preflight|preflight\/batch|preflight\/deep|fix)$/.test(p) || /^\/api\/v1\/credits\/\d+$/.test(p)));
+  // Every HEAD is handled as a GET, so paid routes give their 402 instead of running for free (lib/head-guard.js).
+  app.use(headGuard());
   app.use(nohumansClaim());
   app.get('/.well-known/x402-trust.txt', x402TrustTxtRoute(env));
   // Who signs the verdicts, and a free check of one (before the 4 kB body limit:
