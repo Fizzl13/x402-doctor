@@ -86,3 +86,16 @@ test('action: bad inputs are refused before any request', async () => {
   await assert.rejects(main({ DOCTOR_URLS: 'https://a.example/', DOCTOR_METHOD: 'PUT' }), /GET or POST/);
   await assert.rejects(main({ DOCTOR_URLS: 'https://a.example/', DOCTOR_FAIL_ON: 'sometimes' }), /fail, warn or never/);
 });
+
+test('action: a badge snippet for public endpoints that do not fail, none for localhost or failures', () => {
+  const ok = { ...failing, overall: 'warn' };
+  const md = markdownSummary([
+    { url: 'https://api.example.com/paid', report: ok },
+    { url: 'http://localhost:3000/paid', report: ok },
+    { url: 'http://192.168.1.5/paid', report: ok },
+    { url: 'https://broken.example/paid', report: failing },
+  ]);
+  assert.match(md, /badge\.svg\?url=https%3A%2F%2Fapi\.example\.com%2Fpaid\)\]\(https:\/\/x402-doctor\.fizzl\.eu\/trust\?url=https%3A%2F%2Fapi\.example\.com%2Fpaid\)/);
+  assert.doesNotMatch(md, /url=http%3A%2F%2F(localhost|192)|url=https%3A%2F%2Fbroken/);
+  assert.doesNotMatch(markdownSummary([{ url: failing.url, report: failing }]), /badge\.svg/);
+});
