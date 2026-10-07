@@ -401,7 +401,7 @@ test('attemptedNetwork: the network a refused payment was tried on (x402 header 
   const req = (headers) => ({ headers });
   assert.equal(attemptedNetwork(req({ 'payment-signature': b64({ accepted: { network: 'eip155:8453' } }) })), 'base');
   assert.equal(attemptedNetwork(req({ 'x-payment': b64({ network: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp' }) })), 'solana');
-  assert.equal(attemptedNetwork(req({ 'payment-signature': b64({ accepted: { network: 'xrpl:0' } }) })), 'xrpl:0');
+  assert.equal(attemptedNetwork(req({ 'payment-signature': b64({ accepted: { network: 'xrpl:0' } }) })), 'xrpl');
   assert.equal(attemptedNetwork(req({ authorization: `Payment ${b64u({ challenge: { method: 'tempo' } })}` })), 'Tempo');
   assert.equal(attemptedNetwork(req({ authorization: `Payment ${b64u({ challenge: { method: 'evm' } })}` })), 'base');
   assert.equal(attemptedNetwork(req({ authorization: 'Payment eyJ4IjoxfQ' })), null);
@@ -415,4 +415,17 @@ test('networksOf: the payment networks a checked endpoint offers, for the usage 
   assert.equal(networksOf({ challenge: { accepts: [{ network: 'xrpl:0' }] } }), 'XRP Ledger');
   assert.equal(networksOf({ overall: 'fail' }), undefined);
   assert.equal(networksOf(null), undefined);
+});
+
+test('paymentConfig: RLUSD on the XRP Ledger in production (CDP), off in tests, overridable', () => {
+  const { paymentConfig } = require('../lib/paid-api');
+  const base = { AGENT_PAYOUT_WALLET: '0x6B0F4651eD42893ab58139938175E4a69f175F25' };
+  assert.equal(paymentConfig(base).accepts.length, 1, 'no CDP, no XRPL_PAY_TO: Base only');
+  const prod = paymentConfig({ ...base, CDP_API_KEY_ID: 'k', CDP_API_KEY_SECRET: 's' }).accepts;
+  const x = prod.find((a) => a.network === 'xrpl:0');
+  assert.equal(x.payTo, 'r9xmBsRr8Ao7jRgjjxreMiAwGiCK2FGwqw');
+  assert.equal(x.extra.invoiceId, 'x402-doctor.fizzl.eu');
+  assert.equal(paymentConfig({ ...base, CDP_API_KEY_ID: 'k', CDP_API_KEY_SECRET: 's', XRPL_PAY_TO: 'off' }).accepts.length, 1);
+  const { usdOf } = require('../lib/usage-log');
+  assert.equal(usdOf({ network: 'xrpl:0', asset: '524C555344000000000000000000000000000000', amount: '0.001' }), 0.001);
 });
