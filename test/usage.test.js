@@ -17,9 +17,12 @@ function fakeGitHub({ conflictOnce = false } = {}) {
   let version = 0;
   let conflicted = false;
   const calls = [];
+  // Real git blob shas, as GitHub uses them (the writer computes them from the raw bytes).
   const setFile = (path, text) => {
     files.set(path, text);
-    shas.set(path, `sha${++version}`);
+    const buf = Buffer.from(text);
+    shas.set(path, require('node:crypto').createHash('sha1').update(`blob ${buf.length}\0`).update(buf).digest('hex'));
+    version++;
   };
   async function fetchFn(url, opts = {}) {
     const u = new URL(url);
@@ -30,7 +33,10 @@ function fakeGitHub({ conflictOnce = false } = {}) {
       const path = contents[1];
       if (method === 'GET') {
         if (!files.has(path)) return new Response('{}', { status: 404 });
-        return Response.json({ sha: shas.get(path), content: Buffer.from(files.get(path)).toString('base64') });
+        if (/raw/.test(opts.headers?.accept || '')) return new Response(files.get(path));
+        // Like GitHub: no content in the JSON form for files over 1 MB.
+        const big = Buffer.byteLength(files.get(path)) > 1024 * 1024;
+        return Response.json({ sha: shas.get(path), content: big ? '' : Buffer.from(files.get(path)).toString('base64') });
       }
       const body = JSON.parse(opts.body);
       if (conflictOnce && !conflicted) {
@@ -442,4 +448,20 @@ test('XRPL: t54-format payments go to t54, accepts carry the x402 SourceTag', as
   const { paymentConfig } = require('../lib/paid-api');
   const x = paymentConfig({ AGENT_PAYOUT_WALLET: '0x6B0F4651eD42893ab58139938175E4a69f175F25', XRPL_PAY_TO: 'r9xmBsRr8Ao7jRgjjxreMiAwGiCK2FGwqw' }).accepts.find((a) => a.network === 'xrpl:0');
   assert.equal(x.extra.sourceTag, X402_SOURCE_TAG);
+});
+
+test('usage log: a day file over 1 MB keeps its lines (read raw), and writes are batched', async () => {
+  const gh = fakeGitHub();
+  const path = 'events/doctor/2026-10-07.jsonl';
+  const old = `${'x'.repeat(1100 * 1024)}\n`;
+  gh.setFile(path, old);
+  const log = createUsageLog({ service: 'doctor', env: { USAGE_LOG_TOKEN: 't' }, fetchFn: gh.fetchFn, now: () => new Date('2026-10-07T10:00:00Z'), log: quiet });
+  log.record({ route: 'diagnose', status: 200 });
+  log.record({ route: 'preflight', status: 200 });
+  assert.equal(gh.calls.length, 0, 'nothing written until the flush');
+  await log.flush();
+  const text = gh.files.get(path);
+  assert.ok(text.startsWith(old), 'the old lines are still there');
+  assert.equal(text.slice(old.length).trim().split('\n').length, 2);
+  assert.deepEqual(gh.calls, [`GET /repos/Fizzl13/usage-log/contents/${path}`, `PUT /repos/Fizzl13/usage-log/contents/${path}`], 'one read and one write for both events');
 });
