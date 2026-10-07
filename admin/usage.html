@@ -156,6 +156,14 @@
     <p class="note" id="networksNote"></p>
   </div>
 
+  <h2>Agent Wallet: how people sign in</h2>
+  <div class="panel">
+    <div class="legend" id="signLegend"></div>
+    <div class="hbars" id="signChart"></div>
+    <details open><summary>Recent sign-ups and sign-ins</summary><div class="scroll"><table id="signTable"></table></div></details>
+    <p class="note" id="signNote"></p>
+  </div>
+
   <h2>Package downloads per day: JavaScript (npm) and Python (PyPI)</h2>
   <div class="panel">
     <div class="legend" id="dlLegend"></div>
@@ -310,6 +318,7 @@
     renderPackages();
     renderCallers(events);
     renderNetworks();
+    renderSignins();
     renderDownloads();
     renderMpp();
     renderFunnel(d.funnel);
@@ -462,6 +471,33 @@
     })), NET_KEYS, { note: (r) => (r.usd ? usd(r.usd) : '') });
     table('netTable', ['Network', 'Checks', 'Paid', 'Revenue', 'Refused', 'Visitors'], rows.map(([n, r]) => [n, r.checks, r.paid, usd(r.usd), r.refused, r.visitors.size]));
     $('networksNote').textContent = 'Per network: checks that ask about it (presign-guard and PlainText chain, the networks of an endpoint Doctor checked) and payments made or refused on it. A 402 without a payment has no network yet: the caller has not chosen one. Refused payments and Doctor\'s checked networks are logged since 7 Oct 2026. Service chips and "hide monitors" apply.';
+  }
+
+  // ---- Agent Wallet sign-ins (events/wallet: route signup / signin, input.chain = the way in) ----
+  // Accounts are anonymous 12-character codes. own: true marks the owner's own accounts (USAGE_OWN_WALLETS).
+  const SIGN_METHODS = { ethereum: 'Ethereum wallet', solana: 'Phantom (Solana)', xrpl: 'Xaman (XRP Ledger)', email: 'E-mail code', passkey: 'Passkey' };
+  const SIGN_KEYS = [{ label: 'New accounts', color: 'var(--v3)' }, { label: 'Sign-ins', color: 'var(--v1)' }];
+  function renderSignins() {
+    const ev = (state.data.events || []).filter((e) => e.service === 'wallet' && (e.route === 'signup' || e.route === 'signin'));
+    const by = new Map();
+    for (const e of ev) {
+      const m = SIGN_METHODS[e.input?.chain] || e.input?.chain || 'other';
+      if (!by.has(m)) by.set(m, { up: 0, in: 0, accts: new Set() });
+      const r = by.get(m);
+      if (e.route === 'signup') r.up++; else r.in++;
+      if (e.acct) r.accts.add(e.acct);
+    }
+    const rows = [...by].sort((a, b) => (b[1].up + b[1].in) - (a[1].up + a[1].in));
+    legend('signLegend', SIGN_KEYS);
+    hbars('signChart', rows.map(([m, r]) => ({
+      label: m, parts: [r.up, r.in], value: `${r.accts.size} account${r.accts.size === 1 ? '' : 's'}`,
+      tip: [['New accounts', r.up.toLocaleString(), SIGN_KEYS[0].color], ['Sign-ins', r.in.toLocaleString(), SIGN_KEYS[1].color], ['Accounts', r.accts.size.toLocaleString()]],
+    })), SIGN_KEYS);
+    const recent = ev.slice().sort((a, b) => (a.t < b.t ? 1 : -1)).slice(0, 25);
+    table('signTable', ['When', 'What', 'Way in', 'Account', 'From'], recent.map((e) => [
+      `${new Date(e.t).toLocaleString()} (${ago(e.t)})`, e.route === 'signup' ? 'new account' : 'sign-in', SIGN_METHODS[e.input?.chain] || e.input?.chain || '?', `${e.acct || '?'}${e.own ? ' (you)' : ''}`, e.ref || '',
+    ]), 99);
+    $('signNote').textContent = 'From the Agent Wallet (wallet.fizzl.eu): every new account and sign-in, by the way in. Xaman since 7 Oct 2026. Accounts are anonymous codes; "(you)" marks the accounts the wallet server knows as yours (USAGE_OWN_WALLETS). "From" is the fizzl.eu page a new account came from. Not filtered by the service chips.';
   }
 
   // ---- Package downloads per day (npm = JavaScript, PyPI = Python), loaded separately and cached ----
