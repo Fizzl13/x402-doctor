@@ -332,6 +332,7 @@ Or the CLI in a plain `run:` step:
 | `SOLANA_RPC_URL` | RPC for the Solana payout-account check (default: public mainnet RPC, which rate-limits) |
 | `AGENT_PAYOUT_WALLET` | Base address that receives paid-API payments (or `DOCTOR_PAYOUT_WALLET`) |
 | `AGENT_PAYOUT_WALLET_SOLANA` | Solana address that receives paid-API payments (or `DOCTOR_PAYOUT_WALLET_SOLANA`); needs a USDC token account |
+| `ALGORAND_PAY_TO` | Algorand address that receives paid-API payments in USDC (ASA 31566704), settled by GoPlausible's facilitator (`ALGORAND_FACILITATOR_URL` overrides). The account must have opted in to USDC. Unset or `off`: no Algorand option |
 | `DOCTOR_PRICE` | Price per paid diagnosis (default `$0.01`) |
 | `DOCTOR_PREFLIGHT_PRICE` | Price per pre-payment check (default `$0.001`) |
 | `DOCTOR_BATCH_PRICE` | Price per batch pre-payment check, up to 10 endpoints (default `$0.005`) |
