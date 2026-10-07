@@ -47,8 +47,9 @@ jobs:
       - name: Explainer and paid-fix videos served
         run: |
           home=$(curl -sf "$SERVICE/")
+          # Only the explainer is on the homepage (since #94); the paid-fix video is still served for the README.
+          echo "$home" | grep -q "/media/explainer.mp4"
           for v in explainer fix; do
-            echo "$home" | grep -q "/media/$v.mp4"
             # A byte-range request, the way iOS Safari fetches video. Right after a
             # restart the file may still be downloading (302 to the raw file): retry.
             for i in 1 2 3 4 5 6; do
@@ -70,12 +71,9 @@ jobs:
         continue-on-error: true
         run: |
           node -e '
-            // x402 Doctor, plus PlainText (also settles through CDP).
             const targets = [
               process.env.SERVICE + "/api/v1/diagnose",
               process.env.SERVICE + "/api/v1/preflight",
-              "https://plaintext.fizzl.eu/api/check-wallet",
-              "https://plaintext.fizzl.eu/api/explain",
             ];
             (async () => {
               const found = new Map();
@@ -105,12 +103,9 @@ jobs:
           - name: Ichimoku Signal
             url: https://ichimoku-signal.fizzl.eu/signal/BTC-USDT
             method: GET
-          - name: PlainText wallet check
-            url: https://plaintext.fizzl.eu/api/check-wallet
-            method: POST
-          - name: PlainText explain
-            url: https://plaintext.fizzl.eu/api/explain
-            method: POST
+          - name: presign-guard token check
+            url: https://presign-guard.fizzl.eu/v1/token?chain=base&address=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
+            method: GET
     name: ${{ matrix.name }}
     steps:
       - uses: actions/checkout@v5
