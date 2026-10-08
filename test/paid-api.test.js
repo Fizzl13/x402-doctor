@@ -181,6 +181,9 @@ test('preflight: unpaid 402 at $0.001; a paid call returns the verdict (no_go: t
 
   assert.equal((await fetch(`${api}/api/v1/preflight?url=${encodeURIComponent(targetUrl)}&max_usd=abc`)).status, 400);
   assert.equal((await fetch(`${api}/api/v1/preflight?url=${encodeURIComponent(targetUrl)}&network=base`)).status, 400);
+  // x402's Algorand id is longer than CAIP-2 allows and has + / = in it; it passes validation to the paywall.
+  assert.equal((await fetch(`${api}/api/v1/preflight?url=${encodeURIComponent(targetUrl)}&network=${encodeURIComponent('algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=')}`)).status, 402);
+  assert.equal((await fetch(`${api}/api/v1/preflight?url=${encodeURIComponent(targetUrl)}&network=${encodeURIComponent('algorand:short=')}`)).status, 400);
 
   const account = privateKeyToAccount(generatePrivateKey());
   const client = new x402Client((_version, accepts) => accepts.find((a) => a.network === BASE));
