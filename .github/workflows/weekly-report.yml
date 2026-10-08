@@ -2,7 +2,8 @@ name: Weekly x402 health report
 
 # Every Monday, after the daily Trust Index scan: a report of the week (numbers
 # only, no seller named) plus drafts for X, Discord and Reddit that a person
-# reviews and posts. Kept on the weekly-reports branch, one set of files per week.
+# reviews and posts, and a digest per network (Algorand, the XRP Ledger) with its
+# own drafts. Kept on the weekly-reports branch, one set of files per week.
 on:
   schedule:
     - cron: "43 6 * * 1" # Mondays 06:43 UTC; the 03:17 Trust Index scan is done by then
@@ -26,6 +27,8 @@ jobs:
           node-version: 22
       - name: Report
         run: node scripts/weekly-report.js --out "$RUNNER_TEMP/new"
+      - name: Network digests (Algorand, XRP Ledger)
+        run: node scripts/network-digest.js --out "$RUNNER_TEMP/new"
       - name: Publish to the weekly-reports branch
         run: |
           git config user.name "github-actions[bot]"
@@ -37,7 +40,7 @@ jobs:
             git rm -rqf .
           fi
           mkdir -p reports
-          cp "$RUNNER_TEMP"/new/* reports/
+          cp -r "$RUNNER_TEMP"/new/* reports/
           git add reports
           git commit -qm "Weekly report $(date -u +%F)" || echo "nothing new"
           git push -q origin weekly-reports
