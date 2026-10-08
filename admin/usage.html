@@ -442,8 +442,10 @@
   // (presign-guard and PlainText input.chain/chainId, the networks the endpoint Doctor checked offers, logged since
   // 7 Oct 2026). One call can touch several networks.
   const CHAIN_IDS = { 1: 'Ethereum', 8453: 'Base', 84532: 'Base Sepolia', 137: 'Polygon', 42161: 'Arbitrum', 10: 'Optimism', 43114: 'Avalanche', 4217: 'Tempo' };
-  const NET_ALIASES = { base: 'Base', 'eip155:8453': 'Base', 'mpp evm': 'Base', solana: 'Solana', ethereum: 'Ethereum', eth: 'Ethereum', xrpl: 'XRP Ledger', 'xrpl:0': 'XRP Ledger', 'xrp ledger': 'XRP Ledger', tempo: 'Tempo', 'mpp tempo': 'Tempo', polygon: 'Polygon', arbitrum: 'Arbitrum', optimism: 'Optimism', avalanche: 'Avalanche', algorand: 'Algorand', stellar: 'Stellar', sui: 'Sui', aptos: 'Aptos' };
-  const netName = (v) => { const k = String(v).trim(); return NET_ALIASES[k.toLowerCase()] || CHAIN_IDS[k] || CHAIN_IDS[k.replace(/^eip155:/, '')] || k; };
+  const NET_ALIASES = { base: 'Base', 'eip155:8453': 'Base', 'mpp evm': 'Base', solana: 'Solana', ethereum: 'Ethereum', eth: 'Ethereum', xrpl: 'XRP Ledger', 'xrpl:0': 'XRP Ledger', 'xrp ledger': 'XRP Ledger', tempo: 'Tempo', 'mpp tempo': 'Tempo', polygon: 'Polygon', arbitrum: 'Arbitrum', optimism: 'Optimism', avalanche: 'Avalanche', algorand: 'Algorand', 'algorand-testnet': 'Algorand testnet', stellar: 'Stellar', sui: 'Sui', aptos: 'Aptos' };
+  // Algorand's x402 ids (algorand:<genesis hash>), as logged when a service has no short name for them.
+  const ALGORAND_IDS = { 'algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=': 'Algorand', 'algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=': 'Algorand testnet' };
+  const netName = (v) => { const k = String(v).trim(); return NET_ALIASES[k.toLowerCase()] || ALGORAND_IDS[k] || CHAIN_IDS[k] || CHAIN_IDS[k.replace(/^eip155:/, '')] || k; };
   function checkedNetworksOf(e) {
     const i = e.input || {}, r = e.result || {};
     const out = new Set();
@@ -475,7 +477,7 @@
 
   // ---- Agent Wallet sign-ins (events/wallet: route signup / signin, input.chain = the way in) ----
   // Accounts are anonymous 12-character codes. own: true marks the owner's own accounts (USAGE_OWN_WALLETS).
-  const SIGN_METHODS = { ethereum: 'Ethereum wallet', solana: 'Phantom (Solana)', xrpl: 'Xaman (XRP Ledger)', email: 'E-mail code', passkey: 'Passkey' };
+  const SIGN_METHODS = { ethereum: 'Ethereum wallet', solana: 'Phantom (Solana)', xrpl: 'Xaman (XRP Ledger)', algorand: 'Pera (Algorand)', email: 'E-mail code', passkey: 'Passkey' };
   const SIGN_KEYS = [{ label: 'New accounts', color: 'var(--v3)' }, { label: 'Sign-ins', color: 'var(--v1)' }];
   function renderSignins() {
     const ev = (state.data.events || []).filter((e) => e.service === 'wallet' && (e.route === 'signup' || e.route === 'signin'));
@@ -497,7 +499,7 @@
     table('signTable', ['When', 'What', 'Way in', 'Account', 'From'], recent.map((e) => [
       `${new Date(e.t).toLocaleString()} (${ago(e.t)})`, e.route === 'signup' ? 'new account' : 'sign-in', SIGN_METHODS[e.input?.chain] || e.input?.chain || '?', `${e.acct || '?'}${e.own ? ' (you)' : ''}`, e.ref || '',
     ]), 99);
-    $('signNote').textContent = 'From the Agent Wallet (wallet.fizzl.eu): every new account and sign-in, by the way in. Xaman since 7 Oct 2026. Accounts are anonymous codes; "(you)" marks the accounts the wallet server knows as yours (USAGE_OWN_WALLETS). "From" is the fizzl.eu page a new account came from. Not filtered by the service chips.';
+    $('signNote').textContent = 'From the Agent Wallet (wallet.fizzl.eu): every new account and sign-in, by the way in. Xaman since 7 Oct 2026, Pera (Algorand) since 8 Oct 2026. Accounts are anonymous codes; "(you)" marks the accounts the wallet server knows as yours (USAGE_OWN_WALLETS). "From" is the fizzl.eu page a new account came from. Not filtered by the service chips.';
   }
 
   // ---- Package downloads per day (npm = JavaScript, PyPI = Python), loaded separately and cached ----
@@ -754,7 +756,8 @@
 
   function txLink(e) {
     if (!e.tx) return null;
-    const base = e.network === 'solana' ? 'https://solscan.io/tx/' : e.network === 'base' ? 'https://basescan.org/tx/' : null;
+    const net = netName(e.network || '');
+    const base = net === 'Solana' ? 'https://solscan.io/tx/' : net === 'Base' ? 'https://basescan.org/tx/' : net === 'Algorand' ? 'https://allo.info/tx/' : net === 'Algorand testnet' ? 'https://testnet.allo.info/tx/' : net === 'XRP Ledger' ? 'https://livenet.xrpl.org/transactions/' : null;
     return base ? el('a', { href: base + e.tx, target: '_blank', rel: 'noopener', textContent: 'tx' }) : null;
   }
 
@@ -766,7 +769,7 @@
     const rows = latest.map((e) => {
       const when = new Date(e.t);
       const pay = e.paid
-        ? el('span', {}, el('span', { className: 'paid', textContent: e.usd ? usd(Number(e.usd)) : 'paid' }), ` ${e.network || ''} `, e.protocol === 'mpp' ? el('span', { className: 'pill', textContent: 'MPP', style: 'margin-right:4px' }) : null, txLink(e))
+        ? el('span', {}, el('span', { className: 'paid', textContent: e.usd ? usd(Number(e.usd)) : 'paid' }), ` ${e.network ? netName(e.network) : ''} `, e.protocol === 'mpp' ? el('span', { className: 'pill', textContent: 'MPP', style: 'margin-right:4px' }) : null, txLink(e))
         : el('span', { className: 'pill', textContent: 'free' });
       const status = e.status >= 400 ? el('span', { className: 'err', textContent: ` (HTTP ${e.status})` }) : null;
       return el('tr', {},
