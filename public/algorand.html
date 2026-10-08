@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>x402 on the XRP Ledger: status</title>
+<title>x402 on Algorand: status</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"%3E%3Crect width="128" height="128" rx="28" fill="%23020708"/%3E%3Cpath d="M78 30 A22 22 0 0 0 52 52 V104" fill="none" stroke="%23f4f8f7" stroke-width="16" stroke-linecap="round"/%3E%3Cpath d="M36 68 H72" stroke="%23f4f8f7" stroke-width="16" stroke-linecap="round"/%3E%3Cg fill="%2361f5c3"%3E%3Ccircle cx="92" cy="72" r="8"/%3E%3Ccircle cx="100" cy="52" r="5"/%3E%3Ccircle cx="104" cy="38" r="3"/%3E%3C/g%3E%3C/svg%3E">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Every x402 endpoint that takes XRP or RLUSD, checked daily on the XRP Ledger: does the payout account exist, accept payments and hold the RLUSD trust line? Free, read-only.">
+<meta name="description" content="Every x402 endpoint that takes USDC on Algorand, checked daily: a valid challenge, a valid payout address, and is the payout account opted in to USDC so it can receive the payment? Free, read-only.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap">
@@ -84,11 +84,11 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>x402 on the XRP Ledger</h1>
-  <p class="sub">Every x402 endpoint that takes XRP or RLUSD, checked once a day by x402 Doctor the way a paying agent would, plus what the XRP Ledger itself says about the seller's payout account. Read-only: it stops at the 402 challenge and never pays.</p>
+  <h1>x402 on Algorand</h1>
+  <p class="sub">Every x402 endpoint that takes USDC on Algorand, checked once a day by x402 Doctor the way a paying agent would, plus what Algorand itself says about the seller's payout account. Read-only: it stops at the 402 challenge and never pays.</p>
 
   <h2>Today</h2>
-  <div class="stats" id="stats"><div><div class="k">Endpoints</div><div class="v">…</div></div><div><div class="k">Payable on XRPL now</div><div class="v">…</div></div><div><div class="k">Sellers</div><div class="v">…</div></div></div>
+  <div class="stats" id="stats"><div><div class="k">Endpoints</div><div class="v">…</div></div><div><div class="k">Payable on Algorand now</div><div class="v">…</div></div><div><div class="k">Sellers</div><div class="v">…</div></div></div>
   <p class="note" id="updated"></p>
 
   <h2>Sellers</h2>
@@ -102,17 +102,16 @@
   <div id="list" aria-live="polite"></div>
   <p class="note" id="more"></p>
 
-  <h2>What is checked on the ledger</h2>
+  <h2>What is checked on Algorand</h2>
   <ul>
-    <li><b>The payout account exists.</b> An XRPL account must be activated with the XRP reserve; a payment to an address that was never activated fails.</li>
-    <li><b>It accepts payments.</b> No Deposit Authorization (which refuses payments from anyone not pre-authorised), and a destination tag in the challenge when the account requires one.</li>
-    <li><b>The trust line.</b> For RLUSD (or another issued token) the payout account needs an unfrozen trust line to the issuer, or it cannot receive the token.</li>
-    <li><b>The real RLUSD.</b> A token called RLUSD from another issuer than Ripple's (<code>rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De</code>) is flagged.</li>
-    <li>Plus the x402 basics: a valid challenge, a valid r-address with checksum, XRP priced in drops and tokens in decimals.</li>
+    <li><b>The USDC opt-in.</b> An Algorand account can only receive an asset (ASA) it has opted in to. A payout address without the opt-in to USDC (ASA <code>31566704</code>) makes every payment fail, so Doctor asks Algorand itself (algod) for every endpoint.</li>
+    <li><b>The real USDC.</b> The asset must be an ASA id; USDC on Algorand is <code>31566704</code> (testnet <code>10458941</code>), and a testnet asset on mainnet is flagged.</li>
+    <li><b>The payment group can be built.</b> A valid payTo (58 characters with a checksum), atomic integer amounts (USDC has 6 decimals: <code>10000</code> is $0.01) and, when the facilitator pays the fee, a valid <code>extra.feePayer</code>.</li>
+    <li>Plus the x402 basics: a valid challenge, a price that matches what the service advertises, HTTPS.</li>
   </ul>
   <p>Check one endpoint yourself, for free, with every finding and a fix: <a href="/">x402 Doctor</a>. Agents get the same verdict before paying from the <a href="/openapi.json">pre-payment check</a> ($0.001).</p>
 
-  <footer>Data: <code>GET /api/trust/network?network=xrpl</code> (free, JSON). Endpoints come from the CDP Bazaar; the full daily index is on the <a href="https://github.com/Fizzl13/x402-doctor/tree/trust-data">trust-data</a> branch. All networks: <a href="/trust">x402 Trust Index</a>; also <a href="/algorand">x402 on Algorand</a>.</footer>
+  <footer>Data: <code>GET /api/trust/network?network=algorand</code> (free, JSON). Endpoints come from the GoPlausible facilitator's discovery list and the CDP Bazaar; the full daily index is on the <a href="https://github.com/Fizzl13/x402-doctor/tree/trust-data">trust-data</a> branch. All networks: <a href="/trust">x402 Trust Index</a>; also <a href="/xrpl">x402 on the XRP Ledger</a>.</footer>
   <p class="by-fizzl"><a href="https://fizzl.eu" title="Fizzl: all pay-per-call tools for AI agents, with live demos">by <svg viewBox="-6 -14 236 126" role="img" aria-label="fizzl"><g fill="none" stroke="currentColor" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"><path d="M44 12 A20 20 0 0 0 20 32 V100"/><path d="M6 48 H38"/><path d="M64 56 V100"/><path d="M88 52 H124 L88 100 H124"/><path d="M144 52 H180 L144 100 H180"/><path d="M200 8 V84 A16 16 0 0 0 216 100"/></g><g class="b"><circle cx="64" cy="26" r="9"/><circle cx="78" cy="10" r="5"/><circle cx="90" cy="-2" r="3"/></g></svg><span>· all tools and live demos at fizzl.eu</span></a></p>
 </div>
 </div>
@@ -144,12 +143,12 @@
     $('more').textContent = rows.length > shown ? `Showing ${shown} of ${fmt(rows.length)}.` : `${fmt(rows.length)} endpoint${rows.length === 1 ? '' : 's'}.`;
     if (rows.length > shown) { const b = el('button', null, 'Show more'); b.type = 'button'; b.onclick = () => { shown += PAGE; render(); }; $('more').append(' ', b); }
   }
-  fetch('/api/trust/network?network=xrpl').then((r) => r.json()).then((d) => {
+  fetch('/api/trust/network?network=algorand').then((r) => r.json()).then((d) => {
     if (!d.resources) throw new Error(d.error || 'no data');
     data = d;
     const v = $('stats').querySelectorAll('.v');
     v[0].textContent = fmt(d.endpoints); v[1].textContent = fmt(d.payable_now); v[2].textContent = fmt(d.sellers.length);
-    $('updated').textContent = `From the daily scan of ${d.days[d.days.length - 1]} (updated ${new Date(d.updated).toLocaleString()}). The 14 bars per endpoint are the last 14 scans, newest right. The ledger checks of the payout account run in every scan since 7 Oct 2026.`;
+    $('updated').textContent = `From the daily scan of ${d.days[d.days.length - 1]} (updated ${new Date(d.updated).toLocaleString()}). The 14 bars per endpoint are the last 14 scans, newest right. The USDC opt-in of the payout account is checked in every scan since 7 Oct 2026.`;
     const tb = $('sellers').tBodies[0];
     for (const s of d.sellers.slice(0, 25)) { const tr = el('tr'); tr.append(el('td', null, s.host), el('td', 'num', fmt(s.endpoints)), el('td', 'num', fmt(s.payable))); tb.append(tr); }
     render();
