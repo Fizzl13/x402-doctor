@@ -254,6 +254,13 @@ seller or host. The report, its numbers and drafts for X, Discord and Reddit (fo
 `reports/<date>.md`, `.json` and `-posts.md` on the `weekly-reports` branch. Locally:
 `node scripts/weekly-report.js --out reports [--index trust-data/index.json]`.
 
+The same run writes a digest per network, Algorand and the XRP Ledger ([`network-digest.js`](scripts/network-digest.js)):
+how many endpoints could be paid there, from how many sellers, what changed since last week (new endpoints, ones that
+stopped being payable, new sellers), how many accept only that network, the median price and the biggest sellers. It
+names payable sellers only; problems are counted. Files: `reports/<date>-<network>.md` and `-posts.md` (X and community
+drafts), plus `reports/networks/<network>-latest.json`, the snapshot next week compares with. Locally:
+`node scripts/network-digest.js --out reports [--index trust-data/index.json] [--previous reports/networks]`.
+
 ## MCP server
 
 `https://x402-doctor.fizzl.eu/mcp` is an MCP server (Streamable HTTP, stateless) for Claude, Cursor and agent frameworks, listed in the official MCP registry as `io.github.Fizzl13/x402-doctor`.
