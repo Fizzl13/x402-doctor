@@ -71,3 +71,9 @@ test('the XRP Ledger: one endpoint, every one also on another network', () => {
   assert.match(d.markdown, /All of them accept other networks too/);
   assert.throws(() => networkDigest(index, 'nope'), /unknown network family/);
 });
+
+test('loads without any npm package (the weekly workflow runs without npm ci)', () => {
+  const { execFileSync } = require('node:child_process');
+  const out = execFileSync(process.execPath, ['-e', "require('./lib/network-digest'); require('./lib/weekly-report'); console.log(Object.keys(require.cache).filter((f) => f.includes('node_modules')).length)"], { cwd: require('node:path').join(__dirname, '..') });
+  assert.equal(String(out).trim(), '0');
+});
