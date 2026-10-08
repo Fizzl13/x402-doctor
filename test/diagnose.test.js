@@ -742,3 +742,72 @@ test('more EVM chains with native USDC are known: World Chain, Monad, HyperEVM, 
   assert.match(checks.find((c) => c.id === 'accepts[0]-amount').message, /\$0\.015 USDC/);
   assert.equal(status('accepts[4]-asset'), 'fail', 'Ethereum USDC on World Chain is a mismatch');
 });
+
+test('batch-settlement: an option as the SDK builds it passes; receiverAuthorizer, withdrawDelay and the deposit domain are checked', async () => {
+  const { x402ResourceServer } = require('@x402/core/server');
+  const { BatchSettlementEvmScheme } = require('@x402/evm/batch-settlement/server');
+  const payTo = '0x408C4610F6879a75c25722cfCd18A2Eff99dc20F';
+  const facilitator = {
+    getSupported: async () => ({ kinds: [{ x402Version: 2, scheme: 'batch-settlement', network: 'eip155:8453', extra: { receiverAuthorizer: '0x1111111111111111111111111111111111111111' } }], extensions: [], signers: {} }),
+    verify: async () => ({ isValid: false }),
+    settle: async () => ({ success: false }),
+  };
+  const server = new x402ResourceServer([facilitator]).register('eip155:8453', new BatchSettlementEvmScheme(payTo, { withdrawDelay: 86400 }));
+  await server.initialize();
+  const [sdk] = await server.buildPaymentRequirements({ scheme: 'batch-settlement', price: '$0.001', network: 'eip155:8453', payTo });
+  const { receiverAuthorizer, ...noAuthorizer } = sdk.extra;
+  const { withdrawDelay, ...noDelay } = sdk.extra;
+  const checks = [];
+  checkAccepts([
+    sdk,
+    { ...sdk, extra: noAuthorizer },
+    { ...sdk, extra: { ...sdk.extra, withdrawDelay: 60 } },
+    { ...sdk, extra: noDelay },
+    { ...sdk, extra: { receiverAuthorizer, withdrawDelay } },
+    { ...sdk, extra: { receiverAuthorizer, withdrawDelay, assetTransferMethod: 'permit2' } },
+    { scheme: 'batch-settlement', network: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp', amount: '1000', asset: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', payTo: 'ATWJ82T8nRdQwZnaysB68N5EpaSvLRsQP4h6eWmaJBH9', extra: { feePayer: 'CjNFTjvBhbJJd2B5ePPMHRLx1ELZpa8dwQgGL727eKww' } },
+  ], checks);
+  const get = (id) => checks.find((c) => c.id === id);
+  assert.equal(get('accepts[0]-scheme'), undefined, 'batch-settlement is a known scheme');
+  assert.equal(get('accepts[0]-extra').status, 'pass');
+  assert.equal(checks.filter((c) => c.id.startsWith('accepts[0]') && c.status === 'fail').length, 0);
+  assert.match(get('accepts[0]-batch').message, /deposits once of at least \$0\.01 into the x402 escrow/);
+  assert.match(get('accepts[0]-batch').message, /\(24 h\)/);
+  assert.equal(get('accepts[1]-extra').status, 'fail');
+  assert.match(get('accepts[1]-extra').message, /receiverAuthorizer/);
+  assert.equal(get('accepts[2]-batch-delay').status, 'fail');
+  assert.equal(get('accepts[3]-batch-delay').status, 'warn');
+  assert.equal(get('accepts[4]-batch-deposit').status, 'fail', 'no EIP-712 domain for the EIP-3009 deposit');
+  assert.equal(get('accepts[5]-batch-deposit'), undefined, 'Permit2 deposits need no EIP-712 domain of the token');
+  assert.equal(get('accepts[6]-extra').status, 'pass', 'Solana still needs the fee payer');
+  assert.equal(get('accepts[6]-batch').status, 'info');
+});
+
+test('batch-settlement: browser wallets cannot pay it, x402 agents need a batch-settlement client', () => {
+  const { walletCompatibility } = require('../lib/wallets');
+  const option = { scheme: 'batch-settlement', network: 'eip155:8453', amount: '1000', asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', payTo: '0x408C4610F6879a75c25722cfCd18A2Eff99dc20F' };
+  const wallets = walletCompatibility([option], []);
+  const metamask = wallets.find((w) => w.wallet === 'MetaMask');
+  assert.equal(metamask.yes.length, 0);
+  assert.match(metamask.no[0].reason, /batch-settlement/);
+  const agent = wallets.find((w) => w.agent);
+  assert.ok(agent.yes.length > 0);
+  assert.match(agent.needs.join(' '), /batch-settlement client/);
+});
+
+test('batch-settlement escrow: fail when it has no code on the network, pass when deployed', async (t) => {
+  const { checkBatchEscrow } = require('../lib/diagnose');
+  let reply = '0x';
+  const server = http.createServer((req, res) => { let b = ''; req.on('data', (c) => (b += c)); req.on('end', () => { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ jsonrpc: '2.0', id: JSON.parse(b).id, result: reply })); }); }).listen(0);
+  t.after(() => server.close());
+  await new Promise((r) => server.once('listening', r));
+  const rpcs = (tag) => ({ 'eip155:8453': `http://127.0.0.1:${server.address().port}/${tag}` });
+  const option = { scheme: 'batch-settlement', network: 'eip155:8453', amount: '1', asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', payTo: '0x408C4610F6879a75c25722cfCd18A2Eff99dc20F' };
+  let checks = [];
+  await checkBatchEscrow([option], checks, { evmRpcUrls: rpcs('batch-empty') });
+  assert.equal(checks.find((c) => c.id === 'batch-escrow').status, 'fail');
+  reply = '0x6080604052';
+  checks = [];
+  await checkBatchEscrow([option, { ...option, scheme: 'exact' }], checks, { evmRpcUrls: rpcs('batch-deployed') });
+  assert.deepEqual(checks.map((c) => [c.id, c.status]), [['batch-escrow', 'pass']]);
+});
