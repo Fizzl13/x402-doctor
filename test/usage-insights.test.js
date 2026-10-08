@@ -6,6 +6,7 @@ test('languageOf: the language of a caller from its user agent', () => {
   assert.equal(languageOf('node'), 'JavaScript');
   assert.equal(languageOf('axios/1.18.1'), 'JavaScript');
   assert.equal(languageOf('presign-guard-ai-sdk/0.3.0'), 'JavaScript');
+  assert.equal(languageOf('fizzl-langchain/0.1.1'), 'JavaScript');
   assert.equal(languageOf('python-httpx/0.28.1'), 'Python');
   assert.equal(languageOf('fizzl-py/0.4.0'), 'Python');
   assert.equal(languageOf('Go-http-client/2.0'), 'Go');
