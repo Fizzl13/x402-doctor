@@ -1,0 +1,370 @@
+{
+  "window": {
+    "from": "2026-10-02",
+    "to": "2026-10-08",
+    "days": 7
+  },
+  "resources": 36527,
+  "hosts": 2304,
+  "payable": 32399,
+  "payable_pct": 88.7,
+  "clean": 31615,
+  "clean_pct": 86.6,
+  "caution_pct": 2.1,
+  "payable_pct_week_start": 96.4,
+  "no_go": 4128,
+  "no_go_pct": 11.3,
+  "caution": 784,
+  "hosts_with_payable": 2125,
+  "reasons": [
+    {
+      "code": "no_402",
+      "count": 4119,
+      "why": "don't answer 402 at all, so there is nothing to pay",
+      "short": "don't answer 402",
+      "fix": "make the listed route answer 402 (a moved or renamed endpoint stays listed under its old URL until a payment goes through the new one)"
+    },
+    {
+      "code": "resource_mismatch",
+      "count": 503,
+      "why": "name another URL in their 402 than the one requested",
+      "short": "name the wrong URL in their 402",
+      "fix": "build resource.url from your public origin (behind a TLS proxy: trust proxy, so it stays https)"
+    },
+    {
+      "code": "testnet_only",
+      "count": 166,
+      "why": "offer only testnet payment options",
+      "short": "are testnet only",
+      "fix": "add a mainnet option (for example Base, eip155:8453) or delist the test endpoint"
+    },
+    {
+      "code": "mpp_realm_mismatch",
+      "count": 102,
+      "why": "name another host as the MPP realm than the one they're served on",
+      "short": "name the wrong MPP realm",
+      "fix": "set realm to the public host name of the endpoint"
+    },
+    {
+      "code": "mpp_no_expires",
+      "count": 10,
+      "why": "send an MPP challenge without an expiry",
+      "short": "send MPP challenges without an expiry",
+      "fix": "set expires on each challenge (a few minutes ahead), so a captured challenge cannot be replayed later"
+    },
+    {
+      "code": "price_above_advertised",
+      "count": 8,
+      "why": "charge more than their OpenAPI advertises",
+      "short": "charge more than advertised",
+      "fix": "keep the price in openapi.json in step with the 402"
+    },
+    {
+      "code": "suspicious_amount",
+      "count": 7,
+      "why": "write the amount as dollars (\"0.01\") instead of atomic units",
+      "short": "write dollars instead of atomic units",
+      "fix": "use atomic units: \"10000\" is $0.01 USDC"
+    },
+    {
+      "code": "invalid_challenge",
+      "count": 5,
+      "why": "answer 402 without a valid x402 challenge",
+      "short": "send a broken 402",
+      "fix": "send the PaymentRequired object (base64 JSON in the PAYMENT-REQUIRED header, mirrored in the body)"
+    },
+    {
+      "code": "no_payable_option",
+      "count": 2,
+      "why": "list payment options that would all fail",
+      "short": "offer no working payment option",
+      "fix": "fix the blocking problem per option (network name, payTo, amount in atomic units)"
+    },
+    {
+      "code": "unreachable",
+      "count": 1,
+      "why": "timed out or could not be reached",
+      "short": "are unreachable",
+      "fix": "check that the host is up and answers within 10 seconds"
+    },
+    {
+      "code": "server_error",
+      "count": 1,
+      "why": "server error",
+      "fix": ""
+    }
+  ],
+  "networks": [
+    {
+      "network": "eip155:8453",
+      "count": 30438,
+      "pct": 93.9
+    },
+    {
+      "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+      "count": 7070,
+      "pct": 21.8
+    },
+    {
+      "network": "eip155:137",
+      "count": 4317,
+      "pct": 13.3
+    },
+    {
+      "network": "tempo",
+      "count": 2629,
+      "pct": 8.1
+    },
+    {
+      "network": "eip155:42161",
+      "count": 2430,
+      "pct": 7.5
+    },
+    {
+      "network": "eip155:84532",
+      "count": 2315,
+      "pct": 7.1
+    },
+    {
+      "network": "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=",
+      "count": 2239,
+      "pct": 6.9
+    },
+    {
+      "network": "eip155:10",
+      "count": 1751,
+      "pct": 5.4
+    },
+    {
+      "network": "eip155:5042",
+      "count": 1223,
+      "pct": 3.8
+    },
+    {
+      "network": "eip155:143",
+      "count": 932,
+      "pct": 2.9
+    },
+    {
+      "network": "eip155:43114",
+      "count": 762,
+      "pct": 2.4
+    },
+    {
+      "network": "eip155:4663",
+      "count": 733,
+      "pct": 2.3
+    },
+    {
+      "network": "eip155:1329",
+      "count": 680,
+      "pct": 2.1
+    },
+    {
+      "network": "xrpl:0",
+      "count": 678,
+      "pct": 2.1
+    },
+    {
+      "network": "eip155:42220",
+      "count": 667,
+      "pct": 2.1
+    },
+    {
+      "network": "stellar:pubnet",
+      "count": 602,
+      "pct": 1.9
+    },
+    {
+      "network": "null",
+      "count": 594,
+      "pct": 1.8
+    },
+    {
+      "network": "eip155:480",
+      "count": 343,
+      "pct": 1.1
+    },
+    {
+      "network": "mpp:tempo",
+      "count": 307,
+      "pct": 0.9
+    },
+    {
+      "network": "eip155:196",
+      "count": 162,
+      "pct": 0.5
+    },
+    {
+      "network": "eip155:56",
+      "count": 160,
+      "pct": 0.5
+    },
+    {
+      "network": "eip155:1",
+      "count": 135,
+      "pct": 0.4
+    },
+    {
+      "network": "eip155:999",
+      "count": 96,
+      "pct": 0.3
+    },
+    {
+      "network": "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k",
+      "count": 83,
+      "pct": 0.3
+    },
+    {
+      "network": "stripe",
+      "count": 75,
+      "pct": 0.2
+    },
+    {
+      "network": "stacks:1",
+      "count": 62,
+      "pct": 0.2
+    },
+    {
+      "network": "algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=",
+      "count": 61,
+      "pct": 0.2
+    },
+    {
+      "network": "cosmos:noble-1",
+      "count": 49,
+      "pct": 0.2
+    },
+    {
+      "network": "eip155:1187947933",
+      "count": 41,
+      "pct": 0.1
+    },
+    {
+      "network": "eip155:130",
+      "count": 40,
+      "pct": 0.1
+    },
+    {
+      "network": "eip155:146",
+      "count": 40,
+      "pct": 0.1
+    },
+    {
+      "network": "hedera:mainnet",
+      "count": 28,
+      "pct": 0.1
+    },
+    {
+      "network": "nano:mainnet",
+      "count": 25,
+      "pct": 0.1
+    },
+    {
+      "network": "eip155:4326",
+      "count": 19,
+      "pct": 0.1
+    },
+    {
+      "network": "lnbtc:000000000019d6689c085ae165831e93",
+      "count": 7,
+      "pct": 0
+    },
+    {
+      "network": "hyperliquid:mainnet",
+      "count": 7,
+      "pct": 0
+    },
+    {
+      "network": "eip155:5042002",
+      "count": 5,
+      "pct": 0
+    },
+    {
+      "network": "mpp:stripe",
+      "count": 5,
+      "pct": 0
+    },
+    {
+      "network": "hedera:testnet",
+      "count": 4,
+      "pct": 0
+    },
+    {
+      "network": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+      "count": 4,
+      "pct": 0
+    },
+    {
+      "network": "lightning:bitcoin",
+      "count": 4,
+      "pct": 0
+    },
+    {
+      "network": "mpp:evm:8453",
+      "count": 4,
+      "pct": 0
+    },
+    {
+      "network": "eip155:50",
+      "count": 3,
+      "pct": 0
+    },
+    {
+      "network": "eip155:80002",
+      "count": 2,
+      "pct": 0
+    },
+    {
+      "network": "eip155:11142220",
+      "count": 2,
+      "pct": 0
+    },
+    {
+      "network": "aws:base",
+      "count": 1,
+      "pct": 0
+    },
+    {
+      "network": "eip155:42793",
+      "count": 1,
+      "pct": 0
+    },
+    {
+      "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147wwSaGf",
+      "count": 1,
+      "pct": 0
+    },
+    {
+      "network": "mpp:solana",
+      "count": 1,
+      "pct": 0
+    }
+  ],
+  "median_price_usd": 0.01,
+  "this_week": {
+    "broke": 3259,
+    "fixed": 300,
+    "added": 699,
+    "flaky": 720
+  },
+  "left_out_test": {
+    "resources": 153,
+    "hosts": 61
+  },
+  "not_judged_needs_input": 586,
+  "protocols": [
+    {
+      "protocol": "x402",
+      "resources": 36178,
+      "clean_pct": 86.8,
+      "payable_pct": 88.7
+    },
+    {
+      "protocol": "mpp",
+      "resources": 349,
+      "clean_pct": 56.2,
+      "payable_pct": 88.3
+    }
+  ]
+}
