@@ -35,6 +35,7 @@ the medicine, the exact code that fixes each problem for your stack, in the brow
 | | `accepts[i]-payto`, `-asset` | Invalid EVM, Solana, XRPL or Algorand addresses (XRPL and Algorand with their checksums); asset that is not USDC, or USDC of another network (e.g. Base Sepolia USDC on Base); on Algorand an asset that is not an ASA id (USDC is ASA 31566704); on XRPL an XRP amount that isn't in drops, or "RLUSD" from another issuer than Ripple's |
 | | `accepts[i]-amount` | Decimal dollar amounts (`"0.02"`) instead of atomic units, zero or non-integer amounts |
 | | `accepts[i]-extra` | Solana without `extra.feePayer` (clients throw "feePayer is required"), EVM without the EIP-712 `name`/`version` |
+| | `accepts[i]-batch`, `-batch-delay`, `-batch-deposit`, `batch-escrow` | The `batch-settlement` scheme (one deposit into the x402 escrow, then a signed voucher per call, claimed in batches): `extra.receiverAuthorizer` missing (clients refuse), `withdrawDelay` missing or outside 900 s to 30 days, no EIP-712 domain for the EIP-3009 deposit, `minDeposit` not in atomic units, the escrow not deployed on the network; the deposit and withdraw delay buyers commit to |
 | Resource | `resource-url` | `http://` resource URL on an `https://` endpoint (Express behind a TLS proxy without `trust proxy`) |
 | | `resource-metadata` | Missing description / mimeType |
 | Settlement | `solana-payout-account` | Solana payout wallet without a token account for the asset: every settlement fails on-chain |
