@@ -38,3 +38,17 @@ test('byNetwork: endpoints offering XRPL, payable or not and why, grouped per se
   assert.equal((await ti.byNetwork('xrpl:0')).endpoints, 3);
   assert.equal((await ti.byNetwork('algorand')).endpoints, 0);
 });
+
+test('GET /algorand and /xrpl: the per-network Trust Index pages, linked to each other', async (t) => {
+  const { createApp } = require('../server.js');
+  const app = createApp({ env: {}, status: { snapshot: async () => ({}) } });
+  const server = await new Promise((resolve) => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
+  t.after(() => server.close());
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const algo = await (await fetch(`${base}/algorand`)).text();
+  assert.match(algo, /<title>x402 on Algorand/);
+  assert.match(algo, /\/api\/trust\/network\?network=algorand/);
+  assert.match(algo, /opted in to USDC|USDC opt-in/);
+  assert.match(algo, /href="\/xrpl"/);
+  assert.match(await (await fetch(`${base}/xrpl`)).text(), /href="\/algorand"/);
+});
