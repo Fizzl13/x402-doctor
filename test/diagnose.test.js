@@ -727,6 +727,26 @@ test('description quality: opt-in, an info line from the describe judge, verdict
   assert.equal(rated.overall, plain.overall);
 });
 
+test('market price: opt-in, an info line from the price comparison, asked with the lowest USDC price, verdict unchanged', async () => {
+  const seen = [];
+  const cmp = { price_usd: 0.02, comparable_median_usd: 0.01, comparables: 6, ratio: 2, range_usd: [0.005, 0.05], cheaper: [] };
+  const price = (result) => ({ enabled: true, compare: async (url, args) => { seen.push({ url, ...args }); return result; } });
+  const plain = await diagnose(`${healthyUrl}/signal/BTC-USDT`, { safeFetch, rpcUrl });
+  const priced = await diagnose(`${healthyUrl}/signal/BTC-USDT`, { safeFetch, rpcUrl, price: price(cmp) });
+  assert.equal(plain.checks.some((c) => c.id === 'market-price'), false);
+  const line = priced.checks.find((c) => c.id === 'market-price');
+  assert.equal(line.status, 'info');
+  assert.equal(line.group, 'discovery');
+  assert.match(line.message, /\$0\.02 is 2x the median of \$0\.01 across 6 comparable/);
+  assert.equal(typeof seen[0].description, 'string');
+  assert.ok(seen[0].priceUsd > 0);
+  assert.equal(priced.overall, plain.overall);
+  // No comparison, or a failing one: no line, nothing breaks.
+  assert.equal((await diagnose(`${healthyUrl}/signal/BTC-USDT`, { safeFetch, rpcUrl, price: price(null) })).checks.some((c) => c.id === 'market-price'), false);
+  const broken = { enabled: true, compare: async () => { throw new Error('down'); } };
+  assert.equal((await diagnose(`${healthyUrl}/signal/BTC-USDT`, { safeFetch, rpcUrl, price: broken })).overall, plain.overall);
+});
+
 test('more EVM chains with native USDC are known: World Chain, Monad, HyperEVM, Ethereum, Unichain, Sei', () => {
   const opt = (network, asset) => ({ scheme: 'exact', network, asset, amount: '15000', payTo: '0x408C4610F6879a75c25722cfCd18A2Eff99dc20F', maxTimeoutSeconds: 300, extra: { name: 'USDC', version: '2' } });
   const checks = [];

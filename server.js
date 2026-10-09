@@ -32,6 +32,7 @@ const { addMppOffers } = require('./lib/mpp-pay');
 const { createOutreachHook } = require('./lib/outreach-hook');
 const { createTriage } = require('./lib/jev-triage');
 const { createDescribe } = require('./lib/jev-describe');
+const { createPriceCheck } = require('./lib/jev-price');
 const { createPoisonCheck } = require('./lib/jev-poison');
 
 const PORT = process.env.PORT || 3001;
@@ -183,7 +184,7 @@ function trustProxyHops(env) {
   return Number.isInteger(n) && n >= 0 && n <= 10 && String(env.TRUST_PROXY_HOPS).trim() !== '' ? n : 3;
 }
 
-function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, trustIndex = createTrustIndex(), media = createMediaCache(), usageLog = createUsageLog({ service: 'doctor', env }), usageReader = createUsageReader({ env }), publicStats = createPublicStats({ usageReader }), settlementFetch = globalThis.fetch, status = null, outreachHook: outreachHookOverride = null, describe = createDescribe({ apiKey: env.TYPESAFE_API_KEY }), poison = createPoisonCheck({ apiKey: env.TYPESAFE_API_KEY }), creditStore, agentKinds = createAgentKinds({ apiKey: env.TYPESAFE_API_KEY }), downloads = createDownloads() } = {}) {
+function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, trustIndex = createTrustIndex(), media = createMediaCache(), usageLog = createUsageLog({ service: 'doctor', env }), usageReader = createUsageReader({ env }), publicStats = createPublicStats({ usageReader }), settlementFetch = globalThis.fetch, status = null, outreachHook: outreachHookOverride = null, describe = createDescribe({ apiKey: env.TYPESAFE_API_KEY }), poison = createPoisonCheck({ apiKey: env.TYPESAFE_API_KEY }), creditStore, agentKinds = createAgentKinds({ apiKey: env.TYPESAFE_API_KEY }), downloads = createDownloads(), priceCheck = createPriceCheck({ apiKey: env.TYPESAFE_API_KEY, trustIndex }) } = {}) {
   const app = express();
   const safeFetch = createSafeFetch({ allowPrivate });
   // Outreach drafts for the owner (lib/outreach-hook.js); off without OUTREACH_URL and OUTREACH_KEY.
@@ -205,7 +206,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   // Free payment-proof check (lib/settlement.js): the PAYMENT-RESPONSE header → the on-chain transaction.
   const rpcUrls = { ...(env.BASE_RPC_URL ? { 'eip155:8453': env.BASE_RPC_URL } : {}), ...(env.SOLANA_RPC_URL ? { 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp': env.SOLANA_RPC_URL } : {}) };
   const checkPaymentProof = (header) => checkSettlement(header, { fetch: settlementFetch, rpcUrls });
-  paidApi = createPaidApi({ safeFetch, env, trustIndex, feedback, bazaarIndex: bazaar, outcomes, checkPaymentProof, creditStore });
+  paidApi = createPaidApi({ safeFetch, env, trustIndex, feedback, bazaarIndex: bazaar, outcomes, checkPaymentProof, creditStore, priceCheck });
 
   // Doctor's requests reach the app through three proxies (the caller, then two
   // hops, the last a private Render address: measured 26 Sep), so Express has to
@@ -460,7 +461,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     }
     if (/^https?:\/\/[^/?#]*https?:/i.test(targetUrl)) return res.status(400).json({ error: 'This looks like two URLs pasted into each other; send only the endpoint URL.' });
     try {
-      const report = await diagnoseLib.diagnose(targetUrl, { safeFetch, method, bazaarIndex: bazaar, describe, poison });
+      const report = await diagnoseLib.diagnose(targetUrl, { safeFetch, method, bazaarIndex: bazaar, describe, poison, price: priceCheck });
       // A broken endpoint with a published contact: a draft for the owner's outreach (never sent from here).
       outreachHook.maybeDraft(targetUrl, report).catch(() => {});
       // The page's own share link, for callers that only see JSON (curl, scripts):
