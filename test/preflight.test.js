@@ -273,3 +273,26 @@ test('bait check (TypeSafe Jev, opt-in): caution or info added, never no_go; ski
   assert.equal(calls.length, before, 'not asked when the payment would not be made anyway');
   assert.equal((await run(url, { lure: lure(null) })).verdict, 'go');
 });
+
+test('price check (TypeSafe Jev + Trust Index, opt-in): the reason and signal are added, asked next to the bait check, never no_go', async () => {
+  const url = await seller({ accepts: [baseOption('500000')], advertised: '0.5' }); // $0.50
+  const calls = [];
+  const price = (cmp) => ({ enabled: true, compare: async (u, args) => { calls.push({ u, ...args }); return cmp; } });
+  const cmp = { price_usd: 0.5, comparable_median_usd: 0.01, comparables: 6, ratio: 50, cheaper: [{ url: 'https://cheap.example/a', price_usd: 0.005, description: 'same' }] };
+  const r = await run(url, { price: price(cmp) });
+  assert.equal(r.verdict, 'caution', JSON.stringify(r.reasons));
+  const reason = r.reasons.find((x) => x.code === 'price_high');
+  assert.equal(reason.level, 'caution');
+  assert.match(reason.message, /50x the median of \$0\.01 across 6 comparable/);
+  assert.match(reason.message, /cheap\.example\/a \(\$0\.005\)/);
+  assert.deepEqual(r.signals.price_check, cmp);
+  assert.deepEqual(calls[0], { u: url, description: 'x', priceUsd: 0.5 });
+  assert.equal((await run(url, { price: price(null) })).verdict, 'go');
+  assert.equal((await run(url, { price: price(null) })).signals.price_check, undefined);
+  const before = calls.length;
+  assert.equal((await run(url, { maxUsd: 0.01, price: price(cmp) })).verdict, 'no_go');
+  assert.equal(calls.length, before, 'not asked when the payment would not be made anyway');
+  // A failing comparison never breaks the preflight.
+  const broken = { enabled: true, compare: async () => { throw new Error('boom'); } };
+  assert.equal((await run(url, { price: broken })).verdict, 'go');
+});

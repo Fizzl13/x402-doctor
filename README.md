@@ -110,7 +110,7 @@ call it before your agent pays an x402 endpoint it has not used before. It never
 | Verdict | When |
 |---|---|
 | `no_go` | No 402 or no valid challenge; every option would fail to settle (bad payTo/amount, missing fee payer or EIP-712 domain, Solana payout wallet without a token account); cheapest option above `max_usd`; no payable option on the requested `network` |
-| `caution` | Charges more than its OpenAPI advertises; not HTTPS; not a known USDC contract; decimal amount; resource URL differs from the requested URL; testnet only; bait (below) |
+| `caution` | Charges more than its OpenAPI advertises; not HTTPS; not a known USDC contract; decimal amount; resource URL differs from the requested URL; testnet only; bait (below); 20x or more above comparable services (below) |
 | `go` | None of the above. `recommended_option` is the cheapest payable USDC option (on `network` if given) |
 
 **Bait check** (TypeSafe's Jev, when `TYPESAFE_API_KEY` is set): for an endpoint that could be paid, Jev judges
@@ -119,6 +119,14 @@ domain (`brand_impersonation`), lure with free tokens, airdrops or guaranteed re
 promise something its declared output doesn't deliver (`output_mismatch`)? A clear yes is a `caution`, an
 in-between answer `info`; it never makes a verdict `no_go` and never turns one into `go`. The probabilities are
 in `signals.jev_lure`. On 300 real CDP Bazaar listings it raised no caution for brand or lure wording.
+
+**Price check** (same key): is the price far above what comparable services ask? Doctor takes up to 24 paid APIs
+of other sellers from the x402 Trust Index whose descriptions share rare words with this one (at most two per
+seller), and Jev judges per candidate whether a buyer would be served just as well by it. With at least 5 such
+services, their median price is the comparison: 5x or more (and at least $0.05 more) is `info`, 20x or more (and
+at least $0.25 more) a `caution`, both `price_high` and naming up to three cheaper alternatives. The comparison is
+in `signals.price_check` (`comparable_median_usd`, `comparables`, `ratio`, `cheaper[]`). It never makes a verdict
+`no_go`: the price is the seller's choice, the agent decides whether it is worth it.
 
 Not being listed in the CDP Bazaar is reported as `info` only. Results are cached for 10 minutes per URL, budget
 and network (`cached: true`), so checking before every payment stays fast.
