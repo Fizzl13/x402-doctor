@@ -178,6 +178,9 @@ test('preflight: unpaid 402 at $0.001; a paid call returns the verdict (no_go: t
   // The body mirrors the whole v2 challenge, resource included (x402-trust.com flags a v2 body without it).
   assert.deepEqual(challenge.resource, header.resource);
   assert.match(challenge.resource.url, /\/api\/v1\/preflight/);
+  // Discovery lists such as GoPlausible's name the seller from this.
+  assert.equal(header.extensions['x402-merchant'].info.name, 'Fizzl');
+  assert.equal(header.extensions['x402-merchant'].info.logo, 'https://fizzl.eu/logo-512.png');
 
   assert.equal((await fetch(`${api}/api/v1/preflight?url=${encodeURIComponent(targetUrl)}&max_usd=abc`)).status, 400);
   assert.equal((await fetch(`${api}/api/v1/preflight?url=${encodeURIComponent(targetUrl)}&network=base`)).status, 400);
