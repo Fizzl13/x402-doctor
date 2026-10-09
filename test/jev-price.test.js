@@ -3,7 +3,7 @@
 // and nothing when Jev fails or too few services compare. Plus the Trust Index candidate search it relies on.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createPriceCheck, priceReason, median } = require('../lib/jev-price');
+const { createPriceCheck, priceReason, marketPriceCheck, median } = require('../lib/jev-price');
 const { createTrustIndex, wordsOf } = require('../lib/trust-index');
 
 const quiet = { warn() {} };
@@ -40,6 +40,7 @@ test('price check: only the services Jev calls the same kind count; median, rati
   assert.equal(r.comparable_median_usd, 0.01);
   assert.equal(r.ratio, 50);
   assert.deepEqual(r.cheaper.map((c) => c.price_usd), [0.005, 0.01, 0.01]);
+  assert.deepEqual(r.range_usd, [0.005, 0.03]);
   // One request, the target in the state, one yes/no question per candidate.
   assert.equal(j.calls.length, 1);
   assert.deepEqual(j.calls[0].state, { target: { host: 'pricey.example', description: 'Token safety check' } });
@@ -104,4 +105,20 @@ test('trust index similar: rare shared words rank first, the target seller and u
   assert.equal(s[0].price_usd, 0.05);
   assert.deepEqual(await ti.similar('https://own.example/signal', 'the api for agents'), []);
   assert.deepEqual([...wordsOf('The Ichimoku API for agents, x402')], ['ichimoku']);
+});
+
+test('marketPriceCheck: always info; says where the price sits; a hint only when far off either way', () => {
+  const cmp = (price, mid, cheaper = []) => ({ price_usd: price, comparable_median_usd: mid, comparables: 7, ratio: Math.round((price / mid) * 10) / 10, range_usd: [0.001, 0.05], cheaper });
+  assert.equal(marketPriceCheck(null), null);
+  const high = marketPriceCheck(cmp(0.5, 0.01, [{ url: 'https://a.example/x', price_usd: 0.005 }]));
+  assert.equal(high.status, 'info');
+  assert.match(high.message, /\$0\.5 is 50x the median of \$0\.01 across 7 comparable/);
+  assert.match(high.message, /\$0\.001 to \$0\.05/);
+  assert.match(high.hint, /a\.example\/x at \$0\.005/);
+  const same = marketPriceCheck(cmp(0.02, 0.02));
+  assert.match(same.message, /in line with the median of \$0\.02/);
+  assert.equal(same.hint, undefined);
+  assert.match(marketPriceCheck(cmp(0.01, 0.02)).message, /below the median of \$0\.02/);
+  assert.match(marketPriceCheck(cmp(0.001, 0.02)).hint, /room to raise/);
+  assert.equal(marketPriceCheck(cmp(0.005, 0.001)).hint, undefined, '5x but a cent-level gap: the preflight says nothing, so neither does the hint');
 });
