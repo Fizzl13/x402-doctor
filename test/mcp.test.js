@@ -126,6 +126,12 @@ test('mcp: a free quick check, five paid tools with their prices, the free payme
   assert.match(tools.find((t) => t.name === 'x402_fix').description, /\$0\.05/);
   assert.match(tools.find((t) => t.name === 'x402_preflight_batch').description, /\$0\.005/);
   assert.match(tools.find((t) => t.name === 'x402_preflight_deep').description, /\$0\.01/);
+  // Every tool has an output schema (directories such as Smithery score it) that never rejects new fields.
+  for (const t of tools) {
+    assert.equal(t.outputSchema && t.outputSchema.type, 'object', `${t.name} has an outputSchema`);
+    assert.notEqual(t.outputSchema.additionalProperties, false, `${t.name}: extra fields allowed`);
+  }
+  assert.equal(fb.structuredContent.service, 'doctor', 'the answer as structured content too');
   await client.close();
 });
 
