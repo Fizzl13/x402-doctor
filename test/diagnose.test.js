@@ -8,7 +8,7 @@ const http = require('node:http');
 const path = require('node:path');
 const { execFile } = require('node:child_process');
 const { declareDiscoveryExtension } = require('@x402/extensions/bazaar');
-const { diagnose, checkResource, checkAccepts, checkOpenApi, checkWellKnown, checkBazaarListing, checkPaywall } = require('../lib/diagnose');
+const { diagnose, checkResource, checkAccepts, checkOpenApi, checkWellKnown, checkBazaarListing, checkPaywall, checkMerchant } = require('../lib/diagnose');
 const { createBazaarIndex } = require('../lib/bazaar-index');
 const { createSafeFetch, guardedLookup } = require('../lib/safe-fetch');
 const { createApp } = require('../server');
@@ -810,4 +810,20 @@ test('batch-settlement escrow: fail when it has no code on the network, pass whe
   checks = [];
   await checkBatchEscrow([option, { ...option, scheme: 'exact' }], checks, { evmRpcUrls: rpcs('batch-deployed') });
   assert.deepEqual(checks.map((c) => [c.id, c.status]), [['batch-escrow', 'pass']]);
+});
+
+test('merchant: the x402-merchant extension is checked, and its absence noted only when Algorand is offered', () => {
+  const ALGO = 'algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=';
+  const run = (challenge) => { const checks = []; checkMerchant(challenge, checks); return checks; };
+  const merchant = (info) => ({ 'x402-merchant': { info, schema: { type: 'object', required: ['name'] } } });
+  assert.deepEqual(run({ accepts: [{ network: 'eip155:8453' }] }), [], 'nothing to say without Algorand');
+  const missing = run({ accepts: [{ network: 'eip155:8453' }, { network: ALGO }] });
+  assert.deepEqual(missing.map((c) => [c.id, c.status]), [['merchant', 'info']]);
+  assert.match(missing[0].message, /GoPlausible/);
+  const good = run({ accepts: [{ network: ALGO }], extensions: merchant({ name: 'Fizzl', website: 'https://fizzl.eu', logo: 'https://fizzl.eu/logo-512.png', categories: ['x402'] }) });
+  assert.deepEqual(good.map((c) => [c.status, c.message]), [['pass', 'x402-merchant extension names the seller: Fizzl.']]);
+  assert.match(run({ accepts: [], extensions: merchant({ name: 'Shop' }) })[0].message, /Shop \(no website or logo\)/);
+  const bad = run({ accepts: [{ network: 'eip155:8453' }], extensions: merchant({ website: 'http://x.example', logo: 'logo.png', categories: 'data' }) });
+  assert.equal(bad[0].status, 'warn', 'a malformed one is a warning on any network');
+  assert.match(bad[0].message, /info\.name is missing; info\.website is not an https URL; info\.logo is not an https URL; info\.categories is not a list of strings/);
 });

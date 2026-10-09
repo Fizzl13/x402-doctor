@@ -178,3 +178,10 @@ test('domain move: /.well-known/x402 on another host and a Bazaar listing only u
   assert.match(listing.steps[0], /https:\/\/api\.example\.com\/v1\/thing/);
   assert.equal(out.unfixed.length, 0);
 });
+
+test('merchant: a malformed x402-merchant extension gets the corrected extension', () => {
+  const f = fix(buildFixes(report({ checks: [{ id: 'merchant', status: 'warn', message: 'x402-merchant extension: info.name is missing.' }] })), 'merchant');
+  assert.match(f.title, /Fix the x402-merchant extension/);
+  assert.match(f.why, /GoPlausible/);
+  assert.match(code(f), /"x402-merchant"/);
+});

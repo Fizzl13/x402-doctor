@@ -51,6 +51,7 @@ the medicine, the exact code that fixes each problem for your stack, in the brow
 | | `openapi-present`, `openapi-title`, `openapi-guidance` | Missing `/openapi.json`, `info.title`, `info.x-guidance` |
 | | `well-known` | `/.well-known/x402` missing (info), unreadable (resources as URLs or objects with a `url` are both read), or listing resources on another host than the one checked (built from the request `Host` header, it keeps pointing crawlers at an old domain). A platform address such as `*.onrender.com` pointing at its own domain is fine |
 | | `bazaar-listing` | Where the CDP Bazaar lists this route (same path, same `payTo`): under this origin, not yet, or only under another host. The Bazaar keeps the URL the payer used, so after a domain move a route stays listed under the old host until someone pays through the new one. On the web check and the paid API (not the CLI) |
+| | `merchant` | The `x402-merchant` extension (name, website, logo, categories) that GoPlausible's catalog shows on the seller: a warning when malformed, an info line when it is missing on an endpoint that offers Algorand |
 | Browser | `paywall` | Browser paywall in testnet mode on a mainnet endpoint (`@x402/paywall` defaults to testnet; the flag is read from JS or JSON config) |
 
 Statuses: `pass`, `warn` (works, but something is off), `fail` (payments fail or it is not valid x402), `info`.
