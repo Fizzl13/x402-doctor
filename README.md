@@ -263,6 +263,11 @@ one letter per day (`g` go, `c` caution, `n` no-go, `x` unreachable, `-` not sca
   1,500 new ones a day) and guessed from keywords until then. In `/api/trust/summary` (`services`) and
   `/api/trust/network` (`services`, `categories`, per seller `services`, per endpoint `category` and
   `same_service_endpoints`), and on `/trust`, `/algorand` and `/xrpl`.
+- **Possible bait.** After the scan, the same bait check the paid preflight runs (TypeSafe Jev: an official-looking
+  service of a well-known brand on a domain the brand doesn't own, or a lure with free tokens, airdrops or guaranteed
+  returns) goes over every service, at most 1,000 new ones a day, cached per description in `categories.json`.
+  Services Jev is sure about (≥ 0.85) are listed on `/trust` and in `/api/trust/summary` (`services.bait`: checked,
+  flagged and the surest 100), and marked on their endpoints in `/api/trust/network` and on `/algorand` and `/xrpl`.
 - Run it yourself: `node scripts/trust-scan.js --out trust-data --limit 200`.
 
 ### Weekly x402 health report

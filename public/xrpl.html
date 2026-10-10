@@ -144,6 +144,7 @@
       const mid = el('div');
       mid.append(el('div', 'u', r.url));
       if (r.description) mid.append(el('div', 'd', r.description));
+      if (r.bait) mid.append(el('div', 'why', `Possible bait: ${[(r.bait.impersonation || 0) >= 0.85 ? 'poses as a brand it is not' : '', (r.bait.lure || 0) >= 0.85 ? 'lures with free tokens or guaranteed returns' : ''].filter(Boolean).join(' and ')} (TypeSafe Jev).`));
       if (r.category) mid.append(el('div', 'cat', `${(data.categories || []).find((c) => c.id === r.category)?.name || r.category}${r.same_service_endpoints > 1 ? ` · one of ${r.same_service_endpoints} near-identical endpoints of this seller` : ''}`));
       if (!r.payable) mid.append(el('div', 'why', r.problem || (r.verdict === 'no_go' ? 'Not payable today (see the full check).' : `Verdict: ${r.verdict}`)));
       const right = el('div', 'r');

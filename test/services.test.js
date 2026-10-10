@@ -66,18 +66,20 @@ test('scripts/categorize.js: without a key it carries over the answers still in 
   const { services } = groupServices(resources);
   const kept = descKey(services[0].rep.d);
   fs.writeFileSync(path.join(dir, 'index.json'), JSON.stringify({ resources }));
-  fs.writeFileSync(path.join(dir, 'prev.json'), JSON.stringify({ categories: { [kept]: 'crypto', gone: 'ai' } }));
+  fs.writeFileSync(path.join(dir, 'prev.json'), JSON.stringify({ categories: { [kept]: 'crypto', gone: 'ai' }, bait: { [kept]: [0.1, 0.2], gone: [0.9, 0.9] } }));
   execFileSync(process.execPath, [path.join(__dirname, '../scripts/categorize.js'), '--index', path.join(dir, 'index.json'), '--previous', path.join(dir, 'prev.json'), '--out', path.join(dir, 'out.json')], { env: { ...process.env, TYPESAFE_API_KEY: '', GITHUB_STEP_SUMMARY: '' }, stdio: 'pipe' });
   const out = JSON.parse(fs.readFileSync(path.join(dir, 'out.json'), 'utf8'));
   assert.deepEqual(out.categories, { [kept]: 'crypto' });
+  assert.deepEqual(out.bait, { [kept]: [0.1, 0.2] });
 });
 
 test('Trust Index: summary counts services, the largest sellers and categories; byNetwork adds them per network', async () => {
   const { services } = groupServices(resources);
   const weatherKey = descKey(services.find((s) => /Weather/.test(s.rep.d)).rep.d);
+  const checkKey = descKey(services.find((s) => /honeypot/.test(s.rep.d)).rep.d);
   const ti = createTrustIndex({
     url: 'http://index.test', categoriesUrl: 'http://cats.test',
-    fetchImpl: async (u) => (String(u).includes('cats') ? Response.json({ categories: { [weatherKey]: 'data' } }) : Response.json({ updated: 'now', days: ['d'], resources })),
+    fetchImpl: async (u) => (String(u).includes('cats') ? Response.json({ categories: { [weatherKey]: 'data' }, bait: { [weatherKey]: [0.95, 0.1], [checkKey]: [null, 0.2] } }) : Response.json({ updated: 'now', days: ['d'], resources })),
   });
   await ti.refresh();
   const s = ti.summary().services;
@@ -94,4 +96,12 @@ test('Trust Index: summary counts services, the largest sellers and categories; 
   assert.equal(btc.category, 'crypto');
   assert.equal(btc.same_service_endpoints, 4);
   assert.equal(a.resources.find((r) => r.url.endsWith('/weather')).category, 'data', 'Jev\'s cached answer');
+  // Bait: a sure answer flags the service (listed in the summary, marked on its endpoints); an unsure one doesn't.
+  assert.deepEqual(a.resources.find((r) => r.url.endsWith('/weather')).bait, { impersonation: 0.95, lure: 0.1 });
+  assert.equal(btc.bait, undefined);
+  const b = ti.summary().services.bait;
+  assert.equal(b.checked, 2);
+  assert.equal(b.flagged, 1);
+  assert.equal(b.services[0].url, 'https://api.farm.example/weather');
+  assert.equal(b.services[0].seller, 'farm.example');
 });

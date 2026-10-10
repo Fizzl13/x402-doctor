@@ -66,6 +66,9 @@
 <style>.by-fizzl{margin:28px 0 0;font-size:12.5px;line-height:1}.by-fizzl a{display:inline-flex;align-items:center;gap:6px;color:inherit;opacity:.75;text-decoration:none}.by-fizzl a:hover,.by-fizzl a:focus-visible{opacity:1}.by-fizzl svg{height:20px;width:auto;display:block}.by-fizzl .b{fill:#61f5c3}@media (prefers-color-scheme: light){.by-fizzl .b{fill:#0b7a57}}  .cats { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 0; padding: 0; list-style: none; }
   .cats li { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; font-size: 13px; }
   .cats b { font-variant-numeric: tabular-nums; }
+  .bait { padding: 8px 2px; border-bottom: 1px solid var(--line); }
+  .bait .u { font-family: 'SF Mono', Consolas, monospace; font-size: 12.5px; overflow-wrap: anywhere; }
+  .bait .d, .bait .w { color: var(--text-soft); font-size: 13px; }
 </style>
 </head>
 <body>
@@ -89,6 +92,10 @@
   <ul class="cats" id="cats"></ul>
   <details><summary>Sellers with the most endpoints</summary><table id="largest"><thead><tr><th>Seller</th><th class="num">Endpoints</th><th class="num">Distinct services</th></tr></thead><tbody></tbody></table></details>
   <p class="note">A seller often lists the same API many times (once per coin, city or ticker). Payable endpoints of one seller with nearly the same description count as one service; the kind of service is judged by TypeSafe Jev (a keyword guess until Jev has seen it).</p>
+
+  <h2>Possible bait</h2>
+  <p id="baitLine" class="note">Loading…</p>
+  <div id="baitList"></div>
 
   <h2>Look up a resource</h2>
   <form id="form">
@@ -220,7 +227,25 @@
     }
     renderReasons(s);
     renderServices(s.services);
+    renderBait(s.services && s.services.bait);
   });
+
+  // Services the paid preflight's bait check (TypeSafe Jev) is sure about: posing as a brand's official service on
+  // a domain the brand doesn't own, or luring with free tokens or guaranteed returns.
+  function renderBait(b) {
+    if (!b || !b.checked) { $('baitLine').textContent = 'The bait check of every service runs after the daily scan; the first results appear in a few days.'; return; }
+    $('baitLine').textContent = `${fmt(b.flagged)} of ${fmt(b.checked)} services checked so far look like bait: they present themselves as an official service of a well-known brand on a domain that brand doesn't own, or lure with free tokens, airdrops or guaranteed returns (judged by TypeSafe Jev, the same check agents get before paying). Check before you pay any of them.`;
+    for (const r of b.services.slice(0, 25)) {
+      const row = document.createElement('div'); row.className = 'bait';
+      const u = document.createElement('div'); u.className = 'u'; u.textContent = r.url;
+      const d = document.createElement('div'); d.className = 'd'; d.textContent = r.description;
+      const why = [];
+      if ((r.impersonation || 0) >= 0.85) why.push(`poses as a brand (${Math.round(r.impersonation * 100)}%)`);
+      if ((r.lure || 0) >= 0.85) why.push(`lure (${Math.round(r.lure * 100)}%)`);
+      const w = document.createElement('div'); w.className = 'w'; w.textContent = `${r.seller} · ${why.join(', ')}${r.endpoints > 1 ? ` · ${r.endpoints} endpoints like this` : ''}`;
+      row.append(u, d, w); $('baitList').append(row);
+    }
+  }
 
   function renderServices(v) {
     if (!v || !v.services) return;
