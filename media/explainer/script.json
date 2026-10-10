@@ -47,17 +47,17 @@
     {
       "id": "preflight",
       "scene": "terminal-call",
-      "text": "Before your agent pays an unknown API, it asks the Doctor first, for a tenth of a cent."
+      "text": "Before your agent pays an unknown API, it asks the Doctor first, for a tenth of a cent, paid on Base, Solana, the XRP Ledger or Algorand."
     },
     {
       "id": "verdict",
       "scene": "terminal-verdict",
-      "text": "Go, caution, or no-go. Plus the cheapest payment option that will actually settle."
+      "text": "Go, caution, or no-go. Plus the cheapest payment option that will actually settle, and whether the price is in line with comparable services."
     },
     {
       "id": "trust",
       "scene": "trust-stats",
-      "text": "And every day, we check every x402 endpoint in the Coinbase Bazaar. Over sixteen thousand."
+      "text": "And every day, we check every x402 endpoint in the Coinbase Bazaar. Almost forty thousand, from about nineteen thousand distinct services."
     },
     {
       "id": "record",

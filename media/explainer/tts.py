@@ -23,6 +23,7 @@ PRONUNCIATION = [
     (r"\bx402\b", "ex four oh two"),
     (r"\b402\b", "four oh two"),
     (r"\bnpm\b", "N P M"),
+    (r"\bXRP\b", "X R P"),
     (r"\blab\.fizzl\.eu\b", "lab dot fizzle dot E U"),
     (r"\bfizzl\b", "fizzle"),
 ]
