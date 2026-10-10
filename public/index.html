@@ -158,9 +158,9 @@
 <div class="wrap">
   <header class="topbar">
     <a class="brand" href="/"><svg class="mark" viewBox="0 0 128 128" aria-hidden="true"><rect x="1.5" y="1.5" width="125" height="125" rx="29" fill="#020708" stroke="#61f5c3" stroke-opacity=".4" stroke-width="3"/><path d="M78 30 A22 22 0 0 0 52 52 V104" fill="none" stroke="#f4f8f7" stroke-width="16" stroke-linecap="round"/><path d="M36 68 H72" stroke="#f4f8f7" stroke-width="16" stroke-linecap="round"/><g fill="#61f5c3"><circle cx="92" cy="72" r="8"/><circle cx="100" cy="52" r="5"/><circle cx="104" cy="38" r="3"/></g></svg><span><b>x402 Doctor</b><small>by <em>fizzl</em> · pay-per-call tools for AI agents</small></span></a>
-    <span class="top-right"><a class="wallet-link" href="https://wallet.fizzl.eu/" title="Fizzl Agent Wallet: spending limits and approvals for your agents">Agent Wallet ↗</a><span class="live">ONLINE · BASE + SOLANA</span></span>
+    <span class="top-right"><a class="wallet-link" href="https://wallet.fizzl.eu/" title="Fizzl Agent Wallet: spending limits and approvals for your agents">Agent Wallet ↗</a><span class="live">ONLINE · 4 NETWORKS</span></span>
   </header>
-  <div class="eyebrow"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>x402 · Base + Solana · for builders and agents</div>
+  <div class="eyebrow"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>x402 · MPP · 4 networks · for builders and agents</div>
   <h1>Check any x402 endpoint the way a <em>paying agent</em> would.</h1>
   <p class="sub">Paste a paid endpoint URL: x402 (HTTP or MCP), MPP from Stripe and Tempo, and L402 (Lightning) too. Read-only diagnostics: no wallet, no payment, no risk. <a href="#" id="exampleLink" data-url="https://plaintext.fizzl.eu/api/check-wallet">Try an example</a>.</p>
   <div class="prices" aria-label="Prices">
@@ -243,7 +243,7 @@
         <pre>GET /api/v1/credits/1000</pre>
       </div>
     </div>
-    <p class="buyer-note">Paid per call in USDC via x402 on Base or Solana, with a signed receipt. They never pay the endpoint. Also as MCP tools at <code>/mcp</code>; details in the <a href="/openapi.json">OpenAPI</a>.</p>
+    <p class="buyer-note">Paid per call in USDC via x402 or MPP on Base, Solana, the XRP Ledger or Algorand (RLUSD on the XRP Ledger), with a signed receipt. They never pay the endpoint. Also as MCP tools at <code>/mcp</code>; details in the <a href="/openapi.json">OpenAPI</a>.</p>
   </section>
 
   <h2><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>More from fizzl</h2>
@@ -267,7 +267,7 @@
     <br><br>
     <a href="/settlement">Payment proof check</a>: paste the <code>PAYMENT-RESPONSE</code> header of a payment and see the on-chain transaction behind it.
     <br><br>
-    For agents: <code>GET /api/v1/diagnose?url=&lt;endpoint&gt;</code>, $0.01 USDC per call via x402 on Base or Solana, no rate limit
+    For agents: <code>GET /api/v1/diagnose?url=&lt;endpoint&gt;</code>, $0.01 per call via x402 or MPP on Base, Solana, the XRP Ledger or Algorand, no rate limit
     (<a href="/openapi.json">OpenAPI</a>).
     <br><br>
     As an MCP server: <code>https://x402-doctor.fizzl.eu/mcp</code>, with a free quick check. Also on

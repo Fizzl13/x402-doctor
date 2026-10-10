@@ -148,7 +148,7 @@ async function main() {
   );
   const terminalLines = pf && [
     { cls: 'cmd', text: `$ curl "${DOCTOR.replace(/^https?:\/\//, '')}/api/v1/preflight?url=${shortUrl}&max_usd=0.05"` },
-    { cls: 'in', text: '← 402 Payment Required · $0.001 USDC (Base or Solana)' },
+    { cls: 'in', text: '← 402 Payment Required · $0.001 (Base, Solana, XRP Ledger or Algorand)' },
     { cls: 'dim', text: '→ agent signs $0.001 USDC and retries' },
     { cls: 'ok', text: '← 200 OK' },
     ...(verdictJson || '').split('\n').map((line) => ({ cls: /"verdict"|"summary"/.test(line) ? 'ok' : 'dim', text: line })),
