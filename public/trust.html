@@ -63,7 +63,10 @@
   .snippet { display: block; margin-top: 6px; padding: 8px 10px; border-radius: 6px; background: var(--bg); border: 1px solid var(--line); font-size: 12px; overflow-wrap: anywhere; user-select: all; }
   footer { margin-top: 40px; color: var(--text-soft); font-size: 12.5px; }
 </style>
-<style>.by-fizzl{margin:28px 0 0;font-size:12.5px;line-height:1}.by-fizzl a{display:inline-flex;align-items:center;gap:6px;color:inherit;opacity:.75;text-decoration:none}.by-fizzl a:hover,.by-fizzl a:focus-visible{opacity:1}.by-fizzl svg{height:20px;width:auto;display:block}.by-fizzl .b{fill:#61f5c3}@media (prefers-color-scheme: light){.by-fizzl .b{fill:#0b7a57}}</style>
+<style>.by-fizzl{margin:28px 0 0;font-size:12.5px;line-height:1}.by-fizzl a{display:inline-flex;align-items:center;gap:6px;color:inherit;opacity:.75;text-decoration:none}.by-fizzl a:hover,.by-fizzl a:focus-visible{opacity:1}.by-fizzl svg{height:20px;width:auto;display:block}.by-fizzl .b{fill:#61f5c3}@media (prefers-color-scheme: light){.by-fizzl .b{fill:#0b7a57}}  .cats { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 0; padding: 0; list-style: none; }
+  .cats li { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; font-size: 13px; }
+  .cats b { font-variant-numeric: tabular-nums; }
+</style>
 </head>
 <body>
 <div class="wrap">
@@ -80,6 +83,12 @@
   <div class="reasons" id="reasons"></div>
   <p class="note">Reasons in the latest scan. A service can have more than one; "works, with warnings" services count here too.</p>
   <details><summary>Show as a table</summary><table id="reasonsTable"><thead><tr><th>Reason</th><th>Code</th><th class="num">Services</th></tr></thead><tbody></tbody></table></details>
+
+  <h2>What is behind the endpoints</h2>
+  <p id="servicesLine" aria-live="polite"></p>
+  <ul class="cats" id="cats"></ul>
+  <details><summary>Sellers with the most endpoints</summary><table id="largest"><thead><tr><th>Seller</th><th class="num">Endpoints</th><th class="num">Distinct services</th></tr></thead><tbody></tbody></table></details>
+  <p class="note">A seller often lists the same API many times (once per coin, city or ticker). Payable endpoints of one seller with nearly the same description count as one service; the kind of service is judged by TypeSafe Jev (a keyword guess until Jev has seen it).</p>
 
   <h2>Look up a resource</h2>
   <form id="form">
@@ -210,7 +219,18 @@
       $('protocols').hidden = false;
     }
     renderReasons(s);
+    renderServices(s.services);
   });
+
+  function renderServices(v) {
+    if (!v || !v.services) return;
+    const top = v.largest && v.largest[0];
+    $('servicesLine').textContent = `${fmt(v.payable_endpoints)} payable endpoints from ${fmt(v.sellers)} sellers are ${fmt(v.services)} distinct services.` +
+      (top ? ` The largest seller, ${top.seller}, lists ${fmt(top.endpoints)} endpoints for ${fmt(top.services)} services (${pct(top.endpoints, v.payable_endpoints)} of all payable endpoints).` : '');
+    for (const c of v.categories || []) { const li = document.createElement('li'); const b = document.createElement('b'); b.textContent = fmt(c.services); li.append(b, ` ${c.name}`); $('cats').append(li); }
+    const tb = $('largest').tBodies[0];
+    for (const r of v.largest || []) { const tr = document.createElement('tr'); for (const [t, cls] of [[r.seller, ''], [fmt(r.endpoints), 'num'], [fmt(r.services), 'num']]) { const td = document.createElement('td'); td.textContent = t; if (cls) td.className = cls; tr.append(td); } tb.append(tr); }
+  }
   loadSummary(10);
 
   const label = { g: 'go', c: 'caution', n: 'no-go', x: 'unreachable', '-': 'not scanned' };

@@ -254,6 +254,15 @@ one letter per day (`g` go, `c` caution, `n` no-go, `x` unreachable, `-` not sca
 - `GET /api/trust/network?network=xrpl` (or an id like `xrpl:0`, free): every scanned x402 endpoint that offers a network,
   payable there today or not and why (the scan records `unpayable` networks with their first problem), grouped per
   seller site. `/xrpl`: the public status page of x402 on the XRP Ledger, with the ledger checks of each payout account. `/algorand`: the same for x402 on Algorand, with the USDC opt-in of each payout account.
+- **Distinct services and their kind.** Sellers often list the same API many times (once per coin, city or ticker),
+  so endpoint counts overstate the market. Payable endpoints of one seller whose descriptions share most of their
+  words (Jaccard ≥ 0.5, `lib/services.js`) count as one service; on 9 Oct 2026 the 40,451 payable endpoints were
+  18,475 services, and one seller alone listed a third of them. Each service gets a category (crypto, security,
+  on-chain, AI, search, finance, media, places, social, developer tools, other), chosen by TypeSafe Jev after the
+  daily scan (`scripts/categorize.js`, cached per description in `categories.json` on the trust-data branch, at most
+  1,500 new ones a day) and guessed from keywords until then. In `/api/trust/summary` (`services`) and
+  `/api/trust/network` (`services`, `categories`, per seller `services`, per endpoint `category` and
+  `same_service_endpoints`), and on `/trust`, `/algorand` and `/xrpl`.
 - Run it yourself: `node scripts/trust-scan.js --out trust-data --limit 200`.
 
 ### Weekly x402 health report
