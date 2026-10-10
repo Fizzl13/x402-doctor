@@ -20,19 +20,10 @@ const fs = require('fs');
 const { createSafeFetch } = require('../lib/safe-fetch');
 const { preflight } = require('../lib/preflight');
 const { createTriage } = require('../lib/jev-triage');
+const { findContact } = require('../lib/contact');
 
 const WANT = new Set(['resource_mismatch', 'invalid_challenge', 'no_payable_option', 'price_above_advertised', 'unknown_asset', 'testnet_only', 'network_not_offered']);
 const arg = (name, fallback) => { const i = process.argv.indexOf(`--${name}`); return i > 0 ? process.argv[i + 1] : fallback; };
-const EMAIL_RE = /^[^\s@<>"',;]{1,64}@[^\s@<>"',;]{1,190}\.[a-z]{2,24}$/i;
-
-async function contactOf(safeFetch, origin) {
-  try {
-    const res = await safeFetch(`${origin}/openapi.json`);
-    const email = String(JSON.parse(res.text)?.info?.contact?.email ?? '').trim();
-    return EMAIL_RE.test(email) ? email : null;
-  } catch { return null; }
-}
-
 async function main() {
   const index = JSON.parse(fs.readFileSync(arg('index', 'trust-data/index.json'), 'utf8'));
   const limit = Number(arg('limit', 0));
@@ -56,7 +47,7 @@ async function main() {
     const p = await preflight(r.url, { safeFetch, preferMethod: r.m || undefined }).catch((e) => ({ verdict: 'error', reasons: [{ code: 'error', message: e.message }] }));
     const findings = (p.reasons || []).filter((x) => WANT.has(x.code) || x.code === 'error').map((x) => ({ id: x.code, message: x.message }));
     if (!findings.length) { rows.push({ url: r.url, verdict: p.verdict, findings: 'no longer flagged (fixed, or an old Doctor false alarm)', jev: null, contact: null, cleared: true }); return; }
-    const [jev, contact] = await Promise.all([triage.judge({ url: r.url, findings }), contactOf(safeFetch, new URL(r.url).origin)]);
+    const [jev, contact] = await Promise.all([triage.judge({ url: r.url, findings }), findContact(safeFetch, new URL(r.url).origin).then((c) => c?.email ?? null)]);
     rows.push({ url: r.url, verdict: p.verdict, findings: findings.map((f) => `${f.id}: ${f.message}`).join(' · '), findingList: findings.map((f) => ({ ...f, hint: null })), jev, contact });
   };
   const queue = [...picks];
