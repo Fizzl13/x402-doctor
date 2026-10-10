@@ -64,7 +64,7 @@ jobs:
         if: steps.today.outputs.skip != 'true'
         run: |
           { git fetch --depth 1 origin trust-data 2>/dev/null && git show FETCH_HEAD:categories.json > prev-categories.json 2>/dev/null; } || echo "{}" > prev-categories.json
-          node scripts/categorize.js --index trust-data/index.json --previous prev-categories.json --out trust-data/categories.json --max 1500
+          node scripts/categorize.js --index trust-data/index.json --previous prev-categories.json --out trust-data/categories.json --max 1500 --max-bait 1000
           [ -f trust-data/categories.json ] || cp prev-categories.json trust-data/categories.json
         env:
           TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
