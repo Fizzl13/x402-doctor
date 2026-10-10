@@ -65,7 +65,11 @@
 </style>
 <style>.by-fizzl{margin:28px 0 0;font-size:12.5px;line-height:1}.by-fizzl a{display:inline-flex;align-items:center;gap:6px;color:inherit;opacity:.75;text-decoration:none}.by-fizzl a:hover,.by-fizzl a:focus-visible{opacity:1}.by-fizzl svg{height:20px;width:auto;display:block}.by-fizzl .b{fill:#61f5c3}@media (prefers-color-scheme: light){.by-fizzl .b{fill:#0b7a57}}</style>
 <style>
-  .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .cats { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 0; padding: 0; list-style: none; }
+  .cats li { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; font-size: 13px; }
+  .cats b { font-variant-numeric: tabular-nums; }
+  .ep .cat { color: var(--text-soft); font-size: 12px; }
   .stats > div { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
   .stats .k { font-size: 13px; color: var(--text-soft); } .stats .v { font-size: 1.4rem; font-weight: 600; font-variant-numeric: tabular-nums; }
   .filter { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0 10px; }
@@ -79,6 +83,8 @@
   .ep .r { text-align: right; font-size: 13px; white-space: nowrap; } .ep .r a { font-size: 12.5px; }
   .strip { display: inline-flex; gap: 2px; vertical-align: middle; } .strip i { width: 5px; height: 12px; border-radius: 1px; background: var(--none); }
   .strip i.g { background: var(--go); } .strip i.c { background: var(--caution); } .strip i.n, .strip i.x { background: var(--nogo); }
+  #sellers td:first-child { overflow-wrap: anywhere; }
+  @media (max-width: 520px) { #sellers td, #sellers th { padding: 5px 4px; font-size: 12.5px; } }
   @media (max-width: 520px) { .stats { grid-template-columns: 1fr 1fr; } .ep { grid-template-columns: 14px minmax(0, 1fr); } .ep .r { grid-column: 2; text-align: left; } }
 </style>
 </head>
@@ -88,11 +94,15 @@
   <p class="sub">Every x402 endpoint that takes USDC on Algorand, checked once a day by x402 Doctor the way a paying agent would, plus what Algorand itself says about the seller's payout account. Read-only: it stops at the 402 challenge and never pays.</p>
 
   <h2>Today</h2>
-  <div class="stats" id="stats"><div><div class="k">Endpoints</div><div class="v">…</div></div><div><div class="k">Payable on Algorand now</div><div class="v">…</div></div><div><div class="k">Sellers</div><div class="v">…</div></div></div>
+  <div class="stats" id="stats"><div><div class="k">Endpoints</div><div class="v">…</div></div><div><div class="k">Payable on Algorand now</div><div class="v">…</div></div><div><div class="k">Sellers</div><div class="v">…</div></div><div><div class="k">Distinct services</div><div class="v">…</div></div></div>
   <p class="note" id="updated"></p>
 
+  <h2>What kind of services</h2>
+  <ul class="cats" id="cats"></ul>
+  <p class="note">A seller often lists the same API many times (once per coin, city or ticker). Endpoints of one seller with nearly the same description count as one service here; the kind of service is judged by TypeSafe Jev (a keyword guess until Jev has seen it).</p>
+
   <h2>Sellers</h2>
-  <table id="sellers"><thead><tr><th>Seller</th><th class="num">Endpoints</th><th class="num">Payable now</th></tr></thead><tbody></tbody></table>
+  <table id="sellers"><thead><tr><th>Seller</th><th class="num">Endpoints</th><th class="num">Services</th><th class="num">Payable</th></tr></thead><tbody></tbody></table>
 
   <h2>Endpoints</h2>
   <div class="filter">
@@ -133,6 +143,7 @@
       const mid = el('div');
       mid.append(el('div', 'u', r.url));
       if (r.description) mid.append(el('div', 'd', r.description));
+      if (r.category) mid.append(el('div', 'cat', `${(data.categories || []).find((c) => c.id === r.category)?.name || r.category}${r.same_service_endpoints > 1 ? ` · one of ${r.same_service_endpoints} near-identical endpoints of this seller` : ''}`));
       if (!r.payable) mid.append(el('div', 'why', r.problem || (r.verdict === 'no_go' ? 'Not payable today (see the full check).' : `Verdict: ${r.verdict}`)));
       const right = el('div', 'r');
       right.append(el('div', null, usd(r.price_usd)), strip(r.history));
@@ -148,9 +159,11 @@
     data = d;
     const v = $('stats').querySelectorAll('.v');
     v[0].textContent = fmt(d.endpoints); v[1].textContent = fmt(d.payable_now); v[2].textContent = fmt(d.sellers.length);
+    v[3].textContent = d.services == null ? '–' : fmt(d.services);
+    for (const c of d.categories || []) { const li = el('li'); li.append(el('b', null, fmt(c.services)), ` ${c.name}`); $('cats').append(li); }
     $('updated').textContent = `From the daily scan of ${d.days[d.days.length - 1]} (updated ${new Date(d.updated).toLocaleString()}). The 14 bars per endpoint are the last 14 scans, newest right. The USDC opt-in of the payout account is checked in every scan since 7 Oct 2026.`;
     const tb = $('sellers').tBodies[0];
-    for (const s of d.sellers.slice(0, 25)) { const tr = el('tr'); tr.append(el('td', null, s.host), el('td', 'num', fmt(s.endpoints)), el('td', 'num', fmt(s.payable))); tb.append(tr); }
+    for (const s of d.sellers.slice(0, 25)) { const tr = el('tr'); tr.append(el('td', null, s.host), el('td', 'num', fmt(s.endpoints)), el('td', 'num', s.services == null ? '' : fmt(s.services)), el('td', 'num', fmt(s.payable))); tb.append(tr); }
     render();
   }).catch((e) => { $('list').textContent = `Could not load the scan (${e.message}). Try again in a minute.`; });
   $('q').addEventListener('input', () => { shown = PAGE; render(); });

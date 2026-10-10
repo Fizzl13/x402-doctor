@@ -60,6 +60,14 @@ jobs:
         run: node scripts/trust-scan.js --out trust-data --limit "${{ github.event.inputs.limit || '0' }}"
         env:
           SOLANA_RPC_URL: ${{ secrets.SOLANA_RPC_URL }}
+      - name: Categories (TypeSafe Jev)
+        if: steps.today.outputs.skip != 'true'
+        run: |
+          { git fetch --depth 1 origin trust-data 2>/dev/null && git show FETCH_HEAD:categories.json > prev-categories.json 2>/dev/null; } || echo "{}" > prev-categories.json
+          node scripts/categorize.js --index trust-data/index.json --previous prev-categories.json --out trust-data/categories.json --max 1500
+          [ -f trust-data/categories.json ] || cp prev-categories.json trust-data/categories.json
+        env:
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
       - name: Publish to the trust-data branch
         if: steps.today.outputs.skip != 'true'
         run: |
@@ -69,10 +77,11 @@ jobs:
 
           Written daily by `.github/workflows/trust-scan.yml` on `master`. `index.json`: 30-day history per
           resource (`days[]`, and per resource `h` with one letter per day: g go, c caution, n no-go,
-          x unreachable, - not scanned). `summary.json`: totals of the latest scan. See https://x402-doctor.fizzl.eu/trust
+          x unreachable, - not scanned). `summary.json`: totals of the latest scan. `categories.json`: the kind of
+          service per description (TypeSafe Jev, keyed by lib/services.js descKey). See https://x402-doctor.fizzl.eu/trust
           MD
           git init -q -b trust-data
-          git add index.json summary.json README.md
+          git add index.json summary.json categories.json README.md
           git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -qm "Trust index $(date -u +%F)"
           git push -qf "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" trust-data
         env:
