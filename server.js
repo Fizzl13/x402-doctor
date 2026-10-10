@@ -30,6 +30,7 @@ const { createStatus } = require('./lib/status');
 const { renderBadge, badgeFor } = require('./lib/badge');
 const { addMppOffers } = require('./lib/mpp-pay');
 const { createOutreachHook } = require('./lib/outreach-hook');
+const { createPageMeta, trustDescription } = require('./lib/page-meta');
 const { createTriage } = require('./lib/jev-triage');
 const { createDescribe } = require('./lib/jev-describe');
 const { createPriceCheck } = require('./lib/jev-price');
@@ -377,7 +378,11 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     }
     res.set('Cache-Control', 'public, max-age=3600, s-maxage=3600').set('Access-Control-Allow-Origin', '*').type('image/svg+xml').send(renderBadge(face));
   });
-  app.get('/trust', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'trust.html')));
+  // The pages, with link previews for X, LinkedIn and chat apps (lib/page-meta.js); /trust shows today's numbers.
+  const pageMeta = createPageMeta();
+  const page = (file, pagePath, description) => (_req, res) => res.type('html').send(pageMeta.render(path.join(__dirname, 'public', file), { path: pagePath, description: typeof description === 'function' ? description() : description }));
+  const liveTrust = () => { try { return trustDescription(trustIndex.summary()); } catch { return null; } };
+  app.get('/trust', page('trust.html', '/trust', liveTrust));
   // Per-network view of the Trust Index (free): every scanned x402 endpoint that offers a network, payable today
   // or not and why. The /xrpl and /algorand pages read it.
   app.get('/api/trust/network', trustLimit, async (req, res) => {
@@ -387,13 +392,13 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     if (!view) return res.status(503).json({ error: 'trust index loading, try again shortly' });
     res.set('Cache-Control', 'public, max-age=600').set('Access-Control-Allow-Origin', '*').json(view);
   });
-  app.get('/xrpl', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'xrpl.html')));
-  app.get('/algorand', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'algorand.html')));
-  app.get('/settlement', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'settlement.html')));
+  app.get('/xrpl', page('xrpl.html', '/xrpl'));
+  app.get('/algorand', page('algorand.html', '/algorand'));
+  app.get('/settlement', page('settlement.html', '/settlement'));
   // Public status of the Fizzl services (lib/status.js); also the home page of status.fizzl.eu when that domain points here.
   const statusBoard = status || createStatus({ trustIndex });
-  app.get('/status', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'status.html')));
-  app.get('/sellers', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'sellers.html')));
+  app.get('/status', page('status.html', '/status'));
+  app.get('/sellers', page('sellers.html', '/sellers'));
   app.use('/api/status', fizzlCors);
   app.get('/api/status', async (_req, res) => {
     try {
