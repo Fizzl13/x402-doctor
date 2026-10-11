@@ -234,13 +234,15 @@
     return Object.entries(obj)
       .filter(([, v]) => v !== undefined && v !== null && v !== '')
       .map(([k, v]) => {
-        const text = typeof v === 'object' ? JSON.stringify(v) : String(v);
+        const text = k === 'network' ? netName(v) : typeof v === 'object' ? JSON.stringify(v) : String(v);
         return ['url', 'pair', 'address', 'tool', 'type', 'verdict', 'overall', 'signal'].includes(k) ? text : `${k}: ${text}`;
       })
       .map(shortAddr)
       .join(' · ');
   }
 
+  // Algorand transaction types as logged by presign-guard (input.txType, since 11 Oct 2026).
+  const ALGORAND_TX = { pay: 'payment', axfer: 'asset transfer', appl: 'app call', acfg: 'asset config', afrz: 'asset freeze', keyreg: 'key registration' };
   // The thing asked about, for "What people asked".
   function topic(e) {
     const i = e.input || {};
@@ -251,6 +253,10 @@
     if (i.primaryType) return i.primaryType;
     if (i.type === 'xrpl') return `XRPL ${i.txType || 'transaction'}${i.network === 'xrpl:1' ? ' (testnet)' : ''}`;
     if (i.type === 'solana') return 'Solana transaction';
+    if (i.type === 'algorand') {
+      const kinds = i.txType ? i.txType.split(',').map((t) => ALGORAND_TX[t] || t).join(' + ') : 'transaction';
+      return `Algorand ${kinds}${i.txCount > 1 ? ` (group of ${i.txCount})` : ''}${netName(i.network || '') === 'Algorand testnet' ? ' (testnet)' : ''}`;
+    }
     if (i.type) return i.type;
     if (i.data) return 'pasted payload';
     return e.route || 'call';
@@ -456,6 +462,7 @@
     if (i.network) out.add(netName(i.network));
     if (i.type === 'xrpl' && !i.network) out.add('XRP Ledger'); // xrpl:0 is the default ledger; logged since 11 Oct 2026
     if (i.type === 'solana') out.add('Solana');
+    if (i.type === 'algorand' && !i.network) out.add('Algorand');
     if (r.networks) for (const n of String(r.networks).split(',')) if (n.trim()) out.add(netName(n));
     return [...out];
   }
@@ -475,7 +482,7 @@
       tip: [['Checks about it', r.checks.toLocaleString(), NET_KEYS[0].color], ['Paid on it', `${r.paid} (${usd(r.usd)})`, NET_KEYS[1].color], ['Refused on it', r.refused.toLocaleString(), NET_KEYS[2].color], ['Visitors', r.visitors.size.toLocaleString()]],
     })), NET_KEYS, { note: (r) => (r.usd ? usd(r.usd) : '') });
     table('netTable', ['Network', 'Checks', 'Paid', 'Revenue', 'Refused', 'Visitors'], rows.map(([n, r]) => [n, r.checks, r.paid, usd(r.usd), r.refused, r.visitors.size]));
-    $('networksNote').textContent = 'Per network: checks that ask about it (presign-guard and PlainText chain, a presign-guard check of a Solana or XRPL transaction, the networks of an endpoint Doctor checked) and payments made or refused on it. A 402 without a payment has no network yet: the caller has not chosen one. Refused payments and Doctor\'s checked networks are logged since 7 Oct 2026. Service chips and "hide monitors" apply.';
+    $('networksNote').textContent = 'Per network: checks that ask about it (presign-guard and PlainText chain, a presign-guard check of a Solana, XRPL or Algorand transaction, the networks of an endpoint Doctor checked) and payments made or refused on it. A 402 without a payment has no network yet: the caller has not chosen one. Refused payments and Doctor\'s checked networks are logged since 7 Oct 2026. Service chips and "hide monitors" apply.';
   }
 
   // ---- Agent Wallet sign-ins (events/wallet: route signup / signin, input.chain = the way in) ----
