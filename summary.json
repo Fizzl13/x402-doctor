@@ -1,0 +1,53 @@
+{
+  "date": "2026-10-11",
+  "resources": 46830,
+  "today": {
+    "g": 31982,
+    "c": 1024,
+    "n": 1098,
+    "x": 1
+  },
+  "top_reasons": [
+    [
+      "no_402",
+      1089
+    ],
+    [
+      "resource_mismatch",
+      704
+    ],
+    [
+      "testnet_only",
+      204
+    ],
+    [
+      "mpp_realm_mismatch",
+      102
+    ],
+    [
+      "mpp_no_expires",
+      10
+    ],
+    [
+      "price_above_advertised",
+      9
+    ],
+    [
+      "suspicious_amount",
+      7
+    ],
+    [
+      "invalid_challenge",
+      5
+    ],
+    [
+      "no_payable_option",
+      3
+    ],
+    [
+      "unreachable",
+      1
+    ]
+  ],
+  "scan_seconds": 2970
+}
