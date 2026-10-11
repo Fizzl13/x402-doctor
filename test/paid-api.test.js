@@ -430,6 +430,14 @@ test('preflight batch: $0.005 for up to 10 endpoints; input checked before payme
     assert.equal(res.headers.get('payment-required'), null, bad);
   }
 
+  // The list sent as one value, a JSON array (as in the MCP example) or comma-separated, is read as several urls.
+  for (const one of [JSON.stringify([targetUrl, `${targetUrl}/other`]), `${targetUrl}, ${targetUrl}/other`]) {
+    const res = await fetch(`${api}/api/v1/preflight/batch?url=${encodeURIComponent(one)}`);
+    assert.equal(res.status, 402, one);
+  }
+  assert.equal((await fetch(`${api}/api/v1/preflight/batch?url=${encodeURIComponent(JSON.stringify([targetUrl, 'not-a-url']))}`)).status, 400);
+  assert.equal((await fetch(`${api}/api/v1/preflight/batch?url=${encodeURIComponent(JSON.stringify(eleven))}`)).status, 400, 'still at most 10');
+
   // The same url twice counts once; the unreachable one is "no_go" (no 402), not an error for the rest.
   const res = await payingFetch()(q([targetUrl, targetUrl, 'http://127.0.0.1:1/paid'], '&max_usd=0.05'));
   const out = await res.json();
