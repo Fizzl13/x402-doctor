@@ -863,3 +863,38 @@ test('merchant: the x402-merchant extension is checked, and its absence noted on
   assert.equal(bad[0].status, 'warn', 'a malformed one is a warning on any network');
   assert.match(bad[0].message, /info\.name is missing; info\.website is not an https URL; info\.logo is not an https URL; info\.categories is not a list of strings/);
 });
+
+test('Bazaar example without a route template: replayed on the listed URL with its query and body; no input declared gets a hint', async () => {
+  const { checkBazaar } = require('../lib/diagnose');
+  const plain = declareDiscoveryExtension({ method: 'GET', input: { symbol: 'BTC' }, inputSchema: { properties: { symbol: { type: 'string' } }, required: ['symbol'] } }).bazaar;
+  const seen = [];
+  const fetchStub = (status) => async (url, init = {}) => { seen.push({ url, method: init.method, body: init.body }); return new Response(null, { status }); };
+  const run = async (bz, status, url = 'https://api.example.com/v1/price') => {
+    const checks = [];
+    await checkBazaar({ extensions: { bazaar: bz } }, new URL(url).origin, fetchStub(status), checks, url);
+    return Object.fromEntries(checks.map((c) => [c.id, c]));
+  };
+
+  const ok = await run(plain, 402);
+  assert.equal(ok['bazaar-replay'].status, 'pass');
+  assert.match(ok['bazaar-replay'].message, /GET \/v1\/price\?symbol=BTC\) answers 402/);
+  assert.equal(seen.at(-1).url, 'https://api.example.com/v1/price?symbol=BTC');
+  assert.equal(ok['bazaar-input'], undefined, 'input declared: no hint');
+
+  const bad = await run(plain, 400);
+  assert.equal(bad['bazaar-replay'].status, 'warn');
+  assert.match(bad['bazaar-replay'].message, /HTTP 400, not 402/);
+
+  const post = declareDiscoveryExtension({ method: 'POST', bodyType: 'json', input: { code: '1+1' }, inputSchema: { properties: { code: { type: 'string' } } } }).bazaar;
+  await run(post, 402, 'https://api.example.com/v1/run');
+  assert.equal(seen.at(-1).method, 'POST');
+  assert.deepEqual(JSON.parse(seen.at(-1).body), post.info.input.body);
+
+  const none = declareDiscoveryExtension({ method: 'GET', output: { example: { price: 1 } } }).bazaar;
+  const before = seen.length;
+  const hint = await run(none, 402);
+  assert.equal(hint['bazaar-input'].status, 'info');
+  assert.match(hint['bazaar-input'].hint, /before you settle/);
+  assert.equal(hint['bazaar-replay'], undefined, 'nothing to replay');
+  assert.equal(seen.length, before, 'no request sent without an example');
+});
