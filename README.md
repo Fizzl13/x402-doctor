@@ -173,8 +173,11 @@ their endpoint delivers, and for buyers before a large order.
   taken), and nothing is charged.
 - **The answer comes at once, the purchase shortly after**: the paid call answers with a job `id` and a `status_url`.
   [`delivery-check.yml`](.github/workflows/delivery-check.yml) takes the queue (`GET /api/v1/delivery-check/queue`,
-  free) every 10 minutes and buys with the dedicated spot-buy wallet (`SPOT_BUY_KEY`; no wallet key on the server).
-  Only a job whose payment settled is released to the queue.
+  free) and buys with the dedicated spot-buy wallet (`SPOT_BUY_KEY`; no wallet key on the server). Only a job whose
+  payment settled is released to the queue. The server starts the workflow as soon as a payment settles
+  (`DELIVERY_DISPATCH_TOKEN`: a fine-grained GitHub token for this repository with only Actions read and write;
+  `lib/delivery-dispatch.js`); its schedule, every 10 minutes, is the fallback, since GitHub runs scheduled
+  workflows late or not at all.
 - **The same steps as the spot-buy** (`lib/spot-buy.js`): a fresh preflight with the OFAC payout screen right before
   paying, the seller's declared example input, the answer checked against the declared output schema, and the charge
   measured on chain.
