@@ -94,3 +94,22 @@ test('weekly stats: MPP endpoints that need input are not judged, but counted ap
   assert.equal(s.not_judged_needs_input, 1);
   assert.match(weeklyReport(withInput).markdown, /Not counted: \*\*1\*\* MPP endpoints that check their input/);
 });
+
+test('weekly report: the spot-buy of the window (or the Sunday before it) is added; older, dry or missing runs are not', () => {
+  const run = (date, extra = {}) => ({ date, summary: { live: true, bought: 29, paid_and_delivered_pct: 82.8, outcomes: { delivered: 23, off_schema: 1, error_not_charged: 4, payment_rejected: 1 }, charged_without_answer: { count: 0, usd: 0 }, ...extra } });
+  const { stats, markdown, posts } = weeklyReport(index, { spot: run('2026-09-28') });
+  assert.deepEqual(stats.spot, { date: '2026-09-28', bought: 29, delivered: 24, pct: 82.8, lost: 0, lost_usd: 0, errors: 5 });
+  assert.match(markdown, /## Paid and delivered \(spot-buy\)/);
+  assert.match(markdown, /\*\*82\.8%\*\* paid and delivered \(24 of 29\)/);
+  assert.match(markdown, /\*\*0\*\* took the money without an answer\./);
+  assert.match(posts.x, /We also bought 29 at random: 82\.8% paid and delivered\./);
+  assert.ok(posts.x_length <= 280, `X post is ${posts.x_length} characters`);
+  assert.match(posts.discord, /Spot-buy: we bought 29 payable endpoints at random; 82\.8% paid and delivered/);
+  assert.match(posts.reddit, /Paid and delivered \(spot-buy\)/);
+  assert.equal(weeklyReport(index, { spot: run('2026-09-22') }).stats.spot.date, '2026-09-22', 'the day before the window (the Sunday run before a Monday report) counts');
+  assert.equal(weeklyReport(index, { spot: run('2026-09-21') }).stats.spot, undefined, 'older than the window');
+  assert.equal(weeklyReport(index, { spot: run('2026-09-28', { live: false }) }).stats.spot, undefined, 'dry run');
+  assert.equal(weeklyReport(index).stats.spot, undefined);
+  const lost = weeklyReport(index, { spot: run('2026-09-28', { charged_without_answer: { count: 2, usd: 0.006 } }) });
+  assert.match(lost.markdown, /\*\*2\*\* took the money without an answer \(\$0\.006 in total\)/);
+});
