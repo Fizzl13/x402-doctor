@@ -8,6 +8,7 @@ const express = require('express');
 const { createDelivery, deliveryError, memoryStore, CAP_USD, DAILY_MAX, DELIVERY_EXAMPLE } = require('../lib/delivery-checks');
 const { jobsToRun, candidateOf, recordOf } = require('../lib/delivery-runner');
 const { createDeliveryResults } = require('../lib/delivery-results');
+const { createDispatcher } = require('../lib/delivery-dispatch');
 
 const BASE = 'eip155:8453';
 const go = (usd = 0.02, network = BASE) => async () => ({ verdict: 'go', summary: `OK to pay: $${usd}`, recommended_option: 0, options: [{ network, usd }], reasons: [] });
@@ -38,9 +39,9 @@ test('before payment: one public https endpoint of someone else, a "go" on Base 
 
 // A small app with the routes, a stand-in for the x402 middleware (it sets PAYMENT-RESPONSE when told to) and fake
 // results from the delivery-data branch.
-async function app({ store, settle = true, done = {} }) {
+async function app({ store, settle = true, done = {}, onSettled = null }) {
   const results = { ids: async () => new Set(Object.keys(done)), forId: async (id) => done[id] || null };
-  const d = createDelivery({ express, store, results, runPreflight: go(), publicUrl: 'https://doctor.test' });
+  const d = createDelivery({ express, store, results, runPreflight: go(), publicUrl: 'https://doctor.test', onSettled });
   const a = express();
   a.use(d.free);
   a.get('/api/v1/delivery-check', d.validate, (req, res, next) => {
@@ -54,7 +55,8 @@ async function app({ store, settle = true, done = {} }) {
 
 test('a paid order queues the job; only a settled payment releases it to the queue; the status route follows it', async () => {
   const store = memoryStore();
-  const s = await app({ store });
+  const started = [];
+  const s = await app({ store, onSettled: (job) => started.push(job.id) });
   try {
     const order = await (await fetch(`${s.url}/api/v1/delivery-check?url=${encodeURIComponent('https://a.example/x')}`)).json();
     assert.match(order.id, /^[a-z0-9]{10}$/);
@@ -64,6 +66,7 @@ test('a paid order queues the job; only a settled payment releases it to the que
     const job = await store.get(order.id);
     assert.equal(job.settled, true);
     assert.equal(job.payment_tx, '0xabc');
+    assert.deepEqual(started, [order.id], 'the workflow is started once the job is settled');
     const queue = await (await fetch(`${s.url}/api/v1/delivery-check/queue`)).json();
     assert.equal(queue.cap_usd, CAP_USD);
     assert.deepEqual(queue.jobs.map((j) => j.id), [order.id]);
@@ -74,14 +77,44 @@ test('a paid order queues the job; only a settled payment releases it to the que
   } finally { s.close(); }
 
   const unsettled = memoryStore();
-  const u = await app({ store: unsettled, settle: false });
+  const u = await app({ store: unsettled, settle: false, onSettled: (job) => started.push(job.id) });
   try {
     const order = await (await fetch(`${u.url}/api/v1/delivery-check?url=${encodeURIComponent('https://a.example/x')}`)).json();
     await new Promise((r) => setTimeout(r, 50));
     assert.equal((await unsettled.get(order.id)).settled, false);
     assert.deepEqual((await (await fetch(`${u.url}/api/v1/delivery-check/queue`)).json()).jobs, [], 'not settled, not bought');
     assert.equal((await (await fetch(`${u.url}/api/v1/delivery-check/${order.id}`)).json()).status, 'awaiting_payment');
+    assert.equal(started.length, 1, 'no workflow start for a payment that did not settle');
   } finally { u.close(); }
+});
+
+test("the workflow start: GitHub's dispatch API with the token, at most one a minute, off without a token", async () => {
+  const calls = [];
+  let t = 1_000_000;
+  const fetchImpl = async (url, opts) => { calls.push({ url, opts }); return new Response(null, { status: 204 }); };
+  const errors = [];
+  const log = { error: (m) => errors.push(m) };
+  const d = createDispatcher({ token: 'tok', fetchImpl, now: () => t, minGapMs: 40, log });
+  assert.equal(d.enabled, true);
+  assert.equal(await d.dispatch(), true);
+  assert.equal(calls[0].url, 'https://api.github.com/repos/Fizzl13/x402-doctor/actions/workflows/delivery-check.yml/dispatches');
+  assert.equal(calls[0].opts.method, 'POST');
+  assert.equal(calls[0].opts.headers.authorization, 'Bearer tok');
+  assert.deepEqual(JSON.parse(calls[0].opts.body), { ref: 'master' });
+  // Two more orders within the minute share one later start.
+  t += 10;
+  const [a, b] = [d.dispatch(), d.dispatch()];
+  assert.equal(a, b);
+  assert.equal(calls.length, 1);
+  assert.equal(await a, true);
+  assert.equal(calls.length, 2);
+  // A refusal is logged, never thrown: the order still waits for the schedule.
+  const bad = createDispatcher({ token: 'tok', fetchImpl: async () => new Response('{}', { status: 403 }), log });
+  assert.equal(await bad.dispatch(), false);
+  assert.match(errors[0], /HTTP 403/);
+  const off = createDispatcher({ token: null, fetchImpl: async () => { throw new Error('should not be called'); } });
+  assert.equal(off.enabled, false);
+  assert.equal(await off.dispatch(), false);
 });
 
 test('a done job leaves the queue and shows its result', async () => {
