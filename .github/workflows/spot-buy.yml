@@ -1,0 +1,80 @@
+name: Spot-buy sample
+
+# Once a week: buy a small random sample of endpoints the Trust Index calls "go" and record whether "looks
+# payable" turned into "paid and delivered" (lib/spot-buy.js). Results are appended to the spot-data branch.
+#
+# Pays only with the secret SPOT_BUY_KEY: the private key of a dedicated wallet holding a few USDC on Base,
+# nothing else. Without that secret every run is a dry run that pays nothing and publishes nothing.
+# Repository variables (optional): SPOT_BUY_N (default 30, max 50), SPOT_BUY_MAX_USD (per call, default 0.05,
+# max 0.10), SPOT_BUY_BUDGET_USD (per run, default 2, max 5).
+on:
+  schedule:
+    - cron: "41 12 * * 0" # Sundays 12:41 UTC
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run: everything up to the payment, nothing paid or published"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: spot-buy
+  cancel-in-progress: false
+
+jobs:
+  buy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Latest Trust Index
+        run: |
+          mkdir -p trust-data
+          git fetch --depth 1 origin trust-data
+          git show FETCH_HEAD:index.json > trust-data/index.json
+      - name: Buy the sample
+        run: |
+          if [ -z "$SPOT_BUY_KEY" ]; then echo "No SPOT_BUY_KEY secret: dry run." >> "$GITHUB_STEP_SUMMARY"; fi
+          dry=""
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.dry_run }}" = "true" ]; then dry="--dry"; fi
+          node scripts/spot-buy.js --index trust-data/index.json --out spot-data $dry
+        env:
+          SPOT_BUY_KEY: ${{ secrets.SPOT_BUY_KEY }}
+          BASE_RPC_URL: ${{ secrets.BASE_RPC_URL }}
+          SPOT_BUY_N: ${{ vars.SPOT_BUY_N }}
+          SPOT_BUY_MAX_USD: ${{ vars.SPOT_BUY_MAX_USD }}
+          SPOT_BUY_BUDGET_USD: ${{ vars.SPOT_BUY_BUDGET_USD }}
+      - name: Publish to the spot-data branch
+        if: hashFiles('spot-data/latest.json') != ''
+        run: |
+          remote="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          mkdir pub && cd pub
+          if git ls-remote --exit-code --heads "$remote" spot-data >/dev/null; then
+            git clone -q --depth 20 --branch spot-data "$remote" .
+          else
+            git init -q -b spot-data && git remote add origin "$remote"
+          fi
+          mkdir -p results
+          cp ../spot-data/latest.json latest.json
+          for f in ../spot-data/20*.json; do cp "$f" results/; done
+          cat > README.md <<'MD'
+          # x402 spot-buy sample
+
+          Written weekly by `.github/workflows/spot-buy.yml` on `master` (see `lib/spot-buy.js`): a small random
+          sample of endpoints the x402 Trust Index calls "go" is bought with a dedicated wallet, and each result says
+          what happened after paying. `latest.json` is the newest run, `results/<date>.json` every run.
+          See https://x402-doctor.fizzl.eu/trust
+          MD
+          git add -A
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -qm "Spot-buy $(date -u +%F)"
+          git push -q origin spot-data
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

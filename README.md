@@ -249,6 +249,16 @@ one letter per day (`g` go, `c` caution, `n` no-go, `x` unreachable, `-` not sca
 
 - The pre-payment check adds `signals.track_record` and a `caution` (`unreliable_history`) when a seller was
   payable on fewer than half of at least 3 scanned days.
+- **Spot-buy sample: does "go" mean paid and delivered?** The scan only reads the 402 challenge. Once a week
+  [`spot-buy.yml`](.github/workflows/spot-buy.yml) buys a small random sample of "go" endpoints (`lib/spot-buy.js`):
+  x402 `exact` in USDC on Base only, one endpoint per host, never a fizzl.eu or test host, the seller's own declared
+  example as the request (when it reaches the paywall), a fresh preflight with the OFAC payout screen right before
+  paying, and hard caps (default 30 endpoints, $0.05 per call, $2 per run; at most 50, $0.10 and $5). Whether money
+  left the wallet is measured on chain (its USDC balance before and after), and the seller's `PAYMENT-RESPONSE` is
+  checked against the chain. Each result is `delivered`, `off_schema` (an answer that doesn't match the declared
+  output schema), `empty`, `charged_not_delivered`, `payment_rejected`, `error_not_charged` or `payment_failed`;
+  the run is appended to the `spot-data` branch (`latest.json`, `results/<date>.json`). It pays only with the secret
+  `SPOT_BUY_KEY`, a dedicated wallet holding a few USDC; without it every run is a dry run that pays nothing.
 - **Sanctions screen.** Every payout address (x402 `payTo`, MPP `recipient`) is matched against the OFAC SDN list's
   digital currency addresses, from [presign-guard's free open copy](https://presign-guard.fizzl.eu/v1/sanctions) of the
   US Treasury list (`lib/sanctions.js`, refreshed every 6 hours). A listed address makes the pre-payment check `no_go`

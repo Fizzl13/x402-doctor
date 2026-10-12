@@ -1,0 +1,141 @@
+// Spot-buy sample (lib/spot-buy.js): candidate selection, and a whole run against local sellers paid with the
+// real x402 client (payments signed offline with a throwaway key; the "chain" is a counter). No network.
+
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const http = require('node:http');
+const { generatePrivateKey, privateKeyToAccount } = require('viem/accounts');
+const { wrapFetchWithPayment, x402Client } = require('@x402/fetch');
+const { ExactEvmScheme } = require('@x402/evm/exact/client');
+const { createSafeFetch } = require('../lib/safe-fetch');
+const { createSanctions } = require('../lib/sanctions');
+const { selectCandidates, runSpotBuy, classify, isoWeek } = require('../lib/spot-buy');
+
+const BASE = 'eip155:8453';
+const USDC = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+const PAY_TO = '0x1111111111111111111111111111111111111111';
+const LISTED = '0x2222222222222222222222222222222222222222';
+
+test('selection: go x402 resources on Base under the cap, https, not ours or test hosts, one per host, seeded', () => {
+  const r = (h, price, networks = [BASE], extra = {}) => ({ h, last: { verdict: 'go', price_usd: price, networks }, ...extra });
+  const index = { days: ['2026-10-12'], resources: {
+    'https://a.example/x': r('ggg', 0.01),
+    'https://a.example/y': r('ggg', 0.01),
+    'https://b.example/x': r('ggc', 0.01), // caution today
+    'https://c.example/x': r('ggg', 0.2), // over the cap
+    'https://d.example/x': r('ggg', 0.01, ['solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp']), // not on Base
+    'https://e.example/x': r('ggg', 0.01, [BASE], { p: 'mpp' }), // MPP
+    'http://f.example/x': r('ggg', 0.01), // plain http
+    'https://presign-guard.fizzl.eu/v1/token': r('ggg', 0.01), // ours
+    'https://staging.g.example/x': r('ggg', 0.01), // test host
+    'https://h.example/x': r('ggg', 0), // free
+    'https://i.example/x': r('ggg', 0.05),
+  } };
+  const one = selectCandidates(index, { n: 10, capUsd: 0.05, seed: 'w1' });
+  assert.deepEqual(one.pool, { hosts: 2, resources: 3 });
+  assert.deepEqual(one.picks.map((p) => p.host).sort(), ['a.example', 'i.example']);
+  assert.deepEqual(selectCandidates(index, { n: 10, capUsd: 0.05, seed: 'w1' }).picks, one.picks, 'same seed, same sample');
+  assert.equal(selectCandidates(index, { n: 1, capUsd: 0.05, seed: 'w1' }).picks.length, 1);
+  assert.match(isoWeek(new Date('2026-10-12T00:00:00Z')), /^2026-W42$/);
+});
+
+test('classify: 2xx with content, schema, empty, 402 again, errors with and without a charge', () => {
+  const schema = { type: 'object', required: ['price'], properties: { price: { type: 'number' } } };
+  assert.equal(classify({ status: 200, body: '{"price":1}', outputSchema: schema, chargedUsd: 0.01 }), 'delivered');
+  assert.equal(classify({ status: 200, body: '{"nope":1}', outputSchema: schema, chargedUsd: 0.01 }), 'off_schema');
+  assert.equal(classify({ status: 200, body: 'plain text', outputSchema: null, chargedUsd: 0.01 }), 'delivered');
+  assert.equal(classify({ status: 204, body: '', outputSchema: null, chargedUsd: 0.01 }), 'empty');
+  assert.equal(classify({ status: 402, body: '', outputSchema: null, chargedUsd: 0 }), 'payment_rejected');
+  assert.equal(classify({ status: 500, body: 'boom', outputSchema: null, chargedUsd: 0.01 }), 'charged_not_delivered');
+  assert.equal(classify({ status: 500, body: 'boom', outputSchema: null, chargedUsd: 0 }), 'error_not_charged');
+});
+
+// Local sellers, one per behaviour after payment. The "chain": a balance the sellers take from when they settle.
+const chain = { balance: 1_000_000 };
+const servers = [];
+test.after(() => servers.forEach((s) => s.close()));
+function seller({ mode, payTo = PAY_TO, amount = '10000' }) {
+  return new Promise((resolve) => {
+    let origin;
+    const server = http.createServer((req, res) => {
+      const paid = req.headers['payment-signature'] || req.headers['x-payment'];
+      const challenge = {
+        x402Version: 2,
+        resource: { url: `${origin}${req.url}`, description: `test seller (${mode})`, mimeType: 'application/json' },
+        accepts: [{ scheme: 'exact', network: BASE, amount, asset: USDC, payTo, maxTimeoutSeconds: 60, extra: { name: 'USD Coin', version: '2' } }],
+        extensions: { bazaar: { info: { output: { example: { price: 1 } } }, schema: { properties: { output: { properties: { example: { type: 'object', required: ['price'], properties: { price: { type: 'number' } } } } } } } } },
+      };
+      const ask = () => { res.statusCode = 402; res.setHeader('content-type', 'application/json'); res.setHeader('PAYMENT-REQUIRED', Buffer.from(JSON.stringify(challenge)).toString('base64')); res.end(JSON.stringify(challenge)); };
+      if (req.url === '/openapi.json') { res.statusCode = 404; return res.end(); }
+      if (!paid) return ask();
+      const settle = () => {
+        chain.balance -= Number(amount);
+        res.setHeader('PAYMENT-RESPONSE', Buffer.from(JSON.stringify({ success: true, transaction: `0x${'ab'.repeat(32)}`, network: BASE, payer: '0x' })).toString('base64'));
+      };
+      if (mode === 'deliver') { settle(); res.setHeader('content-type', 'application/json'); return res.end('{"price":42}'); }
+      if (mode === 'off_schema') { settle(); return res.end('{"something":"else"}'); }
+      if (mode === 'empty') { settle(); res.statusCode = 200; return res.end(); }
+      if (mode === 'charge_500') { chain.balance -= Number(amount); res.statusCode = 500; return res.end('upstream error'); }
+      if (mode === 'error_500') { res.statusCode = 500; return res.end('upstream error'); }
+      if (mode === 'reject') return ask();
+    }).listen(0, '127.0.0.1', () => { origin = `http://127.0.0.1:${server.address().port}`; resolve({ url: `${origin}/paid`, host: `127.0.0.1:${server.address().port}`, price_usd: Number(amount) / 1e6 }); });
+    servers.push(server);
+  });
+}
+
+test('a run: each outcome after paying, a listed payout address and the budget stop it before paying', async () => {
+  const account = privateKeyToAccount(generatePrivateKey());
+  const client = new x402Client((_v, accepts) => accepts.find((a) => a.network === BASE)).setSpendControls({ maxAmountPerPayment: '$0.05' });
+  client.register(BASE, new ExactEvmScheme(account));
+  const payFetch = wrapFetchWithPayment(fetch, client);
+  const sanctions = createSanctions({ list: { published: '2026-10-09', addresses: [{ address: LISTED, entries: [{ name: 'TEST', programs: ['X'] }] }] } });
+  const modes = ['deliver', 'off_schema', 'empty', 'charge_500', 'error_500', 'reject'];
+  const candidates = [];
+  for (const mode of modes) candidates.push(await seller({ mode }));
+  candidates.push(await seller({ mode: 'deliver', payTo: LISTED }));
+  candidates.push(await seller({ mode: 'deliver' })); // the fifth charge fills the budget exactly
+  candidates.push(await seller({ mode: 'deliver' })); // a sixth would go over it
+  const settled = [];
+  const { results, summary } = await runSpotBuy(candidates, {
+    safeFetch: createSafeFetch({ allowPrivate: true }),
+    payFetch,
+    sanctions,
+    balance: async () => chain.balance,
+    settlement: async (header) => { settled.push(header); return { overall: 'pass', decoded: { transaction: `0x${'ab'.repeat(32)}` }, explorer: null }; },
+    capUsd: 0.05,
+    budgetUsd: 0.05, // five charges of $0.01
+    allowPrivate: true,
+    wait: async () => {},
+  });
+  assert.deepEqual(results.map((r) => r.result), ['delivered', 'off_schema', 'empty', 'charged_not_delivered', 'error_not_charged', 'payment_rejected', 'not_go_now', 'delivered', 'over_budget']);
+  assert.equal(results[0].charged_usd, 0.01);
+  assert.equal(results[0].proof.overall, 'pass');
+  assert.equal(results[3].charged_usd, 0.01);
+  assert.equal(results[4].charged_usd, 0);
+  assert.equal(results[6].preflight.codes[0], 'payto_sanctioned');
+  assert.equal(settled.length, 4, 'the PAYMENT-RESPONSE of each settling seller was checked');
+  assert.equal(summary.live, true);
+  assert.equal(summary.outcomes.delivered, 2);
+  assert.equal(summary.charged_without_answer.count, 1);
+  assert.equal(summary.spent_usd, 0.05);
+  assert.equal(chain.balance, 1_000_000 - 50_000);
+});
+
+test('a dry run pays nothing and says what it would buy', async () => {
+  const before = chain.balance;
+  const c = await seller({ mode: 'deliver' });
+  const { results, summary } = await runSpotBuy([c], { safeFetch: createSafeFetch({ allowPrivate: true }), sanctions: createSanctions({ list: { addresses: [{ address: LISTED, entries: [] }] } }), allowPrivate: true });
+  assert.equal(results[0].result, 'would_buy');
+  assert.equal(results[0].price_usd, 0.01);
+  assert.deepEqual(summary, { live: false, sampled: 1, skipped_before_paying: {}, would_buy: 1, spent_usd: 0.01 });
+  assert.equal(chain.balance, before);
+});
+
+test('an empty wallet stops the run before paying anyone', async () => {
+  const a = await seller({ mode: 'deliver' }), b = await seller({ mode: 'deliver' });
+  const account = privateKeyToAccount(generatePrivateKey());
+  const client = new x402Client((_v, accepts) => accepts.find((x) => x.network === BASE));
+  client.register(BASE, new ExactEvmScheme(account));
+  const { results } = await runSpotBuy([a, b], { safeFetch: createSafeFetch({ allowPrivate: true }), payFetch: wrapFetchWithPayment(fetch, client), sanctions: createSanctions({ list: { addresses: [{ address: LISTED, entries: [] }] } }), balance: async () => 5000, allowPrivate: true, wait: async () => {} });
+  assert.deepEqual(results.map((r) => r.result), ['wallet_empty']);
+});
