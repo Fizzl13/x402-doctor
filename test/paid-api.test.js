@@ -334,6 +334,8 @@ test('browsers get a wallet paywall (mainnet, Base first) instead of the bare 40
 test('health reports the facilitator: PayAI by default, CDP first when CDP keys are set', async () => {
   const health = await (await fetch(`${api}/api/health`)).json();
   assert.equal(health.paid.facilitator, 'payai');
+  assert.equal(health.paid.delivery.instant, false);
+  assert.deepEqual(health.paid.delivery.dispatch, { state: 'off' }, 'no token: orders wait for the schedule');
   const { createPaidApi } = require('../lib/paid-api');
   const withCdp = createPaidApi({ env: { AGENT_PAYOUT_WALLET: PAY_TO_BASE, CDP_API_KEY_ID: 'id', CDP_API_KEY_SECRET: 'c2VjcmV0', DOCTOR_WARM_BAZAAR_INDEX: '0' } });
   assert.equal(withCdp.paymentInfo.facilitator, 'cdp for base, payai for solana');
