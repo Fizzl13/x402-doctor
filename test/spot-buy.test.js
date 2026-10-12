@@ -9,7 +9,7 @@ const { wrapFetchWithPayment, x402Client } = require('@x402/fetch');
 const { ExactEvmScheme } = require('@x402/evm/exact/client');
 const { createSafeFetch } = require('../lib/safe-fetch');
 const { createSanctions } = require('../lib/sanctions');
-const { selectCandidates, runSpotBuy, classify, reasonOf, isoWeek } = require('../lib/spot-buy');
+const { selectCandidates, runSpotBuy, classify, reasonOf, exampleRequest, isoWeek } = require('../lib/spot-buy');
 
 const BASE = 'eip155:8453';
 const USDC = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
@@ -54,7 +54,7 @@ test('classify: 2xx with content, schema, empty, 402 again, errors with and with
 const chain = { balance: 1_000_000 };
 const servers = [];
 test.after(() => servers.forEach((s) => s.close()));
-function seller({ mode, payTo = PAY_TO, amount = '10000' }) {
+function seller({ mode, payTo = PAY_TO, amount = '10000', input = null }) {
   return new Promise((resolve) => {
     let origin;
     const server = http.createServer((req, res) => {
@@ -63,7 +63,7 @@ function seller({ mode, payTo = PAY_TO, amount = '10000' }) {
         x402Version: 2,
         resource: { url: `${origin}${req.url}`, description: `test seller (${mode})`, mimeType: 'application/json' },
         accepts: [{ scheme: 'exact', network: BASE, amount, asset: USDC, payTo, maxTimeoutSeconds: 60, extra: { name: 'USD Coin', version: '2' } }],
-        extensions: { bazaar: { info: { output: { example: { price: 1 } } }, schema: { properties: { output: { properties: { example: { type: 'object', required: ['price'], properties: { price: { type: 'number' } } } } } } } } },
+        extensions: { bazaar: { info: { ...(input ? { input } : {}), output: { example: { price: 1 } } }, schema: { properties: { output: { properties: { example: { type: 'object', required: ['price'], properties: { price: { type: 'number' } } } } } } } } },
       };
       const ask = () => { res.statusCode = 402; res.setHeader('content-type', 'application/json'); res.setHeader('PAYMENT-REQUIRED', Buffer.from(JSON.stringify(challenge)).toString('base64')); res.end(JSON.stringify(challenge)); };
       if (req.url === '/openapi.json') { res.statusCode = 404; return res.end(); }
@@ -78,6 +78,11 @@ function seller({ mode, payTo = PAY_TO, amount = '10000' }) {
       if (mode === 'charge_500') { chain.balance -= Number(amount); res.statusCode = 500; return res.end('upstream error'); }
       if (mode === 'error_500') { res.statusCode = 500; return res.end('upstream error'); }
       if (mode === 'reject') { challenge.error = 'invalid_exact_evm_payload_signature'; return ask(); }
+      if (mode === 'needs_symbol') {
+        // Validates after payment, without charging: only ?symbol= from its own example makes it deliver.
+        if (!new URL(req.url, origin).searchParams.get('symbol')) { res.statusCode = 400; return res.end('{"error":"symbol is required"}'); }
+        settle(); return res.end('{"price":1}');
+      }
     }).listen(0, '127.0.0.1', () => { origin = `http://127.0.0.1:${server.address().port}`; resolve({ url: `${origin}/paid`, host: `127.0.0.1:${server.address().port}`, price_usd: Number(amount) / 1e6 }); });
     servers.push(server);
   });
@@ -154,4 +159,23 @@ test('reasonOf: the 402 error, a JSON error field or object, else the start of t
   assert.equal(reasonOf(res(), '<html>\n  <h1>404\tNot Found</h1>\n</html>'), '<html> <h1>404 Not Found</h1> </html>');
   assert.equal(reasonOf(res(), ''), null);
   assert.equal(reasonOf(res(), 'x'.repeat(500)).length, 200);
+});
+
+test('the declared example input is sent even without a path template', async () => {
+  assert.deepEqual(exampleRequest('https://a.example/v1/price', { info: { input: { type: 'http', method: 'GET', queryParams: { symbol: 'BTC', depth: 5 } } } }), { url: 'https://a.example/v1/price?symbol=BTC&depth=5', method: 'GET' });
+  assert.deepEqual(exampleRequest('https://a.example/v1/run', { info: { input: { method: 'POST', body: { code: '1+1' } } } }), { url: 'https://a.example/v1/run', method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"code":"1+1"}' });
+  assert.equal(exampleRequest('https://a.example/x', { info: {} }), null);
+  const account = privateKeyToAccount(generatePrivateKey());
+  const client = new x402Client((_v, accepts) => accepts.find((x) => x.network === BASE));
+  client.register(BASE, new ExactEvmScheme(account));
+  const sanctions = createSanctions({ list: { addresses: [{ address: LISTED, entries: [] }] } });
+  const run = async (input) => (await runSpotBuy([await seller({ mode: 'needs_symbol', input })], { safeFetch: createSafeFetch({ allowPrivate: true }), payFetch: wrapFetchWithPayment(fetch, client), sanctions, balance: async () => chain.balance, allowPrivate: true, wait: async () => {} })).results[0];
+  const withExample = await run({ type: 'http', method: 'GET', queryParams: { symbol: 'BTC' } });
+  assert.equal(withExample.result, 'delivered');
+  assert.equal(withExample.request.source, 'example');
+  assert.match(withExample.request.url, /\?symbol=BTC$/);
+  const without = await run(null);
+  assert.equal(without.result, 'error_not_charged');
+  assert.equal(without.request.source, 'plain');
+  assert.equal(without.reason, 'symbol is required');
 });
