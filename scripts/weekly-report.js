@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // Weekly x402 health report (run by .github/workflows/weekly-report.yml).
 //
-//   node scripts/weekly-report.js --out reports [--index trust-data/index.json]
+//   node scripts/weekly-report.js --out reports [--index trust-data/index.json] [--spot spot-data/latest.json]
 //
-// Reads the Trust Index (a local file, or the published trust-data branch)
+// Reads the Trust Index (a local file, or the published trust-data branch) and the latest spot-buy (optional)
 // and writes <out>/<date>.md (the report), <out>/<date>.json (the numbers)
 // and <out>/<date>-posts.md (X, Discord and Reddit drafts for a person to review and send).
 
@@ -12,6 +12,7 @@ const path = require('path');
 const { weeklyReport } = require('../lib/weekly-report');
 
 const INDEX_URL = 'https://raw.githubusercontent.com/Fizzl13/x402-doctor/trust-data/index.json';
+const SPOT_URL = 'https://raw.githubusercontent.com/Fizzl13/x402-doctor/spot-data/latest.json';
 
 function arg(name, fallback) {
   const i = process.argv.indexOf(`--${name}`);
@@ -25,10 +26,23 @@ async function loadIndex(source) {
   return res.json();
 }
 
+// The spot-buy section is optional: without the file the report is written without it.
+async function loadSpot(source) {
+  try {
+    if (source && !/^https?:/.test(source)) return JSON.parse(fs.readFileSync(source, 'utf8'));
+    const res = await fetch(source || SPOT_URL, { signal: AbortSignal.timeout(30000) });
+    return res.ok ? await res.json() : null;
+  } catch (err) {
+    console.log(`no spot-buy section (${err.message})`);
+    return null;
+  }
+}
+
 async function main() {
   const out = arg('out', 'reports');
   const index = await loadIndex(arg('index'));
-  const { stats, markdown, posts } = weeklyReport(index);
+  const spot = await loadSpot(arg('spot'));
+  const { stats, markdown, posts } = weeklyReport(index, { spot });
   const date = stats.window.to;
   fs.mkdirSync(out, { recursive: true });
   fs.writeFileSync(path.join(out, `${date}.md`), markdown);
