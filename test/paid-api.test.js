@@ -576,4 +576,9 @@ test('delivery check: the bare route gives the 402; without a job store an order
   const example = challenge.extensions.bazaar.info.input.queryParams.url;
   assert.doesNotMatch(new URL(example).hostname, /(^|\.)fizzl\.eu$/);
   assert.equal(challenge.extensions.bazaar.info.output.example.url, example);
+  // The homepage offers it after a check (the visitor pays with their own wallet) and follows the job by its id.
+  const home = await (await fetch(`${api}/`)).text();
+  assert.match(home, /id="deliveryCard"/);
+  assert.match(home, /\/api\/v1\/delivery-check\?\$\{q\}/);
+  assert.match(home, /\/api\/v1\/delivery-check\/\$\{id\}/);
 });

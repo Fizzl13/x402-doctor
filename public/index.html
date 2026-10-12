@@ -136,6 +136,13 @@
   .fix-note { font-size: 12.5px; color: var(--soft); margin-top: 10px; }
   .fix-status { font-size: 14px; margin-top: 10px; }
   .fix-status.error { color: var(--fail); }
+  .fix-status a { color: var(--mint); }
+  .delivery-result { margin-top: 12px; padding: 14px 16px; border-radius: 18px; border: 1px solid var(--line); background: var(--ink); font-size: 14px; overflow-wrap: anywhere; }
+  .delivery-result.pass { border-color: var(--pass); } .delivery-result.fail { border-color: var(--fail); }
+  .delivery-result b { display: block; margin-bottom: 4px; font-size: 15px; }
+  .delivery-result.warn { border-color: var(--warn); }
+  .delivery-result.pass b { color: var(--pass); } .delivery-result.warn b { color: var(--warn); } .delivery-result.fail b { color: var(--fail); }
+  .delivery-result a { color: var(--mint); }
   .fix { margin-top: 14px; padding: 16px; border-radius: 18px; border: 1px solid var(--line); background: var(--ink); }
   .fix h4 { margin: 0 0 6px; font-size: 15px; display: flex; gap: 8px; align-items: baseline; }
   .fix .why { font-size: 13.5px; color: var(--soft); margin: 0 0 8px; overflow-wrap: anywhere; }
@@ -168,6 +175,7 @@
     <a class="pill" href="#buyerTitle"><b>$0.001</b> preflight</a>
     <span class="pill"><b>$0.01</b> diagnosis</span>
     <span class="pill"><b>$0.05</b> fix code</span>
+    <span class="pill"><b>$0.25</b> delivery check</span>
     <a class="pill save" href="#credits" data-credits hidden><b>$0.80</b> for 1000 credits · 20% off</a>
     <a class="pill save" href="#credits" data-credits hidden><b>$7.00</b> for 10,000 · 30% off</a>
   </div>
@@ -204,6 +212,14 @@
     <div class="fix-status" id="fixStatus" aria-live="polite"></div>
     <div id="fixes"></div>
   </div>
+  <div class="fix-card" id="deliveryCard" hidden>
+    <h3>Does it really deliver? Have it bought once: $0.25</h3>
+    <p>A check reads the 402; only a purchase shows what you get for your money. x402 Doctor buys this endpoint once (at most $0.10, USDC on Base, with the example input its own listing declares), checks the answer against its declared output schema and measures the charge on chain. The result is public, usually within 30 minutes. For sellers who want proof, and buyers before a big order.</p>
+    <div class="fix-row"><button id="deliveryBtn" type="button">Order with MetaMask</button></div>
+    <p class="fix-note">You pay $0.25 in USDC on Base, signed in your own wallet, to our payout wallet; the endpoint itself is paid from a separate wallet of ours. If this endpoint can't be bought (not a "go", not on Base, over $0.10), you see why before anything is paid. Agents: <code>GET /api/v1/delivery-check?url=…</code></p>
+    <div class="fix-status" id="deliveryStatus" aria-live="polite"></div>
+    <div id="deliveryResult"></div>
+  </div>
   <div id="results"></div>
   <details id="challengeBox" hidden><summary>Decoded challenge</summary><pre id="challengeJson"></pre></details>
 
@@ -235,6 +251,12 @@
         <h3>Deep</h3>
         <p>Before an expensive call: the verdict plus the full diagnosis, 30 days of daily scans, the seller's other endpoints and domain moves.</p>
         <pre>GET /api/v1/preflight/deep?url=…</pre>
+      </div>
+      <div class="card">
+        <span class="price">$0.25</span>
+        <h3>Delivery check</h3>
+        <p>Not a reading but a purchase: we buy the endpoint once (at most $0.10) with its declared example input and publish whether it was paid and delivered, with the charge measured on chain.</p>
+        <pre>GET /api/v1/delivery-check?url=…</pre>
       </div>
       <div class="card" id="credits" data-credits hidden>
         <span class="price">$0.80 for 1000 · $7.00 for 10,000</span>
@@ -370,6 +392,8 @@ const GLUED = /^https?:\/\/[^/?#]*https?:/i;
 
 async function diagnose(url, method) {
   $('fixCard').hidden = true;
+  $('deliveryCard').hidden = true;
+  clearTimeout(deliveryTimer);
   $('errorBox').hidden = true;
   $('overallBox').hidden = true;
   $('watchLine').hidden = true;
@@ -421,6 +445,11 @@ async function diagnose(url, method) {
     $('fixCard').hidden = problems === 0;
     $('fixes').replaceChildren();
     $('fixStatus').textContent = '';
+    // A purchase only makes sense for an endpoint that can be paid: not failing, someone else's, with a Base option.
+    const onBase = (data.challenge?.accepts || []).some((a) => a?.network === BASE);
+    $('deliveryCard').hidden = !(data.overall !== 'fail' && onBase && /^https:/i.test(url) && !OWN_HOST.test(new URL(url).hostname));
+    $('deliveryStatus').textContent = '';
+    $('deliveryResult').replaceChildren();
     $('fixIntro').textContent = `${problems} problem${problems === 1 ? '' : 's'} found. Get the code that fixes ${problems === 1 ? 'it' : 'them'}, for your stack, filled in with your own payTo, amount, network and route.`;
     if (data.challenge) {
       $('challengeJson').textContent = JSON.stringify(data.challenge, null, 2);
@@ -490,44 +519,52 @@ function renderFixes(out) {
   for (const u of out.unfixed || []) box.append(el('p', 'fix-note', `No recipe yet for ${u.id}: ${u.hint || u.message}`));
 }
 
+// Pays one x402 call with the visitor's own wallet (MetaMask, USDC on Base) and returns the paid answer. A refusal
+// before the 402 (the route checks first) is thrown with the server's reason: nothing was paid then.
+async function payWithWallet(url, { say, what, payToEl = null }) {
+  if (!window.ethereum) throw new Error(`No browser wallet found. Install MetaMask and reload, or call GET ${url.split('?')[0]} from your agent.`);
+  say('Reading the price…');
+  const probe = await fetch(url);
+  const challenge = await probe.json().catch(() => ({}));
+  if (probe.status !== 402) throw Object.assign(new Error(challenge.error ? `${challenge.error}.` : `Unexpected HTTP ${probe.status}`), { before: true });
+  const need = (challenge.accepts || []).find((a) => a.network === BASE);
+  if (!need) throw Object.assign(new Error(`The ${what} is not offered on Base right now.`), { before: true });
+  const price = usd(need.amount);
+  if (payToEl) payToEl.textContent = `${need.payTo.slice(0, 6)}…${need.payTo.slice(-4)}`;
+
+  say('Connecting your wallet…');
+  const [{ createWalletClient, custom }, { base }, { wrapFetchWithPayment, x402Client }, { ExactEvmScheme }] = await Promise.all([
+    import('https://esm.sh/viem@2.31.7'),
+    import('https://esm.sh/viem@2.31.7/chains'),
+    import('https://esm.sh/@x402/fetch@2.26.0'),
+    import('https://esm.sh/@x402/evm@2.26.0'),
+  ]);
+  const [account] = await window.ethereum.request({ method: 'eth_requestAccounts' });
+  if (!account) throw new Error('No wallet account selected.');
+  await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: '0x2105' }] });
+  const data = '0x70a08231' + account.toLowerCase().slice(2).padStart(64, '0');
+  const balance = BigInt(await window.ethereum.request({ method: 'eth_call', params: [{ to: need.asset, data }, 'latest'] }));
+  if (balance < BigInt(need.amount)) throw new Error(`The ${what} costs ${price} in USDC on Base, and this wallet has ${usd(balance)}. Nothing was paid.`);
+
+  const wallet = createWalletClient({ account, chain: base, transport: custom(window.ethereum) });
+  const client = new x402Client((_v, accepts) => accepts.find((a) => a.network === BASE));
+  client.register(BASE, new ExactEvmScheme({ address: account, signTypedData: (td) => wallet.signTypedData(td) }));
+  say(`Sign the ${price} payment in your wallet…`);
+  const res = await wrapFetchWithPayment(fetch, client)(url);
+  const out = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(out.error || `HTTP ${res.status}`);
+  return { out, price };
+}
+
 async function buyFix() {
   if (!lastDiagnosis) return;
-  if (!window.ethereum) return fixStatus('No browser wallet found. Install MetaMask and reload, or call GET /api/v1/fix from your agent.', true);
   $('fixBtn').disabled = true;
   let price = '$0.05';
   try {
-    fixStatus('Reading the price…');
-    const probe = await fetch(fixUrl());
-    const challenge = await probe.json().catch(() => ({}));
-    if (probe.status !== 402) throw new Error(challenge.error || `Unexpected HTTP ${probe.status}`);
-    const need = (challenge.accepts || []).find((a) => a.network === BASE);
-    if (!need) throw new Error('The fix is not offered on Base right now.');
-    price = usd(need.amount);
-    $('fixPayTo').textContent = `${need.payTo.slice(0, 6)}…${need.payTo.slice(-4)}`;
-
-    fixStatus('Connecting your wallet…');
-    const [{ createWalletClient, custom }, { base }, { wrapFetchWithPayment, x402Client }, { ExactEvmScheme }] = await Promise.all([
-      import('https://esm.sh/viem@2.31.7'),
-      import('https://esm.sh/viem@2.31.7/chains'),
-      import('https://esm.sh/@x402/fetch@2.26.0'),
-      import('https://esm.sh/@x402/evm@2.26.0'),
-    ]);
-    const [account] = await window.ethereum.request({ method: 'eth_requestAccounts' });
-    if (!account) throw new Error('No wallet account selected.');
-    await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: '0x2105' }] });
-    const data = '0x70a08231' + account.toLowerCase().slice(2).padStart(64, '0');
-    const balance = BigInt(await window.ethereum.request({ method: 'eth_call', params: [{ to: need.asset, data }, 'latest'] }));
-    if (balance < BigInt(need.amount)) throw new Error(`The fix costs ${price} in USDC on Base, and this wallet has ${usd(balance)}. Nothing was paid.`);
-
-    const wallet = createWalletClient({ account, chain: base, transport: custom(window.ethereum) });
-    const client = new x402Client((_v, accepts) => accepts.find((a) => a.network === BASE));
-    client.register(BASE, new ExactEvmScheme({ address: account, signTypedData: (td) => wallet.signTypedData(td) }));
-    fixStatus(`Sign the ${price} payment in your wallet…`);
-    const res = await wrapFetchWithPayment(fetch, client)(fixUrl());
-    const out = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(out.error || `HTTP ${res.status}`);
+    const paid = await payWithWallet(fixUrl(), { say: fixStatus, what: 'fix', payToEl: $('fixPayTo') });
+    price = paid.price;
     fixStatus(`Paid ${price}. Your fix:`);
-    renderFixes(out);
+    renderFixes(paid.out);
   } catch (err) {
     fixStatus(paymentError(err, price), true);
   } finally {
@@ -535,6 +572,91 @@ async function buyFix() {
   }
 }
 $('fixBtn').addEventListener('click', buyFix);
+
+// ------------------------------------------------ the delivery check ($0.25, MetaMask on Base)
+
+const OWN_HOST = /(^|\.)fizzl\.eu$/i;
+const DELIVERY_ID = /^[a-z0-9]{10}$/;
+let deliveryTimer = null;
+
+function deliveryStatus(text, error = false) {
+  $('deliveryStatus').textContent = text;
+  $('deliveryStatus').className = error ? 'fix-status error' : 'fix-status';
+}
+
+// What the purchase showed, in words (the outcomes of lib/spot-buy.js, published by lib/delivery-runner.js recordOf).
+const OUTCOME_TITLES = {
+  delivered: 'Paid and delivered',
+  off_schema: 'Paid and delivered, but the answer does not match its declared output schema',
+  empty: 'Paid, but the answer was empty',
+  charged_not_delivered: 'Charged, but the answer was an error',
+  payment_rejected: 'Paid, but the seller asked for payment again',
+  error_not_charged: 'An error answer after paying; nothing was charged',
+  payment_failed: 'No payment could be made',
+  not_go_now: 'Not bought: no longer a "go" when it was time to buy',
+  over_cap: 'Not bought: it costs more than $0.10',
+};
+function renderDelivery(job) {
+  const r = job.result;
+  const tone = r.result === 'delivered' ? 'pass' : r.paid_and_delivered ? 'warn' : 'fail';
+  const box = el('div', `delivery-result ${tone}`);
+  box.append(el('b', null, OUTCOME_TITLES[r.result] || `Not bought: ${String(r.result || 'unknown').replace(/_/g, ' ')}`));
+  const lines = [
+    `Endpoint: ${job.url}`,
+    r.price_usd !== null && r.price_usd !== undefined ? `Asked: $${r.price_usd}` : null,
+    r.charged_usd !== null && r.charged_usd !== undefined ? `Charged, measured on chain: $${r.charged_usd}` : null,
+    r.status ? `Answer: HTTP ${r.status}${r.result === 'off_schema' ? ', not matching the declared output schema' : ''}` : null,
+    r.reason ? `Why: ${r.reason}` : null,
+  ].filter(Boolean);
+  for (const line of lines) box.append(el('div', null, line));
+  if (r.explorer) {
+    const a = el('a', null, 'The payment on Basescan');
+    a.href = r.explorer; a.rel = 'noopener'; a.target = '_blank';
+    box.append(a);
+  }
+  $('deliveryResult').replaceChildren(box);
+}
+
+// Follows a job until its result is published (the status route is free); the id stays in the page address, so
+// a reload or a shared link picks it up again.
+async function followDelivery(id, tries = 0) {
+  clearTimeout(deliveryTimer);
+  try {
+    const res = await fetch(`/api/v1/delivery-check/${id}`);
+    const job = await res.json();
+    if (!res.ok) return deliveryStatus(job.error || `HTTP ${res.status}`, true);
+    $('deliveryCard').hidden = false;
+    if (job.status === 'done') {
+      deliveryStatus(`Delivery check ${id}: done.`);
+      return renderDelivery(job);
+    }
+    const waiting = job.status === 'awaiting_payment' ? 'waiting for the payment to settle' : `queued since ${new Date(job.queued_at).toLocaleTimeString()}, ${job.eta || 'usually within 30 minutes'}`;
+    deliveryStatus(`Delivery check ${id}: ${waiting}. This page looks again every 30 seconds; you can also close it and come back to this address.`);
+  } catch (err) {
+    deliveryStatus(`Could not read the status (${err.message}); trying again.`, true);
+  }
+  if (tries < 180) deliveryTimer = setTimeout(() => followDelivery(id, tries + 1), 30000);
+}
+
+async function buyDelivery() {
+  if (!lastDiagnosis) return;
+  $('deliveryBtn').disabled = true;
+  try {
+    const q = new URLSearchParams({ url: lastDiagnosis.url });
+    if (lastDiagnosis.method) q.set('method', lastDiagnosis.method);
+    const { out, price } = await payWithWallet(`/api/v1/delivery-check?${q}`, { say: deliveryStatus, what: 'delivery check' });
+    deliveryStatus(`Paid ${price}. Delivery check ${out.id} is queued.`);
+    const here = new URL(location.href);
+    here.searchParams.set('delivery', out.id);
+    history.replaceState(null, '', here);
+    followDelivery(out.id);
+  } catch (err) {
+    deliveryStatus(err.before ? (/nothing was (charged|paid)/i.test(err.message) ? err.message : `${err.message} Nothing was paid.`) : paymentError(err, '$0.25'), true);
+  } finally {
+    $('deliveryBtn').disabled = false;
+  }
+}
+$('deliveryBtn').addEventListener('click', buyDelivery);
 
 $('form').addEventListener('submit', (e) => {
   e.preventDefault();
@@ -563,8 +685,10 @@ const params = new URLSearchParams(location.search);
 if (params.get('url')) {
   $('urlInput').value = params.get('url');
   if (['GET', 'POST'].includes(params.get('method'))) $('methodInput').value = params.get('method');
-  diagnose(params.get('url'), $('methodInput').value);
-}
+  diagnose(params.get('url'), $('methodInput').value).then(() => {
+    if (DELIVERY_ID.test(params.get('delivery') || '')) followDelivery(params.get('delivery'));
+  });
+} else if (DELIVERY_ID.test(params.get('delivery') || '')) followDelivery(params.get('delivery'));
 </script>
 </body>
 </html>
