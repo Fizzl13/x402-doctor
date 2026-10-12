@@ -9,7 +9,7 @@ const { wrapFetchWithPayment, x402Client } = require('@x402/fetch');
 const { ExactEvmScheme } = require('@x402/evm/exact/client');
 const { createSafeFetch } = require('../lib/safe-fetch');
 const { createSanctions } = require('../lib/sanctions');
-const { selectCandidates, runSpotBuy, classify, reasonOf, exampleRequest, isoWeek } = require('../lib/spot-buy');
+const { selectCandidates, runSpotBuy, classify, reasonOf, exampleRequest, isoWeek, ownTarget, INDEX_PAYMENT, USER_AGENT } = require('../lib/spot-buy');
 
 const BASE = 'eip155:8453';
 const USDC = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
@@ -202,4 +202,31 @@ test('a top-up during a purchase is not a negative charge: the settlement transf
   assert.equal(unknown.r.charged_usd, null);
   assert.match(unknown.r.balance_note, /unknown/);
   assert.equal(unknown.summary.spent_usd, 0.01, 'an unknown charge counts as the listed price against the budget');
+});
+
+test('an indexing payment goes only to one of our own routes', () => {
+  assert.deepEqual(ownTarget('https://presign-guard.fizzl.eu/v1/screen?address=TNiq9AXBp9EjUqhDhrwrfvAA8U3GUQZH81'), { url: 'https://presign-guard.fizzl.eu/v1/screen?address=TNiq9AXBp9EjUqhDhrwrfvAA8U3GUQZH81', host: 'presign-guard.fizzl.eu', method: null, price_usd: null });
+  assert.equal(ownTarget('https://FIZZL.EU/x').host, 'fizzl.eu');
+  for (const bad of ['http://presign-guard.fizzl.eu/v1/screen', 'https://fizzl.eu.example.com/x', 'https://notfizzl.eu/x', 'https://presign-guard.fizzl.eu:8443/x', 'https://u:p@presign-guard.fizzl.eu/x', 'https://a.example/x', 'not a url', '']) {
+    assert.equal(ownTarget(bad), null, bad);
+  }
+  assert.equal(INDEX_PAYMENT.capUsd, 0.01);
+});
+
+test('a run can name its own user agent; the default is the spot-buy one', async () => {
+  const account = privateKeyToAccount(generatePrivateKey());
+  const client = new x402Client((_v, accepts) => accepts.find((x) => x.network === BASE));
+  client.register(BASE, new ExactEvmScheme(account));
+  const pay = wrapFetchWithPayment(fetch, client);
+  const seen = [];
+  const payFetch = (url, init) => { seen.push(init.headers['user-agent']); return pay(url, init); };
+  const sanctions = createSanctions({ list: { addresses: [{ address: LISTED, entries: [] }] } });
+  const opts = { safeFetch: createSafeFetch({ allowPrivate: true }), payFetch, sanctions, balance: async () => chain.balance, allowPrivate: true, wait: async () => {} };
+  const own = await runSpotBuy([await seller({ mode: 'deliver' })], { ...opts, capUsd: INDEX_PAYMENT.capUsd, budgetUsd: INDEX_PAYMENT.capUsd, userAgent: INDEX_PAYMENT.userAgent });
+  assert.equal(own.results[0].result, 'delivered');
+  assert.equal(own.results[0].charged_usd, 0.01);
+  const over = await runSpotBuy([await seller({ mode: 'deliver', amount: '20000' })], { ...opts, capUsd: INDEX_PAYMENT.capUsd, budgetUsd: INDEX_PAYMENT.capUsd });
+  assert.equal(over.results[0].result, 'not_go_now', 'a $0.02 route is over the indexing cap: the preflight budget already says no');
+  await runSpotBuy([await seller({ mode: 'deliver' })], opts);
+  assert.deepEqual(seen, [INDEX_PAYMENT.userAgent, USER_AGENT]);
 });

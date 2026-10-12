@@ -12,7 +12,7 @@ const path = require('path');
 const { createSafeFetch } = require('../lib/safe-fetch');
 const { createSanctions } = require('../lib/sanctions');
 const { checkSettlement } = require('../lib/settlement');
-const { NETWORKS } = require('../lib/networks');
+const { createSpotWallet } = require('../lib/spot-wallet');
 const { selectCandidates, runSpotBuy, DEFAULTS, LIMITS, OUTCOMES, BASE } = require('../lib/spot-buy');
 
 function arg(name, fallback) {
@@ -20,14 +20,6 @@ function arg(name, fallback) {
   return i > 0 ? process.argv[i + 1] : fallback;
 }
 const num = (v, d) => (v === undefined || v === '' || !Number.isFinite(Number(v)) ? d : Number(v));
-
-async function usdcBalance(address, rpc) {
-  const data = `0x70a08231${address.slice(2).toLowerCase().padStart(64, '0')}`;
-  const res = await fetch(rpc, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_call', params: [{ to: NETWORKS[BASE].usdc, data }, 'latest'] }), signal: AbortSignal.timeout(15000) });
-  const j = await res.json();
-  if (!j.result) throw new Error(j.error?.message || 'no result');
-  return Number(BigInt(j.result));
-}
 
 async function main() {
   const indexPath = arg('index', 'trust-data/index.json');
@@ -38,7 +30,6 @@ async function main() {
   const seed = arg('seed', new Date().toISOString().slice(0, 10));
   const key = process.env.SPOT_BUY_KEY;
   const dry = process.argv.includes('--dry') || !key;
-  const rpc = process.env.BASE_RPC_URL || NETWORKS[BASE].rpc;
 
   const index = JSON.parse(fs.readFileSync(indexPath, 'utf8'));
   const { pool, picks } = selectCandidates(index, { n, capUsd, seed });
@@ -50,16 +41,7 @@ async function main() {
 
   let payFetch = null, address = null, balance = async () => null;
   if (!dry) {
-    const { wrapFetchWithPayment, x402Client } = require('@x402/fetch');
-    const { ExactEvmScheme } = require('@x402/evm/exact/client');
-    const { privateKeyToAccount } = require('viem/accounts');
-    const account = privateKeyToAccount(key.startsWith('0x') ? key : `0x${key}`);
-    address = account.address;
-    const client = new x402Client((_version, accepts) => accepts.find((a) => a.network === BASE && a.scheme === 'exact'))
-      .setSpendControls({ maxAmountPerPayment: `$${capUsd}` });
-    client.register(BASE, new ExactEvmScheme(account));
-    payFetch = wrapFetchWithPayment(fetch, client);
-    balance = () => usdcBalance(address, rpc);
+    ({ address, payFetch, balance } = createSpotWallet({ key, capUsd, rpc: process.env.BASE_RPC_URL || undefined }));
     const start = await balance();
     console.log(`wallet ${address}: ${(start / 1e6).toFixed(2)} USDC on Base`);
     if (start / 1e6 < capUsd) throw new Error(`wallet ${address} holds ${(start / 1e6).toFixed(2)} USDC on Base: fund it with a few USDC first`);

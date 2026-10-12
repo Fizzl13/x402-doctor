@@ -1,0 +1,48 @@
+name: Index payment
+
+# One payment to one of our own routes, so the CDP Bazaar lists it (scripts/index-payment.js). The Bazaar lists a route
+# only after a payment for it settles, and directories that read the Bazaar find the route only then.
+#
+# Started by hand. Pays at most $0.01 in USDC on Base, only to a fizzl.eu route, with the spot-buy wallet (the secret
+# SPOT_BUY_KEY), and publishes nothing: the spot-buy results stay a sample of other sellers.
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: "The fizzl.eu route to pay once (https)"
+        type: string
+        default: "https://presign-guard.fizzl.eu/v1/screen?address=TNiq9AXBp9EjUqhDhrwrfvAA8U3GUQZH81"
+      dry_run:
+        description: "Dry run: everything up to the payment, nothing paid"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+# The same wallet as the spot-buy: never both at once (the charge is measured from the wallet's balance).
+concurrency:
+  group: spot-buy
+  cancel-in-progress: false
+
+jobs:
+  pay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Pay once
+        run: |
+          dry=""
+          if [ "$DRY_RUN" = "true" ]; then dry="--dry"; fi
+          node scripts/index-payment.js --url "$TARGET_URL" $dry
+        env:
+          TARGET_URL: ${{ github.event.inputs.url }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+          SPOT_BUY_KEY: ${{ secrets.SPOT_BUY_KEY }}
+          BASE_RPC_URL: ${{ secrets.BASE_RPC_URL }}
