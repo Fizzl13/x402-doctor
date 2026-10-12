@@ -488,7 +488,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     }
   });
 
-  app.get('/api/health', (_req, res) => res.json({ ok: true, paid: paidApi.paymentInfo }));
+  app.get('/api/health', (_req, res) => res.json({ ok: true, paid: paidApi.paymentInfo, sanctions: paidApi.sanctions?.status() ?? null }));
   return app;
 }
 
