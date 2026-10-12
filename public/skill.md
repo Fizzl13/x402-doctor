@@ -33,6 +33,7 @@ The free tools work right away. The paid tools ask for an x402 payment inside th
 | `GET /api/v1/preflight/deep?url=<endpoint>&max_usd=0.5` | $0.01 | Preflight plus diagnosis, history and seller checks |
 | `GET /api/v1/diagnose?url=<endpoint>&method=GET` | $0.01 | The full diagnosis |
 | `GET /api/v1/fix?url=<endpoint>&method=GET` | $0.05 | The fixes, as code |
+| `GET /api/v1/delivery-check?url=<endpoint>` | $0.25 | One real purchase of the endpoint (at most $0.10, USDC on Base) with its declared example input; a job id now, the public result (paid and delivered?) usually within 30 minutes at `GET /api/v1/delivery-check/<id>` |
 
 Examples:
 

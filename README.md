@@ -162,6 +162,28 @@ plus
   `caution` (`unreliable_seller`);
 - `domain`: the domain-move checks (`well-known`, `bazaar-listing`), e.g. a Bazaar listing only under an old domain.
 
+### Paid and delivered? `GET /api/v1/delivery-check`
+
+`GET /api/v1/delivery-check?url=<endpoint>&method=GET|POST`, **$0.25 USDC per check**: x402 Doctor buys the endpoint
+once, with the example input its own listing declares, and publishes what came back. For sellers who want proof that
+their endpoint delivers, and for buyers before a large order.
+
+- **Checked before you pay**: the endpoint must be https, not a fizzl.eu route, get a `go` from the pre-payment check,
+  be payable in USDC on Base and cost at most $0.10. Anything else answers 400 (or 503 when the day's 20 checks are
+  taken), and nothing is charged.
+- **The answer comes at once, the purchase shortly after**: the paid call answers with a job `id` and a `status_url`.
+  [`delivery-check.yml`](.github/workflows/delivery-check.yml) takes the queue (`GET /api/v1/delivery-check/queue`,
+  free) every 10 minutes and buys with the dedicated spot-buy wallet (`SPOT_BUY_KEY`; no wallet key on the server).
+  Only a job whose payment settled is released to the queue.
+- **The same steps as the spot-buy** (`lib/spot-buy.js`): a fresh preflight with the OFAC payout screen right before
+  paying, the seller's declared example input, the answer checked against the declared output schema, and the charge
+  measured on chain.
+- **Public result**: `GET /api/v1/delivery-check/<id>` (free) shows `queued`, then `done` with the result
+  (`delivered`, `off_schema`, `empty`, `charged_not_delivered`, `payment_rejected`, `error_not_charged`, or the step
+  that stopped it before paying) and the transaction. Every result is on the `delivery-data` branch.
+
+Jobs are kept in the credits Redis (`CREDITS_REDIS_URL`); without it the route answers 503 before payment.
+
 ### Prepaid credits: `GET /api/v1/credits/1000`
 
 Agents that check often can prepay: one x402 payment of **$0.80 for 1000 credits** or **$7.00 for 10,000** (20% and 30% off), valid for a year. A credit is $0.001: a preflight costs 1, a batch 5, a deep preflight or a diagnosis 10, the fix 50. The pack answers with a `credit_key`; send it as the `x-credit-key` header with any paid call instead of paying. `GET /api/v1/credits` (free) shows the prices and, with the header, your balance. A call that fails gives its credits back; with no key or too few credits the normal 402 applies. Needs `CREDITS_REDIS_URL` (a persistent Redis such as Upstash; the presign-guard instance is fine, the keys are apart); without it, no packs are sold.
