@@ -227,6 +227,22 @@ test('http resource URL behind an https endpoint is flagged with the trust proxy
   assert.match(c.hint, /trust proxy/);
 });
 
+test('resource URL: a path template on either side is the same route; another host or path still differs', () => {
+  const status = (declared, requested) => {
+    const checks = [];
+    checkResource({ x402Version: 2, resource: { url: declared, description: 'x', mimeType: 'application/json' } }, requested, checks);
+    return checks.find((x) => x.id === 'resource-url').status;
+  };
+  assert.equal(status('https://api.example.com/v1/company/{siren}/invoice', 'https://api.example.com/v1/company/:siren/invoice'), 'pass');
+  assert.equal(status('https://api.example.com/v1/org/{address}', 'https://api.example.com/v1/org/PN76UT5PALEF'), 'pass');
+  assert.equal(status('https://api.example.com/v1/edge/nyc-high-temp', 'https://api.example.com/v1/edge/:slug'), 'pass');
+  assert.equal(status('https://api.example.com/v1/item/[id]', 'https://api.example.com/v1/item/42'), 'pass');
+  assert.equal(status('https://api.example.com/paid/test', 'https://example.com/paid/test'), 'warn', 'another host');
+  assert.equal(status('https://api.example.com/chapters/unlock', 'https://api.example.com/chapters/6a7e/unlock'), 'warn', 'a segment left out');
+  assert.equal(status('https://api.example.com/x/should-pay/:address', 'https://api.example.com/x/solana/should-pay/:address'), 'warn', 'another path');
+  assert.equal(status('https://api.example.com/v1/a', 'https://api.example.com/v1/b'), 'warn');
+});
+
 test('multi-chain options: XRPL and Arbitrum are judged by their own rules, unknown chains are not failed', () => {
   const checks = [];
   checkAccepts([
