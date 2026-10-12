@@ -1,0 +1,28 @@
+{
+  "results": {
+    "j2e36gr1rf": {
+      "id": "j2e36gr1rf",
+      "url": "https://rest.coincap.io/v3/agentFriendly/full_assets_by_slug",
+      "queued_at": "2026-10-12T21:23:54.937Z",
+      "date": "2026-10-12T21:24:57.497Z",
+      "result": "delivered",
+      "step": "paid",
+      "paid_and_delivered": true,
+      "status": 200,
+      "price_usd": 0.002,
+      "charged_usd": 0.002,
+      "request": {
+        "method": "GET",
+        "source": "example"
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "transaction": "0x381ee9ef58da8a99f1bc276273a47d10d20a6ee1bfef1274af10433e6188d68a",
+      "explorer": "https://basescan.org/tx/0x381ee9ef58da8a99f1bc276273a47d10d20a6ee1bfef1274af10433e6188d68a",
+      "cap_usd": 0.1
+    }
+  },
+  "updated": "2026-10-12T21:24:57.497Z"
+}
