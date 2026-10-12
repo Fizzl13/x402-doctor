@@ -1,7 +1,7 @@
 {
   "date": "2026-10-12",
-  "started_at": "2026-10-12T09:21:29.551Z",
-  "finished_at": "2026-10-12T09:25:10.251Z",
+  "started_at": "2026-10-12T09:38:05.789Z",
+  "finished_at": "2026-10-12T09:41:50.611Z",
   "seed": "2026-10-12",
   "index_date": "2026-10-12",
   "rules": {
@@ -25,27 +25,29 @@
   "summary": {
     "live": true,
     "sampled": 30,
-    "skipped_before_paying": {},
-    "bought": 30,
+    "skipped_before_paying": {
+      "not_402_now": 1
+    },
+    "bought": 29,
     "outcomes": {
-      "delivered": 13,
-      "off_schema": 2,
+      "delivered": 23,
+      "off_schema": 1,
       "empty": 0,
-      "charged_not_delivered": 3,
-      "payment_rejected": 0,
-      "error_not_charged": 12,
+      "charged_not_delivered": 0,
+      "payment_rejected": 1,
+      "error_not_charged": 4,
       "payment_failed": 0
     },
-    "paid_and_delivered_pct": 50,
+    "paid_and_delivered_pct": 82.8,
     "charged_without_answer": {
-      "count": 3,
-      "usd": 0.005
+      "count": 0,
+      "usd": 0
     },
     "errors_not_charged": {
-      "with_example": 0,
-      "without_example": 12
+      "with_example": 4,
+      "without_example": 0
     },
-    "spent_usd": 0.194
+    "spent_usd": -0.687
   },
   "outcomes_legend": {
     "delivered": "Paid; a 2xx answer with content (matching the declared output schema when there is one)",
@@ -64,7 +66,7 @@
       "request": {
         "method": "POST",
         "url": "https://agent-paycheck.onrender.com/v1/check",
-        "source": "plain",
+        "source": "example",
         "input_declared": true
       },
       "preflight": {
@@ -74,16 +76,16 @@
       "price_usd": 0.002,
       "pay_to": "0x3772E91C287B7bE00a67Cfb2A72CC5Fb5958af06",
       "step": "paid",
-      "result": "off_schema",
+      "result": "delivered",
       "status": 200,
       "charged_usd": 0.002,
-      "body_bytes": 111,
+      "body_bytes": 355,
       "proof": {
         "overall": "pass",
-        "transaction": "0x90f79aa80b102e6b91143499b391974cee2160fb62e160da8fd487cae286eded",
-        "explorer": "https://basescan.org/tx/0x90f79aa80b102e6b91143499b391974cee2160fb62e160da8fd487cae286eded"
+        "transaction": "0x646da21e887554c54da488c936917c0a8bb242b66221fd71e1bd31ec345cf974",
+        "explorer": "https://basescan.org/tx/0x646da21e887554c54da488c936917c0a8bb242b66221fd71e1bd31ec345cf974"
       },
-      "ms": 4326
+      "ms": 4371
     },
     {
       "url": "https://www.robbiegeorgephotography.com/v1/query/atomic/robbie-george-biography-plate",
@@ -91,8 +93,8 @@
       "listed_price_usd": 0.005,
       "request": {
         "method": "GET",
-        "url": "https://www.robbiegeorgephotography.com/v1/query/atomic/robbie-george-biography-plate",
-        "source": "plain",
+        "url": "https://www.robbiegeorgephotography.com/v1/query/atomic/robbie-george-biography-plate?resource=https%3A%2F%2Fwww.robbiegeorgephotography.com%2Fv1%2Fquery%2Fatomic%2Frobbie-george-biography-plate",
+        "source": "example",
         "input_declared": true
       },
       "preflight": {
@@ -108,10 +110,10 @@
       "body_bytes": 1534,
       "proof": {
         "overall": "pass",
-        "transaction": "0x9e600c0669ff41bdc00adaaf0bf903a931252c48c67bffbbb86bc97778ba79ea",
-        "explorer": "https://basescan.org/tx/0x9e600c0669ff41bdc00adaaf0bf903a931252c48c67bffbbb86bc97778ba79ea"
+        "transaction": "0x7ff9e66da6dc9fa914ad52a484095079ad25939ef61203f1c3486bd581f173d5",
+        "explorer": "https://basescan.org/tx/0x7ff9e66da6dc9fa914ad52a484095079ad25939ef61203f1c3486bd581f173d5"
       },
-      "ms": 3950
+      "ms": 4541
     },
     {
       "url": "https://api.remix.live/mcp/x402-http/get_audit_checklist",
@@ -120,7 +122,7 @@
       "request": {
         "method": "POST",
         "url": "https://api.remix.live/mcp/x402-http/get_audit_checklist",
-        "source": "plain",
+        "source": "example",
         "input_declared": true
       },
       "preflight": {
@@ -130,13 +132,16 @@
       "price_usd": 0.05,
       "pay_to": "0x4CF33cCB14B43D76b4f672C3feDe297d1d763ace",
       "step": "paid",
-      "result": "error_not_charged",
-      "status": 400,
-      "charged_usd": 0,
-      "body_bytes": 178,
-      "reason": "Missing required field: model. Must be one of: DeepSeek, Sonnet, Fable",
-      "proof": null,
-      "ms": 10155
+      "result": "delivered",
+      "status": 200,
+      "charged_usd": 0.05,
+      "body_bytes": 1248,
+      "proof": {
+        "overall": "fail",
+        "transaction": null,
+        "explorer": null
+      },
+      "ms": 8149
     },
     {
       "url": "https://txguard.schemasure.com/v1/tx/preflight",
@@ -145,7 +150,7 @@
       "request": {
         "method": "POST",
         "url": "https://txguard.schemasure.com/v1/tx/preflight",
-        "source": "plain",
+        "source": "example",
         "input_declared": true
       },
       "preflight": {
@@ -155,13 +160,16 @@
       "price_usd": 0.02,
       "pay_to": "0x9876af0F6D8Ed5155Cd02d1ca56D128601612690",
       "step": "paid",
-      "result": "error_not_charged",
-      "status": 400,
-      "charged_usd": 0,
-      "body_bytes": 211,
-      "reason": "Send exactly one of unsigned_tx, tx_hash, typed_data, authorization. None was present.",
-      "proof": null,
-      "ms": 10586
+      "result": "delivered",
+      "status": 200,
+      "charged_usd": 0.02,
+      "body_bytes": 5348,
+      "proof": {
+        "overall": "pass",
+        "transaction": "0xa35b32f538b87d5d5b97ec04457e90332814f3e0fa184b4235ce5f0ecc60dcc3",
+        "explorer": "https://basescan.org/tx/0xa35b32f538b87d5d5b97ec04457e90332814f3e0fa184b4235ce5f0ecc60dcc3"
+      },
+      "ms": 5169
     },
     {
       "url": "https://www.amnt.io/api/agent/amnt/bitcoin-price",
@@ -170,7 +178,7 @@
       "request": {
         "method": "POST",
         "url": "https://www.amnt.io/api/agent/amnt/bitcoin-price",
-        "source": "plain",
+        "source": "example",
         "input_declared": true
       },
       "preflight": {
@@ -180,13 +188,16 @@
       "price_usd": 0.001,
       "pay_to": "0x98fa9c8afb5c56ad27d24843cabebdd55170dbc0",
       "step": "paid",
-      "result": "error_not_charged",
-      "status": 400,
-      "charged_usd": 0,
-      "body_bytes": 29,
-      "reason": "Input is required",
-      "proof": null,
-      "ms": 9763
+      "result": "delivered",
+      "status": 200,
+      "charged_usd": -0.999,
+      "body_bytes": 81,
+      "proof": {
+        "overall": "pass",
+        "transaction": "0x055909c0497ea62132ba21083bddc249fcbf2eccb53ca828b4b47adace2ca3b9",
+        "explorer": "https://basescan.org/tx/0x055909c0497ea62132ba21083bddc249fcbf2eccb53ca828b4b47adace2ca3b9"
+      },
+      "ms": 5786
     },
     {
       "url": "https://767-2676.com/v2/receipt",
@@ -195,7 +206,7 @@
       "request": {
         "method": "POST",
         "url": "https://767-2676.com/v2/receipt",
-        "source": "plain",
+        "source": "example",
         "input_declared": true
       },
       "preflight": {
@@ -205,13 +216,16 @@
       "price_usd": 0.001,
       "pay_to": "0x5f5a631e975183d084f60d7121e967b30ec83cb8",
       "step": "paid",
-      "result": "charged_not_delivered",
-      "status": 422,
+      "result": "delivered",
+      "status": 200,
       "charged_usd": 0.001,
-      "body_bytes": 106,
-      "reason": "witness_request_contains_missing_or_unsupported_fields",
-      "proof": null,
-      "ms": 3855
+      "body_bytes": 7191,
+      "proof": {
+        "overall": "pass",
+        "transaction": "0x8e8d346b33d76adc05d0e7c7a68816cfe86820c4f1dedfac2d52736ba8e3b60a",
+        "explorer": "https://basescan.org/tx/0x8e8d346b33d76adc05d0e7c7a68816cfe86820c4f1dedfac2d52736ba8e3b60a"
+      },
+      "ms": 4939
     },
     {
       "url": "https://chrono.schemasure.com/v1/business-time",
@@ -220,7 +234,7 @@
       "request": {
         "method": "POST",
         "url": "https://chrono.schemasure.com/v1/business-time",
-        "source": "plain",
+        "source": "example",
         "input_declared": true
       },
       "preflight": {
@@ -230,13 +244,16 @@
       "price_usd": 0.02,
       "pay_to": "0x9876af0F6D8Ed5155Cd02d1ca56D128601612690",
       "step": "paid",
-      "result": "error_not_charged",
-      "status": 400,
-      "charged_usd": 0,
-      "body_bytes": 122,
-      "reason": "timezone is required and must be an IANA identifier, e.g. America/New_York.",
-      "proof": null,
-      "ms": 9615
+      "result": "delivered",
+      "status": 200,
+      "charged_usd": 0.02,
+      "body_bytes": 4478,
+      "proof": {
+        "overall": "pass",
+        "transaction": "0x9523ba708175cecf3690dbe985737490208ed06c413ebb40fe2efcc9334accad",
+        "explorer": "https://basescan.org/tx/0x9523ba708175cecf3690dbe985737490208ed06c413ebb40fe2efcc9334accad"
+      },
+      "ms": 5652
     },
     {
       "url": "https://metals.lonestaroracle.xyz/report",
@@ -245,7 +262,7 @@
       "request": {
         "method": "GET",
         "url": "https://metals.lonestaroracle.xyz/report",
-        "source": "plain",
+        "source": "example",
         "input_declared": true
       },
       "preflight": {
@@ -258,13 +275,13 @@
       "result": "delivered",
       "status": 200,
       "charged_usd": 0.05,
-      "body_bytes": 4511,
+      "body_bytes": 4506,
       "proof": {
         "overall": "pass",
-        "transaction": "0x4bfc3c13fe74b3f189be2c517bcac784a34ed1599d7ed867f0319b7d3926360d",
-        "explorer": "https://basescan.org/tx/0x4bfc3c13fe74b3f189be2c517bcac784a34ed1599d7ed867f0319b7d3926360d"
+        "transaction": "0x4017414f63e6b31e51067bfa44d58e8cd2bba7626c5cef4b862e07e01fdf8d68",
+        "explorer": "https://basescan.org/tx/0x4017414f63e6b31e51067bfa44d58e8cd2bba7626c5cef4b862e07e01fdf8d68"
       },
-      "ms": 12342
+      "ms": 10189
     },
     {
       "url": "https://page.intel.rallylive.ca/page/external-links/markdown",
@@ -272,8 +289,8 @@
       "listed_price_usd": 0.01,
       "request": {
         "method": "GET",
-        "url": "https://page.intel.rallylive.ca/page/external-links/markdown",
-        "source": "plain",
+        "url": "https://page.intel.rallylive.ca/page/external-links/markdown?url=https%3A%2F%2Fen.wikipedia.org%2Fwiki%2FHTTP",
+        "source": "example",
         "input_declared": true
       },
       "preflight": {
@@ -283,13 +300,17 @@
       "price_usd": 0.01,
       "pay_to": "0xFC24FD34da9e49A0110DCaEe3Ad30eC54175eBB3",
       "step": "paid",
-      "result": "error_not_charged",
-      "status": 400,
+      "result": "payment_rejected",
+      "status": 402,
       "charged_usd": 0,
-      "body_bytes": 92,
-      "reason": "invalid_input",
-      "proof": null,
-      "ms": 9674
+      "body_bytes": 2,
+      "reason": "{}",
+      "proof": {
+        "overall": "fail",
+        "transaction": null,
+        "explorer": null
+      },
+      "ms": 11189
     },
     {
       "url": "https://api.block402.xyz/rpc/ethereum",
@@ -298,7 +319,7 @@
       "request": {
         "method": "POST",
         "url": "https://api.block402.xyz/rpc/ethereum",
-        "source": "plain",
+        "source": "example",
         "input_declared": true
       },
       "preflight": {
@@ -311,10 +332,10 @@
       "result": "error_not_charged",
       "status": 400,
       "charged_usd": 0,
-      "body_bytes": 119,
-      "reason": "invalid_rpc_request",
+      "body_bytes": 101,
+      "reason": "invalid_idempotency_key",
       "proof": null,
-      "ms": 9311
+      "ms": 10221
     },
     {
       "url": "https://perpsignals.use.x402atlas.com/pairs",
@@ -323,7 +344,7 @@
       "request": {
         "method": "GET",
         "url": "https://perpsignals.use.x402atlas.com/pairs",
-        "source": "plain",
+        "source": "example",
         "input_declared": true
       },
       "preflight": {
@@ -339,10 +360,10 @@
       "body_bytes": 970,
       "proof": {
         "overall": "pass",
-        "transaction": "0xd9ad8a9f8b24f051f18b105b8b7607e11607d52ae26a9b4a290d2119b1df7c32",
-        "explorer": "https://basescan.org/tx/0xd9ad8a9f8b24f051f18b105b8b7607e11607d52ae26a9b4a290d2119b1df7c32"
+        "transaction": "0x91b4cd9fdbf149f09a5065de3c00ecf6c6c64ba7193100f2202df6b057717db2",
+        "explorer": "https://basescan.org/tx/0x91b4cd9fdbf149f09a5065de3c00ecf6c6c64ba7193100f2202df6b057717db2"
       },
-      "ms": 3862
+      "ms": 4503
     },
     {
       "url": "https://x402.openwebninja.com/realtime-amazon-data/gtin-to-asin",
@@ -350,8 +371,8 @@
       "listed_price_usd": 0.003,
       "request": {
         "method": "GET",
-        "url": "https://x402.openwebninja.com/realtime-amazon-data/gtin-to-asin",
-        "source": "plain",
+        "url": "https://x402.openwebninja.com/realtime-amazon-data/gtin-to-asin?product_identifier=9780132350884",
+        "source": "example",
         "input_declared": true
       },
       "preflight": {
@@ -361,13 +382,16 @@
       "price_usd": 0.003,
       "pay_to": "0x3e7c9cA818f713F19e126E3B7B37B47dC1411570",
       "step": "paid",
-      "result": "error_not_charged",
-      "status": 400,
-      "charged_usd": 0,
-      "body_bytes": 130,
-      "reason": "Missing product_identifier",
-      "proof": null,
-      "ms": 9672
+      "result": "delivered",
+      "status": 200,
+      "charged_usd": 0.003,
+      "body_bytes": 543,
+      "proof": {
+        "overall": "pass",
+        "transaction": "0x752405e609397b29f96ccf0dabfccc135c66171ff85d439f154981cbc1d04eb9",
+        "explorer": "https://basescan.org/tx/0x752405e609397b29f96ccf0dabfccc135c66171ff85d439f154981cbc1d04eb9"
+      },
+      "ms": 5229
     },
     {
       "url": "https://gsc-x402.ai/api",
@@ -376,7 +400,7 @@
       "request": {
         "method": "GET",
         "url": "https://gsc-x402.ai/api",
-        "source": "plain",
+        "source": "example",
         "input_declared": true
       },
       "preflight": {
@@ -392,10 +416,10 @@
       "body_bytes": 1700,
       "proof": {
         "overall": "pass",
-        "transaction": "0x49a527877abdc6360328fd4cbda5c62bc0c1626ef6a7130167396b0aa766432f",
-        "explorer": "https://basescan.org/tx/0x49a527877abdc6360328fd4cbda5c62bc0c1626ef6a7130167396b0aa766432f"
+        "transaction": "0x9c4e3f32c9d543a7fdb5a47f0a22976f0891d51e09c8128b8bb20543420cb0a7",
+        "explorer": "https://basescan.org/tx/0x9c4e3f32c9d543a7fdb5a47f0a22976f0891d51e09c8128b8bb20543420cb0a7"
       },
-      "ms": 5159
+      "ms": 5475
     },
     {
       "url": "https://x402-gateway-production.up.railway.app/api/code/run",
@@ -404,7 +428,7 @@
       "request": {
         "method": "POST",
         "url": "https://x402-gateway-production.up.railway.app/api/code/run",
-        "source": "plain",
+        "source": "example",
         "input_declared": true
       },
       "preflight": {
@@ -414,13 +438,16 @@
       "price_usd": 0.005,
       "pay_to": "0x7dd5Be069f2d2eAd75eC7C3423B116fF043c2629",
       "step": "paid",
-      "result": "error_not_charged",
-      "status": 400,
-      "charged_usd": 0,
-      "body_bytes": 37,
-      "reason": "code is required (string)",
-      "proof": null,
-      "ms": 9627
+      "result": "delivered",
+      "status": 200,
+      "charged_usd": 0.005,
+      "body_bytes": 98,
+      "proof": {
+        "overall": "pass",
+        "transaction": "0x82254921ac25dc7f8b2ec5dbe910e13cfc06e4a873e250972770cff5b3eed05e",
+        "explorer": "https://basescan.org/tx/0x82254921ac25dc7f8b2ec5dbe910e13cfc06e4a873e250972770cff5b3eed05e"
+      },
+      "ms": 5050
     },
     {
       "url": "https://cm-kg.io/api",
@@ -429,7 +456,7 @@
       "request": {
         "method": "GET",
         "url": "https://cm-kg.io/api",
-        "source": "plain",
+        "source": "example",
         "input_declared": true
       },
       "preflight": {
@@ -445,10 +472,10 @@
       "body_bytes": 5841,
       "proof": {
         "overall": "pass",
-        "transaction": "0x333e7fc238dd95d74e37049e03921d0090fc9c3cb46c15c6c36619d1342dc87e",
-        "explorer": "https://basescan.org/tx/0x333e7fc238dd95d74e37049e03921d0090fc9c3cb46c15c6c36619d1342dc87e"
+        "transaction": "0x393ebaa9df3540a5beb96254b85492b52bb58baaaeae344665d0dc0b61db3e8b",
+        "explorer": "https://basescan.org/tx/0x393ebaa9df3540a5beb96254b85492b52bb58baaaeae344665d0dc0b61db3e8b"
       },
-      "ms": 2317
+      "ms": 2948
     },
     {
       "url": "https://projectx402-production.up.railway.app/v1/schema-check",
@@ -457,7 +484,7 @@
       "request": {
         "method": "POST",
         "url": "https://projectx402-production.up.railway.app/v1/schema-check",
-        "source": "plain",
+        "source": "example",
         "input_declared": true
       },
       "preflight": {
@@ -467,13 +494,12 @@
       "price_usd": 0.002,
       "pay_to": "0x8fC4006534801c17A3368075A1Fb3b3C511EdB1F",
       "step": "paid",
-      "result": "charged_not_delivered",
-      "status": 422,
+      "result": "delivered",
+      "status": 200,
       "charged_usd": 0.002,
-      "body_bytes": 172,
-      "reason": "{\"detail\":[{\"type\":\"missing\",\"loc\":[\"body\",\"json_schema\"],\"msg\":\"Field required\",\"input\":{}},{\"type\":\"missing\",\"loc\":[\"body\",\"payload\"],\"msg\":\"Field required\",\"input\":{}}]}",
+      "body_bytes": 231,
       "proof": null,
-      "ms": 4276
+      "ms": 4545
     },
     {
       "url": "https://fresh-feeds.foomworks.workers.dev/feeds/x402-services",
@@ -482,7 +508,7 @@
       "request": {
         "method": "GET",
         "url": "https://fresh-feeds.foomworks.workers.dev/feeds/x402-services",
-        "source": "plain",
+        "source": "example",
         "input_declared": true
       },
       "preflight": {
@@ -498,10 +524,10 @@
       "body_bytes": 524687,
       "proof": {
         "overall": "pass",
-        "transaction": "0x160fa51f1e174fe620cace3157b6ef86457b4e9390661406bbaad37a4ad6c6fd",
-        "explorer": "https://basescan.org/tx/0x160fa51f1e174fe620cace3157b6ef86457b4e9390661406bbaad37a4ad6c6fd"
+        "transaction": "0xebd6a30e61e5c89b9269e18025edab736585341f2734a19a2c4ecbb86e4c62fa",
+        "explorer": "https://basescan.org/tx/0xebd6a30e61e5c89b9269e18025edab736585341f2734a19a2c4ecbb86e4c62fa"
       },
-      "ms": 4300
+      "ms": 4902
     },
     {
       "url": "https://hivemindos-paid-agent-gateway.hivemindos.workers.dev/api/x402/catalog",
@@ -510,7 +536,7 @@
       "request": {
         "method": "GET",
         "url": "https://hivemindos-paid-agent-gateway.hivemindos.workers.dev/api/x402/catalog",
-        "source": "plain",
+        "source": "example",
         "input_declared": true
       },
       "preflight": {
@@ -526,10 +552,10 @@
       "body_bytes": 98619,
       "proof": {
         "overall": "pass",
-        "transaction": "0x69651ce0de4985456fd111996ab505c471c4f624f759417d4bf9a95194c33fca",
-        "explorer": "https://basescan.org/tx/0x69651ce0de4985456fd111996ab505c471c4f624f759417d4bf9a95194c33fca"
+        "transaction": "0x2b6fcffdf792b8a5ad881f4c6cc3320e19a9b4da80d86a19ad48f87f73826dad",
+        "explorer": "https://basescan.org/tx/0x2b6fcffdf792b8a5ad881f4c6cc3320e19a9b4da80d86a19ad48f87f73826dad"
       },
-      "ms": 6674
+      "ms": 7710
     },
     {
       "url": "https://api.cortexcloud.org/v1/data/token-price",
@@ -538,7 +564,7 @@
       "request": {
         "method": "GET",
         "url": "https://api.cortexcloud.org/v1/data/token-price",
-        "source": "plain",
+        "source": "example",
         "input_declared": true
       },
       "preflight": {
@@ -554,7 +580,7 @@
       "body_bytes": 21,
       "reason": "Internal Server Error",
       "proof": null,
-      "ms": 1253
+      "ms": 2568
     },
     {
       "url": "https://www.moltbillboard.com/api/x402/placements",
@@ -563,7 +589,7 @@
       "request": {
         "method": "GET",
         "url": "https://www.moltbillboard.com/api/x402/placements",
-        "source": "plain",
+        "source": "example",
         "input_declared": true
       },
       "preflight": {
@@ -579,10 +605,10 @@
       "body_bytes": 525186,
       "proof": {
         "overall": "pass",
-        "transaction": "0x0be513f7f06ab5e3503e740d6738056fd8343cd4bd03060c2f753780dc3d011e",
-        "explorer": "https://basescan.org/tx/0x0be513f7f06ab5e3503e740d6738056fd8343cd4bd03060c2f753780dc3d011e"
+        "transaction": "0xc94d1e1ccdd1325d81bd14e9eb422abd43e3e80b4ddb7ff4543448d7e944f51e",
+        "explorer": "https://basescan.org/tx/0xc94d1e1ccdd1325d81bd14e9eb422abd43e3e80b4ddb7ff4543448d7e944f51e"
       },
-      "ms": 8651
+      "ms": 7825
     },
     {
       "url": "https://api.marketintelligenceapi.com/api/v1/markets/stablecoins",
@@ -591,7 +617,7 @@
       "request": {
         "method": "GET",
         "url": "https://api.marketintelligenceapi.com/api/v1/markets/stablecoins",
-        "source": "plain",
+        "source": "example",
         "input_declared": true
       },
       "preflight": {
@@ -604,41 +630,20 @@
       "result": "delivered",
       "status": 200,
       "charged_usd": 0.005,
-      "body_bytes": 3880,
+      "body_bytes": 3881,
       "proof": {
         "overall": "pass",
-        "transaction": "0xa4a464ede6892ca5d675b3d6fca315be8bed8a1e2e1bbf2a3991bdbd8ee21da2",
-        "explorer": "https://basescan.org/tx/0xa4a464ede6892ca5d675b3d6fca315be8bed8a1e2e1bbf2a3991bdbd8ee21da2"
+        "transaction": "0x86cbf902edd918bf75337ea32de500b4963cc4b39330511b2c3d57875017bb68",
+        "explorer": "https://basescan.org/tx/0x86cbf902edd918bf75337ea32de500b4963cc4b39330511b2c3d57875017bb68"
       },
-      "ms": 4465
+      "ms": 5924
     },
     {
       "url": "https://srv1334799.hstgr.cloud/v1/changes",
       "host": "srv1334799.hstgr.cloud",
       "listed_price_usd": 0.01,
-      "request": {
-        "method": "GET",
-        "url": "https://srv1334799.hstgr.cloud/v1/changes",
-        "source": "plain",
-        "input_declared": true
-      },
-      "preflight": {
-        "verdict": "go",
-        "codes": []
-      },
-      "price_usd": 0.01,
-      "pay_to": "0xc4f9f3b2Cc0EAc2542dF9f1cB8F5C118E13a0045",
-      "step": "paid",
-      "result": "delivered",
-      "status": 200,
-      "charged_usd": 0.01,
-      "body_bytes": 14144,
-      "proof": {
-        "overall": "pass",
-        "transaction": "0xcde9f44a9f5ad4d469142e6265bfe57ee0d253496edfe08a8a5f49f8bccc0b94",
-        "explorer": "https://basescan.org/tx/0xcde9f44a9f5ad4d469142e6265bfe57ee0d253496edfe08a8a5f49f8bccc0b94"
-      },
-      "ms": 3997
+      "step": "probe",
+      "result": "not_402_now"
     },
     {
       "url": "https://blockchain-api.x402-chain-tools.workers.dev/chain/block",
@@ -647,7 +652,7 @@
       "request": {
         "method": "POST",
         "url": "https://blockchain-api.x402-chain-tools.workers.dev/chain/block",
-        "source": "plain",
+        "source": "example",
         "input_declared": true
       },
       "preflight": {
@@ -663,10 +668,10 @@
       "body_bytes": 88,
       "proof": {
         "overall": "pass",
-        "transaction": "0xe82466473f28ae39a619a7cbdbf899e0cbb79a46e94b1c9de8414035d63ea72c",
-        "explorer": "https://basescan.org/tx/0xe82466473f28ae39a619a7cbdbf899e0cbb79a46e94b1c9de8414035d63ea72c"
+        "transaction": "0xe433548a00401a151d0c9d585091fa13467ce495b27e128a655c6cbcaca59dcd",
+        "explorer": "https://basescan.org/tx/0xe433548a00401a151d0c9d585091fa13467ce495b27e128a655c6cbcaca59dcd"
       },
-      "ms": 4051
+      "ms": 4967
     },
     {
       "url": "https://kevinhoff.com/api/paid/grade",
@@ -675,7 +680,7 @@
       "request": {
         "method": "GET",
         "url": "https://kevinhoff.com/api/paid/grade",
-        "source": "plain",
+        "source": "example",
         "input_declared": true
       },
       "preflight": {
@@ -691,7 +696,7 @@
       "body_bytes": 13,
       "reason": "404 Not Found",
       "proof": null,
-      "ms": 9776
+      "ms": 10309
     },
     {
       "url": "https://rest.coincap.io/v3/agentFriendly/full_assets_by_slug",
@@ -699,8 +704,8 @@
       "listed_price_usd": 0.002,
       "request": {
         "method": "GET",
-        "url": "https://rest.coincap.io/v3/agentFriendly/full_assets_by_slug",
-        "source": "plain",
+        "url": "https://rest.coincap.io/v3/agentFriendly/full_assets_by_slug?slugs=bitcoin%2Cethereum",
+        "source": "example",
         "input_declared": true
       },
       "preflight": {
@@ -710,17 +715,16 @@
       "price_usd": 0.002,
       "pay_to": "0x9baa4417D1E78F2eD5b09aa4Abfb541aeB2cD6Ed",
       "step": "paid",
-      "result": "charged_not_delivered",
-      "status": 400,
+      "result": "delivered",
+      "status": 200,
       "charged_usd": 0.002,
-      "body_bytes": 39,
-      "reason": "slugs parameter is required",
+      "body_bytes": 467,
       "proof": {
         "overall": "pass",
-        "transaction": "0x1c263852fc453cb1482979329882362b9a3c927ab46be21fe07c5bf2bd1f783f",
-        "explorer": "https://basescan.org/tx/0x1c263852fc453cb1482979329882362b9a3c927ab46be21fe07c5bf2bd1f783f"
+        "transaction": "0xeadc909880a001ee22b6aceae9a1ae7c81669cf9c5c23c47b8e4e4f87e5aabf3",
+        "explorer": "https://basescan.org/tx/0xeadc909880a001ee22b6aceae9a1ae7c81669cf9c5c23c47b8e4e4f87e5aabf3"
       },
-      "ms": 4547
+      "ms": 6287
     },
     {
       "url": "https://effectguard-x402-experiment.onrender.com/v1/preflight",
@@ -729,7 +733,7 @@
       "request": {
         "method": "POST",
         "url": "https://effectguard-x402-experiment.onrender.com/v1/preflight",
-        "source": "plain",
+        "source": "example",
         "input_declared": true
       },
       "preflight": {
@@ -745,7 +749,7 @@
       "body_bytes": 28,
       "reason": "API_KEY_REQUIRED",
       "proof": null,
-      "ms": 9360
+      "ms": 10046
     },
     {
       "url": "https://archtools.dev/v1/tools/browser-task",
@@ -770,10 +774,10 @@
       "body_bytes": 266,
       "proof": {
         "overall": "pass",
-        "transaction": "0x58c7de70eee031c76c471f208ab48a67fedd3d797a14e7e98a228fa1933808af",
-        "explorer": "https://basescan.org/tx/0x58c7de70eee031c76c471f208ab48a67fedd3d797a14e7e98a228fa1933808af"
+        "transaction": "0x66c944bf0819d204729483e56c661b3b35722a4d39029164b388dc8ccd906a77",
+        "explorer": "https://basescan.org/tx/0x66c944bf0819d204729483e56c661b3b35722a4d39029164b388dc8ccd906a77"
       },
-      "ms": 5149
+      "ms": 4532
     },
     {
       "url": "https://pulse.chainverdict.xyz/v1/verdict",
@@ -781,8 +785,8 @@
       "listed_price_usd": 0.03,
       "request": {
         "method": "GET",
-        "url": "https://pulse.chainverdict.xyz/v1/verdict",
-        "source": "plain",
+        "url": "https://pulse.chainverdict.xyz/v1/verdict?url=https%3A%2F%2Fchainverdict.xyz%2Fv1%2Fdata%2Fblock",
+        "source": "example",
         "input_declared": true
       },
       "preflight": {
@@ -792,13 +796,16 @@
       "price_usd": 0.03,
       "pay_to": "0xAe2634E709c454f2720C65A0b2F9ba168e431842",
       "step": "paid",
-      "result": "error_not_charged",
-      "status": 400,
-      "charged_usd": 0,
-      "body_bytes": 25,
-      "reason": "missing ?url=",
-      "proof": null,
-      "ms": 9671
+      "result": "delivered",
+      "status": 200,
+      "charged_usd": 0.03,
+      "body_bytes": 1398,
+      "proof": {
+        "overall": "pass",
+        "transaction": "0x9cea90378fb25d161d8ebf5706b93d7fd6a5d796180e8fd99decee2eea64f7a9",
+        "explorer": "https://basescan.org/tx/0x9cea90378fb25d161d8ebf5706b93d7fd6a5d796180e8fd99decee2eea64f7a9"
+      },
+      "ms": 4533
     },
     {
       "url": "https://anomaly.forgemesh.io/api/sequence-anomaly/status",
@@ -807,7 +814,7 @@
       "request": {
         "method": "GET",
         "url": "https://anomaly.forgemesh.io/api/sequence-anomaly/status",
-        "source": "plain",
+        "source": "example",
         "input_declared": true
       },
       "preflight": {
@@ -823,10 +830,10 @@
       "body_bytes": 545,
       "proof": {
         "overall": "pass",
-        "transaction": "0xe6aac32042e79d6147181df95b6f4cb4e20939068b42a738445c8bda99159584",
-        "explorer": "https://basescan.org/tx/0xe6aac32042e79d6147181df95b6f4cb4e20939068b42a738445c8bda99159584"
+        "transaction": "0xa9a8f54bc86f59dd90309d6a1a2bd84856d802372456b291be2e84719ad4339d",
+        "explorer": "https://basescan.org/tx/0xa9a8f54bc86f59dd90309d6a1a2bd84856d802372456b291be2e84719ad4339d"
       },
-      "ms": 4103
+      "ms": 5051
     },
     {
       "url": "https://peru-macro.use.x402atlas.com/lima-inflation/latest",
@@ -835,7 +842,7 @@
       "request": {
         "method": "GET",
         "url": "https://peru-macro.use.x402atlas.com/lima-inflation/latest",
-        "source": "plain",
+        "source": "example",
         "input_declared": true
       },
       "preflight": {
@@ -851,10 +858,10 @@
       "body_bytes": 1625,
       "proof": {
         "overall": "pass",
-        "transaction": "0xe7061549dd57c0c3443ff52c1f32a758f52568d42511008f2f454a973f8a15ec",
-        "explorer": "https://basescan.org/tx/0xe7061549dd57c0c3443ff52c1f32a758f52568d42511008f2f454a973f8a15ec"
+        "transaction": "0xd47bdb002857fa8011ab68d861d5176d688365fb9cf5d05d244bbd4ddbd26762",
+        "explorer": "https://basescan.org/tx/0xd47bdb002857fa8011ab68d861d5176d688365fb9cf5d05d244bbd4ddbd26762"
       },
-      "ms": 4699
+      "ms": 4307
     }
   ]
 }
