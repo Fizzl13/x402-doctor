@@ -158,6 +158,17 @@ test('paid request: a real signed Base payment returns the diagnosis and is sett
   assert.equal(state.settle, 1);
 });
 
+test('paid preflight with a blank url: 400 (not a 502) and nothing is settled', async () => {
+  const account = privateKeyToAccount(generatePrivateKey());
+  const client = new x402Client((_version, accepts) => accepts.find((a) => a.network === BASE));
+  client.register(BASE, new ExactEvmScheme(account));
+  const before = state.settle;
+  const res = await wrapFetchWithPayment(fetch, client)(`${api}/api/v1/preflight?url=%0A`);
+  assert.equal(res.status, 400);
+  assert.match((await res.json()).error, /url is required/);
+  assert.equal(state.settle, before);
+});
+
 test('paid request without url: 400 and nothing is settled', async () => {
   const account = privateKeyToAccount(generatePrivateKey());
   const client = new x402Client((_version, accepts) => accepts.find((a) => a.network === BASE));
