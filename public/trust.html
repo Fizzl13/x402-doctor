@@ -109,6 +109,7 @@
     <li>The endpoint answers <code>402</code> with a valid x402 challenge.</li>
     <li>At least one payment option would settle: valid payTo and amount, the fee payer or EIP-712 domain, and for Solana a USDC token account at the payout wallet.</li>
     <li>The price matches what its OpenAPI advertises, it is served over HTTPS, and it charges in a known USDC contract.</li>
+    <li>Its payout address (the x402 <code>payTo</code> or the MPP recipient) is not on the OFAC SDN sanctions list. Screened since 13 Oct 2026 against <a href="https://presign-guard.fizzl.eu/v1/sanctions">presign-guard's open copy</a> of the US Treasury list; a listed address is no-go.</li>
   </ul>
   <p>Agents get this track record in every <a href="/openapi.json">pre-payment check</a> (<code>GET /api/v1/preflight</code>, $0.001): a seller that was payable on fewer than half of its scanned days gets a <em>caution</em>.</p>
 
