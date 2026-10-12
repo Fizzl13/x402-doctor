@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Weekly spot-buy sample (run by .github/workflows/spot-buy.yml). See lib/spot-buy.js.
 //
-//   node scripts/spot-buy.js --index trust-data/index.json --out spot-data [--n 30] [--cap 0.05] [--budget 2] [--seed 2026-W42] [--dry]
+//   node scripts/spot-buy.js --index trust-data/index.json --out spot-data [--n 30] [--cap 0.05] [--budget 2] [--seed 2026-10-18] [--dry]
 //
 // Pays only with the key in SPOT_BUY_KEY: a dedicated wallet holding a few USDC on Base, never a payout or
 // personal wallet. Without the key (or with --dry) it does everything up to the payment and pays nothing.
@@ -13,7 +13,7 @@ const { createSafeFetch } = require('../lib/safe-fetch');
 const { createSanctions } = require('../lib/sanctions');
 const { checkSettlement } = require('../lib/settlement');
 const { NETWORKS } = require('../lib/networks');
-const { selectCandidates, runSpotBuy, isoWeek, DEFAULTS, LIMITS, OUTCOMES, BASE } = require('../lib/spot-buy');
+const { selectCandidates, runSpotBuy, DEFAULTS, LIMITS, OUTCOMES, BASE } = require('../lib/spot-buy');
 
 function arg(name, fallback) {
   const i = process.argv.indexOf(`--${name}`);
@@ -35,7 +35,7 @@ async function main() {
   const n = Math.min(num(arg('n', process.env.SPOT_BUY_N), DEFAULTS.n), LIMITS.n);
   const capUsd = Math.min(num(arg('cap', process.env.SPOT_BUY_MAX_USD), DEFAULTS.capUsd), LIMITS.capUsd);
   const budgetUsd = Math.min(num(arg('budget', process.env.SPOT_BUY_BUDGET_USD), DEFAULTS.budgetUsd), LIMITS.budgetUsd);
-  const seed = arg('seed', isoWeek());
+  const seed = arg('seed', new Date().toISOString().slice(0, 10));
   const key = process.env.SPOT_BUY_KEY;
   const dry = process.argv.includes('--dry') || !key;
   const rpc = process.env.BASE_RPC_URL || NETWORKS[BASE].rpc;
