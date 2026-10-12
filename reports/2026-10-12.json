@@ -356,5 +356,14 @@
       "clean_pct": 56.2,
       "payable_pct": 88.3
     }
-  ]
+  ],
+  "spot": {
+    "date": "2026-10-12",
+    "bought": 29,
+    "delivered": 24,
+    "pct": 82.8,
+    "lost": 0,
+    "lost_usd": 0,
+    "errors": 5
+  }
 }
