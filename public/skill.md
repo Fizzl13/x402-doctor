@@ -21,6 +21,7 @@ Add the remote MCP server `https://x402-doctor.fizzl.eu/mcp` (Streamable HTTP) t
 | `x402_preflight_deep` | $0.01 | The preflight plus diagnosis, history, seller and domain checks |
 | `x402_diagnose` | $0.01 | Every check with a fix hint |
 | `x402_fix` | $0.05 | The code changes for your stack |
+| `x402_delivery_check` | $0.25 | One real purchase of the endpoint (at most $0.10); follow it with `x402_delivery_status` (free) |
 
 The free tools work right away. The paid tools ask for an x402 payment inside the call (see Paying).
 

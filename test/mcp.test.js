@@ -182,6 +182,63 @@ test('mcp: a real signed Base payment returns the full report and settles once',
   await client.close();
 });
 
+test('mcp: the delivery check as a paid tool and its free status, when there is a job store', async () => {
+  const { memoryStore } = require('../lib/delivery-checks');
+  const store = memoryStore();
+  const env = { AGENT_PAYOUT_WALLET: PAY_TO_BASE, AGENT_PAYOUT_WALLET_SOLANA: PAY_TO_SOLANA, FACILITATOR_URL: facilitatorUrl };
+  const app = createApp({ allowPrivate: true, env, bazaarIndex: { lookup: async () => ({ resource: false, origin: false }) }, trustIndex: { lookup: async () => null, refresh: () => Promise.resolve(), summary: () => null }, deliveryStore: store, deliveryResults: { ids: async () => new Set(), forId: async () => null } });
+  const base = await new Promise((resolve) => { const server = app.listen(0, '127.0.0.1', () => resolve(`http://127.0.0.1:${server.address().port}`)); servers.push(server); });
+  const client = new Client({ name: 'test', version: '1.0.0' });
+  await client.connect(new StreamableHTTPClientTransport(new URL(`${base}/mcp`)));
+  const { tools } = await client.listTools();
+  const paidTool = tools.find((t) => t.name === 'x402_delivery_check');
+  assert.match(paidTool.description, /\$0\.25/);
+  assert.ok(tools.find((t) => t.name === 'x402_delivery_status'), 'the free status tool');
+  // Refused before payment: not https (the same check as the HTTP route), nothing verified.
+  const refused = await client.callTool({ name: 'x402_delivery_check', arguments: { url: targetUrl } });
+  assert.ok(refused.isError);
+  assert.match(refused.content[0].text, /https/);
+  assert.equal(state.verify, 0);
+  // The status tool follows a job; an unknown id is an error.
+  await store.add({ id: 'abcde12345', url: 'https://a.example/x', method: null, price_usd: 0.02, queued_at: '2026-10-12T20:00:00.000Z', settled: true });
+  const status = await client.callTool({ name: 'x402_delivery_status', arguments: { id: 'abcde12345' } });
+  assert.ok(!status.isError, JSON.stringify(status.content));
+  assert.equal(status.structuredContent.status, 'queued');
+  assert.ok((await client.callTool({ name: 'x402_delivery_status', arguments: { id: 'zzzzz99999' } })).isError);
+  await client.close();
+});
+
+test('mcp delivery tool: the job is released only once the payment settled', async () => {
+  const { deliveryToolCall } = require('../lib/mcp');
+  const calls = [];
+  const delivery = {
+    precheck: async (q) => (q.url.startsWith('https://ok.') ? { status: 0, url: q.url, method: null, price_usd: 0.002 } : { status: 400, error: 'refused before payment' }),
+    queue: async (check) => { calls.push(['queue', check.url]); return { id: 'abcde12345', url: check.url }; },
+    view: (job) => ({ id: job.id, url: job.url, status: 'queued' }),
+    settle: async (job, tx) => { calls.push(['settle', job.id, tx]); },
+  };
+  const paidWith = (meta) => (handler) => async () => ({ ...(await handler()), _meta: meta });
+  // Paid and settled: queued, then released with the transaction.
+  const ok = await deliveryToolCall({ delivery, paid: paidWith({ 'x402/payment-response': { success: true, transaction: '0xabc' } }), args: { url: 'https://ok.example/x' }, extra: {}, ip: '1.2.3.4' });
+  assert.equal(ok.structuredContent.id, 'abcde12345');
+  assert.deepEqual(calls, [['queue', 'https://ok.example/x'], ['settle', 'abcde12345', '0xabc']]);
+  // Unpaid (the payment requirement comes back, the handler never runs): nothing queued or released.
+  calls.length = 0;
+  const unpaid = await deliveryToolCall({ delivery, paid: () => async () => ({ isError: true, content: [{ type: 'text', text: '{}' }] }), args: { url: 'https://ok.example/x' }, extra: {} });
+  assert.ok(unpaid.isError);
+  assert.deepEqual(calls, []);
+  // Paid but the settlement failed: queued, never released.
+  const failed = await deliveryToolCall({ delivery, paid: paidWith({ 'x402/payment-response': { success: false } }), args: { url: 'https://ok.example/x' }, extra: {} });
+  assert.ok(!failed.isError);
+  assert.deepEqual(calls, [['queue', 'https://ok.example/x']]);
+  // Refused before payment: the payment step is never reached.
+  calls.length = 0;
+  const refused = await deliveryToolCall({ delivery, paid: () => { throw new Error('should not be called'); }, args: { url: 'https://bad.example/x' }, extra: {} });
+  assert.ok(refused.isError);
+  assert.match(refused.content[0].text, /refused before payment/);
+  assert.deepEqual(calls, []);
+});
+
 test('mcp: the free quick check is rate limited', async () => {
   const client = await mcpClient();
   let last;

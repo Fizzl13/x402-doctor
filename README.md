@@ -346,9 +346,11 @@ drafts), plus `reports/networks/<network>-latest.json`, the snapshot next week c
 | `x402_preflight_batch` | $0.005 USDC via x402 | The preflight for up to 10 endpoints (`urls`), as `GET /api/v1/preflight/batch` |
 | `x402_preflight_deep` | $0.01 USDC via x402 | The preflight plus diagnosis, history, seller and domain checks, as `GET /api/v1/preflight/deep` |
 | `x402_fix` | $0.05 USDC via x402 | The code changes for your stack, as `GET /api/v1/fix` |
+| `x402_delivery_check` | $0.25 USDC via x402 | One real purchase of the endpoint: a job id now, the result shortly after, as `GET /api/v1/delivery-check` |
+| `x402_delivery_status` | free | The status and, once done, the result of a delivery check, as `GET /api/v1/delivery-check/{id}` |
 | `feedback` | free | Report a bug or a missing feature, as `POST /feedback` (below) |
 
-The paid tools are paid inside the MCP call with the x402 MCP transport (`_meta["x402/payment"]`), on Base or Solana, at the same prices and to the same payout wallets as the HTTP routes. Invalid input is refused before payment, and a failed call is not charged.
+The paid tools are paid inside the MCP call with the x402 MCP transport (`_meta["x402/payment"]`), on Base or Solana, at the same prices and to the same payout wallets as the HTTP routes. Invalid input is refused before payment, and a failed call is not charged. A delivery check ordered over MCP is queued only once its payment settled, like the HTTP route.
 
 ## Feedback
 
