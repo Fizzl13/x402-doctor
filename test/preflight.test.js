@@ -296,3 +296,20 @@ test('price check (TypeSafe Jev + Trust Index, opt-in): the reason and signal ar
   const broken = { enabled: true, compare: async () => { throw new Error('boom'); } };
   assert.equal((await run(url, { price: broken })).verdict, 'go');
 });
+
+test("the weekly spot-buy: a signal always; money taken for the seller's own example with an error back is a caution", async () => {
+  const url = await seller({ accepts: [baseOption('20000')] });
+  const spotOf = (result, request) => ({ forUrl: async (u) => (u === url ? { url, date: '2026-10-18', result, request, price_usd: 0.02, charged_usd: result === 'delivered' || result === 'charged_not_delivered' ? 0.02 : 0, status: result === 'delivered' ? 200 : 422, ...(result === 'delivered' ? {} : { reason: 'json_schema is required' }) } : null) });
+  const lost = await run(url, { spot: spotOf('charged_not_delivered', 'example') });
+  assert.equal(lost.verdict, 'caution');
+  const reason = lost.reasons.find((r) => r.code === 'charged_without_answer');
+  assert.match(reason.message, /spot-buy of 2026-10-18 this endpoint took \$0\.02 for the example request its own listing declares and answered HTTP 422 \(json_schema is required\)/);
+  assert.deepEqual([lost.signals.spot_buy.result, lost.signals.spot_buy.request], ['charged_not_delivered', 'example']);
+  const plain = await run(url, { spot: spotOf('charged_not_delivered', 'plain') });
+  assert.equal(plain.verdict, 'go', 'with a plain request it may have been our input: a signal only');
+  assert.equal(plain.signals.spot_buy.result, 'charged_not_delivered');
+  const fine = await run(url, { spot: spotOf('delivered', 'example') });
+  assert.equal(fine.verdict, 'go');
+  assert.equal(fine.signals.spot_buy.status, 200);
+  assert.equal((await run(url)).signals.spot_buy, undefined, 'not bought: no signal');
+});

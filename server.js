@@ -208,7 +208,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   // Free payment-proof check (lib/settlement.js): the PAYMENT-RESPONSE header → the on-chain transaction.
   const rpcUrls = { ...(env.BASE_RPC_URL ? { 'eip155:8453': env.BASE_RPC_URL } : {}), ...(env.SOLANA_RPC_URL ? { 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp': env.SOLANA_RPC_URL } : {}) };
   const checkPaymentProof = (header) => checkSettlement(header, { fetch: settlementFetch, rpcUrls });
-  paidApi = createPaidApi({ safeFetch, env, trustIndex, feedback, bazaarIndex: bazaar, outcomes, checkPaymentProof, creditStore, priceCheck });
+  paidApi = createPaidApi({ safeFetch, env, trustIndex, feedback, bazaarIndex: bazaar, outcomes, checkPaymentProof, creditStore, priceCheck, spotResults });
 
   // Doctor's requests reach the app through three proxies (the caller, then two
   // hops, the last a private Render address: measured 26 Sep), so Express has to

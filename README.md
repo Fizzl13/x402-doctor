@@ -261,6 +261,8 @@ one letter per day (`g` go, `c` caution, `n` no-go, `x` unreachable, `-` not sca
   `SPOT_BUY_KEY`, a dedicated wallet holding a few USDC; without it every run is a dry run that pays nothing.
   The latest run is on `/trust` ("Paid and delivered?") and at `GET /api/trust/spot` (summary and every purchase, no
   wallet details); `GET /api/trust?url=…` adds `spot_buy` when that endpoint was bought in it (`lib/spot-results.js`).
+  The paid pre-payment check adds the same as `signals.spot_buy`, and a `caution` (`charged_without_answer`) when the
+  endpoint took the payment for the example request its own listing declares and answered with an error.
 - **Sanctions screen.** Every payout address (x402 `payTo`, MPP `recipient`) is matched against the OFAC SDN list's
   digital currency addresses, from [presign-guard's free open copy](https://presign-guard.fizzl.eu/v1/sanctions) of the
   US Treasury list (`lib/sanctions.js`, refreshed every 6 hours). A listed address makes the pre-payment check `no_go`
