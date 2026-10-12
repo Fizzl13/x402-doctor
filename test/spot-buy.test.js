@@ -9,7 +9,7 @@ const { wrapFetchWithPayment, x402Client } = require('@x402/fetch');
 const { ExactEvmScheme } = require('@x402/evm/exact/client');
 const { createSafeFetch } = require('../lib/safe-fetch');
 const { createSanctions } = require('../lib/sanctions');
-const { selectCandidates, runSpotBuy, classify, isoWeek } = require('../lib/spot-buy');
+const { selectCandidates, runSpotBuy, classify, reasonOf, isoWeek } = require('../lib/spot-buy');
 
 const BASE = 'eip155:8453';
 const USDC = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
@@ -77,7 +77,7 @@ function seller({ mode, payTo = PAY_TO, amount = '10000' }) {
       if (mode === 'empty') { settle(); res.statusCode = 200; return res.end(); }
       if (mode === 'charge_500') { chain.balance -= Number(amount); res.statusCode = 500; return res.end('upstream error'); }
       if (mode === 'error_500') { res.statusCode = 500; return res.end('upstream error'); }
-      if (mode === 'reject') return ask();
+      if (mode === 'reject') { challenge.error = 'invalid_exact_evm_payload_signature'; return ask(); }
     }).listen(0, '127.0.0.1', () => { origin = `http://127.0.0.1:${server.address().port}`; resolve({ url: `${origin}/paid`, host: `127.0.0.1:${server.address().port}`, price_usd: Number(amount) / 1e6 }); });
     servers.push(server);
   });
@@ -112,6 +112,11 @@ test('a run: each outcome after paying, a listed payout address and the budget s
   assert.equal(results[0].proof.overall, 'pass');
   assert.equal(results[3].charged_usd, 0.01);
   assert.equal(results[4].charged_usd, 0);
+  assert.equal(results[4].reason, 'upstream error');
+  assert.deepEqual(results[4].request, { method: 'GET', url: candidates[4].url, source: 'plain', input_declared: false });
+  assert.equal(results[5].reason, 'invalid_exact_evm_payload_signature', 'the x402 error of the 402 that refused the payment');
+  assert.equal(results[0].reason, undefined, 'no reason on a delivered answer');
+  assert.deepEqual(summary.errors_not_charged, { with_example: 0, without_example: 1 });
   assert.equal(results[6].preflight.codes[0], 'payto_sanctioned');
   assert.equal(settled.length, 4, 'the PAYMENT-RESPONSE of each settling seller was checked');
   assert.equal(summary.live, true);
@@ -138,4 +143,15 @@ test('an empty wallet stops the run before paying anyone', async () => {
   client.register(BASE, new ExactEvmScheme(account));
   const { results } = await runSpotBuy([a, b], { safeFetch: createSafeFetch({ allowPrivate: true }), payFetch: wrapFetchWithPayment(fetch, client), sanctions: createSanctions({ list: { addresses: [{ address: LISTED, entries: [] }] } }), balance: async () => 5000, allowPrivate: true, wait: async () => {} });
   assert.deepEqual(results.map((r) => r.result), ['wallet_empty']);
+});
+
+test('reasonOf: the 402 error, a JSON error field or object, else the start of the body on one line', () => {
+  const res = (headers = {}) => ({ headers: new Map(Object.entries(headers)) });
+  const pr = Buffer.from(JSON.stringify({ x402Version: 2, error: 'insufficient_funds', accepts: [] })).toString('base64');
+  assert.equal(reasonOf(res({ 'payment-required': pr }), '{}'), 'insufficient_funds');
+  assert.equal(reasonOf(res(), '{"error":"symbol is required"}'), 'symbol is required');
+  assert.equal(reasonOf(res(), '{"error":{"code":42,"message":"query parameter q missing"}}'), 'query parameter q missing');
+  assert.equal(reasonOf(res(), '<html>\n  <h1>404\tNot Found</h1>\n</html>'), '<html> <h1>404 Not Found</h1> </html>');
+  assert.equal(reasonOf(res(), ''), null);
+  assert.equal(reasonOf(res(), 'x'.repeat(500)).length, 200);
 });
