@@ -69,6 +69,8 @@
   .bait { padding: 8px 2px; border-bottom: 1px solid var(--line); }
   .bait .u { font-family: 'SF Mono', Consolas, monospace; font-size: 12.5px; overflow-wrap: anywhere; }
   .bait .d, .bait .w { color: var(--text-soft); font-size: 13px; }
+  #spotTable .u { font-family: 'SF Mono', Consolas, monospace; font-size: 12.5px; overflow-wrap: anywhere; }
+  #spotTable .w { color: var(--text-soft); font-size: 13px; }
 </style>
 </head>
 <body>
@@ -81,6 +83,12 @@
   <p class="note" id="protocols" hidden></p>
   <div class="share" id="share" role="img" aria-label="Share of x402 services an agent can pay"></div>
   <div class="share-legend" id="shareLegend"></div>
+
+  <h2>Paid and delivered?</h2>
+  <p class="note" id="spotLine" aria-live="polite">Loading the latest spot-buy…</p>
+  <div class="share-legend" id="spotTiles" hidden></div>
+  <details id="spotDetails" hidden><summary>Every purchase in the latest run</summary><table id="spotTable"><thead><tr><th>Endpoint, and what happened</th><th class="num">Price</th></tr></thead><tbody></tbody></table></details>
+  <p class="note">Reading the 402 shows that a payment would settle, not what comes back for it. So every Sunday x402 Doctor buys a random sample of up to 30 endpoints that are "go" here (one per seller, at most $0.05 each, x402 in USDC on Base, from a dedicated wallet), sends the example input the seller declares in its listing, and measures on-chain whether money left the wallet. A small sample: read it as a signal, not a score. Data: <a href="/api/trust/spot">/api/trust/spot</a> · <a href="https://github.com/Fizzl13/x402-doctor/tree/spot-data">every run</a>.</p>
 
   <h2>What goes wrong</h2>
   <div class="reasons" id="reasons"></div>
@@ -124,7 +132,7 @@
     <li>Want your origin left out of the scan? <a href="https://github.com/Fizzl13/x402-doctor/issues">Open an issue</a>.</li>
   </ul>
 
-  <footer>Data: <code>GET /api/trust?url=…</code> (free, rate-limited) and <code>GET /api/trust/summary</code>. The full daily index is public on the <a href="https://github.com/Fizzl13/x402-doctor/tree/trust-data">trust-data</a> branch. Per network: <a href="/xrpl">x402 on the XRP Ledger</a> and <a href="/algorand">x402 on Algorand</a> (<code>GET /api/trust/network?network=xrpl</code> or <code>algorand</code>).</footer>
+  <footer>Data: <code>GET /api/trust?url=…</code> (free, rate-limited), <code>GET /api/trust/summary</code> and <code>GET /api/trust/spot</code> (the latest spot-buy). The full daily index is public on the <a href="https://github.com/Fizzl13/x402-doctor/tree/trust-data">trust-data</a> branch. Per network: <a href="/xrpl">x402 on the XRP Ledger</a> and <a href="/algorand">x402 on Algorand</a> (<code>GET /api/trust/network?network=xrpl</code> or <code>algorand</code>).</footer>
   <p class="by-fizzl"><a href="https://fizzl.eu" title="Fizzl: all pay-per-call tools for AI agents, with live demos">by <svg viewBox="-6 -14 236 126" role="img" aria-label="fizzl"><g fill="none" stroke="currentColor" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"><path d="M44 12 A20 20 0 0 0 20 32 V100"/><path d="M6 48 H38"/><path d="M64 56 V100"/><path d="M88 52 H124 L88 100 H124"/><path d="M144 52 H180 L144 100 H180"/><path d="M200 8 V84 A16 16 0 0 0 216 100"/></g><g class="b"><circle cx="64" cy="26" r="9"/><circle cx="78" cy="10" r="5"/><circle cx="90" cy="-2" r="3"/></g></svg><span>· all tools and live demos at fizzl.eu</span></a></p>
 </div>
 <script>
@@ -146,6 +154,12 @@
     unreliable_history: 'Failed on most earlier days',
     payto_sanctioned: 'Pays out to an address on the OFAC sanctions list',
   };
+  // Spot-buy outcomes in everyday words (lib/spot-buy.js OUTCOMES), most serious first.
+  const SPOT = {
+    charged_not_delivered: 'Took the money, no answer', payment_rejected: 'Asked to pay again (not charged)', error_not_charged: 'Error after paying, not charged',
+    payment_failed: 'Payment could not be made', empty: 'Paid, empty answer', off_schema: 'Delivered, not in its declared format', delivered: 'Delivered',
+  };
+  const spotDate = (d) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
   const fmt = (n) => n.toLocaleString('en-US');
   const pct = (n, total) => `${total ? Math.round((n / total) * 100) : 0}%`;
 
@@ -260,6 +274,43 @@
   }
   loadSummary(10);
 
+  // The weekly spot-buy: what actually came back after paying.
+  fetch('/api/trust/spot').then((r) => r.ok ? r.json() : null).catch(() => null).then((v) => {
+    if (!v || !v.summary) { $('spotLine').textContent = 'The weekly spot-buy results are not available right now.'; return; }
+    const s = v.summary, o = s.outcomes || {}, lost = s.charged_without_answer || { count: 0, usd: 0 };
+    const answered = (o.delivered || 0) + (o.off_schema || 0);
+    $('spotLine').classList.remove('note');
+    $('spotLine').textContent = `In the latest spot-buy (${spotDate(v.date)}), ${answered} of ${s.bought} purchases were paid and delivered (${s.paid_and_delivered_pct}%). ` +
+      (lost.count ? `${lost.count} took the money without an answer ($${lost.usd}).` : 'None took the money without an answer.');
+    const tiles = [
+      ['Paid and delivered', fmt(answered), `${s.paid_and_delivered_pct}%`],
+      ['Took the money, no answer', fmt(lost.count), lost.count ? `$${lost.usd}` : ''],
+      ['Error after paying, not charged', fmt((o.error_not_charged || 0) + (o.payment_rejected || 0)), ''],
+    ];
+    $('spotTiles').replaceChildren(...tiles.map(([label, value, extra]) => {
+      const box = document.createElement('div');
+      const k = document.createElement('div'); k.className = 'k'; k.textContent = label;
+      const val = document.createElement('div'); val.className = 'v'; val.textContent = value;
+      if (extra) { const p = document.createElement('span'); p.className = 'p'; p.textContent = extra; val.append(p); }
+      box.append(k, val);
+      return box;
+    }));
+    $('spotTiles').hidden = false;
+    const order = Object.keys(SPOT);
+    const rows = [...(v.purchases || [])].sort((a, b) => order.indexOf(a.result) - order.indexOf(b.result));
+    $('spotTable').tBodies[0].replaceChildren(...rows.map((p) => {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      const u = document.createElement('div'); u.className = 'u'; u.textContent = p.url;
+      const w = document.createElement('div'); w.className = 'w'; w.textContent = (SPOT[p.result] || p.result) + (p.reason ? ` (${p.reason})` : '');
+      td.append(u, w);
+      const price = document.createElement('td'); price.className = 'num'; price.textContent = p.price_usd != null ? `$${p.price_usd}` : '';
+      tr.append(td, price);
+      return tr;
+    }));
+    $('spotDetails').hidden = rows.length === 0;
+  });
+
   const label = { g: 'go', c: 'caution', n: 'no-go', x: 'unreachable', '-': 'not scanned' };
   // Opened from a badge (/trust?url=…): look that resource up right away.
   const asked = new URLSearchParams(location.search).get('url');
@@ -309,6 +360,13 @@
       a.textContent = 'get an alert on your phone, Telegram, Discord or Slack (free) →';
       watch.append(a);
       box.append(watch);
+    }
+    if (data.spot_buy) {
+      const sb = data.spot_buy, spot = document.createElement('div');
+      spot.className = 'legend';
+      spot.style.marginTop = '12px';
+      spot.textContent = `Bought in the spot-buy of ${spotDate(sb.date)}: ${SPOT[sb.result] || sb.result}${sb.charged_usd ? `, $${sb.charged_usd} charged` : ''}${sb.reason ? ` (${sb.reason})` : ''}.`;
+      box.append(spot);
     }
     if (data.last_scan && data.last_scan.codes && data.last_scan.codes.length) {
       const codes = document.createElement('div');

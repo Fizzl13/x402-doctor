@@ -15,6 +15,7 @@ const { BATCH_SCHEMA } = require('./lib/preflight-plus');
 const { STACKS } = require('./lib/stack');
 const { PREFLIGHT_SCHEMA } = require('./lib/preflight');
 const { createTrustIndex } = require('./lib/trust-index');
+const { createSpotResults } = require('./lib/spot-results');
 const { createMediaCache } = require('./lib/media');
 const crypto = require('crypto');
 const { createUsageLog, mcpToolCall, mcpPayment, agentOf, visitorOf } = require('./lib/usage-log');
@@ -185,7 +186,7 @@ function trustProxyHops(env) {
   return Number.isInteger(n) && n >= 0 && n <= 10 && String(env.TRUST_PROXY_HOPS).trim() !== '' ? n : 3;
 }
 
-function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, trustIndex = createTrustIndex(), media = createMediaCache(), usageLog = createUsageLog({ service: 'doctor', env }), usageReader = createUsageReader({ env }), publicStats = createPublicStats({ usageReader }), settlementFetch = globalThis.fetch, status = null, outreachHook: outreachHookOverride = null, describe = createDescribe({ apiKey: env.TYPESAFE_API_KEY }), poison = createPoisonCheck({ apiKey: env.TYPESAFE_API_KEY }), creditStore, agentKinds = createAgentKinds({ apiKey: env.TYPESAFE_API_KEY }), downloads = createDownloads(), priceCheck = createPriceCheck({ apiKey: env.TYPESAFE_API_KEY, trustIndex }) } = {}) {
+function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, trustIndex = createTrustIndex(), spotResults = createSpotResults(), media = createMediaCache(), usageLog = createUsageLog({ service: 'doctor', env }), usageReader = createUsageReader({ env }), publicStats = createPublicStats({ usageReader }), settlementFetch = globalThis.fetch, status = null, outreachHook: outreachHookOverride = null, describe = createDescribe({ apiKey: env.TYPESAFE_API_KEY }), poison = createPoisonCheck({ apiKey: env.TYPESAFE_API_KEY }), creditStore, agentKinds = createAgentKinds({ apiKey: env.TYPESAFE_API_KEY }), downloads = createDownloads(), priceCheck = createPriceCheck({ apiKey: env.TYPESAFE_API_KEY, trustIndex }) } = {}) {
   const app = express();
   const safeFetch = createSafeFetch({ allowPrivate });
   // Outreach drafts for the owner (lib/outreach-hook.js); off without OUTREACH_URL and OUTREACH_KEY.
@@ -356,7 +357,16 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     }
     const record = await trustIndex.lookup(parsed.href, { waitMs: 5000 });
     if (!record) return res.status(404).json({ url: parsed.href, error: 'not in the trust index (only resources listed in the CDP Bazaar or the MPP directory are scanned, once a day)', index: trustIndex.summary() });
-    res.json({ url: parsed.href, ...record });
+    // Bought in the latest weekly spot-buy sample: what actually happened after paying.
+    const spot = await spotResults.forUrl(parsed.href, { waitMs: 2000 }).catch(() => null);
+    res.json({ url: parsed.href, ...record, ...(spot ? { spot_buy: spot } : {}) });
+  });
+  // The latest spot-buy sample (lib/spot-buy.js): random "go" endpoints actually bought once a week, and what came
+  // back. The scan reads the 402; this checks that "looks payable" turns into "paid and delivered".
+  app.get('/api/trust/spot', trustLimit, async (_req, res) => {
+    const latest = await spotResults.latest({ waitMs: 5000 }).catch(() => null);
+    if (!latest) return res.status(503).json({ error: 'no spot-buy results loaded yet, try again shortly' });
+    res.set('Cache-Control', 'public, max-age=600').set('Access-Control-Allow-Origin', '*').json(latest);
   });
   // A "payable" badge for sellers' READMEs and sites (lib/badge.js): one resource, or a whole origin.
   app.get('/badge.svg', async (req, res) => {
