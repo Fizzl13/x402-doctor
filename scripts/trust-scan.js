@@ -6,12 +6,13 @@
 // Reads <out>/index.json (the previous 30-day index, if any), scans every
 // resource in the CDP Bazaar (x402), the MPP directory (Stripe + Tempo) and the GoPlausible facilitator's
 // discovery list (x402 on Algorand), and writes
-// <out>/index.json and <out>/summary.json.
+// <out>/index.json and <out>/summary.json. Every payout address is screened against the OFAC SDN list.
 
 const fs = require('fs');
 const path = require('path');
 const { createSafeFetch } = require('../lib/safe-fetch');
 const { loadCatalog, loadMppCatalog, loadGoPlausibleCatalog, scan, mergeIndex, summarize } = require('../lib/trust-scan');
+const { createSanctions } = require('../lib/sanctions');
 
 function arg(name, fallback) {
   const i = process.argv.indexOf(`--${name}`);
@@ -41,8 +42,15 @@ async function main() {
   resources = [...resources, ...gpOnly];
   if (limit > 0) resources = resources.slice(0, limit);
 
+  // Every payout address against the OFAC SDN list (presign-guard's open copy). Without the list the scan runs
+  // unscreened and says so.
+  const sanctions = createSanctions();
+  const list = await sanctions.ready({ waitMs: 30000 });
+  console.log(list ? `sanctions: ${list.count} OFAC SDN addresses (published ${list.published})` : `sanctions: list unavailable (${sanctions.status().lastError ?? 'timeout'}), scanning unscreened`);
+
   const started = Date.now();
   const results = await scan(resources, {
+    sanctions: list ? sanctions : null,
     safeFetch: createSafeFetch({ allowPrivate: false, timeoutMs: 10000 }),
     rpcUrl: process.env.SOLANA_RPC_URL || undefined,
     onProgress: (done, total) => console.log(`scanned ${done}/${total} (${Math.round((Date.now() - started) / 1000)} s)`),

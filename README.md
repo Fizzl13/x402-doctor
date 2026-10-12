@@ -249,6 +249,12 @@ one letter per day (`g` go, `c` caution, `n` no-go, `x` unreachable, `-` not sca
 
 - The pre-payment check adds `signals.track_record` and a `caution` (`unreliable_history`) when a seller was
   payable on fewer than half of at least 3 scanned days.
+- **Sanctions screen.** Every payout address (x402 `payTo`, MPP `recipient`) is matched against the OFAC SDN list's
+  digital currency addresses, from [presign-guard's free open copy](https://presign-guard.fizzl.eu/v1/sanctions) of the
+  US Treasury list (`lib/sanctions.js`, refreshed every 6 hours). A listed address makes the pre-payment check `no_go`
+  (`payto_sanctioned`, with the SDN entry), in the paid check and in the daily scan; `signals.sanctions` says what was
+  screened and against which publication. `summary.json` counts the scanned resources that pay out to a listed address
+  (`payto_sanctioned`). Without the list nothing is judged (`signals.sanctions.unavailable`).
 - `GET /api/trust?url=<resource>` (free, 30/min per IP): the track record of one resource.
   `GET /api/trust/summary`: totals of the latest scan. `/trust`: the public page, with lookup and the scan's rules.
 - `GET /api/trust/network?network=xrpl` (or an id like `xrpl:0`, free): every scanned x402 endpoint that offers a network,
