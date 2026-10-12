@@ -3,7 +3,8 @@ name: Index payment
 # One payment to one of our own routes, so the CDP Bazaar lists it (scripts/index-payment.js). The Bazaar lists a route
 # only after a payment for it settles, and directories that read the Bazaar find the route only then.
 #
-# Started by hand. Pays at most $0.01 in USDC on Base, only to a fizzl.eu route, with the spot-buy wallet (the secret
+# Started by hand. Pays at most $0.01 in USDC on Base (the delivery check: $0.25, to our own payout wallet; see
+# INDEX_PAYMENT.routeCaps in lib/spot-buy.js), only to a fizzl.eu route, with the spot-buy wallet (the secret
 # SPOT_BUY_KEY), and publishes nothing: the spot-buy results stay a sample of other sellers.
 on:
   workflow_dispatch:

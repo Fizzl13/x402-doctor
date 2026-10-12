@@ -5,7 +5,8 @@
 //
 // The Bazaar lists a route only once a payment for it has settled through the CDP facilitator, and directories that
 // read the Bazaar (Roundhouse, our own Trust Index) find the route only then. This makes that payment: one call, at
-// most $0.01 in USDC on Base, only to a fizzl.eu route, with the spot-buy wallet (SPOT_BUY_KEY). It takes the same
+// most $0.01 in USDC on Base (a route with its own cap in INDEX_PAYMENT.routeCaps: that, e.g. the delivery check's
+// $0.25), only to a fizzl.eu route, with the spot-buy wallet (SPOT_BUY_KEY). It takes the same
 // steps as a spot-buy purchase (a fresh preflight with the OFAC screen of the payout address, the charge measured on
 // chain) but publishes nothing, so the spot-buy results stay a sample of other sellers.
 // Without the key (or with --dry) it does everything up to the payment and pays nothing.
@@ -15,7 +16,7 @@ const { createSafeFetch } = require('../lib/safe-fetch');
 const { createSanctions } = require('../lib/sanctions');
 const { checkSettlement } = require('../lib/settlement');
 const { createSpotWallet } = require('../lib/spot-wallet');
-const { runSpotBuy, ownTarget, INDEX_PAYMENT, BASE } = require('../lib/spot-buy');
+const { runSpotBuy, ownTarget, INDEX_PAYMENT, indexCapFor, BASE } = require('../lib/spot-buy');
 
 async function main() {
   const i = process.argv.indexOf('--url');
@@ -23,7 +24,8 @@ async function main() {
   if (!target) throw new Error('--url must be an https URL on a fizzl.eu host');
   const key = process.env.SPOT_BUY_KEY;
   const dry = process.argv.includes('--dry') || !key;
-  const { capUsd, userAgent } = INDEX_PAYMENT;
+  const { userAgent } = INDEX_PAYMENT;
+  const capUsd = indexCapFor(target);
   console.log(`${target.url}: at most $${capUsd}, ${dry ? 'DRY RUN' : 'LIVE'}`);
 
   const sanctions = createSanctions();
@@ -46,6 +48,7 @@ async function main() {
     capUsd,
     budgetUsd: capUsd,
     userAgent,
+    ownRoutesOnly: true,
   });
   const r = results[0];
   console.log(JSON.stringify(r, null, 2));

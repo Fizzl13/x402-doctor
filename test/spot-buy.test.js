@@ -9,7 +9,7 @@ const { wrapFetchWithPayment, x402Client } = require('@x402/fetch');
 const { ExactEvmScheme } = require('@x402/evm/exact/client');
 const { createSafeFetch } = require('../lib/safe-fetch');
 const { createSanctions } = require('../lib/sanctions');
-const { selectCandidates, runSpotBuy, classify, reasonOf, exampleRequest, isoWeek, ownTarget, INDEX_PAYMENT, USER_AGENT } = require('../lib/spot-buy');
+const { selectCandidates, runSpotBuy, classify, reasonOf, exampleRequest, isoWeek, ownTarget, INDEX_PAYMENT, indexCapFor, LIMITS, USER_AGENT } = require('../lib/spot-buy');
 
 const BASE = 'eip155:8453';
 const USDC = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
@@ -211,6 +211,22 @@ test('an indexing payment goes only to one of our own routes', () => {
     assert.equal(ownTarget(bad), null, bad);
   }
   assert.equal(INDEX_PAYMENT.capUsd, 0.01);
+  // One route has its own cap (the delivery check, $0.25 to our own payout wallet); every other route stays at $0.01.
+  assert.equal(indexCapFor(ownTarget('https://x402-doctor.fizzl.eu/api/v1/delivery-check')), 0.25);
+  assert.equal(indexCapFor(ownTarget('https://x402-doctor.fizzl.eu/api/v1/delivery-check?url=https%3A%2F%2Fa.example%2Fx')), 0.25);
+  assert.equal(indexCapFor(ownTarget('https://presign-guard.fizzl.eu/v1/screen?address=x')), 0.01);
+  assert.equal(indexCapFor(ownTarget('https://x402-doctor.fizzl.eu/api/v1/diagnose')), 0.01);
+  assert.equal(LIMITS.capUsd, 0.1, 'the ceiling for other sellers is unchanged');
+  assert.ok(LIMITS.ownCapUsd >= 0.25);
+});
+
+test('an own-routes-only run never buys someone else\'s endpoint, whatever its price', async () => {
+  let paid = 0;
+  const payFetch = async () => { paid++; throw new Error('should not be called'); };
+  const run = await runSpotBuy([{ url: 'https://a.example/paid', host: 'a.example', method: null, price_usd: null }], { safeFetch: createSafeFetch({ allowPrivate: true }), payFetch, capUsd: 0.25, budgetUsd: 0.25, ownRoutesOnly: true, wait: async () => {} });
+  assert.equal(run.results[0].result, 'not_own');
+  assert.equal(paid, 0);
+  assert.equal(run.summary.skipped_before_paying.not_own, 1);
 });
 
 test('a run can name its own user agent; the default is the spot-buy one', async () => {
