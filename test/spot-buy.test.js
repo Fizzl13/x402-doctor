@@ -179,3 +179,27 @@ test('the declared example input is sent even without a path template', async ()
   assert.equal(without.request.source, 'plain');
   assert.equal(without.reason, 'symbol is required');
 });
+
+test('a top-up during a purchase is not a negative charge: the settlement transfer counts', async () => {
+  const account = privateKeyToAccount(generatePrivateKey());
+  const client = new x402Client((_v, accepts) => accepts.find((x) => x.network === BASE));
+  client.register(BASE, new ExactEvmScheme(account));
+  const sanctions = createSanctions({ list: { addresses: [{ address: LISTED, entries: [] }] } });
+  const s = await seller({ mode: 'deliver' });
+  let topUp = 0;
+  const run = async (onchain) => {
+    topUp = 0;
+    const balance = async () => chain.balance + topUp;
+    const { results, summary } = await runSpotBuy([s], { safeFetch: createSafeFetch({ allowPrivate: true }), payFetch: async (...args) => { const res = await wrapFetchWithPayment(fetch, client)(...args); topUp = 1_000_000; return res; }, sanctions, balance, settlement: async () => ({ overall: onchain ? 'pass' : 'warn', decoded: { transaction: `0x${'cd'.repeat(32)}`, payer: account.address }, onchain }), allowPrivate: true, wait: async () => {} });
+    return { r: results[0], summary };
+  };
+  const confirmed = await run({ found: true, ok: true, transfers: [{ token: 'USDC', from: account.address.toLowerCase(), to: PAY_TO.toLowerCase(), amount: 0.01 }] });
+  assert.equal(confirmed.r.result, 'delivered');
+  assert.equal(confirmed.r.charged_usd, 0.01);
+  assert.match(confirmed.r.balance_note, /came into the wallet/);
+  assert.equal(confirmed.summary.spent_usd, 0.01);
+  const unknown = await run(null);
+  assert.equal(unknown.r.charged_usd, null);
+  assert.match(unknown.r.balance_note, /unknown/);
+  assert.equal(unknown.summary.spent_usd, 0.01, 'an unknown charge counts as the listed price against the budget');
+});
