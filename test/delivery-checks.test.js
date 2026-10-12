@@ -5,7 +5,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
 const express = require('express');
-const { createDelivery, deliveryError, memoryStore, CAP_USD, DAILY_MAX } = require('../lib/delivery-checks');
+const { createDelivery, deliveryError, memoryStore, CAP_USD, DAILY_MAX, DELIVERY_EXAMPLE } = require('../lib/delivery-checks');
 const { jobsToRun, candidateOf, recordOf } = require('../lib/delivery-runner');
 const { createDeliveryResults } = require('../lib/delivery-results');
 
@@ -18,6 +18,7 @@ test('before payment: one public https endpoint of someone else, a "go" on Base 
   assert.match((await deliveryError({ url: 'not a url' }, opts)).error, /valid URL/);
   assert.match((await deliveryError({ url: 'http://a.example/x' }, opts)).error, /https/);
   assert.match((await deliveryError({ url: 'https://presign-guard.fizzl.eu/v1/screen' }, opts)).error, /fizzl\.eu/);
+  assert.equal((await deliveryError({ url: DELIVERY_EXAMPLE }, opts)).status, 0, 'the example the route declares passes its own checks');
   assert.match((await deliveryError({ url: ['https://a.example/x', 'https://b.example/y'] }, opts)).error, /one url/);
   assert.match((await deliveryError({ url: 'https://a.example/x', method: 'PUT' }, opts)).error, /GET or POST/);
   assert.equal((await deliveryError({ url: 'https://a.example/x' }, { store: { ready: false }, runPreflight: go() })).status, 503);

@@ -11,6 +11,7 @@ const { createSafeFetch, isPrivateIp } = require('./lib/safe-fetch');
 const diagnoseLib = require('./lib/diagnose');
 const { createBazaarIndex } = require('./lib/bazaar-index');
 const { createPaidApi, ROUTE: PAID_ROUTE, PREFLIGHT_ROUTE, FIX_ROUTE, BATCH_ROUTE, DEEP_ROUTE, DELIVERY_ROUTE, REPORT_SCHEMA, FIX_SCHEMA, DEEP_SCHEMA } = require('./lib/paid-api');
+const { DELIVERY_EXAMPLE } = require('./lib/delivery-checks');
 const { BATCH_SCHEMA } = require('./lib/preflight-plus');
 const { STACKS } = require('./lib/stack');
 const { PREFLIGHT_SCHEMA } = require('./lib/preflight');
@@ -645,7 +646,7 @@ function openApi(origin, payment) {
         tags: ['x402', 'payments'],
         'x-payment-info': paymentInfo(payment.delivery.price),
         parameters: [
-          { name: 'url', in: 'query', required: true, example: 'https://ichimoku-signal.fizzl.eu/signal/BTC-USDT', schema: { type: 'string', format: 'uri' }, description: `The x402 endpoint to buy once: https, a "go" from the pre-payment check, payable in USDC on Base, at most $${payment.delivery.cap_usd}` },
+          { name: 'url', in: 'query', required: true, example: DELIVERY_EXAMPLE, schema: { type: 'string', format: 'uri' }, description: `The x402 endpoint to buy once: https, a "go" from the pre-payment check, payable in USDC on Base, at most $${payment.delivery.cap_usd}` },
           { name: 'method', in: 'query', required: false, schema: { type: 'string', enum: ['GET', 'POST'] }, description: 'Endpoint method; default: the one its 402 answers to' },
         ],
         responses: {

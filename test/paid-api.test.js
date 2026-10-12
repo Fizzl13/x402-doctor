@@ -572,4 +572,8 @@ test('delivery check: the bare route gives the 402; without a job store an order
   assert.equal((await fetch(`${api}/api/v1/delivery-check/queue`)).status, 503, 'free, and off without a store');
   const spec = await (await fetch(`${api}/openapi.json`)).json();
   assert.equal(spec.paths['/api/v1/delivery-check'].get['x-payment-info'].price.amount, '0.25');
+  // The declared example is someone else's endpoint: a fizzl.eu one would be refused by this very route.
+  const example = challenge.extensions.bazaar.info.input.queryParams.url;
+  assert.doesNotMatch(new URL(example).hostname, /(^|\.)fizzl\.eu$/);
+  assert.equal(challenge.extensions.bazaar.info.output.example.url, example);
 });
