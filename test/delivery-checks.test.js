@@ -115,6 +115,25 @@ test("the workflow start: GitHub's dispatch API with the token, at most one a mi
   const off = createDispatcher({ token: null, fetchImpl: async () => { throw new Error('should not be called'); } });
   assert.equal(off.enabled, false);
   assert.equal(await off.dispatch(), false);
+  assert.deepEqual(await off.verify(), { state: 'off' });
+});
+
+test('the token check: reads the workflow without starting it; a refusal shows as failed, GitHub down as unknown', async () => {
+  const calls = [];
+  const errors = [];
+  const log = { error: (m) => errors.push(m) };
+  const answers = [new Response('{}', { status: 200 }), new Response('{}', { status: 401 })];
+  const d = createDispatcher({ token: 'tok', fetchImpl: async (url, opts = {}) => { calls.push({ url, opts }); return answers.shift(); }, now: () => Date.parse('2026-10-12T20:00:00Z'), log });
+  assert.equal(d.status().state, 'checking');
+  assert.deepEqual(await d.verify(), { state: 'ok', checked_at: '2026-10-12T20:00:00.000Z' });
+  assert.equal(calls[0].url, 'https://api.github.com/repos/Fizzl13/x402-doctor/actions/workflows/delivery-check.yml');
+  assert.equal(calls[0].opts.method, undefined, 'a GET: nothing is started');
+  assert.equal(calls[0].opts.headers.authorization, 'Bearer tok');
+  assert.equal((await d.verify()).state, 'failed');
+  assert.equal(d.status().error, 'HTTP 401');
+  assert.match(errors[0], /DELIVERY_DISPATCH_TOKEN does not work \(HTTP 401\)/);
+  const down = createDispatcher({ token: 'tok', fetchImpl: async () => { throw new Error('network down'); }, log });
+  assert.equal((await down.verify()).state, 'unknown');
 });
 
 test('a done job leaves the queue and shows its result', async () => {
