@@ -1,0 +1,758 @@
+{
+  "date": "2026-10-12",
+  "started_at": "2026-10-12T08:30:43.949Z",
+  "finished_at": "2026-10-12T08:35:35.545Z",
+  "seed": "2026-W42",
+  "index_date": "2026-10-12",
+  "rules": {
+    "n": 30,
+    "cap_usd": 0.05,
+    "budget_usd": 2,
+    "network": "eip155:8453",
+    "asset": "USDC",
+    "scheme": "exact",
+    "one_per_host": true
+  },
+  "wallet": "0xA12871853F653F76EC303B94AC4fb6C46578a3F1",
+  "sanctions_list": {
+    "published": "2026-10-09",
+    "addresses": 1050
+  },
+  "pool": {
+    "hosts": 1825,
+    "resources": 28708
+  },
+  "summary": {
+    "live": true,
+    "sampled": 30,
+    "skipped_before_paying": {
+      "not_go_now": 1
+    },
+    "bought": 29,
+    "outcomes": {
+      "delivered": 10,
+      "off_schema": 0,
+      "empty": 0,
+      "charged_not_delivered": 1,
+      "payment_rejected": 3,
+      "error_not_charged": 15,
+      "payment_failed": 0
+    },
+    "paid_and_delivered_pct": 34.5,
+    "charged_without_answer": {
+      "count": 1,
+      "usd": 0.01
+    },
+    "spent_usd": 0.19
+  },
+  "outcomes_legend": {
+    "delivered": "Paid; a 2xx answer with content (matching the declared output schema when there is one)",
+    "off_schema": "Paid; a 2xx answer that does not match the declared output schema",
+    "empty": "Paid; a 2xx answer without content",
+    "charged_not_delivered": "USDC left the wallet, but the answer was an error",
+    "payment_rejected": "The seller answered 402 again after the payment was sent",
+    "error_not_charged": "An error answer after paying, and no USDC left the wallet",
+    "payment_failed": "No payment could be made (no usable option, signing or network error)"
+  },
+  "results": [
+    {
+      "url": "https://cryptoshark.duckdns.org/reports/market",
+      "host": "cryptoshark.duckdns.org",
+      "listed_price_usd": 0.005,
+      "request": {
+        "method": "GET",
+        "url": "https://cryptoshark.duckdns.org/reports/market"
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.005,
+      "pay_to": "0x83a18b50f9b894CA5BA28Ad54585d9c80058FbcD",
+      "step": "paid",
+      "result": "error_not_charged",
+      "status": 400,
+      "charged_usd": 0,
+      "body_bytes": 195,
+      "proof": null,
+      "ms": 10002
+    },
+    {
+      "url": "https://airport.openverbs.com/v1/search",
+      "host": "airport.openverbs.com",
+      "listed_price_usd": 0.002,
+      "request": {
+        "method": "GET",
+        "url": "https://airport.openverbs.com/v1/search"
+      },
+      "preflight": {
+        "verdict": "caution",
+        "codes": [
+          "resource_mismatch"
+        ]
+      },
+      "step": "preflight",
+      "result": "not_go_now"
+    },
+    {
+      "url": "https://api.prereason.com/api/commodities/energy-basket",
+      "host": "api.prereason.com",
+      "listed_price_usd": 0.05,
+      "request": {
+        "method": "GET",
+        "url": "https://api.prereason.com/api/commodities/energy-basket"
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.05,
+      "pay_to": "0xa499f6F6ab97ba87DB2e1fD7a1e3534125b60018",
+      "step": "paid",
+      "result": "delivered",
+      "status": 200,
+      "charged_usd": 0.05,
+      "body_bytes": 4652,
+      "proof": {
+        "overall": "pass",
+        "transaction": "0xaa0d8c8b64bdf6511760db9e2adfa04746fc28d7545598ffd1695e05390476d5",
+        "explorer": "https://basescan.org/tx/0xaa0d8c8b64bdf6511760db9e2adfa04746fc28d7545598ffd1695e05390476d5"
+      },
+      "ms": 5463
+    },
+    {
+      "url": "https://insider.lonestaroracle.xyz/trades",
+      "host": "insider.lonestaroracle.xyz",
+      "listed_price_usd": 0.03,
+      "request": {
+        "method": "GET",
+        "url": "https://insider.lonestaroracle.xyz/trades"
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.03,
+      "pay_to": "0x52Ab53912D37759B2ad364f22dD06B16714b6C06",
+      "step": "paid",
+      "result": "error_not_charged",
+      "status": 400,
+      "charged_usd": 0,
+      "body_bytes": 247,
+      "proof": null,
+      "ms": 9739
+    },
+    {
+      "url": "https://saylorinnovations.com/api/docs/npm/zod",
+      "host": "saylorinnovations.com",
+      "listed_price_usd": 0.01,
+      "request": {
+        "method": "GET",
+        "url": "https://saylorinnovations.com/api/docs/npm/zod"
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.01,
+      "pay_to": "0xA2A8dF0f7CaaBEa4e120a2568118f141569fc8aa",
+      "step": "paid",
+      "result": "delivered",
+      "status": 200,
+      "charged_usd": 0.01,
+      "body_bytes": 8525,
+      "proof": {
+        "overall": "pass",
+        "transaction": "0xa041fc4418d2fecb587ba7134ac3cda1ee0edc8c0edaad4dfc75e5882e741694",
+        "explorer": "https://basescan.org/tx/0xa041fc4418d2fecb587ba7134ac3cda1ee0edc8c0edaad4dfc75e5882e741694"
+      },
+      "ms": 4911
+    },
+    {
+      "url": "https://lemonade-stand.pt/lemonade/vegan",
+      "host": "lemonade-stand.pt",
+      "listed_price_usd": 0.01,
+      "request": {
+        "method": "GET",
+        "url": "https://lemonade-stand.pt/lemonade/vegan"
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.01,
+      "pay_to": "0x74C75C7699aeB740765C8Ca31d830Bd4d5C296E6",
+      "step": "paid",
+      "result": "delivered",
+      "status": 200,
+      "charged_usd": 0.01,
+      "body_bytes": 3305,
+      "proof": {
+        "overall": "pass",
+        "transaction": "0x5debd78bc31b1c93a2652e48d7f7ee3297fa625658da435000bedf4eb5f9a9b0",
+        "explorer": "https://basescan.org/tx/0x5debd78bc31b1c93a2652e48d7f7ee3297fa625658da435000bedf4eb5f9a9b0"
+      },
+      "ms": 5610
+    },
+    {
+      "url": "https://timezone-convert.x402supply.com/tools/convert_time",
+      "host": "timezone-convert.x402supply.com",
+      "listed_price_usd": 0.005,
+      "request": {
+        "method": "GET",
+        "url": "https://timezone-convert.x402supply.com/tools/convert_time"
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.005,
+      "pay_to": "0x07fFB5044cF2Cd4352Be4655f578D0ba8cb754EB",
+      "step": "paid",
+      "result": "payment_rejected",
+      "status": 402,
+      "charged_usd": 0,
+      "body_bytes": 4498,
+      "proof": null,
+      "ms": 9928
+    },
+    {
+      "url": "https://perpsignals.use.x402atlas.com/fear-greed",
+      "host": "perpsignals.use.x402atlas.com",
+      "listed_price_usd": 0.005,
+      "request": {
+        "method": "GET",
+        "url": "https://perpsignals.use.x402atlas.com/fear-greed"
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.005,
+      "pay_to": "0x82096bF08d81c14C678E915A04Fcf150958eE571",
+      "step": "paid",
+      "result": "delivered",
+      "status": 200,
+      "charged_usd": 0.005,
+      "body_bytes": 789,
+      "proof": {
+        "overall": "pass",
+        "transaction": "0xe2735a0c18f380985bf4baa128d9ed5127b6cdd46f63d781eb46aa479d178771",
+        "explorer": "https://basescan.org/tx/0xe2735a0c18f380985bf4baa128d9ed5127b6cdd46f63d781eb46aa479d178771"
+      },
+      "ms": 5916
+    },
+    {
+      "url": "https://bazaar-catalog.vercel.app/api/hijri",
+      "host": "bazaar-catalog.vercel.app",
+      "listed_price_usd": 0.01,
+      "request": {
+        "method": "GET",
+        "url": "https://bazaar-catalog.vercel.app/api/hijri"
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.01,
+      "pay_to": "0x21353452E547B306a6007d834C433a118638D3b3",
+      "step": "paid",
+      "result": "delivered",
+      "status": 200,
+      "charged_usd": 0.01,
+      "body_bytes": 253,
+      "proof": {
+        "overall": "pass",
+        "transaction": "0x7854ffb958fb8f8a98ff0f166227adefb5b0e2dcf41fee8c81aaec6ec1e4d7dd",
+        "explorer": "https://basescan.org/tx/0x7854ffb958fb8f8a98ff0f166227adefb5b0e2dcf41fee8c81aaec6ec1e4d7dd"
+      },
+      "ms": 4545
+    },
+    {
+      "url": "https://api.wines.bet/v1/wine/price",
+      "host": "api.wines.bet",
+      "listed_price_usd": 0.005,
+      "request": {
+        "method": "GET",
+        "url": "https://api.wines.bet/v1/wine/price"
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.005,
+      "pay_to": "0x350A947254e59291FAB58430E03A86589E0D8bA8",
+      "step": "paid",
+      "result": "error_not_charged",
+      "status": 400,
+      "charged_usd": 0,
+      "body_bytes": 122,
+      "proof": null,
+      "ms": 10511
+    },
+    {
+      "url": "https://proof.platoskallipolis.com/api/v1/quick-resolve",
+      "host": "proof.platoskallipolis.com",
+      "listed_price_usd": 0.01,
+      "request": {
+        "method": "POST",
+        "url": "https://proof.platoskallipolis.com/api/v1/quick-resolve"
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.01,
+      "pay_to": "0x3A24CC8394358B1e1b61900A73e27b1eA8482e48",
+      "step": "paid",
+      "result": "error_not_charged",
+      "status": 400,
+      "charged_usd": 0,
+      "body_bytes": 60,
+      "proof": null,
+      "ms": 9968
+    },
+    {
+      "url": "https://api.language123.net/v1/transcribe",
+      "host": "api.language123.net",
+      "listed_price_usd": 0.01,
+      "request": {
+        "method": "POST",
+        "url": "https://api.language123.net/v1/transcribe"
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.01,
+      "pay_to": "0x0360F2276f55A7430667134577D396CD76ffDDfe",
+      "step": "paid",
+      "result": "error_not_charged",
+      "status": 400,
+      "charged_usd": 0,
+      "body_bytes": 27,
+      "proof": null,
+      "ms": 10842
+    },
+    {
+      "url": "https://www.mahastrategies.com/api/v1/books/the-orbital-mind/section",
+      "host": "www.mahastrategies.com",
+      "listed_price_usd": 0.033,
+      "request": {
+        "method": "POST",
+        "url": "https://www.mahastrategies.com/api/v1/books/the-orbital-mind/section"
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.033,
+      "pay_to": "0xec84c1cd6602bbe387bc8e6f0d3c062f2762de28",
+      "step": "paid",
+      "result": "error_not_charged",
+      "status": 400,
+      "charged_usd": 0,
+      "body_bytes": 47,
+      "proof": null,
+      "ms": 9867
+    },
+    {
+      "url": "https://wailand.tailf99551.ts.net/v1/disaster-events",
+      "host": "wailand.tailf99551.ts.net",
+      "listed_price_usd": 0.005,
+      "request": {
+        "method": "GET",
+        "url": "https://wailand.tailf99551.ts.net/v1/disaster-events"
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.005,
+      "pay_to": "0x32E293A7fA946331B3eCd013cf0461Bf32C99A9d",
+      "step": "paid",
+      "result": "delivered",
+      "status": 200,
+      "charged_usd": 0.005,
+      "body_bytes": 11552,
+      "proof": {
+        "overall": "pass",
+        "transaction": "0x924fdc2f8f6784d50a4723e8386cdee9ff235e7c626b39a714486236974b4ac5",
+        "explorer": "https://basescan.org/tx/0x924fdc2f8f6784d50a4723e8386cdee9ff235e7c626b39a714486236974b4ac5"
+      },
+      "ms": 6078
+    },
+    {
+      "url": "https://stablefinance.dev/api/financials/search/screener",
+      "host": "stablefinance.dev",
+      "listed_price_usd": 0.02,
+      "request": {
+        "method": "POST",
+        "url": "https://stablefinance.dev/api/financials/search/screener"
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.02,
+      "pay_to": "0xBD17480bf6ff056f7b91d9AdC9DfDa001eb7283D",
+      "step": "paid",
+      "result": "error_not_charged",
+      "status": 400,
+      "charged_usd": 0,
+      "body_bytes": 180,
+      "proof": null,
+      "ms": 9742
+    },
+    {
+      "url": "https://api.paidpilot.io/v1/invoice.pdf",
+      "host": "api.paidpilot.io",
+      "listed_price_usd": 0.02,
+      "request": {
+        "method": "POST",
+        "url": "https://api.paidpilot.io/v1/invoice.pdf"
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.02,
+      "pay_to": "0x2dAF658B01e257206375798a15832E9f547D65dD",
+      "step": "paid",
+      "result": "error_not_charged",
+      "status": 400,
+      "charged_usd": 0,
+      "body_bytes": 482,
+      "proof": null,
+      "ms": 10206
+    },
+    {
+      "url": "https://news.netzhandwerker.de/news",
+      "host": "news.netzhandwerker.de",
+      "listed_price_usd": 0.002,
+      "request": {
+        "method": "GET",
+        "url": "https://news.netzhandwerker.de/news"
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.002,
+      "pay_to": "0x2880EdfFF13100677Bf97A3CBdF3Bc34771C4E5E",
+      "step": "paid",
+      "result": "payment_rejected",
+      "status": 402,
+      "charged_usd": 0,
+      "body_bytes": 3120,
+      "proof": null,
+      "ms": 9903
+    },
+    {
+      "url": "https://api.helpmyagent.com/v1/company/fr/search",
+      "host": "api.helpmyagent.com",
+      "listed_price_usd": 0.002,
+      "request": {
+        "method": "POST",
+        "url": "https://api.helpmyagent.com/v1/company/fr/search"
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.002,
+      "pay_to": "0xEaB9543AcF710a24fe096913A428E7d066c88F59",
+      "step": "paid",
+      "result": "error_not_charged",
+      "status": 400,
+      "charged_usd": 0,
+      "body_bytes": 147,
+      "proof": null,
+      "ms": 10925
+    },
+    {
+      "url": "https://compute.combify.app/translate",
+      "host": "compute.combify.app",
+      "listed_price_usd": 0.005,
+      "request": {
+        "method": "POST",
+        "url": "https://compute.combify.app/translate"
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.005,
+      "pay_to": "0x9340d1d596fc63693b71a454516367ece2526f39",
+      "step": "paid",
+      "result": "error_not_charged",
+      "status": 400,
+      "charged_usd": 0,
+      "body_bytes": 116,
+      "proof": null,
+      "ms": 9944
+    },
+    {
+      "url": "https://api.biotechcatalystsentinel.com/v1/events",
+      "host": "api.biotechcatalystsentinel.com",
+      "listed_price_usd": 0.05,
+      "request": {
+        "method": "GET",
+        "url": "https://api.biotechcatalystsentinel.com/v1/events"
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.05,
+      "pay_to": "0xcD8975137D48ED9bfD1C299a62c01420B860070d",
+      "step": "paid",
+      "result": "delivered",
+      "status": 200,
+      "charged_usd": 0.05,
+      "body_bytes": 91288,
+      "proof": {
+        "overall": "pass",
+        "transaction": "0x4813b20da76b639c4e7c04944168f23b777810aac19c8b5bd4a2164f96fab156",
+        "explorer": "https://basescan.org/tx/0x4813b20da76b639c4e7c04944168f23b777810aac19c8b5bd4a2164f96fab156"
+      },
+      "ms": 5899
+    },
+    {
+      "url": "https://api.x402agentic.ai/spend-guard",
+      "host": "api.x402agentic.ai",
+      "listed_price_usd": 0.01,
+      "request": {
+        "method": "GET",
+        "url": "https://api.x402agentic.ai/spend-guard"
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.01,
+      "pay_to": "0xc23C4aFA42cbaBbc03D04Bc87ecB769Fc82F1f43",
+      "step": "paid",
+      "result": "delivered",
+      "status": 200,
+      "charged_usd": 0.01,
+      "body_bytes": 27,
+      "proof": {
+        "overall": "pass",
+        "transaction": "0x44e70a840edf1bba798a55c97dca5548a592eed1ca9523b6ffb631cc6a07df2e",
+        "explorer": "https://basescan.org/tx/0x44e70a840edf1bba798a55c97dca5548a592eed1ca9523b6ffb631cc6a07df2e"
+      },
+      "ms": 5572
+    },
+    {
+      "url": "https://data.greeneris.io/v1/fr/dpe",
+      "host": "data.greeneris.io",
+      "listed_price_usd": 0.005,
+      "request": {
+        "method": "GET",
+        "url": "https://data.greeneris.io/v1/fr/dpe"
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.005,
+      "pay_to": "0x6ab8efe305cce67daa48c97bde29c04402822dff",
+      "step": "paid",
+      "result": "error_not_charged",
+      "status": 400,
+      "charged_usd": 0,
+      "body_bytes": 119,
+      "proof": null,
+      "ms": 9698
+    },
+    {
+      "url": "https://agent402.tools/api/selector-lookup",
+      "host": "agent402.tools",
+      "listed_price_usd": 0.002,
+      "request": {
+        "method": "GET",
+        "url": "https://agent402.tools/api/selector-lookup"
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.002,
+      "pay_to": "0xaBF4FAbd7c416fB67202E5f9002389Fc75e2a9D0",
+      "step": "paid",
+      "result": "error_not_charged",
+      "status": 400,
+      "charged_usd": 0,
+      "body_bytes": 348,
+      "proof": null,
+      "ms": 9670
+    },
+    {
+      "url": "https://dt0ur.online/api/news/space-image",
+      "host": "dt0ur.online",
+      "listed_price_usd": 0.01,
+      "request": {
+        "method": "GET",
+        "url": "https://dt0ur.online/api/news/space-image"
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.01,
+      "pay_to": "0x7f520c845d5Dc5e51a27699A1f098dc13Aa789b7",
+      "step": "paid",
+      "result": "charged_not_delivered",
+      "status": 404,
+      "charged_usd": 0.01,
+      "body_bytes": 159,
+      "proof": {
+        "overall": "pass",
+        "transaction": "0xeb126f32283d3a12675ee2ebdd9c5e395d21506e526eeefe90c45deff81a071f",
+        "explorer": "https://basescan.org/tx/0xeb126f32283d3a12675ee2ebdd9c5e395d21506e526eeefe90c45deff81a071f"
+      },
+      "ms": 5244
+    },
+    {
+      "url": "https://e-commerce-price-monitoring-production.up.railway.app/v1/price/check",
+      "host": "e-commerce-price-monitoring-production.up.railway.app",
+      "listed_price_usd": 0.02,
+      "request": {
+        "method": "POST",
+        "url": "https://e-commerce-price-monitoring-production.up.railway.app/v1/price/check"
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.02,
+      "pay_to": "0xF7C645b7600Fb6Aae07Fd0Cf31112A7788BE8F85",
+      "step": "paid",
+      "result": "error_not_charged",
+      "status": 400,
+      "charged_usd": 0,
+      "body_bytes": 50,
+      "proof": null,
+      "ms": 9758
+    },
+    {
+      "url": "https://agents.samedaydesk.com/extract",
+      "host": "agents.samedaydesk.com",
+      "listed_price_usd": 0.005,
+      "request": {
+        "method": "GET",
+        "url": "https://agents.samedaydesk.com/extract"
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.005,
+      "pay_to": "0x8904dF3DE6DFEe6a7C8cc38619d2f17806213Cee",
+      "step": "paid",
+      "result": "error_not_charged",
+      "status": 400,
+      "charged_usd": 0,
+      "body_bytes": 77,
+      "proof": null,
+      "ms": 9565
+    },
+    {
+      "url": "https://web-production-220a3.up.railway.app/agentic/call/colony_activity",
+      "host": "web-production-220a3.up.railway.app",
+      "listed_price_usd": 0.02,
+      "request": {
+        "method": "POST",
+        "url": "https://web-production-220a3.up.railway.app/agentic/call/colony_activity"
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.02,
+      "pay_to": "0xE81C67c086c83997b41673e1e41e481c14D756F6",
+      "step": "paid",
+      "result": "delivered",
+      "status": 200,
+      "charged_usd": 0.02,
+      "body_bytes": 6478,
+      "proof": {
+        "overall": "pass",
+        "transaction": "0x6d03925cf4afa3d7064cc9dc3218494bb3b912702ef213e20366af4d7109b0e9",
+        "explorer": "https://basescan.org/tx/0x6d03925cf4afa3d7064cc9dc3218494bb3b912702ef213e20366af4d7109b0e9"
+      },
+      "ms": 4453
+    },
+    {
+      "url": "https://tanod.dev/v1/email/verify",
+      "host": "tanod.dev",
+      "listed_price_usd": 0.001,
+      "request": {
+        "method": "GET",
+        "url": "https://tanod.dev/v1/email/verify"
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.001,
+      "pay_to": "0x593857A4a4F619543ea12394137C3004ce841720",
+      "step": "paid",
+      "result": "payment_rejected",
+      "status": 402,
+      "charged_usd": 0,
+      "body_bytes": 4287,
+      "proof": null,
+      "ms": 10538
+    },
+    {
+      "url": "https://readx.sh/api/trends",
+      "host": "readx.sh",
+      "listed_price_usd": 0.01,
+      "request": {
+        "method": "GET",
+        "url": "https://readx.sh/api/trends"
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.01,
+      "pay_to": "0x13E060ADcc6F4b731Da8382B333027B8B2bfF707",
+      "step": "paid",
+      "result": "delivered",
+      "status": 200,
+      "charged_usd": 0.01,
+      "body_bytes": 11498,
+      "proof": {
+        "overall": "pass",
+        "transaction": "0x79b992923cb68845250719479871daeeead52fee80ec5fbc3d9a6ba346325f14",
+        "explorer": "https://basescan.org/tx/0x79b992923cb68845250719479871daeeead52fee80ec5fbc3d9a6ba346325f14"
+      },
+      "ms": 7021
+    },
+    {
+      "url": "https://api.duoleads.com/v1/id/security",
+      "host": "api.duoleads.com",
+      "listed_price_usd": 0.05,
+      "request": {
+        "method": "GET",
+        "url": "https://api.duoleads.com/v1/id/security"
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.05,
+      "pay_to": "0xCD673f7e1daD254347AEab6be0DEFe8b9C6b3A39",
+      "step": "paid",
+      "result": "error_not_charged",
+      "status": 400,
+      "charged_usd": 0,
+      "body_bytes": 663,
+      "proof": null,
+      "ms": 9489
+    }
+  ]
+}
