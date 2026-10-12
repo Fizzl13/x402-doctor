@@ -242,6 +242,7 @@
   }
 
   // Algorand transaction types as logged by presign-guard (input.txType, since 11 Oct 2026).
+  const SCREEN_FORMATS = { evm: 'EVM', solana: 'Solana', tron: 'Tron', bitcoin: 'Bitcoin', xrpl: 'XRPL', algorand: 'Algorand', other: 'other' };
   const ALGORAND_TX = { pay: 'payment', axfer: 'asset transfer', appl: 'app call', acfg: 'asset config', afrz: 'asset freeze', keyreg: 'key registration' };
   // The thing asked about, for "What people asked".
   function topic(e) {
@@ -251,6 +252,9 @@
     if (i.pair) return i.pair;
     if (i.address) return shortAddr(i.address);
     if (i.primaryType) return i.primaryType;
+    // GET /v1/screen: the address's chain and the address; GET /v1/sanctions: a download of the open OFAC list.
+    if (e.route === 'screen') return `wallet screen: ${SCREEN_FORMATS[i.format] || 'address'} ${i.target ? shortAddr(i.target) : ''}`.trim();
+    if (e.route === 'sanctions list') return 'OFAC list download';
     if (i.type === 'xrpl') return `XRPL ${i.txType || 'transaction'}${i.network === 'xrpl:1' ? ' (testnet)' : ''}`;
     if (i.type === 'solana') return 'Solana transaction';
     if (i.type === 'algorand') {
@@ -264,7 +268,7 @@
 
   const state = { days: 30, services: new Set(SERVICES.map((s) => s.id)), paidOnly: false, pkgOnly: false, hideBots: true, data: null, rows: 25 };
   // Calls made by our packages (npm and PyPI): they send "user-agent: <package>/<version>", logged as the agent.
-  const PACKAGES = ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-wallet-mcp', 'presign-guard-agentkit', 'presign-guard-ai-sdk', 'fizzl-langchain', 'presign-guard-solana-agent-kit', 'plugin-fizzl', 'fizzl-py'];
+  const PACKAGES = ['x402-safe-fetch', 'presign-guard-wallet', 'presign-guard-wallet-mcp', 'presign-guard-agentkit', 'presign-guard-ai-sdk', 'fizzl-langchain', 'presign-guard-solana-agent-kit', 'plugin-fizzl', 'x402-payer-screen', 'fizzl-py'];
   // Our own tests of the AI SDK and Python packages (6 Oct 2026) and the LangChain.js tools (8 Oct 2026) are not use.
   const PACKAGE_TESTS_UNTIL = { 'presign-guard-ai-sdk': '2026-10-06T16:00:00Z', 'fizzl-py': '2026-10-06T16:00:00Z', 'fizzl-langchain': '2026-10-08T18:30:00Z' };
   // The free quick checks that presign-guard-ai-sdk, fizzl-langchain and fizzl fall back to when no payment is set up.
