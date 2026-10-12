@@ -50,10 +50,10 @@ jobs:
           # Only the explainer is on the homepage (since #94); the paid-fix video is still served for the README.
           echo "$home" | grep -q "/media/explainer.mp4"
           for v in explainer fix; do
-            # A byte-range request, the way iOS Safari fetches video. Right after a
-            # restart the file may still be downloading (302 to the raw file): retry.
+            # A byte-range request, the way iOS Safari fetches video, following the redirect to
+            # jsDelivr (since #199) or, right after a restart, to the raw file. Retry while it settles.
             for i in 1 2 3 4 5 6; do
-              got=$(curl -s -r 0-1023 -o /dev/null -w '%{http_code} %{content_type}' "$SERVICE/media/$v.mp4")
+              got=$(curl -sL -r 0-1023 -o /dev/null -w '%{http_code} %{content_type}' "$SERVICE/media/$v.mp4")
               echo "$v: $got"
               case "$got" in "206 video/mp4"*) break ;; esac
               sleep 10
