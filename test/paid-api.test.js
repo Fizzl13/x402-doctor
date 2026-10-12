@@ -5,6 +5,7 @@
 process.env.BASE_RPC_URL = 'http://127.0.0.1:1';
 
 const test = require('node:test');
+const { parsePaymentRequired } = require('@x402/core/schemas');
 const assert = require('node:assert/strict');
 const http = require('node:http');
 const { verifyTypedData } = require('viem');
@@ -276,6 +277,9 @@ test('Bazaar curation metadata: serviceName, category, iconUrl and tags in /.wel
     assert.equal(challenge.resource.serviceName, 'x402 Doctor', route);
     assert.equal(challenge.resource.iconUrl, 'https://x402-doctor.fizzl.eu/icon.png', route);
     assert.ok(challenge.resource.tags.length > 0, route);
+    // Strict x402 clients parse the challenge with @x402/core's schema (at most 5 tags, among others).
+    const parsed = parsePaymentRequired(challenge);
+    assert.ok(parsed.success, `${route}: ${JSON.stringify(parsed.error?.issues)}`);
   }
 });
 
