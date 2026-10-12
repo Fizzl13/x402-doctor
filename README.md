@@ -263,6 +263,9 @@ one letter per day (`g` go, `c` caution, `n` no-go, `x` unreachable, `-` not sca
   wallet details); `GET /api/trust?url=…` adds `spot_buy` when that endpoint was bought in it (`lib/spot-results.js`).
   The paid pre-payment check adds the same as `signals.spot_buy`, and a `caution` (`charged_without_answer`) when the
   endpoint took the payment for the example request its own listing declares and answered with an error.
+  The same wallet makes one other kind of payment, started by hand: [`index-payment.yml`](.github/workflows/index-payment.yml)
+  pays one call of at most $0.01 to one of our own fizzl.eu routes (`scripts/index-payment.js`), because the CDP Bazaar
+  lists a route only after a payment for it settles. It publishes nothing, so the sample stays one of other sellers.
 - **Sanctions screen.** Every payout address (x402 `payTo`, MPP `recipient`) is matched against the OFAC SDN list's
   digital currency addresses, from [presign-guard's free open copy](https://presign-guard.fizzl.eu/v1/sanctions) of the
   US Treasury list (`lib/sanctions.js`, refreshed every 6 hours). A listed address makes the pre-payment check `no_go`
