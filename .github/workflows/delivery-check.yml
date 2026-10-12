@@ -1,0 +1,78 @@
+name: Delivery checks
+
+# Paid delivery checks (lib/delivery-checks.js): every 10 minutes, take the queue of paid jobs from x402 Doctor
+# (GET /api/v1/delivery-check/queue), buy each endpoint once with the spot-buy wallet and publish the result to
+# the delivery-data branch, which x402 Doctor reads back for the status route.
+#
+# Pays only with the secret SPOT_BUY_KEY (the dedicated spot-buy wallet), at most $0.10 a purchase, at most 5 a
+# run and 20 a day. Without the secret every run is a dry run that pays and publishes nothing.
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# The same wallet as the spot-buy and the index payment: never two at once (charges are measured from its balance).
+concurrency:
+  group: spot-buy
+  cancel-in-progress: false
+
+jobs:
+  buy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Anything queued?
+        id: queue
+        run: |
+          n=$(curl -s --max-time 30 -A "x402-doctor-delivery-check/1.0" https://x402-doctor.fizzl.eu/api/v1/delivery-check/queue | python3 -c "import json,sys;print(len(json.load(sys.stdin).get('jobs',[])))" 2>/dev/null || echo 0)
+          echo "queued=$n" >> "$GITHUB_OUTPUT"
+          echo "queued: $n"
+      - uses: actions/checkout@v5
+        if: steps.queue.outputs.queued != '0'
+      - uses: actions/setup-node@v5
+        if: steps.queue.outputs.queued != '0'
+        with:
+          node-version: 22
+          cache: npm
+      - if: steps.queue.outputs.queued != '0'
+        run: npm ci
+      - name: Earlier results
+        if: steps.queue.outputs.queued != '0'
+        run: |
+          mkdir -p delivery-data
+          if git fetch --depth 1 origin delivery-data 2>/dev/null; then git show FETCH_HEAD:index.json > delivery-data/index.json || true; fi
+      - name: Buy
+        if: steps.queue.outputs.queued != '0'
+        run: node scripts/delivery-check.js --index delivery-data/index.json --out delivery-data
+        env:
+          SPOT_BUY_KEY: ${{ secrets.SPOT_BUY_KEY }}
+          BASE_RPC_URL: ${{ secrets.BASE_RPC_URL }}
+      - name: Publish to the delivery-data branch
+        if: steps.queue.outputs.queued != '0' && hashFiles('delivery-data/results/*.json') != ''
+        run: |
+          remote="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          mkdir pub && cd pub
+          if git ls-remote --exit-code --heads "$remote" delivery-data >/dev/null; then
+            git clone -q --depth 20 --branch delivery-data "$remote" .
+          else
+            git init -q -b delivery-data && git remote add origin "$remote"
+          fi
+          mkdir -p results
+          cp ../delivery-data/index.json index.json
+          cp ../delivery-data/results/*.json results/
+          cat > README.md <<'MD'
+          # x402 delivery checks
+
+          Written by `.github/workflows/delivery-check.yml` on `master` (see `lib/delivery-checks.js`): each result is
+          one paid delivery check, an x402 endpoint bought once with the example input its listing declares, by a
+          dedicated wallet, the charge measured on chain. `index.json` holds every result, `results/<id>.json` one each.
+          Status per job: https://x402-doctor.fizzl.eu/api/v1/delivery-check/<id>
+          MD
+          git add -A
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -qm "Delivery checks $(date -u +%FT%H:%M)"
+          git push -q origin delivery-data
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

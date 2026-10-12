@@ -270,7 +270,7 @@ test('Bazaar curation metadata: serviceName, category, iconUrl and tags in /.wel
   const icon = await fetch(`${api}/icon.png`);
   assert.equal(icon.status, 200);
   assert.equal(icon.headers.get('content-type'), 'image/png');
-  for (const route of ['/api/v1/diagnose', '/api/v1/preflight', '/api/v1/fix', '/api/v1/preflight/batch', '/api/v1/preflight/deep']) {
+  for (const route of ['/api/v1/diagnose', '/api/v1/preflight', '/api/v1/fix', '/api/v1/preflight/batch', '/api/v1/preflight/deep', '/api/v1/delivery-check']) {
     const res = await fetch(`${api}${route}`);
     assert.equal(res.status, 402, route);
     const challenge = JSON.parse(Buffer.from(res.headers.get('payment-required'), 'base64').toString('utf8'));
@@ -307,7 +307,7 @@ test('discovery: OpenAPI with x-payment-info and /.well-known/x402 listing the r
   assert.ok(op.responses['402']);
   const wellKnown = await (await fetch(`${api}/.well-known/x402`)).json();
   assert.equal(wellKnown.version, 1);
-  const ROUTES = ['/api/v1/diagnose', '/api/v1/preflight', '/api/v1/preflight/batch', '/api/v1/preflight/deep', '/api/v1/fix'];
+  const ROUTES = ['/api/v1/diagnose', '/api/v1/preflight', '/api/v1/preflight/batch', '/api/v1/preflight/deep', '/api/v1/fix', '/api/v1/delivery-check'];
   assert.deepEqual(wellKnown.resources, ROUTES.map((r) => `${api}${r}`));
   // fetch cannot set Host; behind the trusted proxy X-Forwarded-Host sets req.hostname the same way.
   const onRender = await (await fetch(`${api}/.well-known/x402`, { headers: { 'x-forwarded-host': 'x402-doctor.onrender.com' } })).json();
@@ -558,4 +558,18 @@ test('MPP discovery: openapi.json has an evm offer per paid operation and x-serv
   assert.equal(spec.info.contact.url, 'https://fizzl.eu');
   assert.deepEqual(op.offers, [{ amount: '1000', currency: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', description: spec.paths['/api/v1/preflight'].get.summary, intent: 'charge', method: 'evm' }]);
   assert.equal(spec.paths['/api/v1/fix'].get['x-payment-info'].offers[0].amount, '50000');
+});
+
+test('delivery check: the bare route gives the 402; without a job store an order is refused before payment', async () => {
+  const bare = await fetch(`${api}/api/v1/delivery-check`);
+  assert.equal(bare.status, 402);
+  const challenge = JSON.parse(Buffer.from(bare.headers.get('payment-required'), 'base64').toString('utf8'));
+  assert.equal(challenge.accepts.find((a) => a.network === BASE).amount, '250000', '$0.25');
+  const off = await fetch(`${api}/api/v1/delivery-check?url=${encodeURIComponent('https://a.example/paid')}`);
+  assert.equal(off.status, 503);
+  assert.match((await off.json()).error, /nothing was charged/);
+  assert.equal((await fetch(`${api}/api/v1/delivery-check?url=http://a.example/x`)).status, 400);
+  assert.equal((await fetch(`${api}/api/v1/delivery-check/queue`)).status, 503, 'free, and off without a store');
+  const spec = await (await fetch(`${api}/openapi.json`)).json();
+  assert.equal(spec.paths['/api/v1/delivery-check'].get['x-payment-info'].price.amount, '0.25');
 });

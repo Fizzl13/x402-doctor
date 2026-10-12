@@ -10,7 +10,7 @@ const { fizzlCors } = require('./lib/fizzl-cors');
 const { createSafeFetch, isPrivateIp } = require('./lib/safe-fetch');
 const diagnoseLib = require('./lib/diagnose');
 const { createBazaarIndex } = require('./lib/bazaar-index');
-const { createPaidApi, ROUTE: PAID_ROUTE, PREFLIGHT_ROUTE, FIX_ROUTE, BATCH_ROUTE, DEEP_ROUTE, REPORT_SCHEMA, FIX_SCHEMA, DEEP_SCHEMA } = require('./lib/paid-api');
+const { createPaidApi, ROUTE: PAID_ROUTE, PREFLIGHT_ROUTE, FIX_ROUTE, BATCH_ROUTE, DEEP_ROUTE, DELIVERY_ROUTE, REPORT_SCHEMA, FIX_SCHEMA, DEEP_SCHEMA } = require('./lib/paid-api');
 const { BATCH_SCHEMA } = require('./lib/preflight-plus');
 const { STACKS } = require('./lib/stack');
 const { PREFLIGHT_SCHEMA } = require('./lib/preflight');
@@ -112,6 +112,9 @@ function describeDoctorCall(req, _res, body) {
   if (req.method === 'GET' && req.path === DEEP_ROUTE) {
     return { route: 'preflight deep', via: 'api', input: { url: req.query.url, max_usd: req.query.max_usd, network: req.query.network }, result: { verdict: b.verdict, error: b.error } };
   }
+  if (req.method === 'GET' && req.path === DELIVERY_ROUTE) {
+    return { route: 'delivery check', via: 'api', input: { url: req.query.url, method: req.query.method }, result: { status: b.status, id: b.id, error: b.error } };
+  }
   if (req.method === 'GET' && req.path === PREFLIGHT_ROUTE) {
     return { route: 'preflight', via: 'api', input: { url: req.query.url, max_usd: req.query.max_usd, network: req.query.network }, result: { verdict: b.verdict, error: b.error } };
   }
@@ -186,7 +189,7 @@ function trustProxyHops(env) {
   return Number.isInteger(n) && n >= 0 && n <= 10 && String(env.TRUST_PROXY_HOPS).trim() !== '' ? n : 3;
 }
 
-function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, trustIndex = createTrustIndex(), spotResults = createSpotResults(), media = createMediaCache(), usageLog = createUsageLog({ service: 'doctor', env }), usageReader = createUsageReader({ env }), publicStats = createPublicStats({ usageReader }), settlementFetch = globalThis.fetch, status = null, outreachHook: outreachHookOverride = null, describe = createDescribe({ apiKey: env.TYPESAFE_API_KEY }), poison = createPoisonCheck({ apiKey: env.TYPESAFE_API_KEY }), creditStore, agentKinds = createAgentKinds({ apiKey: env.TYPESAFE_API_KEY }), downloads = createDownloads(), priceCheck = createPriceCheck({ apiKey: env.TYPESAFE_API_KEY, trustIndex }) } = {}) {
+function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, trustIndex = createTrustIndex(), spotResults = createSpotResults(), media = createMediaCache(), usageLog = createUsageLog({ service: 'doctor', env }), usageReader = createUsageReader({ env }), publicStats = createPublicStats({ usageReader }), settlementFetch = globalThis.fetch, status = null, outreachHook: outreachHookOverride = null, describe = createDescribe({ apiKey: env.TYPESAFE_API_KEY }), poison = createPoisonCheck({ apiKey: env.TYPESAFE_API_KEY }), creditStore, agentKinds = createAgentKinds({ apiKey: env.TYPESAFE_API_KEY }), downloads = createDownloads(), priceCheck = createPriceCheck({ apiKey: env.TYPESAFE_API_KEY, trustIndex }), deliveryStore, deliveryResults } = {}) {
   const app = express();
   const safeFetch = createSafeFetch({ allowPrivate });
   // Outreach drafts for the owner (lib/outreach-hook.js); off without OUTREACH_URL and OUTREACH_KEY.
@@ -208,7 +211,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   // Free payment-proof check (lib/settlement.js): the PAYMENT-RESPONSE header → the on-chain transaction.
   const rpcUrls = { ...(env.BASE_RPC_URL ? { 'eip155:8453': env.BASE_RPC_URL } : {}), ...(env.SOLANA_RPC_URL ? { 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp': env.SOLANA_RPC_URL } : {}) };
   const checkPaymentProof = (header) => checkSettlement(header, { fetch: settlementFetch, rpcUrls });
-  paidApi = createPaidApi({ safeFetch, env, trustIndex, feedback, bazaarIndex: bazaar, outcomes, checkPaymentProof, creditStore, priceCheck, spotResults });
+  paidApi = createPaidApi({ safeFetch, env, trustIndex, feedback, bazaarIndex: bazaar, outcomes, checkPaymentProof, creditStore, priceCheck, spotResults, deliveryStore, ...(deliveryResults ? { deliveryResults } : {}) });
 
   // Doctor's requests reach the app through three proxies (the caller, then two
   // hops, the last a private Render address: measured 26 Sep), so Express has to
@@ -310,7 +313,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     const origin = /\.onrender\.com$/i.test(req.hostname) ? publicUrl : `${req.protocol}://${req.get('host')}`;
     res.json({
       version: 1,
-      resources: paidApi.paymentInfo ? [PAID_ROUTE, PREFLIGHT_ROUTE, BATCH_ROUTE, DEEP_ROUTE, FIX_ROUTE].map((route) => `${origin}${route}`) : [],
+      resources: paidApi.paymentInfo ? [PAID_ROUTE, PREFLIGHT_ROUTE, BATCH_ROUTE, DEEP_ROUTE, FIX_ROUTE, DELIVERY_ROUTE].map((route) => `${origin}${route}`) : [],
       name: 'x402 Doctor',
       serviceName: 'x402 Doctor',
       category: 'developer-tools',
@@ -630,6 +633,36 @@ function openApi(origin, payment) {
           ...buyerParams,
         ],
         responses: paidResponses('The preflight verdict plus the full diagnosis, daily history, seller reliability and domain-move checks', DEEP_SCHEMA),
+      },
+    };
+  }
+  if (payment.delivery) {
+    spec.paths[DELIVERY_ROUTE] = {
+      get: {
+        operationId: 'deliveryCheckX402Endpoint',
+        summary: 'Have an x402 endpoint bought once: paid and delivered?',
+        description: `x402 Doctor buys the endpoint once with the example input its listing declares (at most $${payment.delivery.cap_usd}, USDC on Base, from a dedicated wallet in GitHub Actions), checks the answer against the declared output schema and measures the charge on chain. Answers with a job id at once; GET ${DELIVERY_ROUTE}/{id} gives the status and, usually within 30 minutes, the result.`,
+        tags: ['x402', 'payments'],
+        'x-payment-info': paymentInfo(payment.delivery.price),
+        parameters: [
+          { name: 'url', in: 'query', required: true, example: 'https://ichimoku-signal.fizzl.eu/signal/BTC-USDT', schema: { type: 'string', format: 'uri' }, description: `The x402 endpoint to buy once: https, a "go" from the pre-payment check, payable in USDC on Base, at most $${payment.delivery.cap_usd}` },
+          { name: 'method', in: 'query', required: false, schema: { type: 'string', enum: ['GET', 'POST'] }, description: 'Endpoint method; default: the one its 402 answers to' },
+        ],
+        responses: {
+          200: { description: 'The queued job: id, status and status_url', content: { 'application/json': { schema: withReceipt({ type: 'object', properties: { id: { type: 'string' }, url: { type: 'string' }, status: { type: 'string', enum: ['queued', 'awaiting_payment', 'done'] }, status_url: { type: 'string' }, queued_at: { type: 'string' }, endpoint_price_usd: { type: 'number' } } }) } } },
+          400: { description: 'The endpoint cannot be bought this way (rejected before payment)' },
+          402: { description: 'Payment required (x402 challenge in the PAYMENT-REQUIRED header, mirrored in the body)' },
+          503: { description: 'Delivery checks unavailable or today\'s are taken (before payment)' },
+        },
+      },
+    };
+    spec.paths[`${DELIVERY_ROUTE}/{id}`] = {
+      get: {
+        operationId: 'deliveryCheckStatus',
+        summary: 'Status and result of a delivery check (free)',
+        tags: ['x402'],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', pattern: '^[a-z0-9]{10}$' } }],
+        responses: { 200: { description: 'queued, awaiting_payment or done (with the result: delivered, off_schema, empty, charged_not_delivered, payment_rejected, error_not_charged, or a step that stopped it before paying)' }, 404: { description: 'Unknown id' } },
       },
     };
   }
