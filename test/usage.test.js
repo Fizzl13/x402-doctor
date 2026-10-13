@@ -208,6 +208,26 @@ test('usage reader: reads the day files in range, newest first', async () => {
   assert.ok(!gh.calls.some((c) => c.includes('2026-01-01')), 'old day files are not downloaded');
 });
 
+test('usage reader: keeps only the current version of a day file (no pile-up as today\'s file changes)', async () => {
+  const gh = fakeGitHub();
+  const v1 = '{"t":"2026-09-24T09:00:00.000Z","service":"doctor"}\n';
+  const v2 = `${v1}{"t":"2026-09-24T10:00:00.000Z","service":"doctor"}\n`;
+  const reader = createUsageReader({ env: { USAGE_LOG_TOKEN: 't' }, fetchFn: gh.fetchFn, now: () => Date.parse('2026-09-24T12:00:00Z') });
+  const blobCalls = () => gh.calls.filter((c) => c.includes('/git/blobs/')).length;
+  gh.setFile('events/doctor/2026-09-24.jsonl', v1);
+  await reader.load({ days: 7 });
+  gh.setFile('events/doctor/2026-09-24.jsonl', v2);
+  assert.equal((await reader.load({ days: 7 })).events.length, 2);
+  // Back to the first version: it was dropped when the file changed, so it is downloaded again.
+  gh.setFile('events/doctor/2026-09-24.jsonl', v1);
+  const before = blobCalls();
+  assert.equal((await reader.load({ days: 7 })).events.length, 1);
+  assert.equal(blobCalls(), before + 1, 'the old version was not kept in memory');
+  // An unchanged file stays cached.
+  await reader.load({ days: 7 });
+  assert.equal(blobCalls(), before + 1);
+});
+
 test('usage reader: not configured without a token', async () => {
   const out = await createUsageReader({ env: {} }).load();
   assert.equal(out.configured, false);
