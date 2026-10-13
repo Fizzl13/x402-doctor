@@ -298,6 +298,65 @@ test('an openapi.json cut off at the size cap is reported as too large, not as i
   assert.doesNotMatch(c.message, /not valid JSON/);
 });
 
+test('x402scan readiness: contact e-mail, ownership proof against the payTo, input schemas and free routes', async () => {
+  const { generatePrivateKey, privateKeyToAccount } = require('viem/accounts');
+  const payout = privateKeyToAccount(generatePrivateKey());
+  const other = privateKeyToAccount(generatePrivateKey());
+  const origin = 'https://api.example.com';
+  const spec = (extra = {}) => ({
+    openapi: '3.1.0',
+    info: { title: 'T', 'x-guidance': 'g' },
+    paths: {
+      '/paid': { get: { 'x-payment-info': { price: { amount: '0.01' } }, parameters: [{ name: 'q', in: 'query' }] } },
+      '/pack': { get: { 'x-payment-info': { price: { amount: '1' } } } },
+      '/status': { get: {} },
+      '/open': { get: { security: [] } },
+    },
+    ...extra,
+  });
+  const run = async (json, payTos = [payout.address]) => {
+    const checks = [];
+    await checkOpenApi(origin, async () => ({ status: 200, text: JSON.stringify(json) }), checks, { payTos });
+    return Object.fromEntries(checks.map((c) => [c.id, c]));
+  };
+
+  let c = await run(spec());
+  assert.equal(c['openapi-contact'].status, 'info');
+  assert.equal(c['openapi-ownership'].status, 'info');
+  assert.match(c['openapi-input-schema'].message, /GET \/pack/);
+  assert.doesNotMatch(c['openapi-input-schema'].message, /GET \/paid/);
+  assert.match(c['openapi-free-routes'].message, /GET \/status/);
+  assert.doesNotMatch(c['openapi-free-routes'].message, /GET \/open/);
+
+  const good = await payout.signMessage({ message: origin });
+  c = await run(spec({ info: { title: 'T', 'x-guidance': 'g', contact: { email: 'a@b.c' } }, 'x-agentcash-provenance': { ownershipProofs: [good] } }));
+  assert.equal(c['openapi-contact'], undefined);
+  assert.equal(c['openapi-ownership'].status, 'pass');
+  assert.match(c['openapi-ownership'].message, new RegExp(payout.address.toLowerCase()));
+
+  c = await run(spec({ 'x-discovery': { ownershipProofs: [good] } }));
+  assert.equal(c['openapi-ownership'].status, 'pass', 'the older x-discovery place is read too');
+
+  c = await run(spec({ 'x-agentcash-provenance': { ownershipProofs: [await payout.signMessage({ message: `${origin}/` })] } }));
+  assert.equal(c['openapi-ownership'].status, 'warn');
+  assert.match(c['openapi-ownership'].message, /trailing slash/);
+
+  c = await run(spec({ 'x-agentcash-provenance': { ownershipProofs: [await other.signMessage({ message: origin })] } }));
+  assert.equal(c['openapi-ownership'].status, 'warn');
+  assert.match(c['openapi-ownership'].message, /not a payTo/);
+
+  c = await run(spec({ 'x-agentcash-provenance': { ownershipProofs: ['0x1234'] } }));
+  assert.equal(c['openapi-ownership'].status, 'warn');
+  assert.match(c['openapi-ownership'].message, /not a valid signature/);
+
+  c = await run(spec({ ownershipProofs: [good] }));
+  assert.equal(c['openapi-ownership'].status, 'warn');
+  assert.match(c['openapi-ownership'].message, /top level/);
+
+  c = await run(spec({ 'x-agentcash-provenance': { ownershipProofs: [good] } }), []);
+  assert.equal(c['openapi-ownership'].status, 'info', 'no EVM payTo to check against');
+});
+
 test('POST-only endpoint: falls back to POST, or uses --method', async () => {
   const url = await listen((req, res) => {
     res.statusCode = req.method === 'POST' ? 402 : 405;
