@@ -214,6 +214,30 @@ test('the Redis store (a stand-in client): add, settle mark, list newest first, 
   assert.equal(redisStore('not a url').ready, false);
 });
 
+test('a probe without payment gets its 402 within the time budget; a paid request waits for the whole check', async () => {
+  // The CDP Bazaar validator and health probe give up after 10 s; a fresh pre-payment check can take longer.
+  const slowNoGo = () => new Promise((resolve) => setTimeout(resolve, 300, { verdict: 'no_go', summary: 'Do not pay', recommended_option: null, options: [], reasons: [] }));
+  const d = createDelivery({ express, store: memoryStore(), results: null, runPreflight: slowNoGo, probeBudgetMs: 50 });
+  const call = (headers = {}) => new Promise((resolve) => {
+    const req = { query: { url: 'https://a.example/x' }, ip: '1.2.3.4', get: (name) => headers[name.toLowerCase()] };
+    const res = { status(c) { this.code = c; return this; }, json(b) { resolve({ code: this.code, body: b }); } };
+    const started = Date.now();
+    d.validate(req, res, () => resolve({ code: 'next', job: req.deliveryJob, ms: Date.now() - started }));
+  });
+  const probe = await call();
+  assert.equal(probe.code, 'next', 'on to the 402');
+  assert.equal(probe.job, undefined, 'nothing to order without the whole check');
+  assert.ok(probe.ms < 250, `answered in ${probe.ms} ms`);
+  assert.equal((await call({ 'payment-signature': 'eyJ4' })).code, 400, 'with a payment the whole check runs, and refuses before anything settles');
+  assert.equal((await call({ authorization: 'Payment abc' })).code, 400, 'an MPP credential counts as a payment too');
+  const fast = createDelivery({ express, store: memoryStore(), results: null, runPreflight: go(), probeBudgetMs: 50 });
+  const fastProbe = await new Promise((resolve) => {
+    const req = { query: { url: 'https://a.example/x' }, ip: '1.2.3.5', get: () => undefined };
+    fast.validate(req, { status() { return this; }, json: resolve }, () => resolve({ next: true, job: req.deliveryJob }));
+  });
+  assert.equal(fastProbe.job.price_usd, 0.02, 'a check that finishes in time still runs before the 402');
+});
+
 test('the check before payment is rate-limited per caller', async () => {
   const d = createDelivery({ express, store: memoryStore(), results: null, runPreflight: go(), checksPerHour: 2 });
   const call = () => new Promise((resolve) => {

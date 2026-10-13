@@ -9,7 +9,7 @@ const { wrapFetchWithPayment, x402Client } = require('@x402/fetch');
 const { ExactEvmScheme } = require('@x402/evm/exact/client');
 const { createSafeFetch } = require('../lib/safe-fetch');
 const { createSanctions } = require('../lib/sanctions');
-const { selectCandidates, runSpotBuy, classify, reasonOf, cacheRisk, exampleRequest, isoWeek, ownTarget, INDEX_PAYMENT, indexCapFor, LIMITS, USER_AGENT } = require('../lib/spot-buy');
+const { selectCandidates, runSpotBuy, classify, reasonOf, cacheRisk, exampleRequest, isoWeek, ownTarget, INDEX_PAYMENT, indexCapFor, staleRoutes, LIMITS, USER_AGENT } = require('../lib/spot-buy');
 
 const BASE = 'eip155:8453';
 const USDC = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
@@ -232,13 +232,49 @@ test('an indexing payment goes only to one of our own routes', () => {
     assert.equal(ownTarget(bad), null, bad);
   }
   assert.equal(INDEX_PAYMENT.capUsd, 0.01);
-  // One route has its own cap (the delivery check, $0.25 to our own payout wallet); every other route stays at $0.01.
+  // Each of our routes has its own cap, its price (all to our own payout wallets); any other fizzl.eu URL stays at $0.01.
   assert.equal(indexCapFor(ownTarget('https://x402-doctor.fizzl.eu/api/v1/delivery-check')), 0.25);
   assert.equal(indexCapFor(ownTarget('https://x402-doctor.fizzl.eu/api/v1/delivery-check?url=https%3A%2F%2Fa.example%2Fx')), 0.25);
   assert.equal(indexCapFor(ownTarget('https://presign-guard.fizzl.eu/v1/screen?address=x')), 0.01);
   assert.equal(indexCapFor(ownTarget('https://x402-doctor.fizzl.eu/api/v1/diagnose')), 0.01);
+  assert.equal(indexCapFor(ownTarget('https://x402-doctor.fizzl.eu/api/v1/preflight')), 0.001);
+  assert.equal(indexCapFor(ownTarget('https://ichimoku-signal.fizzl.eu/signals/BTC-USDT')), 0.15);
+  assert.equal(indexCapFor(ownTarget('https://ichimoku-signal.fizzl.eu/setups?top=3')), 0.5);
+  assert.equal(indexCapFor(ownTarget('https://ichimoku-signal.fizzl.eu/signal/ETH-USDT')), 0.01, 'only the listed example path has the route cap');
+  assert.equal(indexCapFor(ownTarget('https://plaintext.fizzl.eu/api/explain')), 0.01);
+  assert.equal(INDEX_PAYMENT.routes.length, 16);
+  assert.ok(INDEX_PAYMENT.routes.every((r) => ownTarget(r.url) && r.capUsd > 0 && r.capUsd <= LIMITS.ownCapUsd), 'every route is ours and within the hard ceiling');
   assert.equal(LIMITS.capUsd, 0.1, 'the ceiling for other sellers is unchanged');
-  assert.ok(LIMITS.ownCapUsd >= 0.25);
+  assert.equal(LIMITS.ownCapUsd, 0.5);
+});
+
+test('stale routes: our routes whose last settled payment in the Bazaar is 21 days old or more, or that it does not list', () => {
+  const now = Date.parse('2026-10-30T00:00:00Z');
+  const routes = [
+    { url: 'https://ichimoku-signal.fizzl.eu/signal/BTC-USDT', capUsd: 0.02 },
+    { url: 'https://ichimoku-signal.fizzl.eu/signals/BTC-USDT', capUsd: 0.15 },
+    { url: 'https://ichimoku-signal.fizzl.eu/setups', capUsd: 0.5 },
+    { url: 'https://x402-doctor.fizzl.eu/api/v1/preflight/batch', capUsd: 0.005 },
+    { url: 'https://presign-guard.fizzl.eu/v1/screen', capUsd: 0.01 },
+  ];
+  const listed = [
+    { resource: 'https://ichimoku-signal.fizzl.eu/signal/:pair', quality: { lastCalledAt: '2026-10-04T14:54:37Z' } }, // 25 days
+    { resource: 'https://ichimoku-signal.fizzl.eu/signals/:pair', quality: { lastCalledAt: '2026-09-28T16:12:36Z' } }, // 31 days
+    { resource: 'https://ichimoku-signal.fizzl.eu/setups', quality: { lastCalledAt: '2026-10-20T00:00:00Z' } }, // 10 days
+    { resource: 'https://x402-doctor.fizzl.eu/api/v1/preflight/batch' }, // listed, no payment date
+    { resource: 'https://other.example/signal/:pair', quality: { lastCalledAt: '2026-10-29T00:00:00Z' } },
+  ];
+  const due = staleRoutes(listed, { routes, now });
+  assert.deepEqual(due.map((r) => r.url), [
+    'https://x402-doctor.fizzl.eu/api/v1/preflight/batch', // no date: first
+    'https://presign-guard.fizzl.eu/v1/screen', // not listed
+    'https://ichimoku-signal.fizzl.eu/signals/BTC-USDT', // 31 days
+    'https://ichimoku-signal.fizzl.eu/signal/BTC-USDT', // 25 days
+  ]);
+  assert.equal(due.find((r) => r.url.endsWith('/signal/BTC-USDT')).age_days, 25.4);
+  assert.equal(due.find((r) => r.url.endsWith('/v1/screen')).listed, false);
+  assert.deepEqual(staleRoutes(listed, { routes, now, staleDays: 30 }).map((r) => r.url).slice(2), ['https://ichimoku-signal.fizzl.eu/signals/BTC-USDT'], 'a longer threshold pays fewer');
+  assert.equal(staleRoutes([{ resource: 'https://ichimoku-signal.fizzl.eu/signal/:pair', quality: { lastCalledAt: '2026-10-04T00:00:00Z' } }], { routes: [{ url: 'https://ichimoku-signal.fizzl.eu/signal/BTC-USDT/extra', capUsd: 0.02 }], now })[0].listed, false, 'a template matches one path segment only');
 });
 
 test('an own-routes-only run never buys someone else\'s endpoint, whatever its price', async () => {

@@ -1,16 +1,26 @@
 name: Index payment
 
-# One payment to one of our own routes, so the CDP Bazaar lists it (scripts/index-payment.js). The Bazaar lists a route
-# only after a payment for it settles, and directories that read the Bazaar find the route only then.
+# Payments to our own routes, so the CDP Bazaar lists them (scripts/index-payment.js). The Bazaar lists a route only
+# after a payment for it settles and drops it after 30 days without one; directories that read the Bazaar follow it.
 #
-# Started by hand. Pays at most $0.01 in USDC on Base (the delivery check: $0.25, to our own payout wallet; see
-# INDEX_PAYMENT.routeCaps in lib/spot-buy.js), only to a fizzl.eu route, with the spot-buy wallet (the secret
-# SPOT_BUY_KEY), and publishes nothing: the spot-buy results stay a sample of other sellers.
+# Started by hand. "stale" pays each of our routes whose last settled payment in the Bazaar is "days" old or more (or
+# that it does not list); otherwise "url" is paid once. Each payment costs at most the route's own price (see
+# INDEX_PAYMENT.routes in lib/spot-buy.js; any other fizzl.eu URL $0.01), in USDC on Base, only to a fizzl.eu route
+# and so to our own payout wallet, with the spot-buy wallet (the secret SPOT_BUY_KEY). It publishes nothing: the
+# spot-buy results stay a sample of other sellers.
 on:
   workflow_dispatch:
     inputs:
+      stale:
+        description: "Pay every route the Bazaar is about to drop (ignores url)"
+        type: boolean
+        default: true
+      days:
+        description: "With stale: pay routes whose last settled payment is this many days old or more"
+        type: number
+        default: 21
       url:
-        description: "The fizzl.eu route to pay once (https)"
+        description: "Without stale: the fizzl.eu route to pay once (https)"
         type: string
         default: "https://presign-guard.fizzl.eu/v1/screen?address=TNiq9AXBp9EjUqhDhrwrfvAA8U3GUQZH81"
       dry_run:
@@ -29,7 +39,7 @@ concurrency:
 jobs:
   pay:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -37,12 +47,18 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Pay once
+      - name: Pay
         run: |
           dry=""
           if [ "$DRY_RUN" = "true" ]; then dry="--dry"; fi
-          node scripts/index-payment.js --url "$TARGET_URL" $dry
+          if [ "$STALE" = "true" ]; then
+            node scripts/index-payment.js --stale --days "$DAYS" $dry
+          else
+            node scripts/index-payment.js --url "$TARGET_URL" $dry
+          fi
         env:
+          STALE: ${{ github.event.inputs.stale }}
+          DAYS: ${{ github.event.inputs.days }}
           TARGET_URL: ${{ github.event.inputs.url }}
           DRY_RUN: ${{ github.event.inputs.dry_run }}
           SPOT_BUY_KEY: ${{ secrets.SPOT_BUY_KEY }}
