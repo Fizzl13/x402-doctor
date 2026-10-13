@@ -289,6 +289,9 @@ test('discovery: OpenAPI with x-payment-info and /.well-known/x402 listing the r
     assert.equal(spec.paths[p].get.responses[200].content['application/json'].schema.properties.receipt.properties.algorithm.enum[0], 'eip191-canonical-json-v1', p);
   }
   assert.match(spec.info['x-guidance'], /signed receipt/);
+  assert.equal(spec.info.contact.email, 'Fizzl13@protonmail.com', 'x402scan links the origin to its owner by this e-mail');
+  assert.deepEqual(spec.paths['/api/v1/delivery-check/{id}'].get.security, [], 'the free status route is declared public');
+  assert.equal(spec.paths['/api/v1/delivery-check'].get.security, undefined, 'the paid route stays paid');
   assert.match((await (await fetch(`${api}/.well-known/x402`)).json()).signer, /\/\.well-known\/x402-doctor-signer\.json$/);
   const agent = await (await fetch(`${api}/.well-known/agent-registration.json`)).json();
   assert.equal(agent.type, 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1');
