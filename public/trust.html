@@ -83,6 +83,7 @@
   <p class="note" id="protocols" hidden></p>
   <div class="share" id="share" role="img" aria-label="Share of x402 services an agent can pay"></div>
   <div class="share-legend" id="shareLegend"></div>
+  <p class="note" id="sanctionsLine" hidden></p>
 
   <h2>Paid and delivered?</h2>
   <p class="note" id="spotLine" aria-live="polite">Loading the latest spot-buy…</p>
@@ -240,6 +241,11 @@
       const line = (name, v) => `${name}: ${fmt(v.resources)} services, ${pct(v.go + v.caution, v.go + v.caution + v.no_go + v.unreachable)} payable today`;
       $('protocols').textContent = `${line('x402', bp.x402)} · ${line('MPP (Stripe + Tempo)', bp.mpp)}`;
       $('protocols').hidden = false;
+    }
+    if (s.sanctions) {
+      const n = s.payto_sanctioned || 0;
+      $('sanctionsLine').textContent = `Every payout address was screened against the OFAC SDN sanctions list (${fmt(s.sanctions.addresses)} addresses, published ${s.sanctions.published}): ${n === 0 ? 'none of the services pays out to a listed address' : `${fmt(n)} ${n === 1 ? 'service pays' : 'services pay'} out to a listed address and ${n === 1 ? 'is' : 'are'} marked no-go`}.`;
+      $('sanctionsLine').hidden = false;
     }
     renderReasons(s);
     renderServices(s.services);

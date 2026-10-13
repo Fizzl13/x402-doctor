@@ -224,6 +224,18 @@ test('trust index refresh: unchanged index (304) is not downloaded again, a chan
   assert.equal(seen.at(-1), '"v2"', 'the new ETag is used next time');
 });
 
+test('trust summary: which sanctions list the latest scan screened against', async () => {
+  const index = mergeIndex(null, [{ key: 'https://s.example/p', url: 'https://s.example/p', method: 'GET', verdict: 'go', codes: [], price_usd: 0.01, networks: [BASE], ms: 5 }], { date: '2026-10-13' });
+  assert.equal(summarize(index).sanctions, null, 'not screened');
+  index.sanctions = { list: 'OFAC SDN', published: '2026-10-09', addresses: 1050 };
+  assert.deepEqual(summarize(index).sanctions, { list: 'OFAC SDN', published: '2026-10-09', addresses: 1050 });
+  assert.equal(summarize(index).payto_sanctioned, 0);
+  const trust = createTrustIndex({ url: 'https://raw.test/index.json', fetchImpl: async () => ({ ok: true, json: async () => index }) });
+  await trust.refresh();
+  assert.equal(trust.summary().sanctions.addresses, 1050);
+  assert.equal(trust.summary().payto_sanctioned, 0);
+});
+
 test('trust summary: failure reasons of the latest scan and one row per day', async () => {
   const r = (key, verdict, codes = []) => ({ key: `https://${key}.example/p`, url: `https://${key}.example/p`, method: 'GET', verdict, codes, price_usd: 0.01, networks: [BASE], ms: 5 });
   let index = mergeIndex(null, [r('a', 'go'), r('b', 'no_go', ['no_402'])], { date: '2026-09-23' });
