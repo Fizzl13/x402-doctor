@@ -437,6 +437,29 @@ test('paymentConfig: RLUSD on the XRP Ledger in production (CDP), off in tests, 
   assert.equal(usdOf({ network: 'xrpl:0', asset: '524C555344000000000000000000000000000000', amount: '0.001' }), 0.001);
 });
 
+test('XRPL: a t54 payment settles once; the same signed blob again is a duplicate (t54\'s /settle is idempotent), a failed settle can be retried', async () => {
+  const { createXrplFacilitator } = require('../lib/xrpl-facilitator');
+  let t = 0;
+  let fail = false;
+  const settled = [];
+  const t54 = { verify: async () => ({ isValid: true }), settle: async (p) => { settled.push(p.payload.signedTxBlob); return fail ? { success: false, errorReason: 'tefPAST_SEQ' } : { success: true, transaction: 'ABC' }; } };
+  const fac = createXrplFacilitator({ wsUrl: 'wss://127.0.0.1:9', t54, now: () => t });
+  const pay = (blob) => ({ x402Version: 2, accepted: { network: 'xrpl:0' }, payload: { signedTxBlob: blob, invoiceId: 'x402-doctor.fizzl.eu' } });
+  assert.equal((await fac.settle(pay('AA'), {})).success, true);
+  const again = await fac.settle(pay('AA'), {});
+  assert.deepEqual([again.success, again.errorReason], [false, 'duplicate_settlement'], 'a replayed blob buys nothing');
+  assert.deepEqual(settled, ['AA'], 'the replay never reaches t54');
+  assert.equal((await fac.settle(pay('BB'), {})).success, true, 'another payment settles');
+  fail = true;
+  assert.equal((await fac.settle(pay('CC'), {})).success, false);
+  fail = false;
+  assert.equal((await fac.settle(pay('CC'), {})).success, true, 'a failed settle frees the blob for a retry');
+  t += 8 * 24 * 3600 * 1000;
+  assert.equal((await fac.settle(pay('AA'), {})).success, true, 'after a week the claim is gone');
+  const parallel = await Promise.all([fac.settle(pay('DD'), {}), fac.settle(pay('DD'), {})]);
+  assert.deepEqual(parallel.map((r) => r.success).sort(), [false, true], 'two at once: one settles');
+});
+
 test('XRPL: t54-format payments go to t54, accepts carry the x402 SourceTag', async () => {
   const { createXrplFacilitator, X402_SOURCE_TAG } = require('../lib/xrpl-facilitator');
   const calls = [];
