@@ -313,17 +313,27 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   // old onrender.com address still works, but discovery always names the
   // fizzl.eu address; any other host (a local run, a test) lists itself.
   const publicUrl = (env.PUBLIC_URL || 'https://x402-doctor.fizzl.eu').replace(/\/$/, '');
+  const DISCOVERY_RESOURCES = [
+    [PAID_ROUTE, 'Endpoint diagnosis', 'Why is an x402 endpoint broken? Every check (402 challenge, payment options, discovery, settlement) with pass/warn/fail and a fix hint.'],
+    [PREFLIGHT_ROUTE, 'Pre-payment check', 'Is this x402 endpoint safe to pay? go / caution / no_go with the recommended payment option and the reasons. Never pays the endpoint.'],
+    [BATCH_ROUTE, 'Pre-payment check (batch)', 'The pre-payment check for up to 10 x402 endpoints in one call: go / caution / no_go per endpoint.'],
+    [DEEP_ROUTE, 'Deep pre-payment check', 'Before an expensive call: the pre-payment check plus the full diagnosis, the daily history and the seller\'s other endpoints.'],
+    [FIX_ROUTE, 'Fix code', 'Diagnoses an x402 endpoint, then returns per problem the concrete code change for your stack, filled in with your own values.'],
+    [DELIVERY_ROUTE, 'Paid delivery check', 'Did the seller deliver after payment? Doctor buys the endpoint once (if it costs at most $0.10) and reports status, response and settlement.'],
+  ];
   app.get('/.well-known/x402', (req, res) => {
     const origin = /\.onrender\.com$/i.test(req.hostname) ? publicUrl : `${req.protocol}://${req.get('host')}`;
     res.json({
       version: 1,
-      resources: paidApi.paymentInfo ? [PAID_ROUTE, PREFLIGHT_ROUTE, BATCH_ROUTE, DEEP_ROUTE, FIX_ROUTE, DELIVERY_ROUTE].map((route) => `${origin}${route}`) : [],
+      // Objects with a short name and description: the XRPL AI Hub lists each
+      // resource by those (without them it shows the long 402 text).
+      resources: paidApi.paymentInfo ? DISCOVERY_RESOURCES.map(([route, name, description]) => ({ url: `${origin}${route}`, method: 'GET', name, description })) : [],
       name: 'x402 Doctor',
       serviceName: 'x402 Doctor',
       category: 'developer-tools',
       iconUrl: `${origin}/icon.png`,
       tags: ['x402', 'developer-tools', 'diagnostics', 'payments', 'safety', 'pre-payment'],
-      description: 'Checks x402 endpoints: a $0.001 pre-payment check for buyers (go / caution / no_go) and a $0.01 full diagnosis with a fix hint per check.',
+      description: 'Checks x402 endpoints: a $0.001 pre-payment check for buyers (go / caution / no_go, payout address screened against OFAC), a $0.01 full diagnosis with a fix hint per check and a $0.25 paid delivery check. Pay in USDC on Base, Solana or Algorand, or RLUSD on the XRP Ledger.',
       openapi: `${origin}/openapi.json`,
       signer: `${origin}/.well-known/x402-doctor-signer.json`,
     });
