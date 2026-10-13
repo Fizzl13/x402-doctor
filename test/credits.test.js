@@ -75,6 +75,7 @@ test('a pack is sold for $0.80 over x402; the key then pays calls without a new 
   const res = await fetch(`${api}/api/v1/preflight?url=${encodeURIComponent(targetUrl)}`, { headers: { 'x-credit-key': pack.credit_key } });
   assert.equal(res.status, 200);
   assert.equal(res.headers.get('x-credit-status'), 'paid');
+  assert.equal(res.headers.get('cache-control'), 'private, no-store', 'no CDN may serve a paid answer to someone else');
   assert.equal(res.headers.get('x-credits-remaining'), '999');
   assert.equal(state.settle, settled, 'no new payment');
 

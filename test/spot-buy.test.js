@@ -9,7 +9,7 @@ const { wrapFetchWithPayment, x402Client } = require('@x402/fetch');
 const { ExactEvmScheme } = require('@x402/evm/exact/client');
 const { createSafeFetch } = require('../lib/safe-fetch');
 const { createSanctions } = require('../lib/sanctions');
-const { selectCandidates, runSpotBuy, classify, reasonOf, exampleRequest, isoWeek, ownTarget, INDEX_PAYMENT, indexCapFor, LIMITS, USER_AGENT } = require('../lib/spot-buy');
+const { selectCandidates, runSpotBuy, classify, reasonOf, cacheRisk, exampleRequest, isoWeek, ownTarget, INDEX_PAYMENT, indexCapFor, LIMITS, USER_AGENT } = require('../lib/spot-buy');
 
 const BASE = 'eip155:8453';
 const USDC = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
@@ -121,6 +121,8 @@ test('a run: each outcome after paying, a listed payout address and the budget s
   assert.deepEqual(results[4].request, { method: 'GET', url: candidates[4].url, source: 'plain', input_declared: false });
   assert.equal(results[5].reason, 'invalid_exact_evm_payload_signature', 'the x402 error of the 402 that refused the payment');
   assert.equal(results[0].reason, undefined, 'no reason on a delivered answer');
+  assert.deepEqual(results[0].cache, { cache_control: null, shared_cache: 'unspecified' }, 'the paid answer said nothing about caching');
+  assert.equal(results[4].cache, undefined, 'an error answer is not cached');
   assert.deepEqual(summary.errors_not_charged, { with_example: 0, without_example: 1 });
   assert.equal(results[6].preflight.codes[0], 'payto_sanctioned');
   assert.equal(settled.length, 4, 'the PAYMENT-RESPONSE of each settling seller was checked');
@@ -148,6 +150,25 @@ test('an empty wallet stops the run before paying anyone', async () => {
   client.register(BASE, new ExactEvmScheme(account));
   const { results } = await runSpotBuy([a, b], { safeFetch: createSafeFetch({ allowPrivate: true }), payFetch: wrapFetchWithPayment(fetch, client), sanctions: createSanctions({ list: { addresses: [{ address: LISTED, entries: [] }] } }), balance: async () => 5000, allowPrivate: true, wait: async () => {} });
   assert.deepEqual(results.map((r) => r.result), ['wallet_empty']);
+});
+
+test('cacheRisk: may a shared cache store the paid answer and serve it to someone who did not pay?', () => {
+  const res = (status, headers = {}) => ({ status, headers: new Map(Object.entries(headers)) });
+  const risk = (headers, method = 'GET', status = 200) => cacheRisk(res(status, headers), method)?.shared_cache;
+  assert.equal(risk({ 'cache-control': 'private, no-store' }), 'no');
+  assert.equal(risk({ 'cache-control': 'no-store' }), 'no');
+  assert.equal(risk({ 'cache-control': 'max-age=60, private' }), 'no');
+  assert.equal(risk({ 'cache-control': 'no-cache' }), 'no', 'every reuse goes back to the seller, which asks for payment again');
+  assert.equal(risk({ 'cache-control': 'public, max-age=300' }), 'yes');
+  assert.equal(risk({ 'cache-control': 's-maxage=60' }), 'yes');
+  assert.equal(risk({ 'cache-control': 'max-age=60' }), 'yes');
+  assert.equal(risk({ 'cache-control': 'public' }), 'yes');
+  assert.equal(risk({ expires: new Date(Date.now() + 3600e3).toUTCString() }), 'yes');
+  assert.equal(risk({ 'cache-control': 'public, max-age=0' }), 'unspecified', 'stale on arrival');
+  assert.equal(risk({}), 'unspecified');
+  assert.equal(risk({ 'cache-control': 'public, max-age=300' }, 'POST'), undefined, 'only GET answers are cached');
+  assert.equal(risk({ 'cache-control': 'public, max-age=300' }, 'GET', 500), undefined, 'only successful answers count');
+  assert.deepEqual(cacheRisk(res(200, { 'cache-control': 'public, max-age=300' }), 'GET'), { cache_control: 'public, max-age=300', shared_cache: 'yes' });
 });
 
 test('reasonOf: the 402 error, a JSON error field or object, else the start of the body on one line', () => {

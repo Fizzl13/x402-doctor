@@ -186,6 +186,10 @@ their endpoint delivers, and for buyers before a large order.
 - **Public result**: `GET /api/v1/delivery-check/<id>` (free) shows `queued`, then `done` with the result
   (`delivered`, `off_schema`, `empty`, `charged_not_delivered`, `payment_rejected`, `error_not_charged`, or the step
   that stopped it before paying) and the transaction. Every result is on the `delivery-data` branch.
+- **Caching**: for a delivered GET answer, `cache` says whether a shared cache (a CDN) may store the paid answer
+  and serve it to callers who did not pay (`shared_cache`: `yes`, `no` or `unspecified`, with the `Cache-Control`
+  it sent). The x402 payment travels in its own header, not in `Authorization`, so only `Cache-Control: private` or
+  `no-store` keeps it out ([Five Attacks on x402](https://arxiv.org/abs/2605.11781), attack III).
 
 Jobs are kept in the credits Redis (`CREDITS_REDIS_URL`); without it the route answers 503 before payment.
 

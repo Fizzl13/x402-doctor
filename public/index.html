@@ -596,9 +596,15 @@ const OUTCOME_TITLES = {
   not_go_now: 'Not bought: no longer a "go" when it was time to buy',
   over_cap: 'Not bought: it costs more than $0.10',
 };
+// Could a shared cache (a CDN) hand the paid answer to someone who did not pay? (lib/spot-buy.js cacheRisk)
+const CACHE_LINES = {
+  no: 'marked private, so no CDN may hand this paid answer to someone else',
+  yes: 'a CDN may store this paid answer and serve it to callers who did not pay. Fix: Cache-Control: private, no-store',
+  unspecified: 'the paid answer says nothing about caching, so a CDN decides. Safer: Cache-Control: private, no-store',
+};
 function renderDelivery(job) {
   const r = job.result;
-  const tone = r.result === 'delivered' ? 'pass' : r.paid_and_delivered ? 'warn' : 'fail';
+  const tone = r.result === 'delivered' && r.cache?.shared_cache !== 'yes' ? 'pass' : r.paid_and_delivered ? 'warn' : 'fail';
   const box = el('div', `delivery-result ${tone}`);
   box.append(el('b', null, OUTCOME_TITLES[r.result] || `Not bought: ${String(r.result || 'unknown').replace(/_/g, ' ')}`));
   const lines = [
@@ -607,6 +613,7 @@ function renderDelivery(job) {
     r.charged_usd !== null && r.charged_usd !== undefined ? `Charged, measured on chain: $${r.charged_usd}` : null,
     r.status ? `Answer: HTTP ${r.status}${r.result === 'off_schema' ? ', not matching the declared output schema' : ''}` : null,
     r.reason ? `Why: ${r.reason}` : null,
+    r.cache ? `Caching: ${CACHE_LINES[r.cache.shared_cache] || r.cache.shared_cache}${r.cache.cache_control ? ` (Cache-Control: ${r.cache.cache_control})` : ''}` : null,
   ].filter(Boolean);
   for (const line of lines) box.append(el('div', null, line));
   if (r.explorer) {
