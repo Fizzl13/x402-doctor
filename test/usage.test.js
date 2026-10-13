@@ -228,6 +228,22 @@ test('usage reader: keeps only the current version of a day file (no pile-up as 
   assert.equal(blobCalls(), before + 1);
 });
 
+test('usage reader: reads the newest days first and stops once it has max events', async () => {
+  const gh = fakeGitHub();
+  const line = (t) => `{"t":"${t}","service":"doctor"}\n`;
+  gh.setFile('events/doctor/2026-09-24.jsonl', line('2026-09-24T09:00:00.000Z') + line('2026-09-24T10:00:00.000Z'));
+  gh.setFile('events/presign/2026-09-24.jsonl', line('2026-09-24T11:00:00.000Z'));
+  gh.setFile('events/doctor/2026-09-23.jsonl', line('2026-09-23T09:00:00.000Z'));
+  gh.setFile('events/doctor/2026-09-22.jsonl', line('2026-09-22T09:00:00.000Z'));
+  const reader = createUsageReader({ env: { USAGE_LOG_TOKEN: 't' }, fetchFn: gh.fetchFn, now: () => Date.parse('2026-09-24T12:00:00Z') });
+  const out = await reader.load({ days: 30, max: 2 });
+  assert.deepEqual(out.events.map((e) => e.t), ['2026-09-24T11:00:00.000Z', '2026-09-24T10:00:00.000Z'], 'the newest max events');
+  assert.equal(out.truncated, true);
+  assert.equal(gh.calls.filter((c) => c.includes('/git/blobs/')).length, 2, "only today's two files are read: today already has enough");
+  const all = await reader.load({ days: 30, max: 10 });
+  assert.deepEqual([all.events.length, all.truncated], [5, false]);
+});
+
 test('usage reader: not configured without a token', async () => {
   const out = await createUsageReader({ env: {} }).load();
   assert.equal(out.configured, false);

@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 const express = require('express');
-const { createPublicStats, summarize, charts, daySummary, allTime, statsCors } = require('../lib/public-stats');
+const { createPublicStats, summarize, charts, weekCharts, daySummary, allTime, statsCors } = require('../lib/public-stats');
 
 const NOW = Date.parse('2026-09-30T08:00:00Z');
 const events = [
@@ -96,6 +96,29 @@ test('charts: week-by-hour heatmap and the most asked routes, without made-up pr
   assert.strictEqual(c.heat_168.calls[166], 2);
   assert.strictEqual(c.heat_168.calls[143], 2);
   assert.deepStrictEqual(c.routes_7d, [{ service: 'doctor', route: 'preflight', calls: 2 }, { service: 'presign', route: 'token_verdict', calls: 1 }]);
+});
+
+test('week charts from the per-file summaries match charts() on the raw events', () => {
+  const log = [];
+  const routes = ['preflight', 'diagnose', 'fix', 'token_verdict', '__probe_1__'];
+  // Nine days of calls up to NOW, spread over services, hours, routes and channels.
+  for (let i = 0; i < 400; i++) {
+    const t = new Date(NOW - i * 33 * 60 * 1000).toISOString();
+    log.push({ t, service: ['doctor', 'presign', 'ichimoku', 'plaintext', 'wallet'][i % 5], via: i % 7 === 0 ? 'web' : i % 3 ? 'api' : 'mcp', route: routes[i % 5], status: 402 });
+  }
+  const byFile = new Map();
+  for (const e of log) {
+    const key = `${e.service} ${e.t.slice(0, 10)}`;
+    if (!byFile.has(key)) byFile.set(key, []);
+    byFile.get(key).push(e);
+  }
+  const files = [...byFile].map(([key, events]) => ({ service: key.split(' ')[0], date: key.split(' ')[1], summary: daySummary(events) }));
+  const raw = charts(log, NOW);
+  const week = weekCharts(files, NOW);
+  assert.deepStrictEqual(week.daily, raw.daily);
+  assert.deepStrictEqual(week.heat_168, raw.heat_168);
+  const bySet = (list) => [...list].sort((a, b) => `${a.service}${a.route}`.localeCompare(`${b.service}${b.route}`));
+  assert.deepStrictEqual(bySet(week.routes_7d), bySet(raw.routes_7d));
 });
 
 test('all time: total calls, first day, busiest day and hour', () => {
