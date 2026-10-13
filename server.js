@@ -541,6 +541,9 @@ const RECEIPT_SCHEMA = {
 const withReceipt = (schema) => (schema && schema.properties ? { ...schema, properties: { ...schema.properties, receipt: RECEIPT_SCHEMA } } : schema);
 
 const CONTACT = { name: 'Fizzl', url: 'https://fizzl.eu', email: 'Fizzl13@protonmail.com' };
+// x402scan and AgentCash: the payout wallet's personal_sign of "https://x402-doctor.fizzl.eu" (signed 13 Oct 2026 on
+// /sign-ownership, verified with x402scan's verifyOwnership), so the origin shows as ownership verified.
+const OWNERSHIP_PROOFS = ['0x9965f72e5451dd9c70e8fd24a5b15dc42978be04998630bcdf8387b6651c63db4e5e3fa4d206fa09d777260a45964ac6bd412b5a53c9d82d58f841c855df7e271b'];
 
 function openApi(origin, payment) {
   const spec = {
@@ -553,6 +556,7 @@ function openApi(origin, payment) {
     },
     servers: [{ url: origin }],
     paths: {},
+    'x-agentcash-provenance': { ownershipProofs: OWNERSHIP_PROOFS },
   };
   // The e-mail lets directories such as x402scan link the origin to its owner.
   spec.info.contact = CONTACT;

@@ -290,6 +290,7 @@ test('discovery: OpenAPI with x-payment-info and /.well-known/x402 listing the r
   }
   assert.match(spec.info['x-guidance'], /signed receipt/);
   assert.equal(spec.info.contact.email, 'Fizzl13@protonmail.com', 'x402scan links the origin to its owner by this e-mail');
+  assert.match(spec['x-agentcash-provenance'].ownershipProofs[0], /^0x[0-9a-f]{130}$/, 'the payout wallet\'s ownership proof for x402scan');
   assert.deepEqual(spec.paths['/api/v1/delivery-check/{id}'].get.security, [], 'the free status route is declared public');
   assert.equal(spec.paths['/api/v1/delivery-check'].get.security, undefined, 'the paid route stays paid');
   assert.match((await (await fetch(`${api}/.well-known/x402`)).json()).signer, /\/\.well-known\/x402-doctor-signer\.json$/);
