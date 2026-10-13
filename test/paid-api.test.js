@@ -316,10 +316,18 @@ test('discovery: OpenAPI with x-payment-info and /.well-known/x402 listing the r
   const wellKnown = await (await fetch(`${api}/.well-known/x402`)).json();
   assert.equal(wellKnown.version, 1);
   const ROUTES = ['/api/v1/diagnose', '/api/v1/preflight', '/api/v1/preflight/batch', '/api/v1/preflight/deep', '/api/v1/fix', '/api/v1/delivery-check'];
-  assert.deepEqual(wellKnown.resources, ROUTES.map((r) => `${api}${r}`));
+  assert.deepEqual(wellKnown.resources.map((r) => r.url), ROUTES.map((r) => `${api}${r}`));
+  // The XRPL AI Hub lists each resource by its name and description, and the service by the top-level name.
+  assert.equal(wellKnown.name, 'x402 Doctor');
+  assert.equal(new Set(wellKnown.resources.map((r) => r.name)).size, ROUTES.length, 'names are unique');
+  for (const r of wellKnown.resources) {
+    assert.equal(r.method, 'GET', r.url);
+    assert.ok(r.name.length > 0 && r.name.length <= 40, r.url);
+    assert.ok(r.description.length >= 40 && r.description.length <= 200, r.url);
+  }
   // fetch cannot set Host; behind the trusted proxy X-Forwarded-Host sets req.hostname the same way.
   const onRender = await (await fetch(`${api}/.well-known/x402`, { headers: { 'x-forwarded-host': 'x402-doctor.onrender.com' } })).json();
-  assert.deepEqual(onRender.resources, ROUTES.map((r) => `https://x402-doctor.fizzl.eu${r}`));
+  assert.deepEqual(onRender.resources.map((r) => r.url), ROUTES.map((r) => `https://x402-doctor.fizzl.eu${r}`));
   assert.equal(onRender.signer, 'https://x402-doctor.fizzl.eu/.well-known/x402-doctor-signer.json');
   assert.deepEqual(spec.paths['/api/v1/fix'].get['x-payment-info'].price, { mode: 'fixed', currency: 'USD', amount: '0.05' });
   const preflightOp = spec.paths['/api/v1/preflight'].get;

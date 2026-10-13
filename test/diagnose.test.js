@@ -613,6 +613,24 @@ test('well-known: resources as objects with a url are read too', async () => {
   const doc = { x402Version: 2, kind: 'resource-server', resources: [{ url: 'https://api.example.com/sentiment/{symbol}', method: 'GET' }] };
   assert.equal((await wellKnown('https://api.example.com', 200, doc)).status, 'pass');
   assert.equal((await wellKnown('https://api.example.com', 200, { ...doc, resources: [{ url: 'https://old.onrender.com/sentiment/{symbol}' }] })).status, 'warn');
+  // { resource } instead of { url }, as HelpMyAgent and x402lab publish it
+  assert.equal((await wellKnown('https://api.example.com', 200, { resources: [{ resource: 'https://api.example.com/a', name: 'A', description: 'Does a.' }] })).status, 'pass');
+});
+
+test('well-known-names: info when resources have no name and description (directories list them by those)', async () => {
+  const run = async (doc) => {
+    const checks = [];
+    await checkWellKnown('https://api.example.com', fakeFetch(200, doc), checks);
+    return checks;
+  };
+  const bare = await run({ version: 1, resources: ['https://api.example.com/a', { url: 'https://api.example.com/b', name: 'B', description: 'Does b.' }] });
+  assert.equal(bare.find((c) => c.id === 'well-known').status, 'pass');
+  const names = bare.find((c) => c.id === 'well-known-names');
+  assert.equal(names.status, 'info');
+  assert.match(names.message, /^1 of 2 resource\(s\) in \/\.well-known\/x402 have no name and description/);
+  assert.match(names.message, /XRPL AI Hub/);
+  assert.match(names.hint, /"name": "Short name"/);
+  assert.equal((await run({ version: 1, resources: [{ url: 'https://api.example.com/a', name: 'A', description: 'Does a.' }] })).find((c) => c.id === 'well-known-names'), undefined);
 });
 
 test('paywall: the testnet flag is read from JSON config too (as the Python x402 package writes it)', async () => {
