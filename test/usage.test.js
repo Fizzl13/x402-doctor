@@ -164,6 +164,31 @@ test('middleware: a 402 is logged as a quote with the caller type, a refused pay
   assert.deepEqual([lines[2].status, lines[2].quote, lines[2].agent, lines[2].result.signal], [200, undefined, 'browser', 'bullish']);
 });
 
+test('middleware: a refused x402 payment logs the reason from the 402, with URLs blanked', async () => {
+  const gh = fakeGitHub();
+  const usageLog = createUsageLog({ service: 'ichimoku', env: { USAGE_LOG_TOKEN: 't' }, fetchFn: gh.fetchFn, now: () => new Date('2026-09-24T10:00:00Z'), log: quiet });
+  const express = require('express');
+  const app = express();
+  app.use(usageLog.middleware(() => ({ route: 'signal', input: {} })));
+  // Verification failed: x402 puts the reason in PAYMENT-REQUIRED's error.
+  app.get('/verify', (_req, res) => res.set('PAYMENT-REQUIRED', b64({ x402Version: 2, error: 'insufficient_funds', accepts: [] })).status(402).json({}));
+  // Settlement failed: PAYMENT-RESPONSE's errorReason, here an RPC error naming a keyed URL.
+  app.get('/settle', (_req, res) => res.set('PAYMENT-RESPONSE', b64({ success: false, errorReason: 'request to https://rpc.example/v2/SECRETKEY failed\nstack…' })).status(402).json({}));
+  const { server, base } = await listen(app);
+  const pay = { 'payment-signature': b64({ x402Version: 2 }) };
+  await fetch(`${base}/verify`, { headers: pay });
+  await fetch(`${base}/settle`, { headers: pay });
+  await fetch(`${base}/verify`); // no payment offered: no reason, just the price
+  await new Promise((r) => setTimeout(r, 30));
+  await usageLog.flush();
+  server.close();
+  const lines = gh.files.get('events/ichimoku/2026-09-24.jsonl').trim().split('\n').map((l) => JSON.parse(l));
+  assert.deepEqual([lines[0].payment_failed, lines[0].reason], [true, 'insufficient_funds']);
+  assert.deepEqual([lines[1].payment_failed, lines[1].reason], [true, 'request to <url> failed']);
+  assert.equal(lines[1].protocol, undefined);
+  assert.deepEqual([lines[2].payment_failed, lines[2].reason], [undefined, undefined]);
+});
+
 test('agentOf: a short caller label, never the full User-Agent', () => {
   assert.equal(agentOf('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1'), 'browser');
   assert.equal(agentOf('Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)'), 'Googlebot/2.1');
