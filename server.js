@@ -537,6 +537,8 @@ const RECEIPT_SCHEMA = {
 };
 const withReceipt = (schema) => (schema && schema.properties ? { ...schema, properties: { ...schema.properties, receipt: RECEIPT_SCHEMA } } : schema);
 
+const CONTACT = { name: 'Fizzl', url: 'https://fizzl.eu', email: 'Fizzl13@protonmail.com' };
+
 function openApi(origin, payment) {
   const spec = {
     openapi: '3.1.0',
@@ -549,6 +551,8 @@ function openApi(origin, payment) {
     servers: [{ url: origin }],
     paths: {},
   };
+  // The e-mail lets directories such as x402scan link the origin to its owner.
+  spec.info.contact = CONTACT;
   if (!payment) return spec;
   spec.paths[PAID_ROUTE] = {
     get: {
@@ -662,6 +666,8 @@ function openApi(origin, payment) {
         operationId: 'deliveryCheckStatus',
         summary: 'Status and result of a delivery check (free)',
         tags: ['x402'],
+        // Free on purpose: directories that probe every path (x402scan) list it as public instead of skipping it.
+        security: [],
         parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', pattern: '^[a-z0-9]{10}$' } }],
         responses: { 200: { description: 'queued, awaiting_payment or done (with the result: delivered, off_schema, empty, charged_not_delivered, payment_rejected, error_not_charged, or a step that stopped it before paying)' }, 404: { description: 'Unknown id' } },
       },
@@ -691,7 +697,7 @@ function openApi(origin, payment) {
     },
   };
   // MPP discovery for MPPScan (mpp-pay.js): the evm (and tempo) offer next to the x402 fields.
-  if (payment.mpp) addMppOffers(spec, { categories: ['payments', 'developer-tools', 'security'], docs: { homepage: origin, apiReference: `${origin}/openapi.json`, llms: `${origin}/skill.md` }, contact: { name: 'Fizzl', url: 'https://fizzl.eu' }, tempo: payment.mpp.tempo });
+  if (payment.mpp) addMppOffers(spec, { categories: ['payments', 'developer-tools', 'security'], docs: { homepage: origin, apiReference: `${origin}/openapi.json`, llms: `${origin}/skill.md` }, contact: CONTACT, tempo: payment.mpp.tempo });
   return spec;
 }
 

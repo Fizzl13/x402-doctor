@@ -190,6 +190,40 @@ test('trust index lookup reads the published index', async () => {
   assert.equal(trust.summary().latest.go, 1);
 });
 
+test('trust index refresh: unchanged index (304) is not downloaded again, a changed one replaces the old before parsing', async () => {
+  const index = mergeIndex(null, [{ key: 'https://s.example/p', url: 'https://s.example/p', method: 'GET', verdict: 'go', codes: [], price_usd: 0.01, networks: [BASE], ms: 5 }], { date: '2026-09-23' });
+  const seen = [];
+  let reply = 'full';
+  let release;
+  const trust = createTrustIndex({
+    url: 'https://raw.test/index.json',
+    categoriesUrl: 'https://raw.test/categories.json',
+    fetchImpl: async (u, opts = {}) => {
+      if (u.endsWith('categories.json')) return { ok: false, status: 404 };
+      seen.push(opts.headers?.['if-none-match'] ?? null);
+      if (reply === '304') return { ok: false, status: 304 };
+      if (reply === 'slow') return { ok: true, status: 200, headers: new Headers({ etag: '"v2"' }), json: () => new Promise((r) => { release = () => r(index); }) };
+      return { ok: true, status: 200, headers: new Headers({ etag: '"v1"' }), json: async () => index };
+    },
+  });
+  await trust.refresh();
+  assert.equal(trust.summary().latest.go, 1);
+  reply = '304';
+  await trust.refresh();
+  assert.deepEqual(seen, [null, '"v1"'], 'the second refresh asks with the ETag');
+  assert.equal(trust.summary().latest.go, 1, 'a 304 keeps the loaded index');
+  reply = 'slow';
+  const pending = trust.refresh();
+  await new Promise((r) => setTimeout(r, 10));
+  assert.equal(trust.summary(), null, 'the old index is released before the new one is parsed');
+  release();
+  await pending;
+  assert.equal(trust.summary().latest.go, 1);
+  reply = '304';
+  await trust.refresh();
+  assert.equal(seen.at(-1), '"v2"', 'the new ETag is used next time');
+});
+
 test('trust summary: failure reasons of the latest scan and one row per day', async () => {
   const r = (key, verdict, codes = []) => ({ key: `https://${key}.example/p`, url: `https://${key}.example/p`, method: 'GET', verdict, codes, price_usd: 0.01, networks: [BASE], ms: 5 });
   let index = mergeIndex(null, [r('a', 'go'), r('b', 'no_go', ['no_402'])], { date: '2026-09-23' });
