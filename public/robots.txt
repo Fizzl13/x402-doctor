@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+# The paid API and the MCP endpoint answer 402; the docs for them are on the pages and in /openapi.json.
+Disallow: /api/
+Disallow: /mcp
+Disallow: /admin/
+
+Sitemap: https://x402-doctor.fizzl.eu/sitemap.xml
