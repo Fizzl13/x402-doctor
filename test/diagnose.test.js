@@ -596,6 +596,38 @@ test('bazaar-listing: here passes, only elsewhere warns, nowhere is info, unknow
   assert.equal(await run(null), undefined);
 });
 
+test('bazaar-last-payment: the index keeps the last settled payment; from 21 days the check warns that the Bazaar drops the route at 30', async () => {
+  const day = 86400e3;
+  const at = (daysAgo) => new Date(Date.now() - daysAgo * day).toISOString();
+  const items = [
+    { resource: 'https://svc.example.com/scan', accepts: [{ payTo: PAYTO }], quality: { lastCalledAt: at(25) } },
+    { resource: 'https://svc.example.com/signal/:pair', accepts: [{ payTo: PAYTO }], quality: { lastCalledAt: at(3) } },
+    { resource: 'https://svc.example.com/levels/:pair', accepts: [{ payTo: PAYTO }] },
+  ];
+  const index = createBazaarIndex({ url: 'https://cdp.test/discovery', fetchImpl: async () => ({ ok: true, json: async () => ({ items }) }) });
+  await index.refresh();
+  assert.equal((await index.listings('https://svc.example.com/scan', [PAYTO])).last_settled, items[0].quality.lastCalledAt);
+  assert.equal((await index.listings('https://svc.example.com/levels/BTC-USDT', [PAYTO])).last_settled, undefined, 'no date from the Bazaar: no field');
+  const run = async (url) => {
+    const checks = [];
+    await checkBazaarListing(url, { accepts: [{ payTo: PAYTO }] }, index, checks);
+    return checks.find((c) => c.id === 'bazaar-last-payment');
+  };
+  const stale = await run('https://svc.example.com/scan');
+  assert.equal(stale.status, 'warn');
+  assert.match(stale.message, /25 days ago; it drops a route after 30 days without one \(in about 5 day\(s\)\)/);
+  assert.match(stale.hint, /One settled payment/);
+  const fresh = await run('https://svc.example.com/signal/BTC-USDT');
+  assert.equal(fresh.status, 'pass');
+  assert.match(fresh.message, /3 day\(s\) ago/);
+  assert.equal(await run('https://svc.example.com/levels/BTC-USDT'), undefined, 'no date: nothing to judge');
+  const { buildFixes } = require('../lib/recipes');
+  const fixes = buildFixes({ url: 'https://svc.example.com/scan', checks: [stale], probes: [] });
+  const fix = fixes.fixes.find((f) => f.recipe === 'bazaar-last-payment');
+  assert.ok(fix, 'a fix recipe exists');
+  assert.match(JSON.stringify(fix), /wrapFetchWithPayment\(fetch, client\)\(\\"https:\/\/svc\.example\.com\/scan\\"\)/);
+});
+
 test('diagnose: runs the Bazaar listing check when an index is given', async () => {
   const report = await diagnose(`${healthyUrl}/signal/BTC-USDT`, {
     safeFetch: createSafeFetch({ allowPrivate: true }),

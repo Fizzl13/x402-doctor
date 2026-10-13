@@ -54,6 +54,7 @@ the medicine, the exact code that fixes each problem for your stack, in the brow
 | | `well-known` | `/.well-known/x402` missing (info), unreadable (resources as URLs or objects with a `url` are both read), or listing resources on another host than the one checked (built from the request `Host` header, it keeps pointing crawlers at an old domain). A platform address such as `*.onrender.com` pointing at its own domain is fine |
 | | `well-known-names` | Resources in `/.well-known/x402` without a `name` and `description` (info): directories such as the XRPL AI Hub list each resource by them. |
 | | `bazaar-listing` | Where the CDP Bazaar lists this route (same path, same `payTo`): under this origin, not yet, or only under another host. The Bazaar keeps the URL the payer used, so after a domain move a route stays listed under the old host until someone pays through the new one. On the web check and the paid API (not the CLI) |
+| | `bazaar-last-payment` | When the CDP Bazaar lists the route here: how long ago it counted the last settled payment. From 21 days a warning, since the Bazaar drops a route after 30 days without one (one paid call keeps it listed). |
 | | `merchant` | The `x402-merchant` extension (name, website, logo, categories) that GoPlausible's catalog shows on the seller: a warning when malformed, an info line when it is missing on an endpoint that offers Algorand |
 | Browser | `paywall` | Browser paywall in testnet mode on a mainnet endpoint (`@x402/paywall` defaults to testnet; the flag is read from JS or JSON config) |
 
