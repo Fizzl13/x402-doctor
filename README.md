@@ -172,7 +172,9 @@ their endpoint delivers, and for buyers before a large order.
 
 - **Checked before you pay**: the endpoint must be https, not a fizzl.eu route, get a `go` from the pre-payment check,
   be payable in USDC on Base and cost at most $0.10. Anything else answers 400 (or 503 when the day's 20 checks are
-  taken), and nothing is charged.
+  taken), and nothing is charged. A probe without a payment gets at most 5 seconds of this check before its 402
+  (the CDP Bazaar's validator and health probe give up after 10); a request with a payment always waits for the
+  whole check before anything settles.
 - **The answer comes at once, the purchase shortly after**: the paid call answers with a job `id` and a `status_url`.
   [`delivery-check.yml`](.github/workflows/delivery-check.yml) takes the queue (`GET /api/v1/delivery-check/queue`,
   free) and buys with the dedicated spot-buy wallet (`SPOT_BUY_KEY`; no wallet key on the server). Only a job whose
