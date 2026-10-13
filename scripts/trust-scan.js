@@ -59,6 +59,8 @@ async function main() {
   const date = new Date().toISOString().slice(0, 10);
   const descriptions = new Map(resources.map((r) => [r.key, r.description]));
   const index = mergeIndex(previous, results, { date, descriptions });
+  // Which list today's payout screen used (null: the list was unavailable and the scan ran unscreened).
+  index.sanctions = list ? { list: 'OFAC SDN', published: list.published, addresses: list.count } : null;
   const summary = { ...summarize(index), scan_seconds: Math.round((Date.now() - started) / 1000) };
 
   fs.writeFileSync(indexPath, JSON.stringify(index));
