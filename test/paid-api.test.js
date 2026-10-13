@@ -305,6 +305,10 @@ test('discovery: OpenAPI with x-payment-info and /.well-known/x402 listing the r
   assert.match(page, /service: \$\{SERVICE\}/);
   assert.match(page, /const SERVICE = "x402-doctor"/);
   assert.doesNotMatch(page, /\{\{/, 'all placeholders filled');
+  const ownership = await (await fetch(`${api}/sign-ownership`)).text();
+  assert.match(ownership, /const AUTHORITY = "0x6B0F4651eD42893ab58139938175E4a69f175F25"/);
+  assert.match(ownership, /"https:\/\/presign-guard\.fizzl\.eu"/);
+  assert.doesNotMatch(ownership, /\{\{/, 'all placeholders filled');
   const op = spec.paths['/api/v1/diagnose'].get;
   assert.deepEqual(op['x-payment-info'].price, { mode: 'fixed', currency: 'USD', amount: '0.01' });
   assert.ok(op.responses['402']);
