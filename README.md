@@ -297,8 +297,11 @@ one letter per day (`g` go, `c` caution, `n` no-go, `x` unreachable, `-` not sca
   The paid pre-payment check adds the same as `signals.spot_buy`, and a `caution` (`charged_without_answer`) when the
   endpoint took the payment for the example request its own listing declares and answered with an error.
   The same wallet makes one other kind of payment, started by hand: [`index-payment.yml`](.github/workflows/index-payment.yml)
-  pays one call of at most $0.01 to one of our own fizzl.eu routes (`scripts/index-payment.js`), because the CDP Bazaar
-  lists a route only after a payment for it settles. It publishes nothing, so the sample stays one of other sellers.
+  pays our own fizzl.eu routes (`scripts/index-payment.js`), because the CDP Bazaar lists a route only after a payment
+  for it settles and drops it after 30 days without one. `stale` (the default) pays each of our 16 routes whose last
+  settled payment in the Bazaar is 21 days old or more (read from its public search), each at most its own price
+  (`INDEX_PAYMENT.routes`); `url` pays one route once. The money goes to our own payout wallets. It publishes nothing,
+  so the sample stays one of other sellers.
 - **Sanctions screen.** Every payout address (x402 `payTo`, MPP `recipient`) is matched against the OFAC SDN list's
   digital currency addresses, from [presign-guard's free open copy](https://presign-guard.fizzl.eu/v1/sanctions) of the
   US Treasury list (`lib/sanctions.js`, refreshed every 6 hours). A listed address makes the pre-payment check `no_go`
