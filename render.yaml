@@ -2,7 +2,7 @@ services:
   - type: web
     name: x402-doctor
     env: node
-    plan: free
+    plan: starter # always on (Render Starter, set in the dashboard): no sleep after 15 min, 0.5 CPU
     buildCommand: npm install
     startCommand: npm start
     envVars:
