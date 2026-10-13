@@ -245,6 +245,9 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   const signPage = fs.readFileSync(path.join(__dirname, 'lib', 'sign-receipt-key.html'), 'utf8')
     .replaceAll('{{SERVICE}}', SERVICE).replaceAll('{{AUTHORITY}}', authority).replaceAll('{{WELL_KNOWN}}', '/.well-known/x402-doctor-signer.json');
   app.get('/sign-receipt-key', (_req, res) => res.type('html').send(signPage));
+  // The payout wallet signs each fizzl origin once, for x402scan's "ownership verified" (proofs go into openapi.json).
+  const ownershipPage = fs.readFileSync(path.join(__dirname, 'lib', 'sign-ownership.html'), 'utf8').replaceAll('{{AUTHORITY}}', authority);
+  app.get('/sign-ownership', (_req, res) => res.type('html').send(ownershipPage));
   app.post('/api/v1/verify', express.json({ limit: '256kb' }), async (req, res) => {
     const { response, route, input } = req.body || {};
     const body = response && typeof response === 'object' ? response : req.body;

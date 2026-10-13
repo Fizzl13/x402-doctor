@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prove ownership of the fizzl services</title>
+<meta name="robots" content="noindex">
+<style>
+  :root { --bg: #020708; --card: #041212; --text: #f4f8f7; --muted: #a8b5b2; --accent: #61f5c3; --ok: #3fb950; --bad: #f85149; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, -apple-system, sans-serif; }
+  main { max-width: 640px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 1.4rem; margin: 0 0 8px; }
+  p, li { color: var(--muted); }
+  .card { background: var(--card); border-radius: 12px; padding: 16px; margin: 16px 0; }
+  pre { white-space: pre-wrap; word-break: break-all; background: #0b0f14; border-radius: 8px; padding: 12px; font-size: 0.9rem; color: var(--text); }
+  button { background: var(--accent); color: #02100c; border: 0; border-radius: 10px; padding: 12px 18px; font-weight: 600; font-size: 1rem; width: 100%; margin-top: 8px; }
+  .ok { color: var(--ok); } .bad { color: var(--bad); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Prove ownership of the fizzl services</h1>
+  <p>x402scan and AgentCash mark an origin as "ownership verified" when its openapi.json carries a signature of the origin by the wallet its 402 pays to. This page asks the payout wallet to sign each origin once (one wallet prompt per origin). Open it in your wallet's browser (MetaMask mobile: the browser tab).</p>
+
+  <div class="card">
+    <p>Messages to sign, one per origin:</p>
+    <pre id="msgs"></pre>
+    <button id="sign">Sign with the payout wallet</button>
+  </div>
+
+  <div class="card" id="result" hidden>
+    <p>Send these lines back (the signatures are public, they go into each service's openapi.json):</p>
+    <pre id="proofs"></pre>
+    <button id="copy">Copy</button>
+    <p id="who"></p>
+  </div>
+
+  <p>A signature of a web address moves no funds and approves nothing.</p>
+</main>
+<script>
+  const AUTHORITY = "{{AUTHORITY}}";
+  const ORIGINS = ["https://x402-doctor.fizzl.eu", "https://presign-guard.fizzl.eu", "https://ichimoku-signal.fizzl.eu"];
+  const $ = (id) => document.getElementById(id);
+  $("msgs").textContent = ORIGINS.join("\n");
+  const hexOf = (text) => "0x" + Array.from(new TextEncoder().encode(text)).map((b) => b.toString(16).padStart(2, "0")).join("");
+
+  $("sign").addEventListener("click", async () => {
+    if (!window.ethereum) { alert("No wallet found. Open this page in your wallet's browser."); return; }
+    try {
+      const [account] = await window.ethereum.request({ method: "eth_requestAccounts" });
+      const lines = [];
+      // x402scan verifies an EIP-191 personal_sign of the bare origin: no trailing slash, no path.
+      for (const origin of ORIGINS) lines.push(`${origin} ${await window.ethereum.request({ method: "personal_sign", params: [hexOf(origin), account] })}`);
+      $("proofs").textContent = lines.join("\n");
+      $("who").innerHTML = account.toLowerCase() === AUTHORITY.toLowerCase()
+        ? '<span class="ok">Signed by the payout wallet.</span>'
+        : `<span class="bad">Signed by ${account}, not the payout wallet ${AUTHORITY}: switch accounts and sign again, or x402scan will not accept the proofs.</span>`;
+      $("result").hidden = false;
+    } catch (err) {
+      alert(`Not signed: ${err.message || err}`);
+    }
+  });
+  $("copy").addEventListener("click", () => navigator.clipboard.writeText($("proofs").textContent));
+</script>
+</body>
+</html>
