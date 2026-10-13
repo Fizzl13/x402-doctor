@@ -164,12 +164,13 @@ test('a run buys queued jobs not done yet, oldest first, within 5 a run and the 
 });
 
 test('what is published for a purchase', () => {
-  const r = { result: 'delivered', step: 'paid', status: 200, price_usd: 0.02, charged_usd: 0.02, request: { method: 'GET', url: 'https://a.example/x?q=1', source: 'example' }, proof: { transaction: '0xabc', explorer: 'https://basescan.org/tx/0xabc' } };
+  const r = { result: 'delivered', step: 'paid', status: 200, price_usd: 0.02, charged_usd: 0.02, request: { method: 'GET', url: 'https://a.example/x?q=1', source: 'example' }, proof: { transaction: '0xabc', explorer: 'https://basescan.org/tx/0xabc' }, cache: { cache_control: 'public, max-age=60', shared_cache: 'yes' } };
   const rec = recordOf({ id: 'aaaaaaaaaa', url: 'https://a.example/x', queued_at: '2026-10-12T17:00:00.000Z' }, r, '2026-10-12T17:12:00.000Z');
   assert.equal(rec.paid_and_delivered, true);
   assert.deepEqual(rec.request, { method: 'GET', source: 'example' });
   assert.equal(rec.explorer, 'https://basescan.org/tx/0xabc');
   assert.equal(rec.cap_usd, CAP_USD);
+  assert.deepEqual(rec.cache, { cache_control: 'public, max-age=60', shared_cache: 'yes' }, 'whether a CDN could serve the paid answer for free');
   assert.equal(recordOf({ id: 'bbbbbbbbbb', url: 'https://b.example/y' }, { result: 'not_go_now', step: 'preflight', preflight: { verdict: 'caution', codes: ['x'] } }).paid_and_delivered, false);
 });
 
