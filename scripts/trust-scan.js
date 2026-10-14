@@ -54,6 +54,11 @@ async function main() {
     safeFetch: createSafeFetch({ allowPrivate: false, timeoutMs: 10000 }),
     rpcUrl: process.env.SOLANA_RPC_URL || undefined,
     onProgress: (done, total) => console.log(`scanned ${done}/${total} (${Math.round((Date.now() - started) / 1000)} s)`),
+    // Why sellers came out no_go: the hosts with the most answers other than 402, by status.
+    onStatuses: (rows) => {
+      console.log('non-402 answers by host (top 10):');
+      for (const r of rows) console.log(`  ${r.host}: ${r.total} (${Object.entries(r.statuses).map(([k, v]) => `${k} x${v}`).join(', ')})`);
+    },
   });
 
   const date = new Date().toISOString().slice(0, 10);
