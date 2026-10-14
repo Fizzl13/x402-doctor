@@ -5,7 +5,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
 const { createSafeFetch } = require('../lib/safe-fetch');
-const { loadCatalog, politeFetch, retryAfterMs, scan, mergeIndex, trackRecord, summarize, USER_AGENT } = require('../lib/trust-scan');
+const { loadCatalog, politeFetch, retryAfterMs, scan, statusReport, mergeIndex, trackRecord, summarize, USER_AGENT } = require('../lib/trust-scan');
 const { createTrustIndex } = require('../lib/trust-index');
 
 const BASE = 'eip155:8453';
@@ -93,6 +93,58 @@ test('scan: a listing that declares GET but only asks for payment on POST still 
   const [r] = await scan([{ key: 'p', url: `${postOnly}/paid`, method: 'GET' }], { safeFetch: createSafeFetch({ allowPrivate: true, timeoutMs: 2000 }) });
   assert.equal(r.verdict, 'go');
   assert.equal(r.method, 'POST');
+});
+
+const postChallenge = (host, url) => ({ x402Version: 2, resource: { url: `http://${host}${url}`, mimeType: 'application/json', description: 'x' }, accepts: [{ scheme: 'exact', network: BASE, amount: '10000', asset: USDC_BASE, payTo: '0x6B0F4651eD42893ab58139938175E4a69f175F25', maxTimeoutSeconds: 60, extra: { name: 'USD Coin', version: '2' } }] });
+
+test('scan: a bot challenge (Cloudflare cf-mitigated) is not checked today, never down; a plain 403 still is no_go', async () => {
+  let hits = 0;
+  const challenged = await listen((req, res) => {
+    if (req.url === '/openapi.json') return res.end('{}');
+    hits++;
+    res.statusCode = 403;
+    res.setHeader('cf-mitigated', 'challenge');
+    res.end('<html>Just a moment...</html>');
+  });
+  const closed = await listen((req, res) => {
+    if (req.url === '/openapi.json') return res.end('{}');
+    res.statusCode = 403;
+    res.end('forbidden');
+  });
+  let report = null;
+  const results = await scan(
+    [{ key: 'cf', url: `${challenged}/paid` }, { key: 'closed', url: `${closed}/paid` }],
+    { safeFetch: createSafeFetch({ allowPrivate: true, timeoutMs: 2000 }), sleep: async () => {}, onStatuses: (rows) => { report = rows; } }
+  );
+  const by = Object.fromEntries(results.map((r) => [r.key, r]));
+  assert.equal(by.cf.verdict, 'rate_limited');
+  assert.equal(hits, 2, 'GET and POST once each: a challenge is not retried');
+  assert.equal(mergeIndex(null, results, { date: '2026-10-14' }).resources.cf.h, '-');
+  assert.equal(by.closed.verdict, 'no_go');
+  assert.deepEqual(by.closed.codes, ['no_402']);
+  const cfHost = new URL(challenged).host;
+  assert.deepEqual(report.find((r) => r.host === cfHost).statuses, { '403 challenge': 2 });
+  assert.equal(report.find((r) => r.host === new URL(closed).host).statuses['403'], 2);
+});
+
+test('scan: once a host turns out to ask for payment on POST only, its other undeclared routes are tried with POST first', async () => {
+  const seen = [];
+  const postOnly = await listen((req, res) => {
+    if (req.url === '/openapi.json') return res.end('{}');
+    seen.push(req.method);
+    if (req.method !== 'POST') { res.statusCode = 405; return res.end('use POST'); }
+    const c = postChallenge(req.headers.host, req.url);
+    res.statusCode = 402;
+    res.setHeader('PAYMENT-REQUIRED', Buffer.from(JSON.stringify(c)).toString('base64'));
+    res.end('{}');
+  });
+  const resources = [1, 2, 3, 4].map((i) => ({ key: `r${i}`, url: `${postOnly}/x/${i}` }));
+  const results = await scan(resources, { safeFetch: createSafeFetch({ allowPrivate: true, timeoutMs: 2000 }), concurrency: 1 });
+  assert.deepEqual(results.map((r) => r.verdict), ['go', 'go', 'go', 'go']);
+  assert.deepEqual(seen, ['GET', 'POST', 'POST', 'POST', 'POST'], 'one GET to learn, then POST only');
+  const f = politeFetch(createSafeFetch({ allowPrivate: true }), {});
+  await f(`${postOnly}/x/9`);
+  assert.deepEqual(statusReport(f), [{ host: new URL(postOnly).host, total: 1, statuses: { 405: 1 } }]);
 });
 
 test('Retry-After: seconds or an HTTP date, capped at 60 s, 5 s when missing', () => {

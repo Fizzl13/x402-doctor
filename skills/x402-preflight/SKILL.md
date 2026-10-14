@@ -7,7 +7,7 @@ allowed-tools: ["Bash(curl *)"]
 
 # Check before you pay (x402 Doctor)
 
-Many listed x402 endpoints don't take a payment on a given day: in the 14 Oct 2026 scan, 30% of 36,735 answered no_go. And "it asks for payment" is not "it delivers": in the latest weekly sample purchase, 23 of 29 endpoints that looked fine delivered what was asked. A check costs nothing or $0.001, so check first.
+Of the 36,000-odd listed x402 endpoints, on a typical day about 4% don't take a payment at all and another 3% have a problem worth a caution, and which ones changes from day to day. And "it asks for payment" is not "it delivers": in the latest weekly sample purchase, 23 of 29 endpoints that looked fine delivered what was asked. A check costs nothing or $0.001, so check first.
 
 x402 Doctor never pays the endpoint you ask about. Its checks only read the 402 challenge, the seller's listing and its history.
 
