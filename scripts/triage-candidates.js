@@ -22,7 +22,7 @@ const { preflight } = require('../lib/preflight');
 const { createTriage } = require('../lib/jev-triage');
 const { findContact } = require('../lib/contact');
 
-const WANT = new Set(['resource_mismatch', 'invalid_challenge', 'no_payable_option', 'price_above_advertised', 'unknown_asset', 'testnet_only', 'network_not_offered']);
+const WANT = new Set(['resource_mismatch', 'invalid_challenge', 'no_payable_option', 'price_above_advertised', 'price_far_above_advertised', 'unknown_asset', 'testnet_only', 'network_not_offered']);
 const arg = (name, fallback) => { const i = process.argv.indexOf(`--${name}`); return i > 0 ? process.argv[i + 1] : fallback; };
 async function main() {
   const index = JSON.parse(fs.readFileSync(arg('index', 'trust-data/index.json'), 'utf8'));
