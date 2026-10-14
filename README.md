@@ -310,6 +310,9 @@ one letter per day (`g` go, `c` caution, `n` no-go, `x` unreachable, `-` not sca
   screened and against which publication. `summary.json` counts the scanned resources that pay out to a listed address
   (`payto_sanctioned`). Without the list nothing is judged (`signals.sanctions.unavailable`).
 - `GET /api/trust?url=<resource>` (free, 30/min per IP): the track record of one resource.
+  `POST /api/trust/batch` with `{"urls": [...]}` (free, up to 100 URLs, 10 calls/min per IP): the same for many at once,
+  in the order sent (`found: false` for a URL the index doesn't have), with the index's `days` and `updated` once at the
+  top. For directories and indexers that re-test their own lists; the whole index is on the `trust-data` branch.
   `GET /api/trust/summary`: totals of the latest scan. `/trust`: the public page, with lookup and the scan's rules.
 - `GET /api/trust/network?network=xrpl` (or an id like `xrpl:0`, free): every scanned x402 endpoint that offers a network,
   payable there today or not and why (the scan records `unpayable` networks with their first problem), grouped per
