@@ -370,6 +370,22 @@ test('POST-only endpoint: falls back to POST, or uses --method', async () => {
   assert.match(byId(forced)['returns-402'][0].message, /GET 405/);
 });
 
+test('no 402 behind Cloudflare: the hint names the usual Monetization Gateway rule misses', async () => {
+  const url = await listen((req, res) => {
+    res.setHeader('cf-ray', '8f1e2d3c4b5a6978-AMS');
+    res.statusCode = 200;
+    res.end('{"free":true}');
+  });
+  const report = await diagnose(`${url}/paid`, { safeFetch, rpcUrl });
+  const check = byId(report)['returns-402'][0];
+  assert.equal(check.status, 'fail');
+  assert.match(check.hint, /Monetization Gateway/);
+  assert.match(check.hint, /GET only by default/);
+  assert.match(check.hint, /Verified Bots/);
+  const plain = await listen((req, res) => { res.statusCode = 200; res.end('{}'); });
+  assert.doesNotMatch(byId(await diagnose(`${plain}/paid`, { safeFetch, rpcUrl }))['returns-402'][0].hint, /Cloudflare/, 'only behind Cloudflare');
+});
+
 test('SSRF guard: internal targets are refused, including through DNS', async () => {
   const guarded = createSafeFetch();
   for (const target of ['http://127.0.0.1/', 'http://localhost/', 'http://[::ffff:127.0.0.1]/', 'http://169.254.169.254/latest/meta-data', 'http://2130706433/', 'http://10.0.0.1/']) {

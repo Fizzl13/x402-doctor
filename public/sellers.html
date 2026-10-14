@@ -6,7 +6,7 @@
 <link rel="canonical" href="https://x402-doctor.fizzl.eu/sellers">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"%3E%3Crect width="128" height="128" rx="28" fill="%23020708"/%3E%3Cpath d="M78 30 A22 22 0 0 0 52 52 V104" fill="none" stroke="%23f4f8f7" stroke-width="16" stroke-linecap="round"/%3E%3Cpath d="M36 68 H72" stroke="%23f4f8f7" stroke-width="16" stroke-linecap="round"/%3E%3Cg fill="%2361f5c3"%3E%3Ccircle cx="92" cy="72" r="8"/%3E%3Ccircle cx="100" cy="52" r="5"/%3E%3Ccircle cx="104" cy="38" r="3"/%3E%3C/g%3E%3C/svg%3E">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Free tools for x402 sellers: check your endpoint the way a paying agent does, show your track record with a badge, prove payments on-chain, and get an alert on your phone, Telegram, Discord or Slack when your endpoint breaks.">
+<meta name="description" content="Free tools for x402 sellers: check your endpoint the way a paying agent does, show your track record with a badge, prove payments on-chain, and get an alert on your phone, Telegram, Discord or Slack when your endpoint breaks. With checklists for Cloudflare Monetization Gateway and Stripe x402 sellers.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap">
@@ -101,6 +101,29 @@
     <h3>4. Get told the moment it breaks <span class="free" style="color:var(--accent);white-space:nowrap">1 free · up to unlimited</span></h3>
     <p>The Fizzl endpoint monitor calls your endpoint every hour the way a paying agent does, without paying. If it stops asking for payment correctly (a 5xx, a 200 without payment, a broken challenge), you get a notification in the Fizzl wallet app on your phone, or a message on Telegram, Discord, Slack or your own webhook, and another when it works again. One endpoint is free. Pro watches 10 for $5 per 30 days, Pro 20 watches 20 for $9, and Pro Unlimited as many as you need for $20, all in USDC.</p>
     <p style="margin:0"><a href="https://wallet.fizzl.eu/#/account">Watch my endpoint →</a> <span style="color:var(--text-soft);font-size:13px">(sign in with your wallet, no e-mail)</span></p>
+  </div>
+
+  <h2 id="platforms">Selling through Cloudflare or Stripe</h2>
+  <p>Cloudflare's <a href="https://developers.cloudflare.com/monetization-gateway/">Monetization Gateway</a> (closed beta, US sellers and buyers) and <a href="https://docs.stripe.com/payments/machine/x402">Stripe's x402 machine payments</a> (US businesses; elsewhere on request) both send a standard x402 v2 challenge and settle through the Coinbase CDP facilitator, so the free check above works on them as is. What to watch:</p>
+
+  <div class="tool" id="cloudflare">
+    <h3>Cloudflare Monetization Gateway</h3>
+    <ul>
+      <li><b>No 402?</b> A rule charges GET only until you select other methods, and its URL has to match the path you check. With the audience <i>Verified Bots</i>, only bots Cloudflare identifies are charged: other agents, and the check above, get the resource without paying. Choose <i>Everyone</i> to charge every caller.</li>
+      <li><b>Price</b> between $0.001 and $100 per request. For a variable price (<code>upto</code>), your origin reports the actual amount in <code>PAYMENT-SETTLEMENT</code> on a successful response, and sets nothing on an error.</li>
+      <li><b>Verify <code>PAYMENT-CONTEXT</code> at your origin</b> (an Ed25519 JWT, keys at <code>https://payments.cloudflare.com/certs</code>) and refuse requests without it, or anyone who reaches your origin directly gets the content for free.</li>
+      <li><b>Before a big buyer relies on you</b>, order a paid delivery check ($0.25, on the <a href="/">home page</a>): x402 Doctor buys your endpoint once and publishes whether it was charged and delivered.</li>
+    </ul>
+  </div>
+
+  <div class="tool" id="stripe">
+    <h3>Stripe x402</h3>
+    <ul>
+      <li><b>payTo is your Stripe crypto deposit address</b> for that network, created once with the deposit addresses API: from live mode for Base mainnet, from a sandbox for Base Sepolia.</li>
+      <li><b>Mainnet settles through the CDP facilitator</b> (your CDP API keys). Record each settled payment as a PaymentIntent in <code>transaction_verification</code> mode with the transaction hash.</li>
+      <li><b>Stripe records USDC on Base, Solana and Tempo</b>: offer those networks in <code>accepts</code>.</li>
+      <li><b>To take cards from agents too</b>, add MPP. The check above reads MPP challenges as well, Stripe's card method included.</li>
+    </ul>
   </div>
 
   <h2>What agents check before paying you</h2>
