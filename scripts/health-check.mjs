@@ -75,8 +75,13 @@ async function wake(origin) {
   return false;
 }
 
+// Render suspends free services once the workspace's free hours run out, until the 1st of the next month.
+// PlainText stays on the free plan (Frits, 14 Oct 2026): its checks still run and show, but don't fail the run.
+const PAUSED_UNTIL = { PlainText: '2026-11-01T00:00:00Z' };
+const paused = (service) => Date.now() < Date.parse(PAUSED_UNTIL[service] ?? 0);
+
 const results = [];
-const record = (service, name, ok, detail) => results.push({ service, name, ok, detail });
+const record = (service, name, ok, detail) => results.push({ service, name, ok, detail, ...(!ok && paused(service) ? { paused: true } : {}) });
 
 async function checkPaid(route) {
   try {
@@ -191,14 +196,14 @@ async function main() {
     pg1 = { up: false, detail: err.name === 'AbortError' ? `no answer within ${TIMEOUT_MS / 1000} s` : err.message };
   }
 
-  const failed = results.filter((r) => !r.ok);
+  const failed = results.filter((r) => !r.ok && !r.paused);
   const date = new Date().toISOString().slice(0, 16).replace('T', ' ');
   const lines = [
-    `**${failed.length ? `❌ ${failed.length} problem${failed.length > 1 ? 's' : ''}` : '✅ All good'}**: ${results.length - failed.length} of ${results.length} checks passed (${date} UTC)`,
+    `**${failed.length ? `❌ ${failed.length} problem${failed.length > 1 ? 's' : ''}` : '✅ All good'}**: ${results.filter((r) => r.ok).length} of ${results.length} checks passed${results.some((r) => r.paused) ? `, ${results.filter((r) => r.paused).length} paused` : ''} (${date} UTC)`,
     '',
     '| | Service | Check | Result |',
     '|---|---|---|---|',
-    ...results.map((r) => `| ${r.ok ? '✅' : '❌'} | ${r.service} | ${r.name} | ${String(r.detail).replace(/\|/g, '/')} |`),
+    ...results.map((r) => `| ${r.ok ? '✅' : r.paused ? '⏸️' : '❌'} | ${r.service} | ${r.name} | ${String(r.detail).replace(/\|/g, '/')}${r.paused ? ` (paused until ${PAUSED_UNTIL[r.service].slice(0, 10)}: Render's free hours)` : ''} |`),
     '',
     `PG1 (presign-guard's sanctions source): ${pg1.up ? '✅ up' : '⚠️ down'}, ${pg1.detail}. Status page: https://stats.uptimerobot.com/Du0BQ84Hg3`,
     '',
