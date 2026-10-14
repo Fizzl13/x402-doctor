@@ -518,8 +518,11 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   // Memory and uptime let the monitor see a leak coming before Render's 512 MB limit restarts the instance,
   // and an uptime that drops without a deploy is a crash.
   app.get('/api/health', (_req, res) => {
-    const { rss, heapUsed } = process.memoryUsage();
-    res.json({ ok: true, paid: paidApi.paymentInfo, sanctions: paidApi.sanctions?.status() ?? null, memory: { rss_mb: Math.round(rss / 1048576), heap_mb: Math.round(heapUsed / 1048576) }, uptime_s: Math.round(process.uptime()) });
+    const { rss, heapUsed, heapTotal, external } = process.memoryUsage();
+    const mb = (n) => Math.round(n / 1048576);
+    // heap_limit_mb is where V8 stops with "heap out of memory" (exit 134), which can sit well below Render's 512 MB.
+    const memory = { rss_mb: mb(rss), heap_mb: mb(heapUsed), heap_total_mb: mb(heapTotal), heap_limit_mb: mb(require('node:v8').getHeapStatistics().heap_size_limit), external_mb: mb(external) };
+    res.json({ ok: true, paid: paidApi.paymentInfo, sanctions: paidApi.sanctions?.status() ?? null, memory, uptime_s: Math.round(process.uptime()) });
   });
   return app;
 }

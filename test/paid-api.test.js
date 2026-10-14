@@ -353,6 +353,7 @@ test('health reports the facilitator: PayAI by default, CDP first when CDP keys 
   assert.equal(health.paid.delivery.instant, false);
   assert.deepEqual(health.paid.delivery.dispatch, { state: 'off' }, 'no token: orders wait for the schedule');
   assert.ok(health.memory.rss_mb > 0 && health.memory.heap_mb > 0, 'memory in MB, for the monitor');
+  assert.ok(health.memory.heap_limit_mb >= health.memory.heap_total_mb && health.memory.heap_total_mb >= health.memory.heap_mb, 'heap used <= total <= limit');
   assert.equal(typeof health.uptime_s, 'number');
   const { createPaidApi } = require('../lib/paid-api');
   const withCdp = createPaidApi({ env: { AGENT_PAYOUT_WALLET: PAY_TO_BASE, CDP_API_KEY_ID: 'id', CDP_API_KEY_SECRET: 'c2VjcmV0', DOCTOR_WARM_BAZAAR_INDEX: '0' } });
