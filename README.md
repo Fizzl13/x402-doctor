@@ -346,6 +346,17 @@ names payable sellers only; problems are counted. Files: `reports/<date>-<networ
 drafts), plus `reports/networks/<network>-latest.json`, the snapshot next week compares with. Locally:
 `node scripts/network-digest.js --out reports [--index trust-data/index.json] [--previous reports/networks]`.
 
+## Agent skills
+
+Two [Agent Skills](https://agentskills.io) in [`skills/`](skills) teach a coding agent (Claude Code, Codex, Cursor and others that read `SKILL.md`) when and how to use Doctor:
+
+- **[`x402-preflight`](skills/x402-preflight/SKILL.md)**: before the agent pays any x402 or MPP endpoint (`awal x402 pay`, x402-fetch, Privy's x402 client, mppx…), it looks up the free track record, then buys the $0.001 preflight and follows go / caution / no_go, and reports the outcome afterwards.
+- **[`x402-seller-check`](skills/x402-seller-check/SKILL.md)**: after building or changing a paid endpoint, it runs the free check until it passes, and buys the $0.05 fix when a problem isn't obvious.
+
+```sh
+npx skills add Fizzl13/x402-doctor
+```
+
 ## MCP server
 
 `https://x402-doctor.fizzl.eu/mcp` is an MCP server (Streamable HTTP, stateless) for Claude, Cursor and agent frameworks, listed in the official MCP registry as `io.github.Fizzl13/x402-doctor`.
@@ -509,6 +520,7 @@ lib/networks.js        Known networks, USDC per network, address validation
 lib/safe-fetch.js      SSRF-safe fetch (connect-time IP check, redirects, size cap, timeout)
 bin/x402-doctor.js     CLI
 public/index.html      Frontend
+skills/                Agent Skills: x402-preflight (buyers) and x402-seller-check (sellers)
 test/                  node:test suites (fixture x402 servers, SSRF, CLI, API)
 ```
 
