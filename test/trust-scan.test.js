@@ -34,6 +34,52 @@ test('loadCatalog pages through the CDP catalog, dedupes by origin + path and ke
   assert.equal(a.description, 'A paid thing');
 });
 
+test('loadCatalog: a listed path template is probed with the example value from its listing, or marked when there is none', async () => {
+  const bazaar = (pathParams) => ({ bazaar: { info: { input: { method: 'GET', pathParams } } } });
+  const items = [
+    { resource: 'https://w.example/wallet/:address', extensions: bazaar({ address: '0x171d8021b98c53DCbB3c9C30CBbBeb1b01850fCA' }) },
+    { resource: 'https://w.example/token/{id}/price', extensions: bazaar({ id: 'eth usd' }) },
+    { resource: 'https://w.example/profile/:solana_address', extensions: bazaar({ address: 'So1ana' }) },
+    { resource: 'https://w.example/plain' },
+  ];
+  const list = await loadCatalog({ url: 'https://cdp.test/r', fetchImpl: async () => ({ ok: true, json: async () => ({ items }) }) });
+  const by = Object.fromEntries(list.map((r) => [r.url, r]));
+  assert.equal(by['https://w.example/wallet/:address'].probe, 'https://w.example/wallet/0x171d8021b98c53DCbB3c9C30CBbBeb1b01850fCA');
+  assert.equal(by['https://w.example/token/{id}/price'].probe, 'https://w.example/token/eth%20usd/price');
+  assert.equal(by['https://w.example/profile/:solana_address'].template, true, 'the example names another parameter');
+  assert.equal(by['https://w.example/profile/:solana_address'].probe, undefined);
+  assert.deepEqual([by['https://w.example/plain'].probe, by['https://w.example/plain'].template], [undefined, undefined]);
+});
+
+test('scan: a template is probed at its example URL and recorded under its listing; one without an example is needs_input, not broken', async () => {
+  const seen = [];
+  const seller = await listen((req, res) => {
+    seen.push(req.url);
+    if (req.url === '/openapi.json') return res.end('{}');
+    if (!req.url.startsWith('/wallet/0x')) { res.statusCode = 404; return res.end('{"error":"not found"}'); }
+    const challenge = { x402Version: 2, resource: { url: `http://${req.headers.host}${req.url}`, mimeType: 'application/json', description: 'x' }, accepts: [{ scheme: 'exact', network: BASE, amount: '5000', asset: USDC_BASE, payTo: '0x6B0F4651eD42893ab58139938175E4a69f175F25', maxTimeoutSeconds: 60, extra: { name: 'USD Coin', version: '2' } }] };
+    res.statusCode = 402;
+    res.setHeader('PAYMENT-REQUIRED', Buffer.from(JSON.stringify(challenge)).toString('base64'));
+    res.end(JSON.stringify(challenge));
+  });
+  const results = await scan(
+    [
+      { key: 'filled', url: `${seller}/wallet/:address`, probe: `${seller}/wallet/0xabc`, method: 'GET' },
+      { key: 'literal', url: `${seller}/wallet/:address`, method: 'GET' },
+      { key: 'no-example', url: `${seller}/profile/:solana_address`, template: true, method: 'GET' },
+    ],
+    { safeFetch: createSafeFetch({ allowPrivate: true, timeoutMs: 2000 }) }
+  );
+  const by = Object.fromEntries(results.map((r) => [r.key, r]));
+  assert.equal(by.filled.verdict, 'go');
+  assert.equal(by.filled.price_usd, 0.005);
+  assert.equal(by.filled.url, `${seller}/wallet/:address`);
+  assert.equal(by.filled.probe, `${seller}/wallet/0xabc`);
+  assert.equal(by.literal.verdict, 'no_go', 'the placeholder itself is what the scan used to probe');
+  assert.deepEqual([by['no-example'].verdict, by['no-example'].codes], ['needs_input', ['needs_input']]);
+  assert.ok(!seen.some((u) => u.startsWith('/profile')), 'nothing is requested for a template without an example');
+});
+
 test('politeFetch: User-Agent, at most 2 requests per host, one /openapi.json per origin', async () => {
   let active = 0;
   let peak = 0;
@@ -240,6 +286,25 @@ test('trust index lookup reads the published index', async () => {
   assert.equal(rec.last_scan.price_usd, 0.01);
   assert.equal(await trust.lookup('https://t.example/p'), null);
   assert.equal(trust.summary().latest.go, 1);
+});
+
+test('trust index lookup: a concrete URL finds the record of its listed path template, and says so', async () => {
+  const index = mergeIndex(null, [
+    { key: 'https://w.example/wallet/:address', url: 'https://w.example/wallet/:address', probe: 'https://w.example/wallet/0xabc', method: 'GET', verdict: 'go', codes: [], price_usd: 0.005, networks: [BASE], ms: 5 },
+    { key: 'https://w.example/token/%7Bid%7D', url: 'https://w.example/token/{id}', method: 'GET', verdict: 'go', codes: [], price_usd: 0.01, networks: [BASE], ms: 5 },
+    { key: 'https://w.example/wallet/stats', url: 'https://w.example/wallet/stats', method: 'GET', verdict: 'no_go', codes: ['no_402'], price_usd: null, networks: [], ms: 5 },
+  ], { date: '2026-10-14' });
+  assert.equal(index.resources['https://w.example/wallet/:address'].probe, 'https://w.example/wallet/0xabc', 'the index keeps what was probed');
+  const trust = createTrustIndex({ url: 'https://raw.test/index.json', fetchImpl: async () => ({ ok: true, json: async () => index }) });
+  const rec = await trust.lookup('https://w.example/wallet/0x0000000000000000000000000000000000000001', { waitMs: 1000 });
+  assert.equal(rec.last_scan.price_usd, 0.005);
+  assert.equal(rec.listed_as, 'https://w.example/wallet/:address');
+  assert.equal((await trust.lookup('https://w.example/token/42')).listed_as, 'https://w.example/token/{id}');
+  const exact = await trust.lookup('https://w.example/wallet/stats');
+  assert.equal(exact.last, 'n', 'an exact listing wins over a template');
+  assert.equal(exact.listed_as, undefined);
+  assert.equal(await trust.lookup('https://w.example/wallet/0xabc/extra'), null, 'one segment per parameter');
+  assert.equal(await trust.lookup('https://other.example/wallet/0xabc'), null);
 });
 
 test('trust index refresh: unchanged index (304) is not downloaded again, a changed one replaces the old before parsing', async () => {
