@@ -66,9 +66,11 @@ The answer:
 - **caution:** show the user the `summary` and the `reasons`. Pay only if they agree, or if the amount is within what they already approved.
 - **no_go:** don't pay. Tell the user why, using the `reasons`.
 
-## 4. After paying (free, optional)
+## 4. After paying
 
-Report what happened. Later preflights for that endpoint count the reports, so the next buyer is warned when payments to it fail.
+**If the endpoint answers 402 again after you paid, don't pay it again.** The authorization you signed can already have been settled, even when the seller says the payment did not arrive, so every retry can cost the full price again. Stop, report `paid_failed` (below) and tell the user what you paid.
+
+Report what happened (free, optional). Later preflights for that endpoint count the reports, so the next buyer is warned when payments to it fail.
 
 ```bash
 curl -s -X POST https://x402-doctor.fizzl.eu/api/v1/outcome -H 'content-type: application/json' \

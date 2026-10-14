@@ -34,3 +34,8 @@ for (const dir of skills) {
     }
   });
 }
+
+test('x402-preflight: never pays again when a paid endpoint answers 402 again', () => {
+  const text = fs.readFileSync(path.join(ROOT, 'x402-preflight', 'SKILL.md'), 'utf8');
+  assert.match(text, /answers 402 again after you paid, don't pay it again/);
+});
