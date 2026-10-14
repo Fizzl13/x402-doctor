@@ -1,0 +1,53 @@
+{
+  "name": "fizzl",
+  "description": "Check before an agent pays or signs: x402 Doctor (is this x402 or MPP API safe to pay, does my paid endpoint work) and presign-guard (is this transaction, approval or token safe).",
+  "owner": {
+    "name": "Fizzl",
+    "email": "Fizzl13@protonmail.com",
+    "url": "https://fizzl.eu"
+  },
+  "plugins": [
+    {
+      "name": "x402-doctor",
+      "displayName": "x402 Doctor",
+      "description": "Before paying an x402 or MPP API: a free 30-day track record, then a $0.001 go / caution / no_go verdict. For your own paid endpoint: a free check with a fix hint per problem. Two skills plus Doctor's MCP server.",
+      "source": "./skills",
+      "skills": ["./"],
+      "mcpServers": {
+        "x402-doctor": {
+          "type": "http",
+          "url": "https://x402-doctor.fizzl.eu/mcp"
+        }
+      },
+      "author": { "name": "Fizzl", "url": "https://fizzl.eu" },
+      "homepage": "https://x402-doctor.fizzl.eu",
+      "repository": "https://github.com/Fizzl13/x402-doctor",
+      "license": "MIT",
+      "keywords": ["x402", "mpp", "payments", "agents", "preflight", "trust"],
+      "category": "payments"
+    },
+    {
+      "name": "presign-guard",
+      "displayName": "presign-guard",
+      "description": "Before an agent signs a transaction, approval, Permit or x402 payment, buys a token or sends funds: green / orange / red with reason codes, OFAC sanctions screening included. EVM, Solana, XRP Ledger and Algorand. One skill plus presign-guard's MCP server.",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/Fizzl13/presign-guard.git",
+        "path": "skills"
+      },
+      "skills": ["./"],
+      "mcpServers": {
+        "presign-guard": {
+          "type": "http",
+          "url": "https://presign-guard.fizzl.eu/mcp"
+        }
+      },
+      "author": { "name": "Fizzl", "url": "https://fizzl.eu" },
+      "homepage": "https://presign-guard.fizzl.eu",
+      "repository": "https://github.com/Fizzl13/presign-guard",
+      "license": "MIT",
+      "keywords": ["wallet", "signing", "security", "sanctions", "solana", "evm"],
+      "category": "security"
+    }
+  ]
+}
