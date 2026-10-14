@@ -360,6 +360,18 @@ Two [Agent Skills](https://agentskills.io) in [`skills/`](skills) teach a coding
 npx skills add Fizzl13/x402-doctor
 ```
 
+### Claude Code plugin
+
+In Claude Code, the same skills come as a plugin together with the MCP server below, and presign-guard's skill and MCP server as a second plugin:
+
+```
+/plugin marketplace add Fizzl13/x402-doctor
+/plugin install x402-doctor@fizzl
+/plugin install presign-guard@fizzl
+```
+
+The marketplace is [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json). The paid tools of both MCP servers need an MCP client that pays x402; without one, the skills pay over HTTP with your own x402 client, as they describe.
+
 ## MCP server
 
 `https://x402-doctor.fizzl.eu/mcp` is an MCP server (Streamable HTTP, stateless) for Claude, Cursor and agent frameworks, listed in the official MCP registry as `io.github.Fizzl13/x402-doctor`.
@@ -524,6 +536,7 @@ lib/safe-fetch.js      SSRF-safe fetch (connect-time IP check, redirects, size c
 bin/x402-doctor.js     CLI
 public/index.html      Frontend
 skills/                Agent Skills: x402-preflight (buyers) and x402-seller-check (sellers)
+.claude-plugin/        Claude Code plugin marketplace: the skills plus the MCP servers of Doctor and presign-guard
 test/                  node:test suites (fixture x402 servers, SSRF, CLI, API)
 ```
 
