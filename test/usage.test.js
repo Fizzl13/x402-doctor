@@ -606,3 +606,33 @@ test('usage log: a day file over 1 MB keeps its lines (read raw), and writes are
   assert.equal(text.slice(old.length).trim().split('\n').length, 2);
   assert.deepEqual(gh.calls, [`GET /repos/Fizzl13/usage-log/contents/${path}`, `PUT /repos/Fizzl13/usage-log/contents/${path}`], 'one read and one write for both events');
 });
+
+test('usage log: the next write to the same day file skips the read; a file changed elsewhere is read again', async () => {
+  const gh = fakeGitHub();
+  const path = 'events/doctor/2026-10-14.jsonl';
+  const log = createUsageLog({ service: 'doctor', env: { USAGE_LOG_TOKEN: 't' }, fetchFn: gh.fetchFn, now: () => new Date('2026-10-14T10:00:00Z'), log: quiet });
+  const contents = `PUT /repos/Fizzl13/usage-log/contents/${path}`;
+  const read = `GET /repos/Fizzl13/usage-log/contents/${path}`;
+  log.record({ route: 'diagnose', status: 200 });
+  await log.flush();
+  log.record({ route: 'preflight', status: 200 });
+  await log.flush();
+  assert.deepEqual(gh.calls, [read, contents, contents], 'one read, then writes only');
+  // Another writer (a deploy's old instance) appends: the stale sha is refused and the file read again.
+  gh.setFile(path, `${gh.files.get(path)}{"t":"2026-10-14T10:00:01.000Z","service":"doctor","route":"fix"}\n`);
+  log.record({ route: 'diagnose', status: 402 });
+  await log.flush();
+  assert.deepEqual(gh.calls.slice(3), [contents, read, contents]);
+  assert.deepEqual(gh.files.get(path).trim().split('\n').map((l) => JSON.parse(l).route), ['diagnose', 'preflight', 'fix', 'diagnose'], 'no line lost');
+});
+
+test('usage reader: load and summarizeAll at the same time download each day file once', async () => {
+  const gh = fakeGitHub();
+  gh.setFile('events/doctor/2026-09-24.jsonl', '{"t":"2026-09-24T09:00:00.000Z","service":"doctor"}\n');
+  gh.setFile('events/presign/2026-09-24.jsonl', '{"t":"2026-09-24T10:00:00.000Z","service":"presign"}\n');
+  const reader = createUsageReader({ env: { USAGE_LOG_TOKEN: 't' }, fetchFn: gh.fetchFn, now: () => Date.parse('2026-09-24T12:00:00Z') });
+  const [log, sums] = await Promise.all([reader.load({ days: 1 }), reader.summarizeAll((events) => events.length)]);
+  assert.equal(log.events.length, 2);
+  assert.deepEqual(sums.files.map((f) => f.summary), [1, 1]);
+  assert.equal(gh.calls.filter((c) => c.includes('/git/blobs/')).length, 2, 'one download per file');
+});
