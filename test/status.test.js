@@ -79,4 +79,6 @@ test('GET /sellers: the seller tools page', async (t) => {
   assert.match(page, /action="\/trust"/);
   assert.match(page, /href="\/settlement"/);
   assert.match(page, /wallet\.fizzl\.eu\/#\/account/);
+  assert.match(page, /id="cloudflare"[\s\S]*Verified Bots[\s\S]*PAYMENT-CONTEXT/, 'the Cloudflare Monetization Gateway checklist');
+  assert.match(page, /id="stripe"[\s\S]*deposit address/, 'the Stripe x402 checklist');
 });
