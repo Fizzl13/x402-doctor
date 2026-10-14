@@ -109,6 +109,19 @@ test('charging more than the OpenAPI advertises is a caution', async () => {
   assert.ok(r.reasons.some((x) => x.code === 'price_above_advertised'));
 });
 
+test('charging ten times the advertised price or more is no_go', async () => {
+  const far = await run(await seller({ accepts: [baseOption('5000000')], advertised: '0.005' }));
+  assert.equal(far.verdict, 'no_go');
+  assert.equal(far.safe_to_pay, false);
+  const reason = far.reasons.find((x) => x.code === 'price_far_above_advertised');
+  assert.match(reason.message, /^Charges \$5 but its OpenAPI advertises \$0\.005 for this route: 1000 times as much\.$/);
+  assert.ok(!far.reasons.some((x) => x.code === 'price_above_advertised'));
+  const ten = await run(await seller({ accepts: [baseOption('100000')], advertised: '0.01' }));
+  assert.equal(ten.verdict, 'no_go', 'exactly ten times');
+  const nine = await run(await seller({ accepts: [baseOption('90000')], advertised: '0.01' }));
+  assert.equal(nine.verdict, 'caution', 'below ten times stays a caution');
+});
+
 test('Solana payout wallet without a USDC token account: that option is not payable', async () => {
   const onlySolana = await run(await seller({ accepts: [solanaOption('15000', NO_ATA_SOLANA)] }));
   assert.equal(onlySolana.verdict, 'no_go');
