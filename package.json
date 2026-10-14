@@ -7,7 +7,7 @@
     "node": ">=20.18.1"
   },
   "scripts": {
-    "start": "node server.js",
+    "start": "node --max-old-space-size=288 server.js",
     "test": "node --test"
   },
   "dependencies": {
