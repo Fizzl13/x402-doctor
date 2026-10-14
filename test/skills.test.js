@@ -39,3 +39,9 @@ test('x402-preflight: never pays again when a paid endpoint answers 402 again', 
   const text = fs.readFileSync(path.join(ROOT, 'x402-preflight', 'SKILL.md'), 'utf8');
   assert.match(text, /answers 402 again after you paid, don't pay it again/);
 });
+
+test('x402-preflight: a caution that means lost money is not paid within the budget', () => {
+  const text = fs.readFileSync(path.join(ROOT, 'x402-preflight', 'SKILL.md'), 'utf8');
+  for (const code of ['charged_without_answer', 'payments_fail_after_preflight', 'charged_not_delivered']) assert.ok(text.includes(code), code);
+  assert.match(text, /don't pay, even within the budget/);
+});
