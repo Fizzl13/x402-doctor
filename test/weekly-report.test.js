@@ -92,7 +92,7 @@ test('weekly stats: MPP endpoints that need input are not judged, but counted ap
   const s = weeklyStats(withInput);
   assert.equal(s.resources, weeklyStats(index).resources);
   assert.equal(s.not_judged_needs_input, 1);
-  assert.match(weeklyReport(withInput).markdown, /Not counted: \*\*1\*\* MPP endpoints that check their input/);
+  assert.match(weeklyReport(withInput).markdown, /Not counted: \*\*1\*\* endpoints without example input to judge them by: MPP endpoints that check their input/);
 });
 
 test('weekly report: the spot-buy of the window (or the Sunday before it) is added; older, dry or missing runs are not', () => {
