@@ -93,6 +93,8 @@ function protocolOf(b) {
 const mppMethods = (b) => (b && Array.isArray(b.mpp) && b.mpp.length ? [...new Set(b.mpp.map((c) => c && c.method).filter(Boolean))].join(', ') : undefined);
 
 // What each Doctor call was about, for the usage log (null = not logged).
+const hostOf = (u) => { try { return new URL(String(u)).host; } catch { return null; } };
+
 function describeDoctorCall(req, _res, body) {
   // Who reads the EIP-8004 registration (e.g. agent registries such as Metaplex).
   if (req.method === 'GET' && req.path === '/.well-known/agent-registration.json') return { route: 'agent registration', via: 'discovery', input: {}, result: { status: _res.statusCode } };
@@ -115,6 +117,10 @@ function describeDoctorCall(req, _res, body) {
   }
   if (req.method === 'GET' && req.path === DELIVERY_ROUTE) {
     return { route: 'delivery check', via: 'api', input: { url: req.query.url, method: req.query.method }, result: { status: b.status, id: b.id, error: b.error } };
+  }
+  if (req.method === 'POST' && req.path === '/api/trust/batch') {
+    const urls = Array.isArray(req.body && req.body.urls) ? req.body.urls : [];
+    return { route: 'trust batch', via: 'api', input: { count: urls.length, hosts: [...new Set(urls.map(hostOf).filter(Boolean))].slice(0, 10) }, result: { status: _res.statusCode, found: b.found, error: b.error } };
   }
   if (req.method === 'GET' && req.path === PREFLIGHT_ROUTE) {
     return { route: 'preflight', via: 'api', input: { url: req.query.url, max_usd: req.query.max_usd, network: req.query.network }, result: { verdict: b.verdict, error: b.error } };
@@ -378,6 +384,35 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     const spot = await spotResults.forUrl(parsed.href, { waitMs: 2000 }).catch(() => null);
     res.json({ url: parsed.href, ...record, ...(spot ? { spot_buy: spot } : {}) });
   });
+  // Many track records at once, for directories and indexers that re-test their own lists (free): up to 100 URLs per
+  // call. The index's days and date come once at the top instead of in every record.
+  const BATCH_MAX = 100;
+  const trustBatchLimit = rateLimit({ windowMs: 60 * 1000, max: 10 });
+  app.post('/api/trust/batch', trustBatchLimit, express.json({ limit: '64kb' }), async (req, res) => {
+    const urls = req.body && req.body.urls;
+    if (!Array.isArray(urls) || urls.length === 0 || urls.length > BATCH_MAX) {
+      return res.status(400).json({ error: `send {"urls": [...]} with 1 to ${BATCH_MAX} resource URLs` });
+    }
+    let days = null;
+    let updated = null;
+    const results = await Promise.all(urls.map(async (target) => {
+      let href;
+      try {
+        href = new URL(String(target)).href;
+      } catch {
+        return { url: String(target).slice(0, 300), error: 'not a valid URL' };
+      }
+      const record = await trustIndex.lookup(href, { waitMs: 5000 });
+      if (!record) return { url: href, found: false };
+      const { days: d, updated: u, ...rest } = record;
+      days = days || d;
+      updated = updated || u;
+      const spot = await spotResults.forUrl(href, { waitMs: 2000 }).catch(() => null);
+      return { url: href, found: true, ...rest, ...(spot ? { spot_buy: spot } : {}) };
+    }));
+    res.json({ updated, days, found: results.filter((r) => r.found).length, results });
+  });
+
   // The latest spot-buy sample (lib/spot-buy.js): random "go" endpoints actually bought once a week, and what came
   // back. The scan reads the 402; this checks that "looks payable" turns into "paid and delivered".
   app.get('/api/trust/spot', trustLimit, async (_req, res) => {
