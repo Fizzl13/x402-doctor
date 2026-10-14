@@ -451,7 +451,9 @@ test('/media: with the CDN on, videos go to jsDelivr pinned to the video branch 
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'media-cdn-'));
   const SHA = 'c90f59e7e521eae12d626504e120c35600ee600d';
   const FIX_SHA = 'e774982b62d379ce7fdca158bd1f2daee4da8c7b';
+  const fetched = [];
   const fetchImpl = async (url) => {
+    fetched.push(String(url));
     if (String(url).endsWith('/commits/explainer-video')) return new Response(SHA);
     if (String(url).endsWith('/commits/fix-video')) return new Response(FIX_SHA);
     return new Response('poster');
@@ -464,6 +466,7 @@ test('/media: with the CDN on, videos go to jsDelivr pinned to the video branch 
   });
   await media.warm();
   await new Promise((r) => setTimeout(r, 20));
+  assert.ok(!fetched.some((u) => u.endsWith('.mp4')), 'no video downloaded at start: the CDN serves them');
   const video = await fetch(`${base}/media/explainer.mp4`, { redirect: 'manual' });
   assert.equal(video.status, 302);
   assert.equal(video.headers.get('location'), `https://cdn.jsdelivr.net/gh/Fizzl13/x402-doctor@${SHA}/x402-doctor-explainer.mp4`);
