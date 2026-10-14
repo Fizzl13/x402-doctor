@@ -37,7 +37,7 @@ async function doctor(facilitator) {
     res.statusCode = 500;
     res.end();
   });
-  const env = { AGENT_PAYOUT_WALLET: PAY_TO_BASE, AGENT_PAYOUT_WALLET_SOLANA: PAY_TO_SOLANA, FACILITATOR_URL: facilitatorUrl };
+  const env = { AGENT_PAYOUT_WALLET: PAY_TO_BASE, AGENT_PAYOUT_WALLET_SOLANA: PAY_TO_SOLANA, FACILITATOR_URL: facilitatorUrl, FACILITATOR_RETRY_MS: '50' };
   const trustIndex = { lookup: async () => null, refresh: () => Promise.resolve(), summary: () => null };
   const app = createApp({ allowPrivate: true, env, bazaarIndex: { lookup: async () => ({ resource: false, origin: false }) }, trustIndex });
   return listen(app);
@@ -71,5 +71,15 @@ test('a start with every facilitator down is tried again on the next paid call',
   const api = await doctor(facilitator);
   assert.notEqual((await quote(api)).status, 402);
   facilitator.down = false;
+  assert.deepEqual(await quote(api), { status: 402, networks: [BASE, SOLANA].sort() });
+});
+
+test('a network no facilitator answers for at start is left out of the 402 (no exit), and comes back without a restart', async () => {
+  const facilitator = { networks: [BASE] };
+  const api = await doctor(facilitator);
+  assert.deepEqual(await quote(api), { status: 402, networks: [BASE] });
+  assert.equal((await fetch(`${api}/api/health`)).status, 200, 'the service is up');
+  facilitator.networks = [BASE, SOLANA];
+  await new Promise((r) => setTimeout(r, 300)); // FACILITATOR_RETRY_MS is 50 here
   assert.deepEqual(await quote(api), { status: 402, networks: [BASE, SOLANA].sort() });
 });
