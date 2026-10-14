@@ -64,7 +64,8 @@ The answer:
 
 - **go:** pay, with `recommended_option`.
 - **caution:** show the user the `summary` and the `reasons`. Pay only if they agree, or if the amount is within what they already approved.
-- **caution because others lost their money:** don't pay, even within the budget, unless the user agrees to this endpoint by name. This applies when a reason is `charged_without_answer` (Doctor's own test purchase was charged and got no answer) or `payments_fail_after_preflight` (other buyers' payments failed). It also applies when the free track record has a `spot_buy` with result `charged_not_delivered`. The payment would most likely be lost.
+- **caution because the price is far above the advertised one:** don't pay, even within the budget, unless the user agrees after seeing both prices. This applies when a reason is `price_above_advertised` and the price is more than twice the advertised one; its message gives both. A small difference, such as $0.012 for an advertised $0.01, is the caution above.
+- **caution because others lost their money:** don't pay, even within the budget, unless the user agrees after seeing this warning. A task that names the endpoint is not that agreement. This applies when a reason is `charged_without_answer` (Doctor's own test purchase was charged and got no answer) or `payments_fail_after_preflight` (other buyers' payments failed). It also applies when the free track record has a `spot_buy` with result `charged_not_delivered`. The payment would most likely be lost.
 - **no_go:** don't pay. Tell the user why, using the `reasons`.
 
 ## 4. After paying
