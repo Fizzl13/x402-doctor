@@ -512,10 +512,18 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   });
   // The Trust Index as a star map for atlas.fizzl.eu (free, public data): ~2 MB of JSON, ~100 KB gzipped. Built
   // once per scan and kept only gzipped.
-  let atlasCache = null; // { updated, gz }
+  // Each seller also carries the settled calls the CDP Bazaar counted for it over 30 days (quality.l30DaysTotalCalls;
+  // 0 when unlisted or unknown), which drive the gold comets to other sellers; rebuilt when either source changes.
+  let atlasCache = null; // { key, gz }
   app.get('/api/trust/atlas', trustLimit, (req, res) => {
-    const map = atlasCache && atlasCache.updated === trustIndex.updated() ? null : trustIndex.atlas();
-    if (map) atlasCache = { updated: map.updated, gz: zlib.gzipSync(JSON.stringify(map)) };
+    const paid = bazaar.siteCalls?.() || null;
+    const key = `${trustIndex.updated()}|${paid?.at ?? 0}`;
+    const map = atlasCache && atlasCache.key === key ? null : trustIndex.atlas();
+    if (map) {
+      for (const s of map.sellers) s.push(paid?.calls.get(s[0]) || 0);
+      map.paid_30d = paid ? { source: 'CDP Bazaar quality.l30DaysTotalCalls', read_at: new Date(paid.at).toISOString() } : null;
+      atlasCache = { key, gz: zlib.gzipSync(JSON.stringify(map)) };
+    }
     if (!atlasCache) return res.status(503).json({ error: 'trust index loading, try again shortly' });
     res.set({ 'Cache-Control': 'public, max-age=1800', 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json; charset=utf-8', Vary: 'Accept-Encoding' });
     if (/\bgzip\b/.test(req.get('accept-encoding') || '')) return res.set('Content-Encoding', 'gzip').send(atlasCache.gz);
