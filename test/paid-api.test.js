@@ -120,6 +120,7 @@ test('unpaid request: 402 offering $0.01 USDC on Base and Solana, mirrored into 
   for (const a of challenge.accepts) assert.equal(a.amount, '10000');
   assert.equal(challenge.accepts.find((a) => a.network === SOLANA).payTo, PAY_TO_SOLANA);
   assert.equal(state.verify, 0);
+  assert.equal(res.headers.get('cache-control'), 'no-store');
 });
 
 test('called on the Render address, the challenge (and so the Bazaar listing) names x402-doctor.fizzl.eu', async () => {
@@ -155,6 +156,7 @@ test('paid request: a real signed Base payment returns the diagnosis and is sett
   assert.equal(res.status, 200, JSON.stringify(report));
   assert.equal(report.url, new URL(targetUrl).href);
   assert.ok(report.checks.some((c) => c.id === 'returns-402' && c.status === 'pass'));
+  assert.equal(res.headers.get('cache-control'), 'no-store, private', 'a shared cache must not hand the paid answer to the next caller');
   assert.equal(state.verify, 1);
   assert.equal(state.settle, 1);
 });

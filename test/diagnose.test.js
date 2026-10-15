@@ -1023,3 +1023,37 @@ test('Bazaar example without a route template: replayed on the listed URL with i
   assert.equal(hint['bazaar-replay'], undefined, 'nothing to replay');
   assert.equal(seen.length, before, 'no request sent without an example');
 });
+
+test('BNB Chain: 18-decimal dollar tokens, EIP-3009 vs Permit2, the token domain and a 6-decimal amount', () => {
+  const checks = [];
+  const payTo = '0x408C4610F6879a75c25722cfCd18A2Eff99dc20F';
+  const bnb = (asset, extra, amount = '10000000000000000') => ({ scheme: 'exact', network: 'eip155:56', amount, asset, payTo, maxTimeoutSeconds: 60, extra });
+  checkAccepts([
+    bnb('0x8d0D000Ee44948FC98c9B98A4FA4921476f08B0d', { name: 'World Liberty Financial USD', version: '1', assetTransferMethod: 'eip3009' }), // USD1: fine
+    bnb('0x55d398326f99059fF775485246999027B3197955', { name: 'Tether USD', version: '1' }), // USDT has no EIP-3009
+    bnb('0x55d398326f99059fF775485246999027B3197955', { name: 'Tether USD', version: '1', assetTransferMethod: 'permit2-exact' }), // not a standard value
+    bnb('0xcE24439F2D9C6a2289F741120FE202248B666666', { name: 'United Stables', version: '2' }), // wrong domain version
+    bnb('0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d', { assetTransferMethod: 'permit2' }), // Binance-Peg USDC via Permit2: fine
+    bnb('0x8d0D000Ee44948FC98c9B98A4FA4921476f08B0d', { name: 'World Liberty Financial USD', version: '1' }, '10000'), // written for 6 decimals
+    bnb('0x1111111111111111111111111111111111111111', { name: 'X', version: '1' }), // unknown token
+  ], checks);
+  const get = (id) => checks.find((c) => c.id === id);
+  assert.equal(get('accepts[0]-network').status, 'pass');
+  assert.match(get('accepts[0]-network').message, /BNB Chain/);
+  assert.equal(get('accepts[0]-asset'), undefined);
+  assert.match(get('accepts[0]-amount').message, /\$0\.01 USD1/);
+  assert.equal(get('accepts[0]-extra').status, 'pass');
+  assert.equal(get('accepts[1]-extra').status, 'fail');
+  assert.match(get('accepts[1]-extra').message, /USDT on BNB Chain has no transferWithAuthorization/);
+  assert.equal(get('accepts[2]-extra').status, 'warn');
+  assert.match(get('accepts[2]-extra').message, /"permit2-exact" is not one standard x402 clients know.*USDT on BNB Chain doesn't support/);
+  assert.equal(get('accepts[2]-permit2').status, 'info');
+  assert.equal(get('accepts[3]-extra').status, 'fail');
+  assert.match(get('accepts[3]-extra').message, /signs as "United Stables" v1/);
+  assert.equal(get('accepts[4]-extra').status, 'pass');
+  assert.match(get('accepts[4]-permit2').message, /one-time Permit2 approval for USDC/);
+  assert.equal(get('accepts[5]-amount').status, 'warn');
+  assert.match(get('accepts[5]-amount').message, /18 decimals on BNB Chain; it looks written for 6-decimal USDC/);
+  assert.equal(get('accepts[6]-asset').status, 'warn');
+  assert.match(get('accepts[6]-asset').message, /not a dollar stablecoin x402 Doctor knows \(USDC, USDT, USD1, U\) on BNB Chain/);
+});

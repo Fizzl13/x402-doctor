@@ -185,3 +185,14 @@ test('merchant: a malformed x402-merchant extension gets the corrected extension
   assert.match(f.why, /GoPlausible/);
   assert.match(code(f), /"x402-merchant"/);
 });
+
+test('BNB Chain: amounts scale to the token\'s 18 decimals, and an unknown token gets a listed dollar token', () => {
+  const USD1 = '0x8d0D000Ee44948FC98c9B98A4FA4921476f08B0d';
+  const six = buildFixes(report({ accepts: [{ network: 'eip155:56', amount: '10000', asset: USD1, payTo: PAY_TO }], checks: [{ id: 'accepts[0]-amount', status: 'warn', message: 'looks written for 6-decimal USDC' }] }));
+  assert.equal(fix(six, 'amount').title, 'Amount "10000" → "10000000000000000" ($0.01 of USD1)');
+  const decimal = buildFixes(report({ accepts: [{ network: 'eip155:56', amount: '0.05', asset: USD1, payTo: PAY_TO }], checks: [{ id: 'accepts[0]-amount', status: 'warn', message: 'decimal' }] }));
+  assert.match(code(fix(decimal, 'amount')), /"amount": "50000000000000000"/);
+  const asset = buildFixes(report({ accepts: [{ network: 'eip155:56', amount: '10000000000000000', asset: '0x1111111111111111111111111111111111111111', payTo: PAY_TO }], checks: [{ id: 'accepts[0]-asset', status: 'warn', message: 'unknown token' }] }));
+  assert.equal(fix(asset, 'asset').title, 'Use a dollar stablecoin on BNB Chain');
+  assert.match(code(fix(asset, 'asset')), new RegExp(USD1.toLowerCase()));
+});

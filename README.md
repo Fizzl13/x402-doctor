@@ -114,8 +114,13 @@ call it before your agent pays an x402 endpoint it has not used before. It never
 | Verdict | When |
 |---|---|
 | `no_go` | No 402 or no valid challenge; every option would fail to settle (bad payTo/amount, missing fee payer or EIP-712 domain, Solana payout wallet without a token account); cheapest option above `max_usd`; no payable option on the requested `network` |
-| `caution` | Charges more than its OpenAPI advertises; not HTTPS; not a known USDC contract; decimal amount; resource URL differs from the requested URL; testnet only; bait (below); 20x or more above comparable services (below) |
-| `go` | None of the above. `recommended_option` is the cheapest payable USDC option (on `network` if given) |
+| `caution` | Charges more than its OpenAPI advertises; not HTTPS; not a known USDC (or BNB Chain dollar token) contract; decimal amount, or a 6-decimal amount on an 18-decimal token; resource URL differs from the requested URL; testnet only; bait (below); 20x or more above comparable services (below) |
+| `go` | None of the above. `recommended_option` is the cheapest payable USDC option (on `network` if given); at the same price, one every x402 client can pay (EIP-3009, not Permit2) and USDC before other dollar tokens |
+
+**BNB Chain** (`eip155:56`) has no Circle USDC. Sellers price in 18-decimal dollar tokens: Binance-Peg USDC, USDT,
+USD1 and United Stables (U), so $0.01 is `"10000000000000000"`. Doctor prices those options like USDC. USDC and USDT
+there have no EIP-3009, so an option without `assetTransferMethod: "permit2"` fails; a value standard x402 clients
+don't know (such as `"permit2-exact"`) is a warning, because `@x402/evm` then signs EIP-3009 instead.
 
 **Bait check** (TypeSafe's Jev, when `TYPESAFE_API_KEY` is set): for an endpoint that could be paid, Jev judges
 what the protocol checks can't. Does it present itself as an official service of a brand that doesn't own its
@@ -531,7 +536,7 @@ media/explainer/       Explainer video pipeline (script, voice, recording, encod
 lib/diagnose.js        The checks
 lib/site-scan.js       MetaMask's site scanner verdict for the domain
 lib/mcp-check.js       x402 over MCP: tools/list, unpaid tools/call, the payment requirement in the tool result
-lib/networks.js        Known networks, USDC per network, address validation
+lib/networks.js        Known networks, USDC (or BNB Chain's dollar tokens) per network, address validation
 lib/safe-fetch.js      SSRF-safe fetch (connect-time IP check, redirects, size cap, timeout)
 bin/x402-doctor.js     CLI
 public/index.html      Frontend
