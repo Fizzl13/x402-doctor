@@ -742,6 +742,33 @@ test('ERC-8004 identity: verified when the registered agent points back to this 
   assert.match(missing.message, /doesn't exist/);
 });
 
+test('skill.md: found, llms.txt as the older form, an HTML homepage on every path does not count, none is info', async () => {
+  const { checkSkillMd } = require('../lib/diagnose');
+  let files = {};
+  const site = await listen((req, res) => {
+    const f = files[req.url];
+    if (!f) { res.statusCode = 404; return res.end(); }
+    res.setHeader('content-type', f.type);
+    res.end(f.body);
+  });
+  const safeFetch = createSafeFetch({ allowPrivate: true });
+  const run = async () => { const checks = []; await checkSkillMd(site, safeFetch, checks); return checks[0]; };
+  const host = new URL(site).hostname;
+
+  files = { '/skill.md': { type: 'text/markdown', body: '# Example API\n\nPaid with x402: GET /v1/thing costs $0.01 USDC on Base.' } };
+  const found = await run();
+  assert.equal(found.status, 'pass');
+  assert.equal(found.message, `/skill.md found: a user can tell an agent "connect to ${host}/skill.md" and it learns how to call your API and pay for it.`);
+  files = { '/llms.txt': { type: 'text/plain', body: '# Example API\n> What it does' } };
+  assert.match((await run()).message, /^\/llms\.txt found \(no \/skill\.md\)/);
+  files = { '/skill.md': { type: 'text/html', body: '<!doctype html><html><body>Home</body></html>' }, '/llms.txt': { type: 'text/html', body: '<html>Home</html>' } };
+  const spa = await run();
+  assert.deepEqual([spa.id, spa.status], ['agent-instructions', 'info'], 'a homepage served on every path is not a skill.md');
+  assert.match(spa.hint, /Serve Markdown at \/skill\.md/);
+  files = {};
+  assert.equal((await run()).status, 'info');
+});
+
 test('MPP: a WWW-Authenticate: Payment challenge is read and checked; MPP-only is not "broken"; both protocols are noted', async () => {
   const { parseChallenges } = require('../lib/mpp');
   const b64u = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
