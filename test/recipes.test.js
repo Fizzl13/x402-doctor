@@ -179,6 +179,19 @@ test('domain move: /.well-known/x402 on another host and a Bazaar listing only u
   assert.equal(out.unfixed.length, 0);
 });
 
+test("cdp-validate: Coinbase's validator rejecting the route gets the steps and its own check to re-run", () => {
+  const out = buildFixes(report({
+    url: 'https://api.example.com/v1/thing',
+    method: 'POST',
+    checks: [{ id: 'cdp-validate', status: 'warn', group: 'discovery', message: "Coinbase's own validator (CDP) rejects this endpoint for the Bazaar: Endpoint uses x402 v1." }],
+  }));
+  const f = fix(out, 'cdp-validate');
+  assert.equal(f.title, "Fix what Coinbase's validator rejects");
+  assert.match(f.why, /x402 v1/);
+  assert.match(f.steps[1], /"resource":"https:\/\/api\.example\.com\/v1\/thing","method":"POST"/);
+  assert.equal(out.unfixed.length, 0);
+});
+
 test('merchant: a malformed x402-merchant extension gets the corrected extension', () => {
   const f = fix(buildFixes(report({ checks: [{ id: 'merchant', status: 'warn', message: 'x402-merchant extension: info.name is missing.' }] })), 'merchant');
   assert.match(f.title, /Fix the x402-merchant extension/);

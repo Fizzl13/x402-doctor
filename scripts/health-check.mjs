@@ -3,6 +3,8 @@
 // Every paid route must answer 402 with a PAYMENT-REQUIRED challenge that
 // passes the x402 schema, asks the expected price on the expected networks and
 // has at most 5 tags. Free routes must answer. Nothing is ever paid.
+// Coinbase's own validator (CDP's validate API) must accept every paid route
+// for the CDP Bazaar; a route CDP doesn't answer for is not counted.
 //
 // With GITHUB_TOKEN and GITHUB_REPOSITORY set, a failure opens (or comments on)
 // an issue labelled "health-check", which GitHub emails to the repo owner; the
@@ -13,6 +15,7 @@ import fs from 'fs';
 
 const require = createRequire(import.meta.url);
 const { parsePaymentRequired } = require('@x402/core/schemas');
+const { createCdpValidator, cdpFindings } = require('../lib/cdp-validate');
 
 const BASE = 'eip155:8453';
 const SOLANA = 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp';
@@ -107,6 +110,27 @@ async function checkPaid(route) {
   }
 }
 
+// One row per service: does CDP's validator accept each of its paid routes? A route CDP doesn't answer for is
+// listed but doesn't fail the row (a CDP outage is not ours).
+const cdp = createCdpValidator({ timeoutMs: TIMEOUT_MS });
+async function checkCdp(service) {
+  const routes = PAID.filter((r) => r.service === service);
+  const rejected = [];
+  const unanswered = [];
+  for (const route of routes) {
+    try {
+      const f = cdpFindings(await cdp.validate(route.url, route.body ? 'POST' : 'GET'));
+      if (!f.accepted) rejected.push(`${route.name}: ${f.required.slice(0, 2).map((c) => c.detail).join('; ') || f.rejectionReason || 'rejected'}`);
+    } catch (err) {
+      unanswered.push(`${route.name} (${err.message})`);
+    }
+  }
+  if (unanswered.length === routes.length) return record(service, 'CDP validator', true, `CDP did not answer: ${unanswered.join(', ')}`);
+  const answered = routes.length - unanswered.length;
+  const tail = unanswered.length ? `; no answer for ${unanswered.join(', ')}` : '';
+  record(service, 'CDP validator', rejected.length === 0, rejected.length ? `rejects ${rejected.join(' / ')}${tail}` : `accepts all ${answered} paid routes${tail}`);
+}
+
 async function checkFree(service, name, fn) {
   try {
     const detail = await fn();
@@ -122,6 +146,7 @@ async function main() {
   origins.forEach(([o, service], i) => record(service, 'site answers', awake[i], awake[i] ? o : `${o} did not answer within ~2 minutes`));
 
   for (const route of PAID) await checkPaid(route);
+  for (const service of new Set(PAID.map((r) => r.service))) await checkCdp(service);
 
   await checkFree('Ichimoku Signal', 'free daily trend', async () => {
     const res = await request(`${ICHI}/api/trend/BTC-USDT`);
