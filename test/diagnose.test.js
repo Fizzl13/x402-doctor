@@ -745,13 +745,17 @@ test('ERC-8004 identity: verified when the registered agent points back to this 
 test("Coinbase's agents: payable with USDC on Base (exact/upto), the v2 and $5 limits of the Coinbase MCP, none without Base USDC", () => {
   const { checkCoinbaseAgents } = require('../lib/diagnose');
   const USDC = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
-  const run = (challenge) => { const checks = []; checkCoinbaseAgents(challenge, checks); return checks[0]; };
+  const run = (challenge, opts) => { const checks = []; checkCoinbaseAgents(challenge, checks, opts); return checks[0]; };
   const opt = (over) => ({ scheme: 'exact', network: BASE, asset: USDC, amount: '10000', payTo: '0x1111111111111111111111111111111111111111', ...over });
 
   const ok = run({ x402Version: 2, accepts: [opt()] });
   assert.equal(ok.status, 'pass');
   assert.match(ok.message, /Coinbase Wallet MCP agents can pay this \(USDC on Base, "exact"\)/);
   assert.match(ok.message, /fetches only services in its own curated catalog/);
+  assert.match(ok.message, /CDP Bazaar search once it is listed there\./, 'without the Bazaar index it says how a listing gets made');
+  assert.match(run({ x402Version: 2, accepts: [opt()] }, { listing: 'pass' }).message, /CDP Bazaar search, where it is listed\./);
+  assert.match(run({ x402Version: 2, accepts: [opt()] }, { listing: 'warn' }).message, /finds it only under another host \(see bazaar-listing\)\./);
+  assert.match(run({ x402Version: 2, accepts: [opt()] }, { listing: 'info' }).message, /can't find it yet: it is not listed there/);
   const pricey = run({ x402Version: 1, accepts: [opt({ scheme: 'upto', amount: undefined, maxAmountRequired: '7500000' })] });
   assert.equal(pricey.status, 'pass');
   assert.match(pricey.message, /"upto".*But the Coinbase MCP fetches x402 v2 only, and this is v1; the Coinbase MCP pays at most \$5 a call, and this asks \$7\.5\./);
