@@ -34,6 +34,20 @@ test('loadCatalog pages through the CDP catalog, dedupes by origin + path and ke
   assert.equal(a.description, 'A paid thing');
 });
 
+test('loadCatalog: a 502, a 429 or a dropped connection on one page is tried again; a 404 or retries run out fail', async () => {
+  const waits = [];
+  const sleep = async (ms) => { waits.push(ms); };
+  const answers = [() => ({ ok: false, status: 502 }), () => { throw new Error('socket hang up'); }, () => ({ ok: false, status: 429 }), () => ({ ok: true, json: async () => ({ items: [{ resource: 'https://ok.example/api' }] }) })];
+  let calls = 0;
+  const list = await loadCatalog({ url: 'https://cdp.test/r', fetchImpl: async () => answers[calls++](), sleep, retryDelays: [1, 2, 3] });
+  assert.deepEqual([list.length, calls, waits], [1, 4, [1, 2, 3]]);
+
+  await assert.rejects(loadCatalog({ url: 'https://cdp.test/r', fetchImpl: async () => ({ ok: false, status: 502 }), sleep, retryDelays: [1, 1] }), /CDP discovery HTTP 502/);
+  let notFound = 0;
+  await assert.rejects(loadCatalog({ url: 'https://cdp.test/r', fetchImpl: async () => { notFound++; return { ok: false, status: 404 }; }, sleep, retryDelays: [1] }), /HTTP 404/);
+  assert.equal(notFound, 1, 'a 404 is not retried');
+});
+
 test('loadCatalog: a listed path template is probed with the example value from its listing, or marked when there is none', async () => {
   const bazaar = (pathParams) => ({ bazaar: { info: { input: { method: 'GET', pathParams } } } });
   const items = [
