@@ -120,7 +120,8 @@ call it before your agent pays an x402 endpoint it has not used before. It never
 **BNB Chain** (`eip155:56`) has no Circle USDC. Sellers price in 18-decimal dollar tokens: Binance-Peg USDC, USDT,
 USD1 and United Stables (U), so $0.01 is `"10000000000000000"`. Doctor prices those options like USDC. USDC and USDT
 there have no EIP-3009, so an option without `assetTransferMethod: "permit2"` fails; a value standard x402 clients
-don't know (such as `"permit2-exact"`) is a warning, because `@x402/evm` then signs EIP-3009 instead.
+don't know is a warning, because `@x402/evm` then signs EIP-3009 instead. `"permit2-exact"` and `"permit2-upto"` are the
+methods of Binance's B402 facilitator, so only its own clients pay those options.
 
 **Bait check** (TypeSafe's Jev, when `TYPESAFE_API_KEY` is set): for an endpoint that could be paid, Jev judges
 what the protocol checks can't. Does it present itself as an official service of a brand that doesn't own its
