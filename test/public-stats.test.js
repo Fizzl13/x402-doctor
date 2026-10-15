@@ -169,3 +169,24 @@ test('stats: the trend paper test comes along with its standings and daily value
   assert.deepStrictEqual(body.trend_paper.marks, [{ date: '2026-10-01', trend: 998.8, trendf: undefined, hold: 998.8, btc: 998.8 }]);
   assert.strictEqual(body.trend_paper.rebalances, undefined);
 });
+
+test('stats: the ranking test comes along with its standings and, per finished day, only the numbers', async () => {
+  const usageReader = { load: async () => ({ events: [] }) };
+  const measure = { mean: 0.8, t: 1.2, days_positive_pct: 60 };
+  const rank = {
+    standings: { start: '2026-10-15', days_ranked: 7, days_counted: 1, days_waiting: 5, first_look_after_days: 60, primary: 'neutral_atr', neutral_atr: measure, top_minus_rest_pct: measure, neutral_pct: measure, rank_ic: { mean: 0.1, t: null, days_positive_pct: 100 }, ranking_unchanged: true, backtest: { days: 121, neutral_atr: 1.786, neutral_atr_t: 2.88, top_minus_rest_pct: 1.85, script: 'x' } },
+    rules: { top: 5 },
+    next_result_at: '2026-10-21T12:28:00.000Z',
+    waiting: [{ date: '2026-10-16', eligible: 44, due_at: '2026-10-21T12:28:00.000Z' }],
+    days: [{ date: '2026-10-15', ranked_at: 'x', eligible: 48, ranking: 'abc', setups: [[1, 'DOGE-USDT', 'short', 0.2, 2.1, 0.19]], result: { counted: true, top_pct: 2, rest_pct: -0.6667, top_minus_rest_pct: 2.6667, neutral_pct: 2.7, neutral_atr: 0.9956, rank_ic: 0.6 } }],
+  };
+  const fetchFn = async (url) => ({ ok: true, json: async () => (url.includes('rank-test') ? rank : {}) });
+  const body = await createPublicStats({ usageReader, fetchFn }).get();
+  assert.strictEqual(body.rank_test.standings.days_counted, 1);
+  assert.deepStrictEqual(body.rank_test.standings.neutral_atr, measure);
+  assert.strictEqual(body.rank_test.standings.rank_ic.t, null);
+  assert.strictEqual(body.rank_test.standings.backtest.neutral_atr_t, 2.88);
+  assert.strictEqual(body.rank_test.next_result_at, '2026-10-21T12:28:00.000Z');
+  assert.deepStrictEqual(body.rank_test.days, [{ date: '2026-10-15', counted: true, neutral_atr: 0.9956, top_minus_rest_pct: 2.6667, top_pct: 2, rest_pct: -0.6667 }]);
+  assert.doesNotMatch(JSON.stringify(body.rank_test), /DOGE|"setups"|"waiting"/);
+});
