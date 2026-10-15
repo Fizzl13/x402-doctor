@@ -1046,7 +1046,7 @@ test('BNB Chain: 18-decimal dollar tokens, EIP-3009 vs Permit2, the token domain
   assert.equal(get('accepts[1]-extra').status, 'fail');
   assert.match(get('accepts[1]-extra').message, /USDT on BNB Chain has no transferWithAuthorization/);
   assert.equal(get('accepts[2]-extra').status, 'warn');
-  assert.match(get('accepts[2]-extra').message, /"permit2-exact" is not one standard x402 clients know.*USDT on BNB Chain doesn't support/);
+  assert.match(get('accepts[2]-extra').message, /"permit2-exact" is a method of Binance's B402 facilitator, not one standard x402 clients know.*USDT on BNB Chain doesn't support, so only B402 clients can pay it/);
   assert.equal(get('accepts[2]-permit2').status, 'info');
   assert.equal(get('accepts[3]-extra').status, 'fail');
   assert.match(get('accepts[3]-extra').message, /signs as "United Stables" v1/);
