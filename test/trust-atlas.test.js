@@ -35,8 +35,9 @@ test('atlas: sellers by size with their category, bait, median price and network
   assert.equal(ti.updated(), '2026-10-15T01:00:00Z');
 });
 
-test('GET /api/trust/atlas: gzipped when asked, plain otherwise, open to any origin, 503 while loading', async (t) => {
-  const app = createApp({ env: {}, status: { snapshot: async () => ({}) }, trustIndex: createTrustIndex({ url: 'http://index.test', categoriesUrl: 'http://cat.test', fetchImpl }) });
+test('GET /api/trust/atlas: gzipped when asked, plain otherwise, open to any origin, 503 while loading; Bazaar paid calls per seller', async (t) => {
+  const bazaarIndex = { lookup: async () => null, listings: async () => null, refresh: () => Promise.resolve(), siteCalls: () => ({ at: Date.parse('2026-10-15T12:00:00Z'), calls: new Map([['seller.ai', 900]]) }) };
+  const app = createApp({ env: {}, status: { snapshot: async () => ({}) }, bazaarIndex, trustIndex: createTrustIndex({ url: 'http://index.test', categoriesUrl: 'http://cat.test', fetchImpl }) });
   const server = await new Promise((resolve) => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
   t.after(() => server.close());
   const url = `http://127.0.0.1:${server.address().port}/api/trust/atlas`;
@@ -44,11 +45,27 @@ test('GET /api/trust/atlas: gzipped when asked, plain otherwise, open to any ori
   if (res.status === 503) { await new Promise((r) => setTimeout(r, 200)); res = await fetch(url); }
   assert.equal(res.status, 200);
   assert.equal(res.headers.get('access-control-allow-origin'), '*');
-  assert.equal((await res.json()).sellers.length, 2);
+  const body = await res.json();
+  assert.equal(body.sellers.length, 2);
+  assert.deepEqual(body.sellers.map((x) => [x[0], x[6]]), [['seller.ai', 900], ['x.run.app', 0]], "the Bazaar's 30-day settled calls per seller, 0 when unlisted");
+  assert.deepEqual(body.paid_30d, { source: 'CDP Bazaar quality.l30DaysTotalCalls', read_at: '2026-10-15T12:00:00.000Z' });
   const http = require('node:http');
   const raw = await new Promise((resolve, reject) => {
     http.get(url, { headers: { 'accept-encoding': 'gzip' } }, (r) => { const parts = []; r.on('data', (c) => parts.push(c)); r.on('end', () => resolve({ enc: r.headers['content-encoding'], body: Buffer.concat(parts) })); }).on('error', reject);
   });
   assert.equal(raw.enc, 'gzip');
   assert.equal(JSON.parse(zlib.gunzipSync(raw.body)).endpoints.length, 3);
+});
+
+test('bazaar index: settled calls over 30 days summed per seller site', async () => {
+  const { createBazaarIndex } = require('../lib/bazaar-index');
+  const items = [
+    { resource: 'https://pay.seller.ai/a', accepts: [], quality: { l30DaysTotalCalls: 700 } },
+    { resource: 'https://api.seller.ai/b', accepts: [], quality: { l30DaysTotalCalls: 200 } },
+    { resource: 'https://x.run.app/c', accepts: [], quality: {} },
+  ];
+  const bz = createBazaarIndex({ url: 'http://bazaar.test', fetchImpl: async () => new Response(JSON.stringify({ items })) });
+  assert.equal(bz.siteCalls(), null, 'null while loading');
+  await bz.refresh();
+  assert.deepEqual([...bz.siteCalls().calls], [['seller.ai', 900]]);
 });
