@@ -127,11 +127,14 @@ don't know is a warning, because `@x402/evm` then signs EIP-3009 instead. `"perm
 methods of Binance's B402 facilitator, so only its own clients pay those options.
 
 **Bait check** (TypeSafe's Jev, when `TYPESAFE_API_KEY` is set): for an endpoint that could be paid, Jev judges
-what the protocol checks can't. Does it present itself as an official service of a brand that doesn't own its
-domain (`brand_impersonation`), lure with free tokens, airdrops or guaranteed returns (`lure_description`), or
+what the protocol checks can't. Does it claim to be, or to be official from or endorsed by, a brand that doesn't own
+its domain (`brand_impersonation`; reselling or proxying a brand's product under the seller's own name, such as an
+LLM gateway naming the models it serves, is not), lure with free tokens, airdrops or guaranteed returns (`lure_description`), or
 promise something its declared output doesn't deliver (`output_mismatch`)? A clear yes is a `caution`, an
 in-between answer `info`; it never makes a verdict `no_go` and never turns one into `go`. The probabilities are
-in `signals.jev_lure`. On 300 real CDP Bazaar listings it raised no caution for brand or lure wording.
+in `signals.jev_lure`. On 300 real CDP Bazaar listings it raised no caution for brand or lure wording. When a bait
+question changes (`BAIT_VERSION` in `lib/jev-lure.js`), the Trust Index's next run asks again, first, every service
+the old wording flagged or was unsure about; clear answers carry over.
 
 **Price check** (same key): is the price far above what comparable services ask? Doctor takes up to 24 paid APIs
 of other sellers from the x402 Trust Index whose descriptions share rare words with this one (at most two per

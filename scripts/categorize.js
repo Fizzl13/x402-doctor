@@ -14,7 +14,7 @@
 const fs = require('fs');
 const { groupServices, descKey } = require('../lib/services');
 const { createCategorizer } = require('../lib/jev-category');
-const { createLure } = require('../lib/jev-lure');
+const { createLure, carryBait, BAIT_VERSION } = require('../lib/jev-lure');
 
 // Runs fn over items, `limit` at a time.
 async function pool(items, limit, fn) {
@@ -51,8 +51,9 @@ async function main() {
   Object.assign(cache, answers);
 
   // Bait signs per service (brand impersonation, a lure), for the bait list on /trust.
-  const bait = { ...(previous.bait || {}) };
   const lure = createLure({ timeoutMs: 8000, ttlMs: 0, log: { warn() {} } });
+  // After a change to the bait questions (BAIT_VERSION), what the old wording flagged is asked again.
+  const bait = carryBait(previous, { enabled: lure.enabled });
   const baitTodo = [];
   if (lure.enabled) {
     const queued = new Set();
@@ -65,6 +66,9 @@ async function main() {
       try { host = new URL(svc.rep.url).hostname; } catch {}
       baitTodo.push({ key, host, description: text });
     }
+    // What the old question wording flagged goes first, so a changed question clears or confirms it in one run.
+    const reask = new Set(Object.keys(previous.bait || {}).filter((k) => !bait[k]));
+    baitTodo.sort((a, b) => reask.has(b.key) - reask.has(a.key));
     baitTodo.splice(Number(arg('max-bait', '1000')) || 0);
   }
   let baitAnswered = 0;
@@ -77,7 +81,7 @@ async function main() {
   const live = new Set(services.map((s) => descKey(s.rep.d || s.rep.url)));
   const categories = Object.fromEntries(Object.entries(cache).filter(([k]) => live.has(k)));
   const baitLive = Object.fromEntries(Object.entries(bait).filter(([k]) => live.has(k)));
-  fs.writeFileSync(arg('out', 'trust-data/categories.json'), JSON.stringify({ updated: new Date().toISOString(), categories, bait: baitLive }));
+  fs.writeFileSync(arg('out', 'trust-data/categories.json'), JSON.stringify({ updated: new Date().toISOString(), categories, bait: baitLive, bait_version: lure.enabled ? BAIT_VERSION : previous.bait_version ?? null }));
 
   const line = `services ${services.length}, categorized ${Object.keys(categories).length}, asked ${ask.length}, answered ${Object.keys(answers).length}, still to ask ${todo.length - ask.length}; bait-checked ${Object.keys(baitLive).length} (+${baitAnswered})`;
   console.log(line);
