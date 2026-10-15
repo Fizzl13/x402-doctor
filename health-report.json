@@ -1,0 +1,191 @@
+{
+  "checkedAt": "2026-10-12T17:41:28.123Z",
+  "ok": true,
+  "results": [
+    {
+      "service": "Ichimoku Signal",
+      "name": "site answers",
+      "ok": true,
+      "detail": "https://ichimoku-signal.fizzl.eu"
+    },
+    {
+      "service": "x402 Doctor",
+      "name": "site answers",
+      "ok": true,
+      "detail": "https://x402-doctor.fizzl.eu"
+    },
+    {
+      "service": "presign-guard",
+      "name": "site answers",
+      "ok": true,
+      "detail": "https://presign-guard.fizzl.eu"
+    },
+    {
+      "service": "PlainText",
+      "name": "site answers",
+      "ok": true,
+      "detail": "https://plaintext.fizzl.eu"
+    },
+    {
+      "service": "Ichimoku Signal",
+      "name": "GET /signal",
+      "ok": true,
+      "detail": "402 $0.02 on Base + Solana"
+    },
+    {
+      "service": "Ichimoku Signal",
+      "name": "GET /signals",
+      "ok": true,
+      "detail": "402 $0.15 on Base + Solana"
+    },
+    {
+      "service": "Ichimoku Signal",
+      "name": "GET /levels",
+      "ok": true,
+      "detail": "402 $0.05 on Base + Solana"
+    },
+    {
+      "service": "Ichimoku Signal",
+      "name": "GET /scan",
+      "ok": true,
+      "detail": "402 $0.10 on Base + Solana"
+    },
+    {
+      "service": "Ichimoku Signal",
+      "name": "GET /setups",
+      "ok": true,
+      "detail": "402 $0.50 on Base + Solana"
+    },
+    {
+      "service": "x402 Doctor",
+      "name": "GET /api/v1/diagnose",
+      "ok": true,
+      "detail": "402 $0.01 on Base + Solana"
+    },
+    {
+      "service": "x402 Doctor",
+      "name": "GET /api/v1/preflight",
+      "ok": true,
+      "detail": "402 $0.001 on Base + Solana"
+    },
+    {
+      "service": "x402 Doctor",
+      "name": "GET /api/v1/preflight/batch",
+      "ok": true,
+      "detail": "402 $0.005 on Base + Solana"
+    },
+    {
+      "service": "x402 Doctor",
+      "name": "GET /api/v1/preflight/deep",
+      "ok": true,
+      "detail": "402 $0.01 on Base + Solana"
+    },
+    {
+      "service": "x402 Doctor",
+      "name": "GET /api/v1/fix",
+      "ok": true,
+      "detail": "402 $0.05 on Base + Solana"
+    },
+    {
+      "service": "x402 Doctor",
+      "name": "GET /api/v1/delivery-check",
+      "ok": true,
+      "detail": "402 $0.25 on Base + Solana"
+    },
+    {
+      "service": "presign-guard",
+      "name": "POST /v1/check",
+      "ok": true,
+      "detail": "402 $0.01 on Base"
+    },
+    {
+      "service": "presign-guard",
+      "name": "POST /v1/check/explain",
+      "ok": true,
+      "detail": "402 $0.03 on Base"
+    },
+    {
+      "service": "presign-guard",
+      "name": "GET /v1/token",
+      "ok": true,
+      "detail": "402 $0.01 on Base + Solana"
+    },
+    {
+      "service": "presign-guard",
+      "name": "GET /v1/approvals",
+      "ok": true,
+      "detail": "402 $0.02 on Base + Solana"
+    },
+    {
+      "service": "presign-guard",
+      "name": "GET /v1/screen",
+      "ok": true,
+      "detail": "402 $0.01 on Base + Solana"
+    },
+    {
+      "service": "PlainText",
+      "name": "POST /api/check-wallet",
+      "ok": true,
+      "detail": "402 $0.04 on Base + Solana"
+    },
+    {
+      "service": "PlainText",
+      "name": "POST /api/explain",
+      "ok": true,
+      "detail": "402 $0.03 on Base + Solana"
+    },
+    {
+      "service": "Ichimoku Signal",
+      "name": "free daily trend",
+      "ok": true,
+      "detail": "BTC-USDT daily: neutral"
+    },
+    {
+      "service": "Ichimoku Signal",
+      "name": "MCP tools",
+      "ok": true,
+      "detail": "7 tools"
+    },
+    {
+      "service": "Ichimoku Signal",
+      "name": "bad input rejected before payment",
+      "ok": true,
+      "detail": "HTTP 400, no payment asked"
+    },
+    {
+      "service": "presign-guard",
+      "name": "verdicts signed",
+      "ok": true,
+      "detail": "signer 0xf084Ea47Ca4D99BB4De3ECB0332b316bE6521EaE"
+    },
+    {
+      "service": "x402 Doctor",
+      "name": "verdicts signed",
+      "ok": true,
+      "detail": "signer 0xAaE66eF9Ee234397df33901568c8FBc36d43277d"
+    }
+  ],
+  "pg1": {
+    "up": true,
+    "detail": "HTTP 200 in 414 ms, status \"ok\""
+  },
+  "bazaar": [
+    "ichimoku-signal.fizzl.eu/levels/:pair",
+    "ichimoku-signal.fizzl.eu/scan",
+    "ichimoku-signal.fizzl.eu/setups",
+    "ichimoku-signal.fizzl.eu/signal/:pair",
+    "ichimoku-signal.fizzl.eu/signals/:pair",
+    "plaintext.fizzl.eu/api/check-wallet",
+    "plaintext.fizzl.eu/api/explain",
+    "presign-guard.fizzl.eu/v1/approvals",
+    "presign-guard.fizzl.eu/v1/check",
+    "presign-guard.fizzl.eu/v1/check/explain",
+    "presign-guard.fizzl.eu/v1/screen",
+    "presign-guard.fizzl.eu/v1/token",
+    "x402-doctor.fizzl.eu/api/v1/diagnose",
+    "x402-doctor.fizzl.eu/api/v1/fix",
+    "x402-doctor.fizzl.eu/api/v1/preflight",
+    "x402-doctor.fizzl.eu/api/v1/preflight/batch",
+    "x402-doctor.fizzl.eu/api/v1/preflight/deep"
+  ]
+}
