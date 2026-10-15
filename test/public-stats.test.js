@@ -72,13 +72,19 @@ test('charts: counts per hour and day, outcomes and median time; nothing about c
   assert.strictEqual(c.hourly[23].hour, '2026-09-30T08:00:00.000Z');
   assert.deepStrictEqual(c.hourly[22], { hour: '2026-09-30T07:00:00.000Z', doctor: 3, presign: 0, ichimoku: 0, plaintext: 0 });
   assert.strictEqual(c.hourly[21].presign, 1);
+  assert.strictEqual(c.paid_hourly.length, 24);
+  assert.strictEqual(c.paid_hourly[22], 1, 'one settled payment at 07:xx, counted without payer or amount');
+  assert.strictEqual(c.paid_hourly.reduce((a, b) => a + b, 0), 1);
   assert.deepStrictEqual(c.daily.map((d) => d.date), ['2026-09-24', '2026-09-25', '2026-09-26', '2026-09-27', '2026-09-28', '2026-09-29', '2026-09-30']);
   assert.strictEqual(c.daily[4].plaintext, 1);
   assert.strictEqual(c.daily[6].doctor, 3);
   assert.deepStrictEqual(c.outcomes_24h, { quote: 1, answered: 2, rejected: 1 });
   assert.deepStrictEqual(c.median_ms_24h, { doctor: 3, presign: 40, ichimoku: null, plaintext: null });
   assert.deepStrictEqual(c.p95_ms_24h, { doctor: 9, presign: 40, ichimoku: null, plaintext: null });
-  assert.doesNotMatch(JSON.stringify(c), /secret|0xabc|payer|input|bot\/1|v1|paid/);
+  // Payments only as a count per hour (paid_hourly): no payer, amount or "paid" flag on anything else.
+  const { paid_hourly: _counts, ...rest } = c;
+  assert.doesNotMatch(JSON.stringify(c), /secret|0xabc|payer|input|bot\/1|v1|usd|amount/);
+  assert.doesNotMatch(JSON.stringify(rest), /paid/);
 });
 
 test('charts: week-by-hour heatmap and the most asked routes, without made-up probe names', () => {
