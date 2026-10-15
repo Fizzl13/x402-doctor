@@ -3,7 +3,7 @@
 // adding caution or info but never no_go.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createLure, lureReasons, claimsOf } = require('../lib/jev-lure');
+const { createLure, lureReasons, claimsOf, carryBait, QUESTIONS, BAIT_VERSION } = require('../lib/jev-lure');
 
 const quiet = { warn() {} };
 const jev = (answers, status = 200) => {
@@ -55,4 +55,23 @@ test('lureReasons: caution when sure, info in between, nothing below', () => {
   assert.match(r[0].message, /TypeSafe Jev/);
   assert.deepEqual(lureReasons({ impersonation: null, lure: 0.1, mismatch: 0.89 }).map((x) => [x.level, x.code]), [['info', 'output_mismatch']]);
   assert.deepEqual(lureReasons({ impersonation: null, lure: 0.1, mismatch: 0.97 }).map((x) => x.level), ['caution']);
+});
+
+test('impersonation question: claiming to be the brand counts, reselling or proxying its product does not', () => {
+  const q = QUESTIONS.impersonation.instructions;
+  assert.match(q, /resells, proxies, wraps or reports on is not impersonation/);
+  assert.match(q, /"GPT-4o and Claude through one gateway"/, 'an LLM gateway naming the models it serves is the not-impersonation example');
+  assert.doesNotMatch(q, /OpenAI GPT endpoint/, 'the old example that made Jev flag LLM gateways is gone');
+  assert.doesNotMatch(q, /x402engine/, 'no flagged seller in the question itself: its next answer has to come from the rule');
+  assert.match(q, /"Official Coinbase API"/);
+  assert.match(QUESTIONS.impersonation.criteria.false, /resells, proxies or reports on/);
+});
+
+test('carryBait: same version keeps all answers; after a change only clear ones, unless Jev is off', () => {
+  const previous = { bait_version: BAIT_VERSION - 1, bait: { gateway: [0.95, 0.03], unsure: [0.6, 0.1], lure: [0.1, 0.9], clean: [0.05, 0.02], half: [null, 0.2] } };
+  assert.deepEqual(Object.keys(carryBait(previous)).sort(), ['clean', 'half'], 'flagged and unsure answers are asked again');
+  assert.deepEqual(Object.keys(carryBait(previous, { enabled: false })).sort(), ['clean', 'gateway', 'half', 'lure', 'unsure'], 'without Jev nothing could be asked again');
+  assert.deepEqual(Object.keys(carryBait({ ...previous, bait_version: BAIT_VERSION })).length, 5);
+  assert.deepEqual(carryBait({ bait: { clean: [0.1, 0.1] } }), { clean: [0.1, 0.1] }, 'a file from before versions counts as an older version');
+  assert.deepEqual(carryBait(null), {});
 });
