@@ -1,4 +1,5 @@
 const express = require('express');
+const zlib = require('node:zlib');
 const fs = require('fs');
 const path = require('path');
 const { x402TrustTxtRoute } = require('./lib/x402-trust-txt');
@@ -508,6 +509,17 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     res.set('Cache-Control', 'no-store');
     res.set('PAYMENT-REQUIRED', Buffer.from(JSON.stringify(challenge)).toString('base64'));
     res.status(402).json(challenge);
+  });
+  // The Trust Index as a star map for atlas.fizzl.eu (free, public data): ~2 MB of JSON, ~100 KB gzipped. Built
+  // once per scan and kept only gzipped.
+  let atlasCache = null; // { updated, gz }
+  app.get('/api/trust/atlas', trustLimit, (req, res) => {
+    const map = atlasCache && atlasCache.updated === trustIndex.updated() ? null : trustIndex.atlas();
+    if (map) atlasCache = { updated: map.updated, gz: zlib.gzipSync(JSON.stringify(map)) };
+    if (!atlasCache) return res.status(503).json({ error: 'trust index loading, try again shortly' });
+    res.set({ 'Cache-Control': 'public, max-age=1800', 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json; charset=utf-8', Vary: 'Accept-Encoding' });
+    if (/\bgzip\b/.test(req.get('accept-encoding') || '')) return res.set('Content-Encoding', 'gzip').send(atlasCache.gz);
+    res.send(zlib.gunzipSync(atlasCache.gz));
   });
   app.get('/api/trust/summary', trustLimit, (_req, res) => {
     const summary = trustIndex.summary();
