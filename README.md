@@ -562,3 +562,7 @@ npm test
 
 The suites run the doctor against local fixture servers: a healthy v2 service (Base + Solana, Bazaar, OpenAPI,
 mainnet paywall) and a broken one that reproduces the real bugs above, plus SSRF, size-cap, API and CLI tests.
+
+## License
+
+Copyright (C) 2026 Frits Zwager. Licensed under the GNU Affero General Public License v3.0 only (AGPL-3.0-only); see [LICENSE](LICENSE). If you run a modified version as a network service, you must offer its source code to the users of that service.
