@@ -2,6 +2,7 @@
   "name": "x402-doctor",
   "version": "2.3.0",
   "description": "Diagnoses why an x402-payable endpoint's payment flow is broken, without needing a funded wallet. Free web app and CLI, paid x402 API for agents.",
+  "license": "MIT",
   "main": "server.js",
   "engines": {
     "node": ">=20.18.1"
