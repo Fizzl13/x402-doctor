@@ -28,6 +28,7 @@ const { createFeedback } = require('./lib/feedback');
 const { createOutcomes } = require('./lib/outcomes');
 const { createUsageReader } = require('./lib/usage-reader');
 const { createPublicStats, statsCors } = require('./lib/public-stats');
+const { marketSummary } = require('./lib/market-summary');
 const { setupsFunnel } = require('./lib/usage-funnel');
 const { checkSettlement } = require('./lib/settlement');
 const { createStatus } = require('./lib/status');
@@ -514,17 +515,23 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   // once per scan and kept only gzipped.
   // Each seller also carries the settled calls the CDP Bazaar counted for it over 30 days (quality.l30DaysTotalCalls;
   // 0 when unlisted or unknown), which drive the gold comets to other sellers; rebuilt when either source changes.
-  let atlasCache = null; // { key, gz }
-  app.get('/api/trust/atlas', trustLimit, (req, res) => {
+  // The same build gives the market summary on lab.fizzl.eu (lib/market-summary.js), served with /api/stats.
+  let atlasCache = null; // { key, gz, market }
+  function atlasState() {
     const paid = bazaar.siteCalls?.() || null;
     const key = `${trustIndex.updated()}|${paid?.at ?? 0}`;
-    const map = atlasCache && atlasCache.key === key ? null : trustIndex.atlas();
-    if (map) {
-      for (const s of map.sellers) s.push(paid?.calls.get(s[0]) || 0);
-      map.paid_30d = paid ? { source: 'CDP Bazaar quality.l30DaysTotalCalls', read_at: new Date(paid.at).toISOString() } : null;
-      atlasCache = { key, gz: zlib.gzipSync(JSON.stringify(map)) };
-    }
-    if (!atlasCache) return res.status(503).json({ error: 'trust index loading, try again shortly' });
+    if (atlasCache && atlasCache.key === key) return atlasCache;
+    const map = trustIndex.atlas();
+    if (!map) return atlasCache;
+    const source = paid ? { source: 'CDP Bazaar quality.l30DaysTotalCalls', read_at: new Date(paid.at).toISOString() } : null;
+    const market = paid ? marketSummary(map, paid.calls) : null;
+    for (const s of map.sellers) s.push(paid?.calls.get(s[0]) || 0);
+    map.paid_30d = source;
+    atlasCache = { key, gz: zlib.gzipSync(JSON.stringify(map)), market: market && { ...market, ...source } };
+    return atlasCache;
+  }
+  app.get('/api/trust/atlas', trustLimit, (req, res) => {
+    if (!atlasState()) return res.status(503).json({ error: 'trust index loading, try again shortly' });
     res.set({ 'Cache-Control': 'public, max-age=1800', 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json; charset=utf-8', Vary: 'Accept-Encoding' });
     if (/\bgzip\b/.test(req.get('accept-encoding') || '')) return res.set('Content-Encoding', 'gzip').send(atlasCache.gz);
     res.send(zlib.gunzipSync(atlasCache.gz));
@@ -563,11 +570,12 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     }
   });
 
-  // Live numbers for fizzl.eu and its subdomains: totals only (lib/public-stats.js).
+  // Live numbers for fizzl.eu and its subdomains: totals only (lib/public-stats.js), plus where the money in the
+  // x402 market goes (market, from the atlas build above).
   app.get('/api/stats', statsCors, async (_req, res) => {
     try {
       res.set('Cache-Control', 'public, max-age=60');
-      res.json(await publicStats.get());
+      res.json({ ...(await publicStats.get()), market: atlasState()?.market ?? null });
     } catch {
       res.status(503).json({ error: 'stats not available right now' });
     }

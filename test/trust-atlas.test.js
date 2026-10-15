@@ -69,3 +69,38 @@ test('bazaar index: settled calls over 30 days summed per seller site', async ()
   await bz.refresh();
   assert.deepEqual([...bz.siteCalls().calls], [['seller.ai', 900]]);
 });
+
+test('market summary: settled calls per seller grouped by today\'s verdicts and by kind of service', async () => {
+  const { marketSummary } = require('../lib/market-summary');
+  const ti = createTrustIndex({ url: 'http://index.test', categoriesUrl: 'http://cat.test', fetchImpl });
+  await ti.refresh();
+  const m = marketSummary(ti.atlas(), new Map([['seller.ai', 900], ['nobody.example', 50]]));
+  assert.equal(m.scan_day, '2026-10-15');
+  assert.equal(m.sellers, 2);
+  assert.equal(m.calls_30d, 900, 'only sellers in today\'s scan count');
+  assert.deepEqual(m.by_verdict, [
+    { key: 'all_go', sellers: 0, sellers_with_calls: 0, calls: 0 },
+    { key: 'caution', sellers: 1, sellers_with_calls: 0, calls: 0 },
+    { key: 'some_no_go', sellers: 1, sellers_with_calls: 1, calls: 900 },
+    { key: 'mostly_no_go', sellers: 0, sellers_with_calls: 0, calls: 0 },
+  ], 'seller.ai has 1 of 2 endpoints failing (some, not most); x.run.app only caution');
+  assert.deepEqual(m.bait, { sellers: 1, calls: 0 });
+  assert.deepEqual(m.by_kind.map((k) => [k.id, k.sellers, k.sellers_with_calls, k.calls, k.top_seller_share]), [['crypto', 1, 1, 900, 1], ['ai', 1, 0, 0, 0]]);
+  assert.equal(marketSummary(null, new Map()), null);
+  assert.equal(marketSummary(ti.atlas(), null), null);
+});
+
+test('GET /api/stats carries the market summary once the Trust Index and the Bazaar are in, with no "paid" key', async (t) => {
+  const bazaarIndex = { lookup: async () => null, listings: async () => null, refresh: () => Promise.resolve(), siteCalls: () => ({ at: Date.parse('2026-10-15T12:00:00Z'), calls: new Map([['seller.ai', 900]]) }) };
+  const trustIndex = createTrustIndex({ url: 'http://index.test', categoriesUrl: 'http://cat.test', fetchImpl });
+  await trustIndex.refresh();
+  const app = createApp({ env: {}, status: { snapshot: async () => ({}) }, bazaarIndex, trustIndex, publicStats: { get: async () => ({ updated: '2026-10-15T12:00:00Z' }) } });
+  const server = await new Promise((resolve) => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
+  t.after(() => server.close());
+  const body = await (await fetch(`http://127.0.0.1:${server.address().port}/api/stats`)).json();
+  assert.equal(body.updated, '2026-10-15T12:00:00Z');
+  assert.equal(body.market.calls_30d, 900);
+  assert.equal(body.market.source, 'CDP Bazaar quality.l30DaysTotalCalls');
+  assert.equal(body.market.read_at, '2026-10-15T12:00:00.000Z');
+  assert.doesNotMatch(JSON.stringify(body.market), /paid/);
+});
