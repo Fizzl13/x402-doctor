@@ -1,6 +1,6 @@
 # x402 Doctor
 
-[![x402 payable](https://x402-doctor.fizzl.eu/badge.svg?url=https%3A%2F%2Fx402-doctor.fizzl.eu%2Fapi%2Fv1%2Fdiagnose)](https://x402-doctor.fizzl.eu/trust?url=https%3A%2F%2Fx402-doctor.fizzl.eu%2Fapi%2Fv1%2Fdiagnose) [![Listed on x402-list](https://x402-list.com/badge/x402-doctor.svg)](https://x402-list.com/services/x402-doctor?utm_source=badge&utm_medium=referral&utm_campaign=embed) · [Live status](https://x402-doctor.fizzl.eu/status)
+[![x402 payable](https://x402-doctor.fizzl.eu/badge.svg?url=https%3A%2F%2Fx402-doctor.fizzl.eu%2Fapi%2Fv1%2Fdiagnose)](https://x402-doctor.fizzl.eu/trust?url=https%3A%2F%2Fx402-doctor.fizzl.eu%2Fapi%2Fv1%2Fdiagnose) [![Listed on x402-list](https://x402-list.com/badge/x402-doctor.svg)](https://x402-list.com/services/x402-doctor?utm_source=badge&utm_medium=referral&utm_campaign=embed) · [Live status](https://x402-doctor.fizzl.eu/status) · [![x402 Doctor MCP connector on Glama](https://glama.ai/mcp/connectors/io.github.Fizzl13/x402-doctor/badges/score.svg)](https://glama.ai/mcp/connectors/io.github.Fizzl13/x402-doctor)
 
 Diagnoses why an x402-payable endpoint's payment flow is broken, without needing a funded wallet.
 
