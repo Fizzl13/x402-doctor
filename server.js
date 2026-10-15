@@ -270,6 +270,8 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     res.status(status).json(body);
   });
   app.use(feedback.router(express)); // its own 16 kB JSON parser, before the 4 kB one
+  // MCP calls (lib/mcp.js) carry a payment in _meta, and verify_receipt a whole signed answer: 256 kB like /api/v1/verify.
+  app.post('/mcp', express.json({ limit: '256kb' }));
   app.use(express.json({ limit: '4kb' }));
   app.use(usageLog.middleware((req, res, body) => {
     // Prepaid credits (credits.js): a pack sale, or a call paid from credits.

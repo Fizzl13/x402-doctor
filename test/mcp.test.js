@@ -114,10 +114,10 @@ async function mcpClient() {
   return client;
 }
 
-test('mcp: a free quick check, five paid tools with their prices, the free payment proof check and the free feedback tool', async () => {
+test('mcp: a free quick check, five paid tools with their prices, the free payment proof and receipt checks and the free feedback tool', async () => {
   const client = await mcpClient();
   const { tools } = await client.listTools();
-  assert.deepEqual(tools.map((t) => t.name).sort(), ['check_payment_proof', 'feedback', 'x402_diagnose', 'x402_fix', 'x402_preflight', 'x402_preflight_batch', 'x402_preflight_deep', 'x402_quick_check']);
+  assert.deepEqual(tools.map((t) => t.name).sort(), ['check_payment_proof', 'feedback', 'verify_receipt', 'x402_diagnose', 'x402_fix', 'x402_preflight', 'x402_preflight_batch', 'x402_preflight_deep', 'x402_quick_check']);
   const fb = await client.callTool({ name: 'feedback', arguments: { type: 'feature', message: 'Check Solana payTo token accounts in quick check', endpoint: 'x402_quick_check' } });
   assert.ok(!fb.isError);
   assert.equal(JSON.parse(fb.content[0].text).service, 'doctor');
@@ -179,6 +179,17 @@ test('mcp: a real signed Base payment returns the full report and settles once',
   assert.deepEqual([check.valid, check.input_matches], [true, true], 'paid MCP verdicts are signed like the HTTP ones');
   assert.equal(pre.receipt.payment.payer, account.address, 'the receipt names who paid');
   assert.match(pre.receipt.payment.nonce, /^0x[0-9a-f]{64}$/);
+  // The free verify_receipt tool says the same, and refuses a flipped verdict or another request.
+  const verify = async (args) => JSON.parse((await client.callTool('verify_receipt', args)).content[0].text);
+  assert.deepEqual(await verify({ response: pre, route: 'mcp x402_preflight', input: { url: targetUrl, max_usd: 0.05 } }), { valid: true, signer: pre.receipt.signer, known_signer: true, signer_status: 'current', input_matches: true });
+  const flipped = await verify({ response: { ...pre, verdict: pre.verdict === 'go' ? 'no_go' : 'go' } });
+  assert.equal(flipped.valid, false);
+  assert.match(flipped.reason, /changed/);
+  const other = await verify({ response: pre, route: 'mcp x402_preflight', input: { url: targetUrl, max_usd: 5 } });
+  assert.deepEqual([other.valid, other.input_matches], [false, false]);
+  // The full diagnose report is larger than the app's 4 kB JSON parser takes.
+  assert.ok(JSON.stringify(report).length > 4096, `report is ${JSON.stringify(report).length} bytes`);
+  assert.equal((await verify({ response: report, route: 'mcp x402_diagnose', input: { url: targetUrl } })).valid, true);
   await client.close();
 });
 
@@ -256,7 +267,7 @@ test('diagnose on an x402 MCP server: tools listed, unpaid calls return the paym
   assert.equal(report.method, 'MCP');
   assert.equal(byId('returns-402')[0].status, 'info');
   assert.equal(byId('mcp-server')[0].status, 'pass');
-  assert.match(byId('mcp-server')[0].message, /8 tools/);
+  assert.match(byId('mcp-server')[0].message, /9 tools/);
   const calls = byId('mcp-payment-required');
   assert.equal(calls.length, 2, JSON.stringify(report.checks, null, 1));
   for (const c of calls) assert.equal(c.status, 'pass', c.message);

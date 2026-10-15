@@ -273,7 +273,7 @@ Every paid answer (diagnose, preflight, batch, deep and fix; HTTP and MCP) carri
 - **`payment`:** the payment that bought this answer, from your x402 payment payload. On Base the payer and the EIP-3009 nonce, so anyone can find the settlement on-chain as the USDC contract's `AuthorizationUsed(payer, nonce)` event; on Solana the payer and a SHA-256 of the signed transaction you sent.
 - **`input_sha256`:** SHA-256 of the canonical JSON of `{"route", "input"}`, where `input` is your query parameters as strings (HTTP) or the tool arguments (MCP, route `mcp <tool>`).
 - **Signer:** [`/.well-known/x402-doctor-signer.json`](https://x402-doctor.fizzl.eu/.well-known/x402-doctor-signer.json), with retired signers listed so old receipts keep verifying.
-- **Free check:** `POST /api/v1/verify` with `{"response": …, "route": …, "input": …}` returns `valid`, `signer`, `known_signer` and `input_matches`.
+- **Free check:** `POST /api/v1/verify` with `{"response": …, "route": …, "input": …}` returns `valid`, `signer`, `known_signer` and `input_matches`. Over MCP: the free tool `verify_receipt` with the same arguments (`route` like `mcp x402_preflight`, `input` the tool arguments).
 
 **Key rotation without client updates:** the payout wallet (`0x6B0F4651eD42893ab58139938175E4a69f175F25`) authorises each signing key with a `personal_sign` over `fizzl receipt signer` / `service: x402-doctor` / `signer: <address>` / `valid_from: <YYYY-MM-DD>`. Set it as `RECEIPT_SIGNER_CERT` (`YYYY-MM-DD:0x<signature>`, produced by `/sign-receipt-key` in the wallet's browser). It is checked at startup and carried in every receipt as `receipt.cert`, so a client that pins only the payout wallet verifies a new key offline.
 
@@ -392,6 +392,7 @@ The marketplace is [`.claude-plugin/marketplace.json`](.claude-plugin/marketplac
 | `x402_fix` | $0.05 USDC via x402 | The code changes for your stack, as `GET /api/v1/fix` |
 | `x402_delivery_check` | $0.25 USDC via x402 | One real purchase of the endpoint: a job id now, the result shortly after, as `GET /api/v1/delivery-check` |
 | `x402_delivery_status` | free | The status and, once done, the result of a delivery check, as `GET /api/v1/delivery-check/{id}` |
+| `verify_receipt` | free | Whether a paid answer's signed receipt is valid and for which request, as `POST /api/v1/verify` (see Signed verdicts) |
 | `feedback` | free | Report a bug or a missing feature, as `POST /feedback` (below) |
 
 The paid tools are paid inside the MCP call with the x402 MCP transport (`_meta["x402/payment"]`), on Base or Solana, at the same prices and to the same payout wallets as the HTTP routes. Invalid input is refused before payment, and a failed call is not charged. A delivery check ordered over MCP is queued only once its payment settled, like the HTTP route.
