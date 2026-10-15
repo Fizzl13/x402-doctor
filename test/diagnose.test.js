@@ -742,6 +742,27 @@ test('ERC-8004 identity: verified when the registered agent points back to this 
   assert.match(missing.message, /doesn't exist/);
 });
 
+test("Coinbase's agents: payable with USDC on Base (exact/upto), the v2 and $5 limits of the Coinbase MCP, none without Base USDC", () => {
+  const { checkCoinbaseAgents } = require('../lib/diagnose');
+  const USDC = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+  const run = (challenge) => { const checks = []; checkCoinbaseAgents(challenge, checks); return checks[0]; };
+  const opt = (over) => ({ scheme: 'exact', network: BASE, asset: USDC, amount: '10000', payTo: '0x1111111111111111111111111111111111111111', ...over });
+
+  const ok = run({ x402Version: 2, accepts: [opt()] });
+  assert.equal(ok.status, 'pass');
+  assert.match(ok.message, /Coinbase Wallet MCP agents can pay this \(USDC on Base, "exact"\)/);
+  assert.match(ok.message, /fetches only services in its own curated catalog/);
+  const pricey = run({ x402Version: 1, accepts: [opt({ scheme: 'upto', amount: undefined, maxAmountRequired: '7500000' })] });
+  assert.equal(pricey.status, 'pass');
+  assert.match(pricey.message, /"upto".*But the Coinbase MCP fetches x402 v2 only, and this is v1; the Coinbase MCP pays at most \$5 a call, and this asks \$7\.5\./);
+  const solanaOnly = run({ x402Version: 2, accepts: [opt({ network: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp', asset: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' })] });
+  assert.deepEqual([solanaOnly.id, solanaOnly.status], ['coinbase-agents', 'info']);
+  assert.match(solanaOnly.hint, /eip155:8453/);
+  const batchOnly = run({ x402Version: 2, accepts: [opt({ scheme: 'batch-settlement' })] });
+  assert.equal(batchOnly.status, 'info');
+  assert.match(batchOnly.message, /"batch-settlement" scheme/);
+});
+
 test('skill.md: found, llms.txt as the older form, an HTML homepage on every path does not count, none is info', async () => {
   const { checkSkillMd } = require('../lib/diagnose');
   let files = {};
