@@ -326,3 +326,42 @@ test("the weekly spot-buy: a signal always; money taken for the seller's own exa
   assert.equal(fine.signals.spot_buy.status, 200);
   assert.equal((await run(url)).signals.spot_buy, undefined, 'not bought: no signal');
 });
+
+const USD1_BNB = '0x8d0D000Ee44948FC98c9B98A4FA4921476f08B0d';
+const USDT_BNB = '0x55d398326f99059fF775485246999027B3197955';
+const bnbOption = (amount, asset = USD1_BNB, extra = { name: 'World Liberty Financial USD', version: '1' }) => ({ scheme: 'exact', network: 'eip155:56', amount, asset, payTo: PAY_TO_BASE, maxTimeoutSeconds: 60, extra });
+
+test('BNB Chain: 18-decimal dollar tokens are priced, so the budget and the advertised price apply', async () => {
+  const ok = await run(await seller({ accepts: [bnbOption('10000000000000000')] }));
+  assert.equal(ok.verdict, 'go', JSON.stringify(ok.reasons));
+  assert.deepEqual([ok.options[0].network_name, ok.options[0].asset_symbol, ok.options[0].usd], ['BNB Chain', 'USD1', 0.01]);
+  const over = await run(await seller({ accepts: [bnbOption('20000000000000000')] }), { maxUsd: 0.01 });
+  assert.ok(over.reasons.some((x) => x.code === 'over_budget'));
+  const far = await run(await seller({ accepts: [bnbOption('1000000000000000000')], advertised: '0.02' }));
+  assert.equal(far.verdict, 'no_go');
+  assert.ok(far.reasons.some((x) => x.code === 'price_far_above_advertised'));
+});
+
+test('BNB Chain: USDT over EIP-3009 is not payable; a 6-decimal amount on an 18-decimal token is a caution', async () => {
+  const usdt = await run(await seller({ accepts: [bnbOption('10000000000000000', USDT_BNB, { name: 'Tether USD', version: '1' })] }));
+  assert.equal(usdt.verdict, 'no_go');
+  assert.equal(usdt.options[0].payable, false);
+  assert.match(usdt.options[0].problems[0], /no transferWithAuthorization/);
+  const mixed = await run(await seller({ accepts: [bnbOption('10000000000000000', USDT_BNB, { name: 'Tether USD', version: '1' }), baseOption('10000')] }));
+  assert.equal(mixed.verdict, 'go', JSON.stringify(mixed.reasons));
+  assert.equal(mixed.recommended_option, 1);
+  const tiny = await run(await seller({ accepts: [bnbOption('10000')] }));
+  assert.equal(tiny.verdict, 'caution');
+  assert.ok(tiny.reasons.some((x) => x.code === 'suspicious_amount'));
+});
+
+test('at the same price, the option every x402 client can pay is recommended over a Permit2 one', async () => {
+  const permit2 = bnbOption('10000000000000000', USDT_BNB, { name: 'Tether USD', version: '1', assetTransferMethod: 'permit2-exact' });
+  const r = await run(await seller({ accepts: [permit2, baseOption('10000')] }));
+  assert.equal(r.verdict, 'go', JSON.stringify(r.reasons));
+  assert.equal(r.recommended_option, 1);
+  const cheaper = await run(await seller({ accepts: [bnbOption('5000000000000000', USDT_BNB, { name: 'Tether USD', version: '1', assetTransferMethod: 'permit2' }), baseOption('10000')] }));
+  assert.equal(cheaper.recommended_option, 0, 'a lower price still wins');
+  const usd1First = await run(await seller({ accepts: [bnbOption('10000000000000000'), baseOption('10000')] }));
+  assert.equal(usd1First.recommended_option, 1, 'USDC before USD1 at the same price');
+});
