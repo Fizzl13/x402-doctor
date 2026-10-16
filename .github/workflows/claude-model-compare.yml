@@ -1,0 +1,34 @@
+# Compares Claude models on the Claude calls of presign-guard and Doctor (scripts/claude-model-compare.mjs).
+# Started by hand; spends real tokens (about 100 short calls, well under $0.20). The report is in the job summary.
+name: Claude model comparison
+
+on:
+  workflow_dispatch:
+    inputs:
+      repeat:
+        description: Runs per sample
+        default: "2"
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/checkout@v5
+        with:
+          repository: Fizzl13/presign-guard
+          path: presign-guard
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: npm ci --omit=dev
+        working-directory: presign-guard
+      - run: node scripts/claude-model-compare.mjs
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          PG_DIR: presign-guard
+          REPEAT: ${{ inputs.repeat || '2' }}
