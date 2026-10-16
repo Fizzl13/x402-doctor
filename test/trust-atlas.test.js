@@ -59,15 +59,18 @@ test('GET /api/trust/atlas: gzipped when asked, plain otherwise, open to any ori
 
 test('bazaar index: settled calls over 30 days summed per seller site', async () => {
   const { createBazaarIndex } = require('../lib/bazaar-index');
+  const day = 24 * 60 * 60 * 1000;
   const items = [
-    { resource: 'https://pay.seller.ai/a', accepts: [], quality: { l30DaysTotalCalls: 700 } },
-    { resource: 'https://api.seller.ai/b', accepts: [], quality: { l30DaysTotalCalls: 200 } },
+    { resource: 'https://pay.seller.ai/a', accepts: [], quality: { l30DaysTotalCalls: 700, l30DaysUniquePayers: 7, lastCalledAt: new Date(Date.now() - day).toISOString() } },
+    { resource: 'https://api.seller.ai/b', accepts: [], quality: { l30DaysTotalCalls: 200, l30DaysUniquePayers: 2, lastCalledAt: new Date(Date.now() - 5 * day).toISOString() } },
     { resource: 'https://x.run.app/c', accepts: [], quality: {} },
   ];
   const bz = createBazaarIndex({ url: 'http://bazaar.test', fetchImpl: async () => new Response(JSON.stringify({ items })) });
   assert.equal(bz.siteCalls(), null, 'null while loading');
   await bz.refresh();
   assert.deepEqual([...bz.siteCalls().calls], [['seller.ai', 900]]);
+  assert.deepEqual([...bz.siteCalls().active], [['seller.ai', 700]], 'route b has had no settled payment for 5 days');
+  assert.deepEqual([...bz.siteCalls().payers], [['seller.ai', 9]]);
 });
 
 test('market summary: settled calls per seller grouped by today\'s verdicts and by kind of service', async () => {
@@ -86,6 +89,10 @@ test('market summary: settled calls per seller grouped by today\'s verdicts and 
   ], 'seller.ai has 1 of 2 endpoints failing (some, not most); x.run.app only caution');
   assert.deepEqual(m.bait, { sellers: 1, calls: 0 });
   assert.deepEqual(m.by_kind.map((k) => [k.id, k.sellers, k.sellers_with_calls, k.calls, k.top_seller_share]), [['crypto', 1, 1, 900, 1], ['ai', 1, 0, 0, 0]]);
+  assert.equal(m.calls_active, undefined, 'no still-paid count without the Bazaar\'s quality fields');
+  const withActive = marketSummary(ti.atlas(), new Map([['seller.ai', 900]]), { active: new Map([['seller.ai', 700]]), payers: new Map([['seller.ai', 9]]) });
+  assert.equal(withActive.calls_active, 700);
+  assert.deepEqual(withActive.by_kind.map((k) => [k.id, k.calls, k.calls_active, k.payers]), [['crypto', 900, 700, 9], ['ai', 0, 0, 0]]);
   assert.equal(marketSummary(null, new Map()), null);
   assert.equal(marketSummary(ti.atlas(), null), null);
 });
