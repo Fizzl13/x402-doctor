@@ -28,9 +28,22 @@ const USDC_BASE = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 const PERMIT2 = '0x000000000022D473030F116dDEE9F6B43aC78BA3';
 const TIMEOUT_MS = 30000;
 
+// Ichimoku's plain signal takes its price from Render env SIGNAL_PRICE ($0.02 by default; a price test changes it),
+// so the check expects what the service says it charges (GET / as JSON: payment.price), within the range a price
+// test would use. If that can't be read, the default amount stays.
+async function ichimokuSignalAmount() {
+  const res = await request(ICHI, { headers: { accept: 'application/json' } });
+  const price = (await res.json())?.payment?.price;
+  const m = /^\$(\d+(?:\.\d{1,6})?)$/.exec(price || '');
+  if (!m) throw new Error(`no payment.price on ${ICHI}`);
+  const amount = Math.round(Number(m[1]) * 1e6);
+  if (amount < 1000 || amount > 50000) throw new Error(`declared price ${price} is outside $0.001-$0.05`);
+  return String(amount);
+}
+
 // amount in USDC atomic units (6 decimals): 20000 = $0.02.
 const PAID = [
-  { service: 'Ichimoku Signal', name: 'GET /signal', url: `${ICHI}/signal/BTC-USDT?interval=4h`, amount: '20000', networks: [BASE, SOLANA] },
+  { service: 'Ichimoku Signal', name: 'GET /signal', url: `${ICHI}/signal/BTC-USDT?interval=4h`, amount: '20000', declared: ichimokuSignalAmount, networks: [BASE, SOLANA] },
   { service: 'Ichimoku Signal', name: 'GET /signals', url: `${ICHI}/signals/BTC-USDT?interval=4h`, amount: '150000', networks: [BASE, SOLANA] },
   { service: 'Ichimoku Signal', name: 'GET /levels', url: `${ICHI}/levels/BTC-USDT?interval=4h`, amount: '50000', networks: [BASE, SOLANA] },
   { service: 'Ichimoku Signal', name: 'GET /scan', url: `${ICHI}/scan?interval=4h`, amount: '100000', networks: [BASE, SOLANA] },
@@ -145,6 +158,9 @@ async function main() {
   const awake = await Promise.all(origins.map(([o]) => wake(o)));
   origins.forEach(([o, service], i) => record(service, 'site answers', awake[i], awake[i] ? o : `${o} did not answer within ~2 minutes`));
 
+  for (const route of PAID.filter((r) => r.declared)) {
+    try { route.amount = await route.declared(); } catch (err) { record(route.service, `${route.name} price`, false, `${err.message}; expecting the default ${route.amount}`); }
+  }
   for (const route of PAID) await checkPaid(route);
   for (const service of new Set(PAID.map((r) => r.service))) await checkCdp(service);
 
