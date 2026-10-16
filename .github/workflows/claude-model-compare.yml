@@ -1,5 +1,5 @@
 # Compares Claude models on the Claude calls of presign-guard and Doctor (scripts/claude-model-compare.mjs).
-# Started by hand; spends real tokens (about 100 short calls, well under $0.20). The report is in the job summary.
+# Started by hand; spends real tokens (about 130 short calls for all routes, well under $0.25). The report is in the job summary.
 name: Claude model comparison
 
 on:
@@ -8,6 +8,9 @@ on:
       repeat:
         description: Runs per sample
         default: "2"
+      only:
+        description: "Only these routes, comma-separated (explain, jev-json, doctor-triage, wallet-answer); empty runs all"
+        default: ""
 
 permissions:
   contents: read
@@ -22,6 +25,11 @@ jobs:
         with:
           repository: Fizzl13/presign-guard
           path: presign-guard
+      - uses: actions/checkout@v5
+        with:
+          repository: Fizzl13/x402-examples
+          path: x402-examples
+          sparse-checkout: wallet-server
       - uses: actions/setup-node@v5
         with:
           node-version: 22
@@ -31,4 +39,6 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           PG_DIR: presign-guard
+          WALLET_DIR: x402-examples/wallet-server
+          ONLY: ${{ inputs.only }}
           REPEAT: ${{ inputs.repeat || '2' }}
