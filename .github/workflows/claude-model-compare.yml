@@ -8,9 +8,6 @@ on:
       repeat:
         description: Runs per sample
         default: "2"
-  push:
-    branches: [claude/x402-agents-solana-payments-nceg9b]
-    paths: [scripts/claude-model-compare.mjs, .github/workflows/claude-model-compare.yml]
 
 permissions:
   contents: read

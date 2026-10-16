@@ -28,7 +28,7 @@ const VARIANTS = [
   { id: 'h45', label: 'Haiku 4.5 (now)', model: 'claude-haiku-4-5-20251001', price: [1, 5] },
   { id: 'h55-swap', label: 'Haiku 5.5, model swap only', model: 'claude-haiku-5-5', price: [0.1, 0.5] },
   { id: 'h55-low', label: 'Haiku 5.5, effort low, +1000 max_tokens', model: 'claude-haiku-5-5', price: [0.1, 0.5], output_config: { effort: 'low' }, maxTokens: (n) => n + 1000 },
-  { id: 'h55-off', label: 'Haiku 5.5, thinking off, effort low', model: 'claude-haiku-5-5', price: [0.1, 0.5], output_config: { effort: 'low' }, thinking: { type: 'disabled' } },
+  { id: 'h55-off', label: 'Haiku 5.5, thinking off, effort low (what the code sends since 16 Oct 2026)', model: 'claude-haiku-5-5', price: [0.1, 0.5], output_config: { effort: 'low' }, thinking: { type: 'disabled' } },
 ];
 
 const calls = []; // { route, variant, sample, ms, status, stop, inTok, outTok, types, text, error }
@@ -42,6 +42,9 @@ function wrapped(fakeJev = null) {
     if (!u.startsWith('https://api.anthropic.com/v1/messages')) return realFetch(url, init);
     const v = current.variant;
     const body = JSON.parse(init.body);
+    // Each variant starts from the plain request, whatever the code adds for its default model.
+    delete body.thinking;
+    delete body.output_config;
     body.model = v.model;
     if (v.maxTokens) body.max_tokens = v.maxTokens(body.max_tokens);
     if (v.output_config) body.output_config = v.output_config;

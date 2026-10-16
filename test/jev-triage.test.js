@@ -87,3 +87,18 @@ test('rules decide clear real problems without asking Jev; aliases and small pri
   // A test address wins over a rule: no mail for a staging service.
   assert.equal((await createTriage({ apiKey: 'k', fetch: j.fetch, log: quiet }).judge({ url: 'https://staging.a.test/x', findings: f('no_payable_option', 'No payment option would settle.') })).decidedBy, 'address');
 });
+
+test('triage: Claude is Haiku 5.5 with thinking off and effort low; another model gets the plain request', async () => {
+  const unsure = { test_service: 0.4, real_problem: 0.4 };
+  const h55 = jevFetch(unsure, 200, { test: false, real: true });
+  const out = await createTriage({ apiKey: 'k', anthropicKey: 'an', fetch: h55.fetch, log: quiet }).judge({ url: 'https://a.test', findings });
+  assert.equal(out.decidedBy, 'jev+claude');
+  const sent = h55.calls.find((c) => c.url.startsWith('https://api.anthropic.com/')).body;
+  assert.equal(sent.model, 'claude-haiku-5-5');
+  assert.deepEqual([sent.thinking, sent.output_config], [{ type: 'disabled' }, { effort: 'low' }]);
+  const h45 = jevFetch(unsure, 200, { test: false, real: true });
+  await createTriage({ apiKey: 'k', anthropicKey: 'an', claudeModel: 'claude-haiku-4-5-20251001', fetch: h45.fetch, log: quiet }).judge({ url: 'https://a.test', findings });
+  const plain = h45.calls.find((c) => c.url.startsWith('https://api.anthropic.com/')).body;
+  assert.equal(plain.thinking, undefined);
+  assert.equal(plain.output_config, undefined, 'effort would be a 400 on Haiku 4.5');
+});
