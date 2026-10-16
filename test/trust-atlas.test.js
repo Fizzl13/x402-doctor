@@ -87,6 +87,8 @@ test('bazaar index: settled calls over 30 days summed per seller site', async ()
   assert.deepEqual([...bz.siteCalls().calls], [['seller.ai', 900]]);
   assert.deepEqual([...bz.siteCalls().active], [['seller.ai', 700]], 'route b has had no settled payment for 5 days');
   assert.deepEqual([...bz.siteCalls().payers], [['seller.ai', 9]]);
+  assert.deepEqual(bz.siteCalls().top.map((r) => [r.route, r.site, r.calls, r.payers]), [['https://pay.seller.ai/a', 'seller.ai', 700, 7], ['https://api.seller.ai/b', 'seller.ai', 200, 2]], 'the largest routes by calls, for the market digest');
+  assert.match(bz.siteCalls().top[0].last, /^\d{4}-\d\d-\d\dT/);
 });
 
 test('market summary: settled calls per seller grouped by today\'s verdicts and by kind of service', async () => {
