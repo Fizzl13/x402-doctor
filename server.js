@@ -524,7 +524,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     const map = trustIndex.atlas();
     if (!map) return atlasCache;
     const source = paid ? { source: 'CDP Bazaar quality.l30DaysTotalCalls', read_at: new Date(paid.at).toISOString() } : null;
-    const market = paid ? marketSummary(map, paid.calls) : null;
+    const market = paid ? marketSummary(map, paid.calls, { active: paid.active, payers: paid.payers }) : null;
     for (const s of map.sellers) s.push(paid?.calls.get(s[0]) || 0);
     map.paid_30d = source;
     atlasCache = { key, gz: zlib.gzipSync(JSON.stringify(map)), market: market && { ...market, ...source } };
