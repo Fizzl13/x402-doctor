@@ -49,12 +49,28 @@ test('GET /api/trust/atlas: gzipped when asked, plain otherwise, open to any ori
   assert.equal(body.sellers.length, 2);
   assert.deepEqual(body.sellers.map((x) => [x[0], x[6]]), [['seller.ai', 900], ['x.run.app', 0]], "the Bazaar's 30-day settled calls per seller, 0 when unlisted");
   assert.deepEqual(body.paid_30d, { source: 'CDP Bazaar quality.l30DaysTotalCalls', read_at: '2026-10-15T12:00:00.000Z' });
+  assert.equal(body.sellers[0].length, 7, 'no still-paid count without the Bazaar\'s lastCalledAt');
   const http = require('node:http');
   const raw = await new Promise((resolve, reject) => {
     http.get(url, { headers: { 'accept-encoding': 'gzip' } }, (r) => { const parts = []; r.on('data', (c) => parts.push(c)); r.on('end', () => resolve({ enc: r.headers['content-encoding'], body: Buffer.concat(parts) })); }).on('error', reject);
   });
   assert.equal(raw.enc, 'gzip');
   assert.equal(JSON.parse(zlib.gunzipSync(raw.body)).endpoints.length, 3);
+});
+
+test('GET /api/trust/atlas: per seller also the calls on routes still paid (a settled payment in the last 3 days)', async (t) => {
+  const siteCalls = () => ({ at: Date.parse('2026-10-15T12:00:00Z'), calls: new Map([['seller.ai', 900], ['x.run.app', 300]]), active: new Map([['seller.ai', 700]]), payers: new Map() });
+  const bazaarIndex = { lookup: async () => null, listings: async () => null, refresh: () => Promise.resolve(), siteCalls };
+  const app = createApp({ env: {}, status: { snapshot: async () => ({}) }, bazaarIndex, trustIndex: createTrustIndex({ url: 'http://index.test', categoriesUrl: 'http://cat.test', fetchImpl }) });
+  const server = await new Promise((resolve) => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
+  t.after(() => server.close());
+  const url = `http://127.0.0.1:${server.address().port}/api/trust/atlas`;
+  let res = await fetch(url);
+  if (res.status === 503) { await new Promise((r) => setTimeout(r, 200)); res = await fetch(url); }
+  const body = await res.json();
+  // x.run.app was paid 300 times in 30 days but not in the last 3: a campaign that stopped.
+  assert.deepEqual(body.sellers.map((x) => [x[0], x[6], x[7]]), [['seller.ai', 900, 700], ['x.run.app', 300, 0]]);
+  assert.deepEqual(body.paid_30d, { source: 'CDP Bazaar quality.l30DaysTotalCalls', read_at: '2026-10-15T12:00:00.000Z', active_days: 3 });
 });
 
 test('bazaar index: settled calls over 30 days summed per seller site', async () => {
