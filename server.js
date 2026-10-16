@@ -514,7 +514,9 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   // The Trust Index as a star map for atlas.fizzl.eu (free, public data): ~2 MB of JSON, ~100 KB gzipped. Built
   // once per scan and kept only gzipped.
   // Each seller also carries the settled calls the CDP Bazaar counted for it over 30 days (quality.l30DaysTotalCalls;
-  // 0 when unlisted or unknown), which drive the gold comets to other sellers; rebuilt when either source changes.
+  // 0 when unlisted or unknown) and, when the Bazaar gives lastCalledAt, the part of those on routes still paid (a
+  // settled payment in the last 3 days): seller[6] and seller[7]. They drive the gold comets to other sellers, so a
+  // campaign that stopped no longer lights the map; rebuilt when either source changes.
   // The same build gives the market summary on lab.fizzl.eu (lib/market-summary.js), served with /api/stats.
   let atlasCache = null; // { key, gz, market }
   function atlasState() {
@@ -525,8 +527,8 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     if (!map) return atlasCache;
     const source = paid ? { source: 'CDP Bazaar quality.l30DaysTotalCalls', read_at: new Date(paid.at).toISOString() } : null;
     const market = paid ? marketSummary(map, paid.calls, { active: paid.active, payers: paid.payers }) : null;
-    for (const s of map.sellers) s.push(paid?.calls.get(s[0]) || 0);
-    map.paid_30d = source;
+    for (const s of map.sellers) s.push(paid?.calls.get(s[0]) || 0, ...(paid?.active ? [paid.active.get(s[0]) || 0] : []));
+    map.paid_30d = source && (paid.active ? { ...source, active_days: 3 } : source);
     atlasCache = { key, gz: zlib.gzipSync(JSON.stringify(map)), market: market && { ...market, ...source } };
     return atlasCache;
   }
