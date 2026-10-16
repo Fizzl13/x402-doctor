@@ -1,0 +1,28 @@
+# One-off, not for master: real ReplyDesk drafts for an application example.
+name: tmp ReplyDesk examples
+on:
+  push:
+    branches: [claude/x402-agents-solana-payments-nceg9b]
+    paths: [.github/tmp/replydesk-examples.mjs, .github/workflows/tmp-replydesk-examples.yml]
+permissions:
+  contents: read
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/checkout@v5
+        with:
+          repository: Fizzl13/replydesk
+          path: replydesk
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: npm ci --omit=dev
+        working-directory: replydesk
+      - run: node .github/tmp/replydesk-examples.mjs
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+          RD_DIR: replydesk
