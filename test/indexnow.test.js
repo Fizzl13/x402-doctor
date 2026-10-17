@@ -1,4 +1,5 @@
-// IndexNow: the key file and llms.txt are served, the sitemap URLs are submitted once, and only on Render.
+// IndexNow: the key file and llms.txt are served, the sitemap URLs are submitted once, and only on Render. The homepage
+// and the Trust Index page describe themselves in JSON-LD.
 process.env.BASE_RPC_URL = 'http://127.0.0.1:1';
 
 const test = require('node:test');
@@ -56,4 +57,15 @@ test('the key file and llms.txt are served', async () => {
   } finally {
     server.close();
   }
+});
+
+test('the homepage and the Trust Index page carry valid JSON-LD', () => {
+  const ld = (file) => JSON.parse(fs.readFileSync(path.join(__dirname, '../public', file), 'utf8').match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]);
+  const app = ld('index.html');
+  assert.equal(app['@type'], 'WebApplication');
+  assert.equal(app.url, 'https://x402-doctor.fizzl.eu/');
+  assert.deepEqual(app.offers.map((o) => o.price), ['0', '0.001']);
+  const data = ld('trust.html');
+  assert.equal(data['@type'], 'Dataset');
+  assert.ok(data.distribution.every((d) => d.contentUrl.startsWith('https://x402-doctor.fizzl.eu/api/trust/')));
 });
