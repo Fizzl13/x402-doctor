@@ -155,6 +155,7 @@
     <li><b>A cache hands the paid answer out for free.</b> The paid delivery check and the weekly <a href="/trust">spot-buy sample</a> report the <code>Cache-Control</code> of the paid answer. Fix: send <code>Cache-Control: no-store, private</code> on every paid answer, so CDNs and proxies don't keep it.</li>
     <li><b>Fake listings that steer agents.</b> The <a href="/trust">Trust Index</a> groups template farms into distinct services, flags lure listings and screens every payout address against the OFAC sanctions list; the pre-payment check turns that into go, caution or no_go.</li>
   </ul>
+  <p><b>Also checked: HEAD for free.</b> Up to <code>@x402/core</code> 2.28.0 the payment middleware let a HEAD request on a paid GET route through, and Express, Hono and Next then run your handler for it unpaid: no answer goes back, but the work and its costs do. The web check sends one HEAD request and warns when it gets a 2xx. Fix: update the <code>@x402</code> packages once the fix (<a href="https://github.com/x402-foundation/x402/pull/3796">x402#3796</a>) is released; until then key the route without a method, or refuse HEAD before the payment middleware.</p>
 
   <h2>Get found in the Bazaar</h2>
   <ol class="steps">
