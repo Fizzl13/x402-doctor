@@ -383,12 +383,14 @@ npx skills add Fizzl13/x402-doctor
 
 ### Claude Code plugin
 
-In Claude Code, the same skills come as a plugin together with the MCP server below, and presign-guard's skill and MCP server as a second plugin:
+In Claude Code, the same skills come as a plugin together with the MCP server below, and presign-guard's skill and MCP server as a second plugin. The Fizzl Agent Wallet and Ichimoku Signal have a plugin each, from [Fizzl13/fizzl-skills](https://github.com/Fizzl13/fizzl-skills), the overview of every Fizzl skill:
 
 ```
 /plugin marketplace add Fizzl13/x402-doctor
 /plugin install x402-doctor@fizzl
 /plugin install presign-guard@fizzl
+/plugin install fizzl-agent-wallet@fizzl
+/plugin install ichimoku-signal@fizzl
 ```
 
 The marketplace is [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json). The paid tools of both MCP servers need an MCP client that pays x402; without one, the skills pay over HTTP with your own x402 client, as they describe.

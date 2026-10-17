@@ -1,6 +1,7 @@
 // The Claude Code plugin marketplace in .claude-plugin/marketplace.json (`/plugin marketplace add Fizzl13/x402-doctor`):
 // the Doctor plugin is the skills/ folder itself, so it carries exactly the skills `npx skills add` installs, and its
-// MCP server is the one listed in the MCP registry (server.json).
+// MCP server is the one listed in the MCP registry (server.json). The wallet and Ichimoku plugins come from the
+// fizzl-skills repository, one skill each.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -11,10 +12,10 @@ const marketplace = JSON.parse(fs.readFileSync(path.join(REPO, '.claude-plugin',
 const serverJson = JSON.parse(fs.readFileSync(path.join(REPO, 'server.json'), 'utf8'));
 const byName = Object.fromEntries(marketplace.plugins.map((p) => [p.name, p]));
 
-test('plugin marketplace: named fizzl, two plugins with kebab-case names', () => {
+test('plugin marketplace: named fizzl, four plugins with kebab-case names', () => {
   assert.equal(marketplace.name, 'fizzl');
   assert.ok(marketplace.owner.name);
-  assert.deepEqual(Object.keys(byName).sort(), ['presign-guard', 'x402-doctor']);
+  assert.deepEqual(Object.keys(byName).sort(), ['fizzl-agent-wallet', 'ichimoku-signal', 'presign-guard', 'x402-doctor']);
   for (const name of Object.keys(byName)) assert.match(name, /^[a-z0-9]+(-[a-z0-9]+)*$/);
 });
 
@@ -34,4 +35,16 @@ test('plugin presign-guard: its repository skills/ folder and its MCP server', (
   assert.deepEqual(guard.source, { source: 'git-subdir', url: 'https://github.com/Fizzl13/presign-guard.git', path: 'skills' });
   assert.deepEqual(guard.skills, ['./']);
   assert.deepEqual(guard.mcpServers, { 'presign-guard': { type: 'http', url: 'https://presign-guard.fizzl.eu/mcp' } });
+});
+
+test('plugins fizzl-agent-wallet and ichimoku-signal: one skill each from fizzl-skills, Ichimoku with its MCP server', () => {
+  const src = { source: 'git-subdir', url: 'https://github.com/Fizzl13/fizzl-skills.git', path: 'skills' };
+  const wallet = byName['fizzl-agent-wallet'];
+  assert.deepEqual(wallet.source, src);
+  assert.deepEqual(wallet.skills, ['./agent-wallet-limits']);
+  assert.equal(wallet.mcpServers, undefined, 'the wallet MCP server needs the owner\'s keys');
+  const ichimoku = byName['ichimoku-signal'];
+  assert.deepEqual(ichimoku.source, src);
+  assert.deepEqual(ichimoku.skills, ['./crypto-trend-signal']);
+  assert.deepEqual(ichimoku.mcpServers, { 'ichimoku-signal': { type: 'http', url: 'https://ichimoku-signal.fizzl.eu/mcp' } });
 });

@@ -9,6 +9,7 @@ Backed by a daily Trust Index of ~50,000 paid x402 and MPP endpoints across Base
 - [OpenAPI](https://x402-doctor.fizzl.eu/openapi.json): every paid route with its price, input and output schema
 - [x402 discovery document](https://x402-doctor.fizzl.eu/.well-known/x402)
 - MCP server (streamable HTTP): https://x402-doctor.fizzl.eu/mcp, with the free tool `x402_quick_check`
+- Agent skills: `npx skills add Fizzl13/x402-doctor`, or in Claude Code `/plugin marketplace add Fizzl13/x402-doctor` then `/plugin install x402-doctor@fizzl`. Every Fizzl skill: https://github.com/Fizzl13/fizzl-skills
 
 ## Paid API
 - `GET /api/v1/preflight?url=<endpoint>&max_usd=0.05` ($0.001): before paying an x402 endpoint: go, caution or no_go with reasons and the cheapest option that will settle

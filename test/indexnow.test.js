@@ -69,3 +69,13 @@ test('the homepage and the Trust Index page carry valid JSON-LD', () => {
   assert.equal(data['@type'], 'Dataset');
   assert.ok(data.distribution.every((d) => d.contentUrl.startsWith('https://x402-doctor.fizzl.eu/api/trust/')));
 });
+
+test('the homepage FAQ: every question in the FAQPage JSON-LD is on the page, with the same answer', () => {
+  const html = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
+  const blocks = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => JSON.parse(m[1]));
+  const faq = blocks.find((b) => b['@type'] === 'FAQPage');
+  assert.ok(faq.mainEntity.length >= 5);
+  const unescape = (s) => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+  const shown = [...html.matchAll(/<details><summary>([^<]*)<\/summary><p>([^<]*)<\/p><\/details>/g)].map((m) => [unescape(m[1]), unescape(m[2])]);
+  assert.deepEqual(shown, faq.mainEntity.map((q) => [q.name, q.acceptedAnswer.text]));
+});
