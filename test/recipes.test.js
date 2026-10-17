@@ -199,6 +199,13 @@ test('merchant: a malformed x402-merchant extension gets the corrected extension
   assert.match(code(f), /"x402-merchant"/);
 });
 
+test('builder code: a declaration the facilitator would drop gets declareBuilderCodeExtension', () => {
+  const f = fix(buildFixes(report({ checks: [{ id: 'builder-code', status: 'warn', message: 'Base Builder Code: info.a (the app code) is missing.' }] })), 'builder-code');
+  assert.equal(f.title, 'Fix the Base Builder Code declaration');
+  assert.match(f.why, /info\.a \(the app code\) is missing/);
+  assert.match(code(f), /declareBuilderCodeExtension\("bc_yourcode"\)/);
+});
+
 test('BNB Chain: amounts scale to the token\'s 18 decimals, and an unknown token gets a listed dollar token', () => {
   const USD1 = '0x8d0D000Ee44948FC98c9B98A4FA4921476f08B0d';
   const six = buildFixes(report({ accepts: [{ network: 'eip155:56', amount: '10000', asset: USD1, payTo: PAY_TO }], checks: [{ id: 'accepts[0]-amount', status: 'warn', message: 'looks written for 6-decimal USDC' }] }));
