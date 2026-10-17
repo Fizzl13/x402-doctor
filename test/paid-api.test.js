@@ -20,7 +20,7 @@ const PAY_TO_BASE = '0x6B0F4651eD42893ab58139938175E4a69f175F25';
 const PAY_TO_SOLANA = 'ATWJ82T8nRdQwZnaysB68N5EpaSvLRsQP4h6eWmaJBH9';
 
 const servers = [];
-const state = { verify: 0, settle: 0 };
+const state = { verify: 0, settle: 0, extensions: null };
 function listen(handler) {
   return new Promise((resolve) => {
     const server = http.createServer(handler).listen(0, '127.0.0.1', () => resolve(`http://127.0.0.1:${server.address().port}`));
@@ -54,6 +54,7 @@ test.before(async () => {
       });
     }
     const { paymentPayload, paymentRequirements: reqs } = await body(req);
+    state.extensions = paymentPayload.extensions;
     const { authorization, signature } = paymentPayload.payload;
     const valid = await verifyTypedData({
       address: authorization.from,
@@ -89,7 +90,7 @@ test.before(async () => {
     json(res, challenge);
   });
 
-  const env = { AGENT_PAYOUT_WALLET: PAY_TO_BASE, AGENT_PAYOUT_WALLET_SOLANA: PAY_TO_SOLANA, FACILITATOR_URL: facilitatorUrl, RECEIPT_SIGNER_SECRET: 'paid-api-test-secret-long-enough-0123456789', MPP_SECRET: 'paid-api-mpp-secret-0123456789' };
+  const env = { AGENT_PAYOUT_WALLET: PAY_TO_BASE, AGENT_PAYOUT_WALLET_SOLANA: PAY_TO_SOLANA, FACILITATOR_URL: facilitatorUrl, RECEIPT_SIGNER_SECRET: 'paid-api-test-secret-long-enough-0123456789', MPP_SECRET: 'paid-api-mpp-secret-0123456789', BUILDER_CODE: 'fizzl_test' };
   const trustIndex = {
     lookup: async (u) => (u.startsWith(targetUrl) ? { days_checked: 5, days_payable: 1, payable_ratio: 0.2, history: 'nnngn', last: 'n', streak: 1 } : null),
     seller: async (u) => (u.startsWith(targetUrl) ? { origin: new URL(targetUrl).origin, resources: 4, payable_now: 1, avg_payable_ratio: 0.25, unreliable: 3 } : null),
@@ -195,6 +196,8 @@ test('preflight: unpaid 402 at $0.001; a paid call returns the verdict (no_go: t
   // Discovery lists such as GoPlausible's name the seller from this.
   assert.equal(header.extensions['x402-merchant'].info.name, 'Fizzl');
   assert.equal(header.extensions['x402-merchant'].info.logo, 'https://fizzl.eu/logo-512.png');
+  // With BUILDER_CODE set, Base can attribute the payment to Fizzl.
+  assert.deepEqual(header.extensions['builder-code'].info, { a: 'fizzl_test' });
 
   assert.equal((await fetch(`${api}/api/v1/preflight?url=${encodeURIComponent(targetUrl)}&max_usd=abc`)).status, 400);
   assert.equal((await fetch(`${api}/api/v1/preflight?url=${encodeURIComponent(targetUrl)}&network=base`)).status, 400);
@@ -208,6 +211,8 @@ test('preflight: unpaid 402 at $0.001; a paid call returns the verdict (no_go: t
   const res = await wrapFetchWithPayment(fetch, client)(`${api}/api/v1/preflight?url=${encodeURIComponent(targetUrl)}&max_usd=0.05`);
   const report = await res.json();
   assert.equal(res.status, 200, JSON.stringify(report));
+  // The x402 client echoed the app code with its payment, and the payment still went through.
+  assert.deepEqual(state.extensions['builder-code'].info, { a: 'fizzl_test' });
   // The fixture seller omits extra.name/version, so a Base payment to it could not be signed.
   assert.equal(report.verdict, 'no_go', JSON.stringify(report.reasons));
   assert.equal(report.options[0].usd, 0.01);
