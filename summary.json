@@ -1,0 +1,59 @@
+{
+  "date": "2026-10-17",
+  "resources": 68240,
+  "today": {
+    "g": 46906,
+    "c": 2392,
+    "n": 1074,
+    "x": 1
+  },
+  "top_reasons": [
+    [
+      "resource_mismatch",
+      2009
+    ],
+    [
+      "no_402",
+      1042
+    ],
+    [
+      "testnet_only",
+      206
+    ],
+    [
+      "mpp_realm_mismatch",
+      102
+    ],
+    [
+      "price_above_advertised",
+      73
+    ],
+    [
+      "invalid_challenge",
+      20
+    ],
+    [
+      "mpp_no_expires",
+      10
+    ],
+    [
+      "no_payable_option",
+      9
+    ],
+    [
+      "suspicious_amount",
+      8
+    ],
+    [
+      "price_far_above_advertised",
+      2
+    ]
+  ],
+  "payto_sanctioned": 0,
+  "sanctions": {
+    "list": "OFAC SDN",
+    "published": "2026-10-15",
+    "addresses": 1050
+  },
+  "scan_seconds": 2894
+}
