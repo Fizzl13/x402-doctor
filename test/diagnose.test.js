@@ -8,7 +8,7 @@ const http = require('node:http');
 const path = require('node:path');
 const { execFile } = require('node:child_process');
 const { declareDiscoveryExtension } = require('@x402/extensions/bazaar');
-const { diagnose, checkResource, checkAccepts, checkOpenApi, checkWellKnown, checkBazaarListing, checkPaywall, checkMerchant } = require('../lib/diagnose');
+const { diagnose, checkResource, checkAccepts, checkOpenApi, checkWellKnown, checkBazaarListing, checkPaywall, checkMerchant, checkBuilderCode } = require('../lib/diagnose');
 const { createBazaarIndex } = require('../lib/bazaar-index');
 const { createSafeFetch, guardedLookup } = require('../lib/safe-fetch');
 const { createApp } = require('../server');
@@ -1039,6 +1039,28 @@ test('merchant: the x402-merchant extension is checked, and its absence noted on
   const bad = run({ accepts: [{ network: 'eip155:8453' }], extensions: merchant({ website: 'http://x.example', logo: 'logo.png', categories: 'data' }) });
   assert.equal(bad[0].status, 'warn', 'a malformed one is a warning on any network');
   assert.match(bad[0].message, /info\.name is missing; info\.website is not an https URL; info\.logo is not an https URL; info\.categories is not a list of strings/);
+});
+
+test('builder code: a valid declaration passes, its absence on Base is noted, a code the facilitator would drop is a warning', () => {
+  const { declareBuilderCodeExtension } = require('@x402/extensions/builder-code');
+  const run = (challenge) => { const checks = []; checkBuilderCode({ x402Version: 2, ...challenge }, checks); return checks.map((c) => [c.status, c.message]); };
+  const BASE = [{ network: 'eip155:8453' }];
+  assert.deepEqual(run({ accepts: BASE, extensions: { 'builder-code': declareBuilderCodeExtension('bc_pzrclpac') } }), [['pass', "Base Builder Code bc_pzrclpac: the buyer's x402 client echoes it and the facilitator writes it into the settlement, so Base attributes the payment to your app."]]);
+  const missing = run({ accepts: BASE });
+  assert.equal(missing[0][0], 'info');
+  assert.match(missing[0][1], /No Base Builder Code/);
+  assert.deepEqual(run({ accepts: [{ network: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp' }] }), [], 'nothing to say without Base');
+  assert.match(run({ accepts: BASE, extensions: { 'builder-code': { a: 'bc_x' } } })[0][1], /not under info, so x402 clients echo nothing/);
+  assert.match(run({ accepts: BASE, extensions: { 'builder-code': { info: { a: 'Fizzl-EU' } } } })[0][1], /info\.a "Fizzl-EU" is not a valid code/);
+  assert.match(run({ accepts: BASE, extensions: { 'builder-code': { info: {} } } })[0][1], /info\.a \(the app code\) is missing/);
+  const services = run({ accepts: BASE, extensions: { 'builder-code': { info: { a: 'bc_x', s: ['ok', 'Not-OK'] } } } });
+  assert.equal(services[0][0], 'warn');
+  assert.match(services[0][1], /1 of the service codes in info\.s is not valid.*The app code itself still counts/);
+  assert.match(run({ accepts: BASE, extensions: { 'builder-code': { info: { a: 'bc_x', s: ['a', 'b', 'c', 'd', 'e', 'f'] } } } })[0][1], /6 service codes, more than the 5/);
+  assert.deepEqual(run({ accepts: [{ network: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp' }], extensions: { 'builder-code': declareBuilderCodeExtension('bc_x') } }).map((c) => c[0]), ['info']);
+  const v1 = run({ x402Version: 1, accepts: BASE, extensions: { 'builder-code': declareBuilderCodeExtension('bc_x') } });
+  assert.equal(v1[0][0], 'warn');
+  assert.match(v1[0][1], /x402 v1 challenge: the facilitator only reads the app code from v2 payments/);
 });
 
 test('Bazaar example without a route template: replayed on the listed URL with its query and body; no input declared gets a hint', async () => {
