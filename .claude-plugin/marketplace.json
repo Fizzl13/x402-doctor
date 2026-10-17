@@ -1,6 +1,6 @@
 {
   "name": "fizzl",
-  "description": "Check before an agent pays or signs: x402 Doctor (is this x402 or MPP API safe to pay, does my paid endpoint work) and presign-guard (is this transaction, approval or token safe).",
+  "description": "Check before an agent pays or signs: x402 Doctor (is this x402 or MPP API safe to pay, does my paid endpoint work) and presign-guard (is this transaction, approval or token safe). Plus the Fizzl Agent Wallet (spending limits) and Ichimoku Signal (crypto trend signals).",
   "owner": {
     "name": "Fizzl",
     "email": "Fizzl13@protonmail.com",
@@ -48,6 +48,46 @@
       "license": "MIT",
       "keywords": ["wallet", "signing", "security", "sanctions", "solana", "evm"],
       "category": "security"
+    },
+    {
+      "name": "fizzl-agent-wallet",
+      "displayName": "Fizzl Agent Wallet",
+      "description": "Give your agent a wallet with spending limits: it pays x402 and MPP APIs and sends USDC within your rules, asks on your phone above them, and every signature is checked by presign-guard first. One skill that walks the owner through setup (the wallet's MCP server needs the owner's own keys, so it is installed separately).",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/Fizzl13/fizzl-skills.git",
+        "path": "skills"
+      },
+      "skills": ["./agent-wallet-limits"],
+      "author": { "name": "Fizzl", "url": "https://fizzl.eu" },
+      "homepage": "https://wallet.fizzl.eu",
+      "repository": "https://github.com/Fizzl13/fizzl-skills",
+      "license": "MIT",
+      "keywords": ["wallet", "spending-limits", "x402", "mpp", "agents", "usdc"],
+      "category": "payments"
+    },
+    {
+      "name": "ichimoku-signal",
+      "displayName": "Ichimoku Signal",
+      "description": "Crypto trend signals for trading and research agents: Ichimoku on any timeframe, a six-indicator confluence, levels with a trade plan, a 148-coin scan and ranked setups, with a news-risk flag. Free daily trend; paid calls over x402 or MPP. One skill plus Ichimoku Signal's MCP server.",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/Fizzl13/fizzl-skills.git",
+        "path": "skills"
+      },
+      "skills": ["./crypto-trend-signal"],
+      "mcpServers": {
+        "ichimoku-signal": {
+          "type": "http",
+          "url": "https://ichimoku-signal.fizzl.eu/mcp"
+        }
+      },
+      "author": { "name": "Fizzl", "url": "https://fizzl.eu" },
+      "homepage": "https://ichimoku-signal.fizzl.eu",
+      "repository": "https://github.com/Fizzl13/fizzl-skills",
+      "license": "MIT",
+      "keywords": ["crypto", "trading", "signals", "ichimoku", "x402"],
+      "category": "finance"
     }
   ]
 }
