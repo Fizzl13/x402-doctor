@@ -1,0 +1,31 @@
+# x402 Doctor
+
+> Checks x402, MPP and L402 paid API endpoints the way a paying AI agent would, before the agent pays: is it safe to pay (go / caution / no_go), does the price match what is advertised, can the payout address receive, is it on the OFAC sanctions list, is it testnet-only, and did the seller deliver when it was bought. For sellers: a free diagnosis of a broken 402 with the exact fix as code. Free web check; paid API from $0.001 per call over x402 (USDC on Base, Solana, Algorand or Stellar, RLUSD on the XRP Ledger) or MPP; MCP server at https://x402-doctor.fizzl.eu/mcp.
+
+Backed by a daily Trust Index of ~50,000 paid x402 and MPP endpoints across Base, Solana, Algorand, the XRP Ledger, Stellar and Arc, from the CDP Bazaar, Circle's Agent Marketplace and other indexes. No account or API key needed.
+
+## For agents
+- [Agent instructions (skill.md)](https://x402-doctor.fizzl.eu/skill.md): how to use the preflight, the diagnosis and the MCP tools, and how to pay
+- [OpenAPI](https://x402-doctor.fizzl.eu/openapi.json): every paid route with its price, input and output schema
+- [x402 discovery document](https://x402-doctor.fizzl.eu/.well-known/x402)
+- MCP server (streamable HTTP): https://x402-doctor.fizzl.eu/mcp, with the free tool `x402_quick_check`
+
+## Paid API
+- `GET /api/v1/preflight?url=<endpoint>&max_usd=0.05` ($0.001): before paying an x402 endpoint: go, caution or no_go with reasons and the cheapest option that will settle
+- `GET /api/v1/preflight/batch?url=<a>&url=<b>` ($0.005): the same for up to 10 endpoints
+- `GET /api/v1/preflight/deep?url=<endpoint>` ($0.01): preflight plus the full diagnosis, history and seller checks, for expensive calls
+- `GET /api/v1/diagnose?url=<endpoint>` ($0.01): the full diagnosis of an x402 endpoint, check by check
+- `GET /api/v1/fix?url=<endpoint>` ($0.05): the fixes as code for the seller's stack
+- `GET /api/v1/delivery-check?url=<endpoint>` ($0.25): one real purchase of the endpoint; the public result says whether it was charged and delivered
+
+## Free
+- [Web check](https://x402-doctor.fizzl.eu/): paste an endpoint for the full report
+- [Trust Index](https://x402-doctor.fizzl.eu/trust): which paid endpoints are payable today, their history, and the weekly spot-buy results
+- [x402 on Stellar](https://x402-doctor.fizzl.eu/stellar), [on Algorand](https://x402-doctor.fizzl.eu/algorand) and [on the XRP Ledger](https://x402-doctor.fizzl.eu/xrpl): every endpoint on that network, payable or not and why
+- [For sellers](https://x402-doctor.fizzl.eu/sellers): the most common x402 seller mistakes and how to fix them
+- [Payment proof check](https://x402-doctor.fizzl.eu/settlement): the on-chain transaction behind a PAYMENT-RESPONSE header
+- `GET /api/trust?url=<resource>`: one resource's 30-day track record
+
+## Optional
+- [Fizzl](https://fizzl.eu/llms.txt): the other Fizzl services (pre-sign checks, agent wallet, trading signals)
+- [Source code](https://github.com/Fizzl13/x402-doctor) and the [GitHub Action](https://github.com/Fizzl13/x402-doctor-action) for CI
