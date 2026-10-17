@@ -39,5 +39,5 @@ test('GET /trust and the other pages carry link previews', async (t) => {
   const html = await trust.text();
   assert.match(html, /og:description" content="100 payable x402 endpoints, but only 40 distinct services from 7 sellers/);
   assert.match(html, /og:url" content="https:\/\/x402-doctor.fizzl.eu\/trust"/);
-  for (const p of ['/xrpl', '/algorand', '/settlement', '/status', '/sellers']) assert.match(await (await fetch(base + p)).text(), /property="og:title"/, p);
+  for (const p of ['/xrpl', '/algorand', '/stellar', '/settlement', '/status', '/sellers']) assert.match(await (await fetch(base + p)).text(), /property="og:title"/, p);
 });
