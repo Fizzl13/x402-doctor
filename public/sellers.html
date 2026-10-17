@@ -103,8 +103,19 @@
     <p style="margin:0"><a href="https://wallet.fizzl.eu/#/account">Watch my endpoint →</a> <span style="color:var(--text-soft);font-size:13px">(sign in with your wallet, no e-mail)</span></p>
   </div>
 
-  <h2 id="platforms">Selling through Cloudflare or Stripe</h2>
-  <p>Cloudflare's <a href="https://developers.cloudflare.com/monetization-gateway/">Monetization Gateway</a> (closed beta, US sellers and buyers) and <a href="https://docs.stripe.com/payments/machine/x402">Stripe's x402 machine payments</a> (US businesses; elsewhere on request) both send a standard x402 v2 challenge and settle through the Coinbase CDP facilitator, so the free check above works on them as is. What to watch:</p>
+  <h2 id="platforms">Selling through AWS, Cloudflare or Stripe</h2>
+  <p>Cloudflare's <a href="https://developers.cloudflare.com/monetization-gateway/">Monetization Gateway</a> (closed beta, US sellers and buyers) and <a href="https://docs.stripe.com/payments/machine/x402">Stripe's x402 machine payments</a> (US businesses; elsewhere on request) both send a standard x402 v2 challenge and settle through the Coinbase CDP facilitator, so the free check above works on them as is. <a href="https://docs.aws.amazon.com/waf/latest/developerguide/waf-ai-traffic-monetization-pricing.html">AWS WAF's Monetize action</a> on CloudFront answers in the x402 format too, and settles through the same Coinbase facilitator. What to watch:</p>
+
+  <div class="tool" id="aws">
+    <h3>AWS WAF on CloudFront</h3>
+    <ul>
+      <li><b>No 402?</b> The Monetize action only works in a web ACL on a CloudFront distribution, with Bot Control at Common or Targeted and a monetization config. A rule limited to Bot Control's bot label charges only callers WAF labels as bots: other agents get the resource without paying.</li>
+      <li><b>Price</b>: a base price per request (at least $0.001, up to 3 decimals) times the price multiplier of the rule that matched. Each verification tier gets its own action: charge agents, allow or block crawlers.</li>
+      <li><b>Test first, then Real.</b> Currency mode Test charges on Base Sepolia and Solana Devnet; the check above notes a CloudFront route that offers only testnets. Switch to Real once it works.</li>
+      <li><b>Keep your origin behind CloudFront</b> (Origin Access Control for S3, or a secret header your origin checks), or anyone who reaches the origin directly gets the content for free.</li>
+      <li><b>Paid requests take a few seconds longer</b> (verification and settlement), and fail without content when the facilitator does; agents retry. MPP and Stripe support are announced, not live yet.</li>
+    </ul>
+  </div>
 
   <div class="tool" id="cloudflare">
     <h3>Cloudflare Monetization Gateway</h3>
