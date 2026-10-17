@@ -411,6 +411,25 @@ test('behind CloudFront: no 402 gets the AWS WAF Monetize hint; a 402 on testnet
   assert.equal(byId(await diagnose(`${await testMode('eip155:8453')}/paid`, { safeFetch, rpcUrl }))['aws-test-mode'], undefined, 'nothing on mainnet');
 });
 
+test('x401: an endpoint that asks for proof of identity before the 402 is read as x401, not as broken', async () => {
+  const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
+  const payload = { scheme: 'x401', version: '0.2.0', credential_requirements: { digital: { requests: [{ protocol: 'openid4vp-v1-signed', data: { request: 'eyJ…' } }] } }, oauth: { token_endpoint: 'https://verifier.example/token' }, payment: { required: true, scheme_hint: 'x402' } };
+  const verifier = (header, value) => listen((req, res) => { res.statusCode = 401; res.setHeader(header, value); res.end(); });
+  const good = byId(await diagnose(`${await verifier('PROOF-REQUEST', b64(payload))}/paid`, { safeFetch, rpcUrl }));
+  assert.equal(good['returns-402'][0].status, 'info');
+  assert.match(good['returns-402'][0].message, /asks for proof of who is behind the agent first \(x401, GET 401\)/);
+  assert.deepEqual(good.x401.map((c) => [c.status, c.message]), [['pass', 'Asks for proof before payment (x401 0.2.0: openid4vp-v1-signed, token exchange at verifier.example; payment afterwards via x402).']]);
+
+  const legacy = byId(await diagnose(`${await verifier('PROOF-REQUIRED', b64(payload))}/paid`, { safeFetch, rpcUrl })).x401[0];
+  assert.equal(legacy.status, 'info');
+  assert.match(legacy.message, /PROOF-REQUIRED, the name in Proof's early material/);
+
+  const bad = byId(await diagnose(`${await verifier('PROOF-REQUEST', b64({ scheme: 'x402', credential_requirements: { digital: { requests: [] } } }))}/paid`, { safeFetch, rpcUrl })).x401[0];
+  assert.equal(bad.status, 'warn');
+  assert.match(bad.message, /scheme is "x402", not "x401"; version is missing; credential_requirements\.digital\.requests is missing or empty/);
+  assert.match(byId(await diagnose(`${await verifier('PROOF-REQUEST', 'not json at all')}/paid`, { safeFetch, rpcUrl })).x401[0].message, /not base64url-encoded JSON/);
+});
+
 test('SSRF guard: internal targets are refused, including through DNS', async () => {
   const guarded = createSafeFetch();
   for (const target of ['http://127.0.0.1/', 'http://localhost/', 'http://[::ffff:127.0.0.1]/', 'http://169.254.169.254/latest/meta-data', 'http://2130706433/', 'http://10.0.0.1/']) {
