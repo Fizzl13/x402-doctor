@@ -60,6 +60,11 @@ async function main() {
     safeFetch: createSafeFetch({ allowPrivate: false, timeoutMs: 10000 }),
     rpcUrl: process.env.SOLANA_RPC_URL || undefined,
     onProgress: (done, total) => console.log(`scanned ${done}/${total} (${Math.round((Date.now() - started) / 1000)} s)`),
+    // Sellers cut short because they stopped answering in time: not checked today, never marked down.
+    onSlowHosts: (rows) => {
+      console.log('hosts cut short (not checked today):');
+      for (const r of rows) console.log(`  ${r.host}: ${r.skipped} endpoints skipped (${r.why})`);
+    },
     // Why sellers came out no_go: the hosts with the most answers other than 402, by status.
     onStatuses: (rows) => {
       console.log('non-402 answers by host (top 10):');

@@ -5,7 +5,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
 const { createSafeFetch } = require('../lib/safe-fetch');
-const { loadCatalog, politeFetch, retryAfterMs, scan, statusReport, mergeIndex, trackRecord, summarize, USER_AGENT } = require('../lib/trust-scan');
+const { loadCatalog, politeFetch, retryAfterMs, scan, statusReport, mergeIndex, trackRecord, summarize, interleave, USER_AGENT } = require('../lib/trust-scan');
 const { createTrustIndex } = require('../lib/trust-index');
 
 const BASE = 'eip155:8453';
@@ -461,4 +461,50 @@ test('GoPlausible catalog: resourceUrl and method, https only, one per origin + 
   assert.equal(list.find((r) => r.url === 'https://c.example/r/0').method, 'POST');
   assert.equal(list.find((r) => r.url === 'https://d.example/last').method, undefined);
   assert.ok(!list.some((r) => r.url.startsWith('http://')));
+});
+
+test('interleave: one item per host in turn, each host keeping its own order', () => {
+  const items = ['a1', 'a2', 'a3', 'b1', 'c1', 'c2'];
+  assert.deepEqual(interleave(items, (x) => x[0]), ['a1', 'b1', 'c1', 'a2', 'c2', 'a3']);
+  assert.deepEqual(interleave([], (x) => x), []);
+});
+
+test('scan: a seller that answers too slowly is cut short (not checked today), without holding up the others', async () => {
+  const challengeFor = (req) => ({ x402Version: 2, resource: { url: `http://${req.headers.host}${req.url}`, mimeType: 'application/json', description: 'x' }, accepts: [{ scheme: 'exact', network: BASE, amount: '20000', asset: USDC_BASE, payTo: '0x6B0F4651eD42893ab58139938175E4a69f175F25', maxTimeoutSeconds: 60, extra: { name: 'USD Coin', version: '2' } }] });
+  const answer = (req, res) => {
+    if (req.url === '/openapi.json') return res.end('{}');
+    const challenge = challengeFor(req);
+    res.statusCode = 402;
+    res.setHeader('PAYMENT-REQUIRED', Buffer.from(JSON.stringify(challenge)).toString('base64'));
+    res.end(JSON.stringify(challenge));
+  };
+  let slowHits = 0;
+  const slow = await listen((req, res) => { slowHits++; setTimeout(() => answer(req, res), 150); });
+  const fast = await listen(answer);
+  const resources = [
+    ...Array.from({ length: 12 }, (_, i) => ({ key: `slow${i}`, url: `${slow}/paid/${i}`, method: 'GET' })),
+    ...Array.from({ length: 4 }, (_, i) => ({ key: `fast${i}`, url: `${fast}/paid/${i}`, method: 'GET' })),
+    ...Array.from({ length: 12 }, (_, i) => ({ key: `down${i}`, url: `http://127.0.0.1:1/paid/${i}`, method: 'GET' })),
+  ];
+  let reported = null;
+  const results = await scan(resources, { safeFetch: createSafeFetch({ allowPrivate: true, timeoutMs: 2000 }), concurrency: 4, slowMs: 100, slowStreak: 3, onSlowHosts: (rows) => { reported = rows; } });
+  const by = Object.fromEntries(results.map((r) => [r.key, r]));
+  for (let i = 0; i < 4; i++) assert.equal(by[`fast${i}`].verdict, 'go');
+  const skipped = results.filter((r) => r.key.startsWith('slow') && r.verdict === 'not_checked');
+  assert.ok(skipped.length >= 6, `most of the slow seller is skipped (${skipped.length})`);
+  assert.ok(skipped.every((r) => r.codes[0] === 'host_slow' && r.ms === 0));
+  assert.ok(slowHits < 12 * 2, 'the slow seller is not asked for every endpoint');
+  assert.deepEqual(reported.map((r) => r.host), [new URL(slow).host]);
+  assert.equal(reported[0].skipped, skipped.length);
+  assert.match(reported[0].why, /requests in a row took 0 s or more/);
+  // A seller that refuses at once is down, not slow: every endpoint is checked (and comes out no_go).
+  assert.ok(results.filter((r) => r.key.startsWith('down')).every((r) => r.verdict === 'no_go'));
+
+  // Not checked today: a '-' in the history, and the last real verdict stays for pages and lookups.
+  const previous = { days: ['2026-10-16'], resources: { slow0: { url: `${slow}/paid/0`, m: 'GET', h: 'g', last: { verdict: 'go', codes: [], price_usd: 0.02, networks: [BASE] } } } };
+  const cutKey = skipped[0].key;
+  previous.resources[cutKey] = { ...previous.resources.slow0, url: skipped[0].url };
+  const merged = mergeIndex(previous, results, { date: '2026-10-17' });
+  assert.equal(merged.resources[cutKey].h, 'g-');
+  assert.equal(merged.resources[cutKey].last.verdict, 'go');
 });
