@@ -802,6 +802,13 @@ if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`x402 Doctor running on port ${PORT}`);
     app.media.warm();
+    // Tell Bing (and so ChatGPT search and Copilot) about the pages (lib/indexnow.js).
+    const { scheduleIndexNow, sitemapUrls } = require('./lib/indexnow');
+    const origin = 'https://x402-doctor.fizzl.eu';
+    scheduleIndexNow({
+      host: new URL(origin).host,
+      urls: () => [...sitemapUrls(fs.readFileSync(path.join(__dirname, 'public', 'sitemap.xml'), 'utf8')), ...['/llms.txt', '/skill.md', '/openapi.json'].map((p) => origin + p)],
+    });
   });
 }
 
