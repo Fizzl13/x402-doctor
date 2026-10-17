@@ -39,6 +39,7 @@ the medicine, the exact code that fixes each problem for your stack, in the brow
 | | `aws-test-mode` | A 402 served through Amazon CloudFront that offers only testnets (info): AWS WAF Monetize left in Test currency mode |
 | | `accepts[i]-extra` | Solana without `extra.feePayer` (clients throw "feePayer is required"), EVM without the EIP-712 `name`/`version` |
 | | `accepts[i]-batch`, `-batch-delay`, `-batch-deposit`, `batch-escrow` | The `batch-settlement` scheme (one deposit into the x402 escrow, then a signed voucher per call, claimed in batches): `extra.receiverAuthorizer` missing (clients refuse), `withdrawDelay` missing or outside 900 s to 30 days, no EIP-712 domain for the EIP-3009 deposit, `minDeposit` not in atomic units, the escrow not deployed on the network; the deposit and withdraw delay buyers commit to |
+| | `accepts[i]-extra`, `circle-gateway`, `accepts-order` | Circle Gateway options ("exact" signed for the Gateway Wallet, domain `GatewayWalletBatched`): `extra.version` other than "1" or no `verifyingContract` (Circle's client skips or can't sign it), a contract that isn't Circle's Gateway Wallet; who can pay them (a Gateway balance and Circle's client, not standard x402 clients or browser wallets; their 7-day timeout is right); a Gateway option listed before the standard one on the same network, which x402 clients would pick and fail |
 | Resource | `resource-url` | `http://` resource URL on an `https://` endpoint (Express behind a TLS proxy without `trust proxy`) |
 | | `resource-metadata` | Missing description / mimeType |
 | Settlement | `solana-payout-account` | Solana payout wallet without a token account for the asset: every settlement fails on-chain |
@@ -293,7 +294,7 @@ Same format as [presign-guard](https://github.com/Fizzl13/presign-guard#signed-v
 ### x402 Trust Index
 
 Once a day, [`trust-scan.yml`](.github/workflows/trust-scan.yml) runs the pre-payment check against every resource in
-the CDP Bazaar, the MPP directory and the [GoPlausible](https://facilitator.goplausible.xyz/discovery/resources) facilitator's discovery list (x402 on Algorand, about 2,500 endpoints the Bazaar doesn't list) (read-only: it stops at the 402 challenge, at most two requests per host at a time, one
+the CDP Bazaar, the MPP directory, the [GoPlausible](https://facilitator.goplausible.xyz/discovery/resources) facilitator's discovery list (x402 on Algorand, about 2,500 endpoints the Bazaar doesn't list) and [Circle's Agent Marketplace](https://agents.circle.com/services) catalog (about 2,800 endpoints, many paid through Circle Gateway) (read-only: it stops at the 402 challenge, at most two requests per host at a time, one
 `/openapi.json` per origin, a User-Agent that links to `/trust`). The results roll into a 30-day history per resource,
 one letter per day (`g` go, `c` caution, `n` no-go, `x` unreachable, `-` not scanned), published as
 `index.json` + `summary.json` on the `trust-data` branch.

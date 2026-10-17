@@ -4,14 +4,14 @@
 //   node scripts/trust-scan.js --out trust-data [--limit 200]
 //
 // Reads <out>/index.json (the previous 30-day index, if any), scans every
-// resource in the CDP Bazaar (x402), the MPP directory (Stripe + Tempo) and the GoPlausible facilitator's
-// discovery list (x402 on Algorand), and writes
+// resource in the CDP Bazaar (x402), the MPP directory (Stripe + Tempo), the GoPlausible facilitator's
+// discovery list (x402 on Algorand) and Circle's Agent Marketplace catalog, and writes
 // <out>/index.json and <out>/summary.json. Every payout address is screened against the OFAC SDN list.
 
 const fs = require('fs');
 const path = require('path');
 const { createSafeFetch } = require('../lib/safe-fetch');
-const { loadCatalog, loadMppCatalog, loadGoPlausibleCatalog, scan, mergeIndex, summarize } = require('../lib/trust-scan');
+const { loadCatalog, loadMppCatalog, loadGoPlausibleCatalog, loadCircleCatalog, scan, mergeIndex, summarize } = require('../lib/trust-scan');
 const { createSanctions } = require('../lib/sanctions');
 
 function arg(name, fallback) {
@@ -40,6 +40,12 @@ async function main() {
   const gpOnly = goplausible.filter((r) => !known.has(r.key));
   console.log(`GoPlausible discovery: ${goplausible.length} endpoints, ${gpOnly.length} new`);
   resources = [...resources, ...gpOnly];
+  // Circle's Agent Marketplace catalog (Circle Gateway sellers the Bazaar mostly doesn't list); one check per endpoint.
+  const circle = await loadCircleCatalog().catch((err) => (console.warn(`Circle discovery: ${err.message}`), []));
+  const listed = new Set(resources.map((r) => r.key));
+  const circleOnly = circle.filter((r) => !listed.has(r.key));
+  console.log(`Circle Agent Marketplace: ${circle.length} endpoints, ${circleOnly.length} new`);
+  resources = [...resources, ...circleOnly];
   if (limit > 0) resources = resources.slice(0, limit);
 
   // Every payout address against the OFAC SDN list (presign-guard's open copy). Without the list the scan runs
