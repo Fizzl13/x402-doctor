@@ -23,7 +23,8 @@ the medicine, the exact code that fixes each problem for your stack, in the brow
 
 | Group | Check | Catches |
 |-------|-------|---------|
-| 402 challenge | `returns-402` | No 402 for GET or POST (tries both, or `--method`). Behind Cloudflare or Amazon CloudFront the hint names the usual Monetization Gateway or AWS WAF Monetize rule misses |
+| 402 challenge | `returns-402` | No 402 for GET or POST (tries both, or `--method`). Behind Cloudflare or Amazon CloudFront the hint names the usual Monetization Gateway or AWS WAF Monetize rule misses. An endpoint that asks for x401 proof first is info, not a failure |
+| | `x401` | An x401 proof request (`PROOF-REQUEST`, [x401.id](https://x401.id)) instead of a 402: the endpoint asks who is behind the agent before it asks for payment. Pass when the base64url payload names scheme `x401`, a version and credential requests (with their protocols, the token endpoint and the payment hint); a warning when agents can't read it; info for the older header name `PROOF-REQUIRED` |
 | | `protocol-version`, `challenge-header` | v1 vs v2, missing `x402Version`, challenge in the wrong header, undecodable header |
 | | `envelope-body-mirror` | Header-only challenge (`@x402/express` sends `{}`), header and body disagreeing |
 | MCP (payment per tool call) | `mcp-server` | When the URL answers no 402 but speaks MCP (Streamable HTTP, JSON or SSE, with or without a session): initialize and `tools/list` without payment |
