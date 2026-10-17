@@ -315,7 +315,10 @@ one letter per day (`g` go, `c` caution, `n` no-go, `x` unreachable, `-` not sca
   for it settles and drops it after 30 days without one. `stale` (the default) pays each of our 16 routes whose last
   settled payment in the Bazaar is 21 days old or more (read from its public search), each at most its own price
   (`INDEX_PAYMENT.routes`); `url` pays one route once. The money goes to our own payout wallets. It publishes nothing,
-  so the sample stays one of other sellers.
+  so the sample stays one of other sellers. Each run is also a self-audit of those routes: the same payment header is
+  sent once more and must get a 402 ("Five Attacks on x402", attack II; a route that serves it again fails the run),
+  and the settlement transaction's ERC-8021 suffix shows whether our Base Builder Code was written into it. Other
+  sellers' endpoints are never replayed.
 - **Sanctions screen.** Every payout address (x402 `payTo`, MPP `recipient`) is matched against the OFAC SDN list's
   digital currency addresses, from [presign-guard's free open copy](https://presign-guard.fizzl.eu/v1/sanctions) of the
   US Treasury list (`lib/sanctions.js`, refreshed every 6 hours). A listed address makes the pre-payment check `no_go`

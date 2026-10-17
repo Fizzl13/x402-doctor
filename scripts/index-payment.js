@@ -13,6 +13,9 @@
 // preflight with the OFAC screen of the payout address, the charge measured on chain) but publishes nothing, so the
 // spot-buy results stay a sample of other sellers.
 // Without the key (or with --dry) it does everything up to the payment and pays nothing.
+// A self-audit too, on our own routes only: each paid request's payment is sent once more and must get a 402 ("Five
+// Attacks on x402", attack II: one payment, two answers), and the settlement transaction must carry our Base
+// Builder Code (ERC-8021), so Base attributes the payment to us.
 
 const fs = require('fs');
 const { createSafeFetch } = require('../lib/safe-fetch');
@@ -20,6 +23,8 @@ const { createSanctions } = require('../lib/sanctions');
 const { checkSettlement } = require('../lib/settlement');
 const { createSpotWallet } = require('../lib/spot-wallet');
 const { runSpotBuy, ownTarget, INDEX_PAYMENT, indexCapFor, staleRoutes, BASE } = require('../lib/spot-buy');
+const { NETWORKS } = require('../lib/networks');
+const { parseBuilderCodeSuffixFromCalldata } = require('@x402/extensions/builder-code');
 
 const SEARCH = 'https://api.cdp.coinbase.com/platform/v2/x402/discovery/search';
 
@@ -36,6 +41,18 @@ async function listedRoutes(routes) {
     listed.push(...found);
   }
   return listed;
+}
+
+// The ERC-8021 builder codes in a Base transaction's calldata: { a, w, s } as the facilitator wrote them, null when
+// it carries none, undefined when the transaction could not be read.
+async function attribution(tx, rpc) {
+  try {
+    const res = await fetch(rpc, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_getTransactionByHash', params: [tx] }), signal: AbortSignal.timeout(15000) });
+    const input = (await res.json()).result?.input;
+    return input ? parseBuilderCodeSuffixFromCalldata(input) ?? null : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function arg(name) {
@@ -92,18 +109,26 @@ async function main() {
       budgetUsd: capUsd,
       userAgent,
       ownRoutesOnly: true,
+      lastPayment: wallet?.lastPayment ?? null,
     });
     const r = results[0];
+    if (r.proof?.transaction) {
+      const codes = await attribution(r.proof.transaction, process.env.BASE_RPC_URL || NETWORKS[BASE].rpc);
+      if (codes !== undefined) r.builder_code = codes;
+    }
     console.log(JSON.stringify(r, null, 2));
-    const ok = dry ? r.result === 'would_buy' : r.result === 'delivered' || r.result === 'off_schema';
+    // A route that serves the same payment twice fails the run: that is a hole in our own paywall.
+    const ok = dry ? r.result === 'would_buy' : (r.result === 'delivered' || r.result === 'off_schema') && !r.replay?.served;
     if (!ok) failed++;
-    rows.push(`| ${r.request?.url ?? r.url} | ${r.result} | ${r.price_usd ?? ''} | ${r.charged_usd ?? ''} | ${r.proof?.explorer || r.proof?.transaction || ''} |`);
+    const replay = r.replay ? (r.replay.served ? `⚠️ served again (${r.replay.status})` : `refused (${r.replay.status ?? r.replay.error})`) : '';
+    const code = r.builder_code === undefined ? '' : r.builder_code?.a ? `${r.builder_code.a}${r.builder_code.w ? ` (w ${r.builder_code.w})` : ''}` : 'none';
+    rows.push(`| ${r.request?.url ?? r.url} | ${r.result} | ${r.price_usd ?? ''} | ${r.charged_usd ?? ''} | ${replay} | ${code} | ${r.proof?.explorer || r.proof?.transaction || ''} |`);
     if (r.result === 'wallet_empty') { console.log('the wallet is out of funds: the rest is not paid'); break; }
   }
   if (process.env.GITHUB_STEP_SUMMARY) {
     const lines = [
       `## Index payment (${dry ? 'dry run, nothing paid' : 'live'})`, '',
-      `| Route | Result | Price | Charged | Transaction |`, '|---|---|---|---|---|', ...rows,
+      `| Route | Result | Price | Charged | Same payment again | Builder Code | Transaction |`, '|---|---|---|---|---|---|---|', ...rows,
       '', !failed && !dry ? 'The CDP Bazaar lists a route after its settlement; directories that read it follow within a day.' : '',
     ];
     fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join('\n') + '\n');

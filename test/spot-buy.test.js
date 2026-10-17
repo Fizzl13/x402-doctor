@@ -9,6 +9,7 @@ const { wrapFetchWithPayment, x402Client } = require('@x402/fetch');
 const { ExactEvmScheme } = require('@x402/evm/exact/client');
 const { createSafeFetch } = require('../lib/safe-fetch');
 const { createSanctions } = require('../lib/sanctions');
+const { recordPayments } = require('../lib/spot-wallet');
 const { selectCandidates, runSpotBuy, classify, reasonOf, cacheRisk, exampleRequest, isoWeek, ownTarget, INDEX_PAYMENT, indexCapFor, staleRoutes, LIMITS, USER_AGENT } = require('../lib/spot-buy');
 
 const BASE = 'eip155:8453';
@@ -57,6 +58,7 @@ test.after(() => servers.forEach((s) => s.close()));
 function seller({ mode, payTo = PAY_TO, amount = '10000', input = null }) {
   return new Promise((resolve) => {
     let origin;
+    const used = new Set();
     const server = http.createServer((req, res) => {
       const paid = req.headers['payment-signature'] || req.headers['x-payment'];
       const challenge = {
@@ -73,6 +75,11 @@ function seller({ mode, payTo = PAY_TO, amount = '10000', input = null }) {
         res.setHeader('PAYMENT-RESPONSE', Buffer.from(JSON.stringify({ success: true, transaction: `0x${'ab'.repeat(32)}`, network: BASE, payer: '0x' })).toString('base64'));
       };
       if (mode === 'deliver') { settle(); res.setHeader('content-type', 'application/json'); return res.end('{"price":42}'); }
+      if (mode === 'deliver_once') {
+        // Like a facilitator: a payment it has seen before is refused, so the same header gets the 402 again.
+        if (used.has(paid)) return ask();
+        used.add(paid); settle(); res.setHeader('content-type', 'application/json'); return res.end('{"price":42}');
+      }
       if (mode === 'off_schema') { settle(); return res.end('{"something":"else"}'); }
       if (mode === 'empty') { settle(); res.statusCode = 200; return res.end(); }
       if (mode === 'charge_500') { chain.balance -= Number(amount); res.statusCode = 500; return res.end('upstream error'); }
@@ -131,6 +138,22 @@ test('a run: each outcome after paying, a listed payout address and the budget s
   assert.equal(summary.charged_without_answer.count, 1);
   assert.equal(summary.spent_usd, 0.05);
   assert.equal(chain.balance, 1_000_000 - 50_000);
+});
+
+test('replay (attack II): the same payment sent once more after the paid answer; a seller that serves it again is flagged', async () => {
+  const account = privateKeyToAccount(generatePrivateKey());
+  const client = new x402Client((_v, accepts) => accepts.find((a) => a.network === BASE)).setSpendControls({ maxAmountPerPayment: '$0.05' });
+  client.register(BASE, new ExactEvmScheme(account));
+  const payments = recordPayments();
+  const candidates = [await seller({ mode: 'deliver_once' }), await seller({ mode: 'deliver' })];
+  const opts = { safeFetch: createSafeFetch({ allowPrivate: true }), payFetch: wrapFetchWithPayment(payments.fetch, client), balance: async () => chain.balance, capUsd: 0.05, budgetUsd: 0.05, allowPrivate: true, wait: async () => {} };
+  const { results } = await runSpotBuy(candidates, { ...opts, lastPayment: payments.last });
+  assert.deepEqual(results.map((r) => r.result), ['delivered', 'delivered']);
+  assert.deepEqual(results[0].replay, { status: 402, served: false }, 'the seller refused the used payment');
+  assert.deepEqual(results[1].replay, { status: 200, served: true }, 'one payment, two answers');
+  assert.equal(payments.last().name, 'payment-signature');
+  const without = await runSpotBuy([await seller({ mode: 'deliver' })], opts);
+  assert.equal(without.results[0].replay, undefined, 'no replay without the wallet\'s last payment');
 });
 
 test('a dry run pays nothing and says what it would buy', async () => {
