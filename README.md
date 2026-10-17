@@ -476,6 +476,8 @@ Or the CLI in a plain `run:` step:
 | `AGENT_PAYOUT_WALLET` | Base address that receives paid-API payments (or `DOCTOR_PAYOUT_WALLET`) |
 | `AGENT_PAYOUT_WALLET_SOLANA` | Solana address that receives paid-API payments (or `DOCTOR_PAYOUT_WALLET_SOLANA`); needs a USDC token account |
 | `ALGORAND_PAY_TO` | Algorand address that receives paid-API payments in USDC (ASA 31566704), settled by GoPlausible's facilitator (`ALGORAND_FACILITATOR_URL` overrides). The account must have opted in to USDC. Unset or `off`: no Algorand option |
+| `STELLAR_FACILITATOR_KEY` | API key for OpenZeppelin's "Built on Stellar" facilitator (generate one at channels.openzeppelin.com/gen); turns on the Stellar option: paid-API payments in USDC on Stellar mainnet, fees paid by the facilitator. `STELLAR_FACILITATOR_URL` points at another facilitator (with or without the key) |
+| `STELLAR_PAY_TO` | Stellar account that receives those payments; default Frits's account (it trusts USDC). The account must have a USDC trustline. `off`: no Stellar option |
 | `BUILDER_CODE` | Base Builder Code (ERC-8021, minted at base.dev) declared in every paid route's 402 as the `builder-code` extension: the buyer's x402 client echoes it and the facilitator writes it into the settlement, so Base attributes the payment. Unset or not a valid code: none |
 | `DOCTOR_PRICE` | Price per paid diagnosis (default `$0.01`) |
 | `DOCTOR_PREFLIGHT_PRICE` | Price per pre-payment check (default `$0.001`) |
