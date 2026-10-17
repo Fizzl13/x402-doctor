@@ -103,8 +103,19 @@
     <p style="margin:0"><a href="https://wallet.fizzl.eu/#/account">Watch my endpoint →</a> <span style="color:var(--text-soft);font-size:13px">(sign in with your wallet, no e-mail)</span></p>
   </div>
 
-  <h2 id="platforms">Selling through Cloudflare or Stripe</h2>
-  <p>Cloudflare's <a href="https://developers.cloudflare.com/monetization-gateway/">Monetization Gateway</a> (closed beta, US sellers and buyers) and <a href="https://docs.stripe.com/payments/machine/x402">Stripe's x402 machine payments</a> (US businesses; elsewhere on request) both send a standard x402 v2 challenge and settle through the Coinbase CDP facilitator, so the free check above works on them as is. What to watch:</p>
+  <h2 id="platforms">Selling through AWS, Cloudflare or Stripe</h2>
+  <p>Cloudflare's <a href="https://developers.cloudflare.com/monetization-gateway/">Monetization Gateway</a> (closed beta, US sellers and buyers) and <a href="https://docs.stripe.com/payments/machine/x402">Stripe's x402 machine payments</a> (US businesses; elsewhere on request) both send a standard x402 v2 challenge and settle through the Coinbase CDP facilitator, so the free check above works on them as is. <a href="https://docs.aws.amazon.com/waf/latest/developerguide/waf-ai-traffic-monetization-pricing.html">AWS WAF's Monetize action</a> on CloudFront answers in the x402 format too, and settles through the same Coinbase facilitator. What to watch:</p>
+
+  <div class="tool" id="aws">
+    <h3>AWS WAF on CloudFront</h3>
+    <ul>
+      <li><b>No 402?</b> The Monetize action only works in a web ACL on a CloudFront distribution, with Bot Control at Common or Targeted and a monetization config. A rule limited to Bot Control's bot label charges only callers WAF labels as bots: other agents get the resource without paying.</li>
+      <li><b>Price</b>: a base price per request (at least $0.001, up to 3 decimals) times the price multiplier of the rule that matched. Each verification tier gets its own action: charge agents, allow or block crawlers.</li>
+      <li><b>Test first, then Real.</b> Currency mode Test charges on Base Sepolia and Solana Devnet; the check above notes a CloudFront route that offers only testnets. Switch to Real once it works.</li>
+      <li><b>Keep your origin behind CloudFront</b> (Origin Access Control for S3, or a secret header your origin checks), or anyone who reaches the origin directly gets the content for free.</li>
+      <li><b>Paid requests take a few seconds longer</b> (verification and settlement), and fail without content when the facilitator does; agents retry. MPP and Stripe support are announced, not live yet.</li>
+    </ul>
+  </div>
 
   <div class="tool" id="cloudflare">
     <h3>Cloudflare Monetization Gateway</h3>
@@ -135,11 +146,22 @@
     <li>several buyers reported failed payments after paying you.</li>
   </ul>
 
+  <h2 id="attacks">The five x402 attacks: what Doctor checks</h2>
+  <p>The paper <a href="https://arxiv.org/abs/2605.11781">Five Attacks on x402</a> (May 2026) found five ways a paid endpoint can answer without being paid, or take a payment without answering. What x402 Doctor checks from outside, and what you fix in your own server:</p>
+  <ul>
+    <li><b>Answering before the payment is final.</b> An answer sent before settlement can lose its payment to a chain reorganisation. The paid delivery check measures the charge on chain next to the answer. Fix: settle before you answer (the x402 middleware does by default).</li>
+    <li><b>Someone else settles the payment first.</b> An observer copies the payment header and submits it before your facilitator does: the buyer pays and gets nothing. This happens between your server and the facilitator, out of sight: settle over HTTPS through a facilitator you trust, and keep payment headers out of your logs.</li>
+    <li><b>One payment, many answers.</b> The same payment header sent again must get a 402. x402 Doctor tests this on every Fizzl route each time it pays one. Fix: answer only after the facilitator has settled, so a used payment is refused.</li>
+    <li><b>A cache hands the paid answer out for free.</b> The paid delivery check and the weekly <a href="/trust">spot-buy sample</a> report the <code>Cache-Control</code> of the paid answer. Fix: send <code>Cache-Control: no-store, private</code> on every paid answer, so CDNs and proxies don't keep it.</li>
+    <li><b>Fake listings that steer agents.</b> The <a href="/trust">Trust Index</a> groups template farms into distinct services, flags lure listings and screens every payout address against the OFAC sanctions list; the pre-payment check turns that into go, caution or no_go.</li>
+  </ul>
+
   <h2>Get found in the Bazaar</h2>
   <ol class="steps">
     <li><b>Settle through the CDP facilitator</b> (set your CDP API keys): resources that settle there (and declare discovery metadata) can be listed in the CDP Bazaar.</li>
     <li><b>Describe your resource</b>: a clear description, input and output schema, <code>serviceName</code>, <code>tags</code> and an icon in your route config, and a <code>/.well-known/x402</code>.</li>
     <li><b>Stay payable</b>: check yourself with step 1 after every deploy (or in CI: <code>npx github:Fizzl13/x402-doctor &lt;url&gt;</code> exits 1 on failures).</li>
+    <li><b>Get attributed on Base</b>: declare your Base Builder Code (minted at base.dev) with <code>declareBuilderCodeExtension</code> from <code>@x402/extensions/builder-code</code>. Step 1 tells you whether the facilitator will find it.</li>
     <li><b>Show it</b>: the badge from step 2 on your README and site.</li>
     <li><b>Watch it</b>: let the endpoint monitor (step 4) tell you on your phone, Telegram, Discord or Slack when it breaks, before your buyers notice.</li>
   </ol>

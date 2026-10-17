@@ -23,7 +23,7 @@ the medicine, the exact code that fixes each problem for your stack, in the brow
 
 | Group | Check | Catches |
 |-------|-------|---------|
-| 402 challenge | `returns-402` | No 402 for GET or POST (tries both, or `--method`) |
+| 402 challenge | `returns-402` | No 402 for GET or POST (tries both, or `--method`). Behind Cloudflare or Amazon CloudFront the hint names the usual Monetization Gateway or AWS WAF Monetize rule misses |
 | | `protocol-version`, `challenge-header` | v1 vs v2, missing `x402Version`, challenge in the wrong header, undecodable header |
 | | `envelope-body-mirror` | Header-only challenge (`@x402/express` sends `{}`), header and body disagreeing |
 | MCP (payment per tool call) | `mcp-server` | When the URL answers no 402 but speaks MCP (Streamable HTTP, JSON or SSE, with or without a session): initialize and `tools/list` without payment |
@@ -34,6 +34,7 @@ the medicine, the exact code that fixes each problem for your stack, in the brow
 | Payment options | `accepts[i]-scheme`, `-network` | Missing scheme; legacy names like `base` / `solana:mainnet` instead of CAIP-2 |
 | | `accepts[i]-payto`, `-asset` | Invalid EVM, Solana, XRPL or Algorand addresses (XRPL and Algorand with their checksums); asset that is not USDC, or USDC of another network (e.g. Base Sepolia USDC on Base); on Algorand an asset that is not an ASA id (USDC is ASA 31566704); on XRPL an XRP amount that isn't in drops, or "RLUSD" from another issuer than Ripple's |
 | | `accepts[i]-amount` | Decimal dollar amounts (`"0.02"`) instead of atomic units, zero or non-integer amounts |
+| | `aws-test-mode` | A 402 served through Amazon CloudFront that offers only testnets (info): AWS WAF Monetize left in Test currency mode |
 | | `accepts[i]-extra` | Solana without `extra.feePayer` (clients throw "feePayer is required"), EVM without the EIP-712 `name`/`version` |
 | | `accepts[i]-batch`, `-batch-delay`, `-batch-deposit`, `batch-escrow` | The `batch-settlement` scheme (one deposit into the x402 escrow, then a signed voucher per call, claimed in batches): `extra.receiverAuthorizer` missing (clients refuse), `withdrawDelay` missing or outside 900 s to 30 days, no EIP-712 domain for the EIP-3009 deposit, `minDeposit` not in atomic units, the escrow not deployed on the network; the deposit and withdraw delay buyers commit to |
 | Resource | `resource-url` | `http://` resource URL on an `https://` endpoint (Express behind a TLS proxy without `trust proxy`) |
@@ -315,7 +316,10 @@ one letter per day (`g` go, `c` caution, `n` no-go, `x` unreachable, `-` not sca
   for it settles and drops it after 30 days without one. `stale` (the default) pays each of our 16 routes whose last
   settled payment in the Bazaar is 21 days old or more (read from its public search), each at most its own price
   (`INDEX_PAYMENT.routes`); `url` pays one route once. The money goes to our own payout wallets. It publishes nothing,
-  so the sample stays one of other sellers.
+  so the sample stays one of other sellers. Each run is also a self-audit of those routes: the same payment header is
+  sent once more and must get a 402 ("Five Attacks on x402", attack II; a route that serves it again fails the run),
+  and the settlement transaction's ERC-8021 suffix shows whether our Base Builder Code was written into it. Other
+  sellers' endpoints are never replayed.
 - **Sanctions screen.** Every payout address (x402 `payTo`, MPP `recipient`) is matched against the OFAC SDN list's
   digital currency addresses, from [presign-guard's free open copy](https://presign-guard.fizzl.eu/v1/sanctions) of the
   US Treasury list (`lib/sanctions.js`, refreshed every 6 hours). A listed address makes the pre-payment check `no_go`

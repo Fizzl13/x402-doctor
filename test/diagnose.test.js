@@ -386,6 +386,31 @@ test('no 402 behind Cloudflare: the hint names the usual Monetization Gateway ru
   assert.doesNotMatch(byId(await diagnose(`${plain}/paid`, { safeFetch, rpcUrl }))['returns-402'][0].hint, /Cloudflare/, 'only behind Cloudflare');
 });
 
+test('behind CloudFront: no 402 gets the AWS WAF Monetize hint; a 402 on testnets only notes the Test currency mode', async () => {
+  const free = await listen((req, res) => {
+    res.setHeader('x-amz-cf-id', 'Qm8YFq1xZz4w7l2Kx0aZ7mLwB3p9v1Yt6cQe4uHnRk2sD5fJgA==');
+    res.setHeader('via', '1.1 2f3e4d5c6b7a.cloudfront.net (CloudFront)');
+    res.statusCode = 200;
+    res.end('{"free":true}');
+  });
+  const hint = byId(await diagnose(`${free}/paid`, { safeFetch, rpcUrl }))['returns-402'][0].hint;
+  assert.match(hint, /AWS WAF Monetize/);
+  assert.match(hint, /Bot Control's bot label charges only callers WAF labels as bots/);
+  assert.doesNotMatch(hint, /Cloudflare/);
+
+  const testMode = (network) => listen((req, res) => {
+    const challenge = { x402Version: 2, resource: { url: `http://${req.headers.host}${req.url}` }, accepts: [{ scheme: 'exact', network, amount: '1000', asset: '0x036CbD53842c5426634e7929541eC2318f3dCF7e', payTo: '0x1111111111111111111111111111111111111111', maxTimeoutSeconds: 60, extra: { name: 'USDC', version: '2' } }] };
+    res.setHeader('server', 'CloudFront');
+    res.setHeader('PAYMENT-REQUIRED', Buffer.from(JSON.stringify(challenge)).toString('base64'));
+    res.statusCode = 402;
+    res.end(JSON.stringify(challenge));
+  });
+  const sepolia = byId(await diagnose(`${await testMode('eip155:84532')}/paid`, { safeFetch, rpcUrl }))['aws-test-mode'];
+  assert.equal(sepolia[0].status, 'info');
+  assert.match(sepolia[0].message, /only testnets \(Base Sepolia\).*currency mode is Test/);
+  assert.equal(byId(await diagnose(`${await testMode('eip155:8453')}/paid`, { safeFetch, rpcUrl }))['aws-test-mode'], undefined, 'nothing on mainnet');
+});
+
 test('SSRF guard: internal targets are refused, including through DNS', async () => {
   const guarded = createSafeFetch();
   for (const target of ['http://127.0.0.1/', 'http://localhost/', 'http://[::ffff:127.0.0.1]/', 'http://169.254.169.254/latest/meta-data', 'http://2130706433/', 'http://10.0.0.1/']) {
