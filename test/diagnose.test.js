@@ -249,7 +249,7 @@ test('multi-chain options: XRPL and Arbitrum are judged by their own rules, unkn
     // Shaped like a real XRPL option (RLUSD, decimal amount, r-address, issuer).
     { scheme: 'exact', network: 'xrpl:0', amount: '0.01', asset: '524C555344000000000000000000000000000000', payTo: 'rKv7LTd19CUsKKirVzdZWK4HuFChHf4Hp7', maxTimeoutSeconds: 300, extra: { issuer: 'rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De' } },
     { scheme: 'exact', network: 'eip155:42161', amount: '10000', asset: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831', payTo: '0x408C4610F6879a75c25722cfCd18A2Eff99dc20F', extra: { name: 'USD Coin', version: '2' } },
-    { scheme: 'exact', network: 'stellar:pubnet', amount: '0.01', asset: 'USDC', payTo: 'GABC' },
+    { scheme: 'exact', network: 'aptos:1', amount: '0.01', asset: 'USDC', payTo: '0xabc' },
     { scheme: 'exact', network: 'xrpl:0', amount: '0', asset: 'USD', payTo: '0x408C4610F6879a75c25722cfCd18A2Eff99dc20F' },
   ], checks);
   const status = (id) => checks.find((c) => c.id === id)?.status;

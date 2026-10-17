@@ -451,7 +451,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   const liveTrust = () => { try { return trustDescription(trustIndex.summary()); } catch { return null; } };
   app.get('/trust', page('trust.html', '/trust', liveTrust));
   // Per-network view of the Trust Index (free): every scanned x402 endpoint that offers a network, payable today
-  // or not and why. The /xrpl and /algorand pages read it.
+  // or not and why. The /xrpl, /algorand and /stellar pages read it.
   app.get('/api/trust/network', trustLimit, async (req, res) => {
     const network = String(req.query.network || '').trim().toLowerCase();
     if (!/^[a-z0-9-]{2,32}(:[a-z0-9-]{1,64})?$/i.test(network)) return res.status(400).json({ error: 'network is required, e.g. /api/trust/network?network=xrpl (a family) or xrpl:0' });
@@ -461,6 +461,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   });
   app.get('/xrpl', page('xrpl.html', '/xrpl'));
   app.get('/algorand', page('algorand.html', '/algorand'));
+  app.get('/stellar', page('stellar.html', '/stellar'));
   app.get('/settlement', page('settlement.html', '/settlement'));
   // Public status of the Fizzl services (lib/status.js); also the home page of status.fizzl.eu when that domain points here.
   const statusBoard = status || createStatus({ trustIndex });
