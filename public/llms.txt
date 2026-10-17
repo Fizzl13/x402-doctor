@@ -25,6 +25,7 @@ Backed by a daily Trust Index of ~50,000 paid x402 and MPP endpoints across Base
 - [For sellers](https://x402-doctor.fizzl.eu/sellers): the most common x402 seller mistakes and how to fix them
 - [Payment proof check](https://x402-doctor.fizzl.eu/settlement): the on-chain transaction behind a PAYMENT-RESPONSE header
 - `GET /api/trust?url=<resource>`: one resource's 30-day track record
+- [x402 health report, October 2026](https://fizzl.eu/research/x402-health-october-2026/): what the Trust Index shows about the x402 market: payable share, seller concentration, networks, prices, the most common seller mistakes with fixes, and the spot-buy results
 
 ## Optional
 - [Fizzl](https://fizzl.eu/llms.txt): the other Fizzl services (pre-sign checks, agent wallet, trading signals)
