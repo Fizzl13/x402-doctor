@@ -73,6 +73,52 @@
   #spotTable .u { font-family: 'SF Mono', Consolas, monospace; font-size: 12.5px; overflow-wrap: anywhere; }
   #spotTable .w { color: var(--text-soft); font-size: 13px; }
 </style>
+<script type="application/ld+json">
+{
+ "@context": "https://schema.org",
+ "@type": "Dataset",
+ "@id": "https://x402-doctor.fizzl.eu/trust#dataset",
+ "name": "x402 Trust Index",
+ "url": "https://x402-doctor.fizzl.eu/trust",
+ "description": "A daily check of every paid x402 and MPP endpoint listed in the CDP Bazaar, Circle's Agent Marketplace, the MPP directory and other public indexes (about 50,000 endpoints): whether an AI agent can pay it today, its 30-day payable record, network, price and seller, OFAC screening of the payout address, and a weekly spot-buy of up to 30 endpoints.",
+ "keywords": [
+  "x402",
+  "MPP",
+  "AI agents",
+  "agent payments",
+  "paid APIs",
+  "USDC",
+  "API reliability"
+ ],
+ "measurementTechnique": "Each endpoint is called once a day without paying and its 402 challenge is checked the way a paying agent would. Once a week a random sample of up to 30 payable endpoints is bought.",
+ "isAccessibleForFree": true,
+ "creator": {
+  "@type": "Organization",
+  "@id": "https://fizzl.eu/#fizzl",
+  "name": "Fizzl",
+  "url": "https://fizzl.eu/"
+ },
+ "distribution": [
+  {
+   "@type": "DataDownload",
+   "name": "Daily summary",
+   "encodingFormat": "application/json",
+   "contentUrl": "https://x402-doctor.fizzl.eu/api/trust/summary"
+  },
+  {
+   "@type": "DataDownload",
+   "name": "Latest spot-buy",
+   "encodingFormat": "application/json",
+   "contentUrl": "https://x402-doctor.fizzl.eu/api/trust/spot"
+  }
+ ],
+ "subjectOf": {
+  "@type": "Article",
+  "headline": "We check 50,000 paid x402 endpoints every day. Here's what works and what breaks.",
+  "url": "https://fizzl.eu/research/x402-health-october-2026/"
+ }
+}
+</script>
 </head>
 <body>
 <div class="wrap">

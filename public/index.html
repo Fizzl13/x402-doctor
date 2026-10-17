@@ -161,6 +161,59 @@
   .prices .pill.save { border-color: var(--mint-line); }
   .prices a.pill:hover { border-color: var(--mint); }
 </style>
+<script type="application/ld+json">
+{
+ "@context": "https://schema.org",
+ "@type": "WebApplication",
+ "@id": "https://x402-doctor.fizzl.eu/#app",
+ "name": "x402 Doctor",
+ "url": "https://x402-doctor.fizzl.eu/",
+ "description": "Checks x402, MPP and L402 paid API endpoints the way a paying AI agent would, before the agent pays: go, caution or no_go, the price against the listing, whether the payout address can receive, OFAC sanctions and testnet-only offers. For sellers: a free diagnosis of a broken 402 with the fix as code.",
+ "applicationCategory": "DeveloperApplication",
+ "operatingSystem": "Any",
+ "isAccessibleForFree": true,
+ "offers": [
+  {
+   "@type": "Offer",
+   "name": "Web check",
+   "price": "0",
+   "priceCurrency": "USD"
+  },
+  {
+   "@type": "Offer",
+   "name": "Preflight API call, paid per call over x402 in USDC (Base, Solana, the XRP Ledger, Algorand or Stellar) or MPP",
+   "price": "0.001",
+   "priceCurrency": "USD"
+  }
+ ],
+ "featureList": [
+  "Pre-payment check for AI agents (go, caution or no_go)",
+  "Full diagnosis of an x402 endpoint with fixes as code",
+  "Daily Trust Index of about 50,000 paid endpoints",
+  "MCP server at https://x402-doctor.fizzl.eu/mcp"
+ ],
+ "provider": {
+  "@type": "Organization",
+  "@id": "https://fizzl.eu/#fizzl",
+  "name": "Fizzl",
+  "url": "https://fizzl.eu/"
+ },
+ "author": {
+  "@type": "Person",
+  "@id": "https://fizzl.eu/#frits",
+  "name": "Frits Zwager",
+  "url": "https://cv.fizzl.eu/"
+ },
+ "sameAs": [
+  "https://github.com/Fizzl13/x402-doctor"
+ ],
+ "subjectOf": {
+  "@type": "Article",
+  "headline": "We check 50,000 paid x402 endpoints every day. Here's what works and what breaks.",
+  "url": "https://fizzl.eu/research/x402-health-october-2026/"
+ }
+}
+</script>
 </head>
 <body>
 <div class="wrap">
