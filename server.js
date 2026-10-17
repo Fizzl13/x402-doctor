@@ -344,7 +344,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
       category: 'developer-tools',
       iconUrl: `${origin}/icon.png`,
       tags: ['x402', 'developer-tools', 'diagnostics', 'payments', 'safety', 'pre-payment'],
-      description: 'Checks x402 endpoints: a $0.001 pre-payment check for buyers (go / caution / no_go, payout address screened against OFAC), a $0.01 full diagnosis with a fix hint per check and a $0.25 paid delivery check. Pay in USDC on Base, Solana or Algorand, or RLUSD on the XRP Ledger.',
+      description: 'Checks x402 endpoints: a $0.001 pre-payment check for buyers (go / caution / no_go, payout address screened against OFAC), a $0.01 full diagnosis with a fix hint per check and a $0.25 paid delivery check. Pay in USDC on Base, Solana, Algorand or Stellar, or RLUSD on the XRP Ledger.',
       openapi: `${origin}/openapi.json`,
       signer: `${origin}/.well-known/x402-doctor-signer.json`,
     });
@@ -356,7 +356,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   app.get('/.well-known/agent-registration.json', (req, res) => res.json({
     type: 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1',
     name: 'x402 Doctor',
-    description: 'Checks x402 and MPP paid APIs before an agent pays and before a seller ships: a $0.001 preflight (go / caution / no_go, plus the cheapest option that will settle), batch and deep preflight, a $0.01 full diagnosis with a fix hint per check, and the fix code for $0.05. Paid per call over x402 (USDC on Base or Solana) or MPP (USDC on Base); the web check is free.',
+    description: 'Checks x402 and MPP paid APIs before an agent pays and before a seller ships: a $0.001 preflight (go / caution / no_go, plus the cheapest option that will settle), batch and deep preflight, a $0.01 full diagnosis with a fix hint per check, and the fix code for $0.05. Paid per call over x402 (USDC on Base, Solana, Algorand or Stellar, RLUSD on the XRP Ledger) or MPP (USDC on Base); the web check is free.',
     image: `${publicUrl}/og.jpg`,
     services: [
       { name: 'web', endpoint: `${publicUrl}/` },
