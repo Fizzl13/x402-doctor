@@ -410,13 +410,14 @@ test('MPP in the Trust Index: the directory becomes scan entries; challenges get
       if (req.url === '/good') { res.statusCode = 402; res.setHeader('www-authenticate', `Payment id="1", realm="${host}", method="evm", intent="charge", request="${b64u(usdc)}", expires="${soon}"`); return res.end(); }
       if (req.url === '/meh') { res.statusCode = 402; res.setHeader('www-authenticate', `Payment id="1", realm="other.example", method="evm", intent="charge", request="${b64u(usdc)}"`); return res.end(); }
       if (req.url === '/strict') { res.statusCode = 400; return res.end('{"error":"symbol is required"}'); }
+      if (req.url === '/burn') { res.statusCode = 402; res.setHeader('www-authenticate', `Payment id="1", realm="${host}", method="evm", intent="charge", request="${b64u({ ...usdc, recipient: '0x0000000000000000000000000000000000000000' })}", expires="${soon}"`); return res.end(); }
       if (req.url === '/old') { res.statusCode = 402; res.setHeader('www-authenticate', `Payment id="1", realm="${host}", method="evm", intent="charge", request="${b64u(usdc)}", expires="2020-01-01T00:00:00Z"`); return res.end(); }
       res.statusCode = 404; res.end();
     }).listen(0, () => resolve(`http://localhost:${server.address().port}`));
     after.push(() => server.close());
   });
   const safeFetch = createSafeFetch({ allowPrivate: true });
-  const entries = ['good', 'meh', 'old', 'gone', 'strict'].map((p) => ({ key: `${api}/${p}`, url: `${api}/${p}`, method: 'GET', p: 'mpp' }));
+  const entries = ['good', 'meh', 'old', 'gone', 'strict', 'burn'].map((p) => ({ key: `${api}/${p}`, url: `${api}/${p}`, method: 'GET', p: 'mpp' }));
   const results = await scan(entries, { safeFetch, rpcUrl: 'http://127.0.0.1:1' });
   const by = Object.fromEntries(results.map((r) => [r.url.split('/').pop(), r]));
   assert.equal(by.good.verdict, 'go');
@@ -427,6 +428,8 @@ test('MPP in the Trust Index: the directory becomes scan entries; challenges get
   assert.deepEqual(by.meh.codes.sort(), ['mpp_no_expires', 'mpp_realm_mismatch']);
   assert.equal(by.old.verdict, 'no_go');
   assert.deepEqual(by.old.codes, ['mpp_expired']);
+  assert.equal(by.burn.verdict, 'no_go');
+  assert.deepEqual(by.burn.codes, ['payto_burn']);
   assert.equal(by.gone.verdict, 'no_go');
   assert.deepEqual(by.gone.codes, ['no_402']);
   assert.equal(by.strict.verdict, 'needs_input'); // checks input before the 402: not judged
@@ -437,7 +440,8 @@ test('MPP in the Trust Index: the directory becomes scan entries; challenges get
   const trust = createTrustIndex({ fetchImpl: async () => Response.json(index) });
   await trust.refresh();
   const s = trust.summary();
-  assert.deepEqual(s.by_protocol.mpp, { resources: 4, go: 1, caution: 1, no_go: 2, unreachable: 0 });
+  assert.deepEqual(s.by_protocol.mpp, { resources: 5, go: 1, caution: 1, no_go: 3, unreachable: 0 });
+  assert.equal(s.payto_burn, 1);
   assert.deepEqual(s.by_protocol.x402, { resources: 1, go: 1, caution: 0, no_go: 0, unreachable: 0 });
   assert.equal((await trust.lookup(`${api}/good`)).protocol, 'mpp');
   for (const f of after) f();

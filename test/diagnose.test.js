@@ -288,6 +288,22 @@ test('a description over the CDP limit of 500 characters is flagged (v2 resource
   assert.equal(status(checks, 'accepts[0]-description-length'), 'warn');
 });
 
+test('a payTo that is the zero address or another burn address fails: nobody gets paid there', () => {
+  const usdc = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+  const checks = [];
+  checkAccepts([
+    { scheme: 'exact', network: 'eip155:8453', amount: '10000', asset: usdc, payTo: '0x0000000000000000000000000000000000000000' },
+    { scheme: 'exact', network: 'eip155:8453', amount: '10000', asset: usdc, payTo: '0x000000000000000000000000000000000000dEaD' },
+    { scheme: 'exact', network: 'eip155:8453', amount: '10000', asset: usdc, payTo: '0x408C4610F6879a75c25722cfCd18A2Eff99dc20F' },
+  ], checks);
+  const payto = (i) => checks.find((c) => c.id === `accepts[${i}]-payto`);
+  assert.equal(payto(0).status, 'fail');
+  assert.match(payto(0).message, /the zero address: USDC refuses transfers to it/);
+  assert.equal(payto(1).status, 'fail');
+  assert.match(payto(1).message, /0x…dEaD burn address: what is paid there can never be spent/);
+  assert.equal(payto(2).status, 'pass');
+});
+
 test('an openapi.json cut off at the size cap is reported as too large, not as invalid JSON', async () => {
   const checks = [];
   const fetchCapped = async () => ({ status: 200, text: '{"openapi":"3.1.0","paths":{"/a":', truncated: true });

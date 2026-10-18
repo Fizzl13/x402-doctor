@@ -213,6 +213,25 @@ async function mppSeller({ challenges, accepts = null }) {
 const evmRequest = (amount) => ({ amount, currency: USDC_BASE, methodDetails: { chainId: 8453, credentialTypes: ['authorization'], decimals: 6 }, recipient: PAY_TO_BASE });
 const tempoRequest = (amount) => ({ amount, currency: '0x20c000000000000000000000b9537d11c60e8b50', recipient: PAY_TO_BASE, methodDetails: { decimals: 6 } });
 
+test('payTo is the zero or 0x…dEaD address: no_go on its own, caution next to a payable option', async () => {
+  let url = await seller({ accepts: [baseOption('20000', { payTo: '0x0000000000000000000000000000000000000000' })] });
+  let r = await run(url);
+  assert.equal(r.verdict, 'no_go');
+  assert.equal(r.options[0].payable, false);
+  const burn = r.reasons.find((x) => x.code === 'payto_burn');
+  assert.equal(burn.level, 'no_go');
+  assert.match(burn.message, /the zero address .*USDC refuses the transfer/);
+  url = await seller({ accepts: [baseOption('10000', { payTo: '0x000000000000000000000000000000000000dEaD' }), solanaOption('20000')] });
+  r = await run(url);
+  assert.equal(r.verdict, 'caution', JSON.stringify(r.reasons));
+  assert.equal(r.recommended_option, 1, 'the cheaper option pays out to a burn address');
+  assert.match(r.reasons.find((x) => x.code === 'payto_burn').message, /money would be lost\. Pay only through another option/);
+  url = await mppSeller({ challenges: [{ method: 'evm', request: { ...evmRequest('20000'), recipient: '0x0000000000000000000000000000000000000000' } }] });
+  r = await preflight(url, { safeFetch, rpcUrl });
+  assert.equal(r.verdict, 'no_go');
+  assert.ok(r.reasons.some((x) => x.code === 'payto_burn'));
+});
+
 test('MPP only (evm, USDC on Base): go, the MPP option is recommended, with an mpp_only note', async () => {
   const url = await mppSeller({ challenges: [{ method: 'evm', request: evmRequest('20000') }] });
   const r = await preflight(url, { safeFetch, rpcUrl, maxUsd: 0.05 });
