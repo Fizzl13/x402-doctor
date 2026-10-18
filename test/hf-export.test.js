@@ -6,7 +6,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
-const { endpointRows, dailyRows, card } = require('../scripts/hf-export');
+const { endpointRows, dailyRows, spotRows, paymentRows, card } = require('../scripts/hf-export');
 const { descKey } = require('../lib/services');
 
 const index = {
@@ -68,5 +68,39 @@ test('the script writes the three files', () => {
   assert.equal(lines.length, 2);
   assert.equal(fs.readFileSync(path.join(out, 'data', 'daily.csv'), 'utf8'), 'date,go,caution,no_go,checked\n2026-10-16,2,0,0,2\n2026-10-17,3,0,0,3\n2026-10-18,0,1,1,2\n');
   assert.match(fs.readFileSync(path.join(out, 'README.md'), 'utf8'), /load_dataset\("someone\/x402-trust-index", "endpoints"/);
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('spot-buy purchases and on-chain payments become their own files and configs, only when there is data', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hf-spot-'));
+  const report = (date, live) => ({ date, summary: { live }, results: [
+    { url: 'https://a.example/price', host: 'a.example', step: 'paid', result: 'delivered', price_usd: 0.01, charged_usd: 0.01, status: 200, ms: 4400, request: { source: 'example' } },
+    { url: 'https://b.example/x', host: 'b.example', step: 'paid', result: 'charged_not_delivered', price_usd: 0.05, charged_usd: 0.05, status: null, ms: 90000, timed_out: true, request: { source: 'example' } },
+    { url: 'https://c.example/y', host: 'c.example', step: 'skipped', result: 'not_go_now' },
+  ] });
+  fs.writeFileSync(path.join(dir, '2026-10-18.json'), JSON.stringify(report('2026-10-18', true)));
+  fs.writeFileSync(path.join(dir, '2026-10-18-2.json'), JSON.stringify(report('2026-10-18', true)));
+  fs.writeFileSync(path.join(dir, '2026-10-11.json'), JSON.stringify(report('2026-10-11', false))); // a dry run
+  const spot = spotRows(dir);
+  assert.deepEqual(spot.map((r) => [r.run, r.host, r.result, r.answer_s, r.timed_out]), [
+    ['2026-10-18-2', 'a.example', 'delivered', 4.4, false], ['2026-10-18-2', 'b.example', 'charged_not_delivered', 90, true],
+    ['2026-10-18', 'a.example', 'delivered', 4.4, false], ['2026-10-18', 'b.example', 'charged_not_delivered', 90, true],
+  ]);
+  assert.deepEqual(spotRows(path.join(dir, 'missing')), []);
+
+  const state = { version: 1, days: { '2026-10-18': { covered: 43200 }, '2026-10-19': { covered: 4320 } }, pay_tos: { '0x11': { since: '2026-10-18', d: { '2026-10-18': [3, 30000, ['aa', 'bb']], '2026-10-19': [1, 10000, ['aa']] } } } };
+  assert.deepEqual(paymentRows(state), [
+    { date: '2026-10-18', pay_to: '0x11', payments: 3, usd: 0.03, payers: 2, day_coverage: 1 },
+    { date: '2026-10-19', pay_to: '0x11', payments: 1, usd: 0.01, payers: 1, day_coverage: 0.1 },
+  ]);
+  assert.deepEqual(paymentRows(null), []);
+
+  const rows = endpointRows(index, categories);
+  const md = card({ date: '2026-10-18', rows, daily: dailyRows(index), sanctions: index.sanctions, spot, payments: paymentRows(state) });
+  assert.match(md, /config_name: spot_buys\n  data_files: data\/spot_buys\.jsonl/);
+  assert.match(md, /config_name: onchain_payments\n  data_files: data\/onchain_payments\.csv/);
+  assert.match(md, /4 purchases so far/);
+  const plain = card({ date: '2026-10-18', rows, daily: dailyRows(index), sanctions: index.sanctions });
+  assert.doesNotMatch(plain, /spot_buys|onchain_payments/);
   fs.rmSync(dir, { recursive: true, force: true });
 });
