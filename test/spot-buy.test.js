@@ -203,6 +203,12 @@ test('reasonOf: the 402 error, a JSON error field or object, else the start of t
   assert.equal(reasonOf(res(), '<html>\n  <h1>404\tNot Found</h1>\n</html>'), '<html> <h1>404 Not Found</h1> </html>');
   assert.equal(reasonOf(res(), ''), null);
   assert.equal(reasonOf(res(), 'x'.repeat(500)).length, 200);
+  // A failed settlement: the seller accepted the payment, its facilitator couldn't settle it.
+  const settled = (o) => Buffer.from(JSON.stringify(o)).toString('base64');
+  assert.equal(reasonOf(res({ 'payment-response': settled({ success: false, errorReason: 'insufficient_balance', network: 'eip155:8453' }) }), '{}'), 'settlement failed: insufficient_balance');
+  assert.equal(reasonOf(res({ 'x-payment-response': settled({ success: false, network: 'eip155:8453' }) }), '{}'), 'settlement failed (no reason given)');
+  assert.equal(reasonOf(res({ 'payment-response': settled({ success: true, transaction: '0xabc', network: 'eip155:8453' }) }), '{"error":"upstream timeout"}'), 'upstream timeout', 'settled, then failed: the answer\'s own error');
+  assert.equal(reasonOf(res({ 'payment-response': 'not base64 json', 'payment-required': pr }), '{}'), 'insufficient_funds');
 });
 
 test('the declared example input is sent even without a path template', async () => {

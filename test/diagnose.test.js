@@ -1142,6 +1142,29 @@ test('Bazaar example without a route template: replayed on the listed URL with i
   assert.equal(seen.length, before, 'no request sent without an example');
 });
 
+test('Bazaar routeTemplate that is not a path, or with a :param without a value: a warning, and the listed URL instead', async () => {
+  const { checkBazaar, routeTemplateProblem, exampleRequest } = require('../lib/diagnose');
+  const input = { type: 'http', method: 'GET', queryParams: {}, pathParams: {} };
+  assert.match(routeTemplateProblem({ routeTemplate: ':var1', info: { input } }), /":var1" is not a path/);
+  assert.match(routeTemplateProblem({ routeTemplate: '/coin/:id/:range', info: { input: { ...input, pathParams: { id: 'btc' } } } }), /has :range without a value/);
+  assert.equal(routeTemplateProblem({ routeTemplate: '/signal/:pair', info: { input: { ...input, pathParams: { pair: 'BTC-USDT' } } } }), null);
+  assert.equal(routeTemplateProblem({ info: { input } }), null, 'no template, nothing to say');
+
+  // Seen in the wild (riddlex402.vercel.app): routeTemplate ":var1" made the check fail with "Invalid URL".
+  const bz = declareDiscoveryExtension({ method: 'GET', output: { example: { riddle: 'r' } } }).bazaar;
+  const broken = { ...bz, routeTemplate: ':var1' };
+  const seen = [];
+  const checks = [];
+  await checkBazaar({ extensions: { bazaar: broken } }, 'https://riddle.example', async (url) => { seen.push(url); return new Response(null, { status: 402 }); }, checks, 'https://riddle.example/api/riddle');
+  const byId = Object.fromEntries(checks.map((c) => [c.id, c]));
+  assert.equal(byId['bazaar-route'].status, 'warn');
+  assert.match(byId['bazaar-route'].message, /routeTemplate ":var1" is not a path/);
+  assert.equal(seen.length, 0, 'no example values: nothing replayed');
+  // With example values the listed URL stands in for the broken template (also for the spot-buy).
+  const withQuery = { ...broken, info: { ...broken.info, input: { ...broken.info.input, queryParams: { level: 'easy' } } } };
+  assert.deepEqual(exampleRequest('https://riddle.example/api/riddle', withQuery), { url: 'https://riddle.example/api/riddle?level=easy', method: 'GET' });
+});
+
 test('BNB Chain: 18-decimal dollar tokens, EIP-3009 vs Permit2, the token domain and a 6-decimal amount', () => {
   const checks = [];
   const payTo = '0x408C4610F6879a75c25722cfCd18A2Eff99dc20F';
