@@ -315,12 +315,15 @@ card (`scripts/hf-export.js`). It needs the repository secret `HF_TOKEN` (a Hugg
   left the wallet is measured on chain (its USDC balance before and after), and the seller's `PAYMENT-RESPONSE` is
   checked against the chain. Each result is `delivered`, `off_schema` (an answer that doesn't match the declared
   output schema), `empty`, `charged_not_delivered`, `payment_rejected`, `error_not_charged` or `payment_failed`;
-  the run is appended to the `spot-data` branch (`latest.json`, `results/<date>.json`). It pays only with the secret
+  the run is appended to the `spot-data` branch (`latest.json`, `results/<date>.json`, a second run that day as `results/<date>-2.json`). It pays only with the secret
   `SPOT_BUY_KEY`, a dedicated wallet holding a few USDC; without it every run is a dry run that pays nothing.
   The latest run is on `/trust` ("Paid and delivered?") and at `GET /api/trust/spot` (summary and every purchase, no
   wallet details); `GET /api/trust?url=…` adds `spot_buy` when that endpoint was bought in it (`lib/spot-results.js`).
   The paid pre-payment check adds the same as `signals.spot_buy`, and a `caution` (`charged_without_answer`) when the
-  endpoint took the payment for the example request its own listing declares and answered with an error.
+  endpoint took the payment for the example request its own listing declares and answered with an error or not within
+  90 seconds. Each purchase also records its answer time (`answer_s`, from the first request to the paid answer): the
+  summary counts answers slower than 30 seconds (`slow_answers`, and `delivered_within_30s_pct`, what an agent that
+  waits 30 seconds gets), and a slow one adds `slow_after_payment` (info) to the pre-payment check.
   The same wallet makes one other kind of payment, started by hand: [`index-payment.yml`](.github/workflows/index-payment.yml)
   pays our own fizzl.eu routes (`scripts/index-payment.js`), because the CDP Bazaar lists a route only after a payment
   for it settles and drops it after 30 days without one. `stale` (the default) pays each of our 16 routes whose last

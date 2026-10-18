@@ -10,7 +10,7 @@ const { ExactEvmScheme } = require('@x402/evm/exact/client');
 const { createSafeFetch } = require('../lib/safe-fetch');
 const { createSanctions } = require('../lib/sanctions');
 const { recordPayments } = require('../lib/spot-wallet');
-const { selectCandidates, runSpotBuy, classify, reasonOf, cacheRisk, exampleRequest, isoWeek, ownTarget, INDEX_PAYMENT, indexCapFor, staleRoutes, LIMITS, USER_AGENT } = require('../lib/spot-buy');
+const { selectCandidates, runSpotBuy, classify, summarize, reasonOf, cacheRisk, exampleRequest, isoWeek, ownTarget, INDEX_PAYMENT, indexCapFor, staleRoutes, LIMITS, USER_AGENT } = require('../lib/spot-buy');
 
 const BASE = 'eip155:8453';
 const USDC = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
@@ -209,6 +209,20 @@ test('reasonOf: the 402 error, a JSON error field or object, else the start of t
   assert.equal(reasonOf(res({ 'x-payment-response': settled({ success: false, network: 'eip155:8453' }) }), '{}'), 'settlement failed (no reason given)');
   assert.equal(reasonOf(res({ 'payment-response': settled({ success: true, transaction: '0xabc', network: 'eip155:8453' }) }), '{"error":"upstream timeout"}'), 'upstream timeout', 'settled, then failed: the answer\'s own error');
   assert.equal(reasonOf(res({ 'payment-response': 'not base64 json', 'payment-required': pr }), '{}'), 'insufficient_funds');
+});
+
+test('answer time: answers slower than 30 s are counted apart; a timeout after paying is marked', () => {
+  const r = (result, ms, extra = {}) => ({ host: `${result}-${ms}.example`, step: 'paid', result, ms, ...extra });
+  const results = [r('delivered', 2000), r('delivered', 4000), r('delivered', 34000), r('off_schema', 6000), r('error_not_charged', 1000),
+    { host: 'slow.example', step: 'pay', result: 'charged_not_delivered', charged_usd: 0.05, timed_out: true, ms: 90010 }];
+  const s = summarize(results, 0.2, true);
+  assert.equal(s.bought, 6);
+  assert.deepEqual(s.slow_answers, { over_s: 30, count: 1, hosts: ['delivered-34000.example'] });
+  assert.equal(s.delivered_within_30s_pct, 50, '3 of 6 purchases answered within 30 s');
+  assert.equal(s.paid_and_delivered_pct, 66.7, 'the slow answer still counts as delivered');
+  assert.equal(s.answer_s_median, 5, 'median of 2, 4, 6 and 34 s');
+  assert.deepEqual(s.charged_without_answer, { count: 1, usd: 0.05, timed_out: 1 });
+  assert.equal(summarize([], 0, true).answer_s_median, null);
 });
 
 test('the declared example input is sent even without a path template', async () => {

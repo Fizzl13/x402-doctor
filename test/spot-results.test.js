@@ -9,7 +9,7 @@ const report = {
   summary: { live: true, sampled: 3, bought: 2, outcomes: { delivered: 1, charged_not_delivered: 1 }, paid_and_delivered_pct: 50, charged_without_answer: { count: 1, usd: 0.01 }, spent_usd: 0.02 },
   results: [
     { url: 'https://a.example/v1/price', host: 'a.example', step: 'paid', result: 'delivered', price_usd: 0.01, charged_usd: 0.01, status: 200, request: { source: 'example' }, proof: { overall: 'pass', explorer: 'https://basescan.org/tx/0x1' }, preflight: { verdict: 'go' } },
-    { url: 'https://b.example/run', host: 'b.example', step: 'paid', result: 'charged_not_delivered', price_usd: 0.01, charged_usd: 0.01, status: 422, reason: 'missing json_schema', request: { source: 'plain' }, proof: null },
+    { url: 'https://b.example/run', host: 'b.example', step: 'paid', result: 'charged_not_delivered', price_usd: 0.01, charged_usd: 0.01, status: 422, reason: 'missing json_schema', request: { source: 'plain' }, proof: null, ms: 1234 },
     { url: 'https://c.example/x', host: 'c.example', step: 'probe', result: 'not_402_now' },
   ],
 };
@@ -22,6 +22,8 @@ test('viewOf: the summary and only the purchases, without the wallet; dry runs a
   assert.deepEqual(v.purchases.map((p) => [p.host, p.result, p.request]), [['a.example', 'delivered', 'example'], ['b.example', 'charged_not_delivered', 'plain']]);
   assert.equal(v.purchases[0].explorer, 'https://basescan.org/tx/0x1');
   assert.equal(v.purchases[1].reason, 'missing json_schema');
+  assert.equal(v.purchases[1].answer_s, 1.2, 'answer time in seconds');
+  assert.equal(v.purchases[0].answer_s, null, 'no time measured');
   assert.equal(JSON.stringify(v).includes('aaaa'), false, 'the wallet address is left out');
   assert.equal(viewOf({ ...report, summary: { ...report.summary, live: false } }), null);
 });
