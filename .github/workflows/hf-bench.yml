@@ -75,7 +75,7 @@ jobs:
           api.create_repo(repo, repo_type="dataset", exist_ok=True)
           api.upload_folder(repo_id=repo, repo_type="dataset", folder_path="hf-bench", commit_message="Agent Safety Bench results")
           api.create_repo(repo, repo_type="space", space_sdk="static", exist_ok=True)
-          api.upload_folder(repo_id=repo, repo_type="space", folder_path="hf-space", commit_message="Leaderboard")
+          api.upload_folder(repo_id=repo, repo_type="space", folder_path="hf-space", commit_message="Leaderboard", delete_patterns=["style.css"])  # the template's unused stylesheet
           PY
           echo "Published https://huggingface.co/datasets/$REPO and https://huggingface.co/spaces/$REPO" >> "$GITHUB_STEP_SUMMARY"
       - name: Collection
@@ -83,7 +83,7 @@ jobs:
         env:
           REPO: ${{ steps.repo.outputs.repo }}
         run: |
-          python - <<'PY' || echo "Collection skipped (the token may not write collections)." >> "$GITHUB_STEP_SUMMARY"
+          python - <<'PY' 2> collection-error.txt || { cat collection-error.txt; echo "::warning title=Collection skipped::$(tail -n 1 collection-error.txt | cut -c1-300)"; }
           import os
           from huggingface_hub import add_collection_item, create_collection
           repo = os.environ["REPO"]
