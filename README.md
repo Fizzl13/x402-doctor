@@ -307,6 +307,11 @@ verdict, reasons, price, networks, category and history), `data/daily.csv` (go /
 (`scripts/hf-export.js`). It also keeps the dataset in the Hugging Face collection "x402 agent payments" when the token
 may write collections. It needs the repository secret `HF_TOKEN` (a Hugging Face write token); the variable
 `HF_DATASET` overrides the dataset name.
+[`hf-bench.yml`](.github/workflows/hf-bench.yml) publishes the
+[x402 Agent Safety Bench](https://github.com/Fizzl13/x402-examples/tree/main/agent-safety-bench) the same way
+(`scripts/hf-bench.js`): a dataset `x402-agent-safety-bench` with every run and its transcript (from x402-examples'
+`bench-data` branch), the published tables as `leaderboard.csv`, and a static leaderboard Space of the same name. It
+runs when the script changes, every Monday and by hand; the variable `HF_BENCH_REPO` overrides the name.
 
 - The pre-payment check adds `signals.track_record` and a `caution` (`unreliable_history`) when a seller was
   payable on fewer than half of at least 3 scanned days.
