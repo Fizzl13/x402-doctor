@@ -82,6 +82,9 @@ test('payTo: names the likely cause (quotes, wrong chain) and validates at start
   assert.match(code(fix(quoted, 'payto')), /0x\[0-9a-fA-F\]\{40\}/);
   const solana = buildFixes(report({ accepts: [{ network: BASE, amount: '10000', payTo: 'ATWJ82T8nRdQwZnaysB68N5EpaSvLRsQP4h6eWmaJBH9' }], checks: [{ id: 'accepts[0]-payto', status: 'fail', message: 'payTo invalid' }] }));
   assert.match(fix(solana, 'payto').why, /Solana address on an EVM network/);
+  const zero = buildFixes(report({ accepts: [{ network: BASE, amount: '10000', payTo: '0x0000000000000000000000000000000000000000' }], checks: [{ id: 'accepts[0]-payto', status: 'fail', message: 'payTo is the zero address.' }] }));
+  assert.equal(fix(zero, 'payto').title, 'Set payTo to your own wallet');
+  assert.match(code(fix(zero, 'payto')), /0x0\{40\}/);
 });
 
 test('legacy network name -> CAIP-2', () => {

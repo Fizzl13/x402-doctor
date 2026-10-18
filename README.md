@@ -33,7 +33,7 @@ the medicine, the exact code that fixes each problem for your stack, in the brow
 | | `mcp-tool-poisoning` | Hidden orders for the agent in tool descriptions (tool poisoning): hidden Unicode characters, `<IMPORTANT>` blocks, reading `~/.ssh` or `.env`, "do not tell the user", sending the maximum USDC (code rules), then TypeSafe Jev per tool (with `TYPESAFE_API_KEY`). A sure finding is `warn`, an unsure one `info`. Calibrated on 755 tools of 96 servers from the official MCP registry: no false alarm, and five made-up poisoned tools all caught |
 | | `mcp-payment-text`, `mcp-payment-structured` | The requirement only in `structuredContent` (the x402 MCP transport requires JSON text in `content[0]`), or only as text (structuredContent preferred) |
 | Payment options | `accepts[i]-scheme`, `-network` | Missing scheme; legacy names like `base` / `solana:mainnet` instead of CAIP-2 |
-| | `accepts[i]-payto`, `-asset` | Invalid EVM, Solana, XRPL or Algorand addresses (XRPL and Algorand with their checksums); asset that is not USDC, or USDC of another network (e.g. Base Sepolia USDC on Base); on Algorand an asset that is not an ASA id (USDC is ASA 31566704); on XRPL an XRP amount that isn't in drops, or "RLUSD" from another issuer than Ripple's |
+| | `accepts[i]-payto`, `-asset` | Invalid EVM, Solana, XRPL or Algorand addresses (XRPL and Algorand with their checksums); a payTo that is a placeholder nobody holds a key for (the zero address, which USDC refuses, `0x…dEaD`, or Solana's System Program or incinerator), also as an MPP `recipient`; asset that is not USDC, or USDC of another network (e.g. Base Sepolia USDC on Base); on Algorand an asset that is not an ASA id (USDC is ASA 31566704); on XRPL an XRP amount that isn't in drops, or "RLUSD" from another issuer than Ripple's |
 | | `accepts[i]-amount` | Decimal dollar amounts (`"0.02"`) instead of atomic units, zero or non-integer amounts |
 | | Stellar options | x402 `exact` on Stellar (`stellar:pubnet`, `@x402/stellar`): payTo a G…, C… or M… address with a valid StrKey checksum, asset a Soroban token contract (USDC is `CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75`; `"USDC"` or a testnet contract fails), a positive integer amount (USDC has 7 decimals: `100000` is $0.01) and `extra.areFeesSponsored: true`, without which the client refuses |
 | | `aws-test-mode` | A 402 served through Amazon CloudFront that offers only testnets (info): AWS WAF Monetize left in Test currency mode |
@@ -123,7 +123,7 @@ call it before your agent pays an x402 endpoint it has not used before. It never
 
 | Verdict | When |
 |---|---|
-| `no_go` | No 402 or no valid challenge; every option would fail to settle (bad payTo/amount, missing fee payer or EIP-712 domain, Solana payout wallet without a token account); cheapest option above `max_usd`; no payable option on the requested `network` |
+| `no_go` | No 402 or no valid challenge; every option would fail to settle (bad payTo/amount, a payTo that is the zero or another burn address (`payto_burn`, caution when another option is payable), missing fee payer or EIP-712 domain, Solana payout wallet without a token account); cheapest option above `max_usd`; no payable option on the requested `network` |
 | `caution` | Charges more than its OpenAPI advertises; not HTTPS; not a known USDC (or BNB Chain dollar token) contract; decimal amount, or a 6-decimal amount on an 18-decimal token; resource URL differs from the requested URL; testnet only; bait (below); 20x or more above comparable services (below) |
 | `go` | None of the above. `recommended_option` is the cheapest payable USDC option (on `network` if given); at the same price, one every x402 client can pay (EIP-3009, not Permit2) and USDC before other dollar tokens |
 
@@ -339,6 +339,11 @@ card (`scripts/hf-export.js`). It needs the repository secret `HF_TOKEN` (a Hugg
   (`payto_sanctioned`, with the SDN entry), in the paid check and in the daily scan; `signals.sanctions` says what was
   screened and against which publication. `summary.json` counts the scanned resources that pay out to a listed address
   (`payto_sanctioned`). Without the list nothing is judged (`signals.sanctions.unavailable`).
+- **Burn addresses.** A payout address nobody holds a key for, mostly a placeholder left in the config, makes that
+  option unpayable: the zero address (USDC refuses the transfer), `0x000000000000000000000000000000000000dEaD`, and on
+  Solana the System Program or the incinerator. The pre-payment check says `payto_burn`: `no_go` when no other option
+  is payable, `caution` otherwise (a client that signs the first option it can would pay the broken one).
+  `summary.json` counts them (`payto_burn`).
 - `GET /api/trust?url=<resource>` (free, 30/min per IP): the track record of one resource.
   `POST /api/trust/batch` with `{"urls": [...]}` (free, up to 100 URLs, 10 calls/min per IP): the same for many at once,
   in the order sent (`found: false` for a URL the index doesn't have), with the index's `days` and `updated` once at the
