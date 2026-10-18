@@ -10,7 +10,8 @@ name: Spot-buy sample
 #
 # GitHub sometimes skips or delays a scheduled run, so two backup schedules follow the Sunday one. Every scheduled
 # run first looks at the spot-data branch and stands down when a run since the last Sunday is already there, so a
-# week is bought once. A run started by hand always buys (unless it is a dry run).
+# week is bought once. A run started by hand does the same (on 18 October a late scheduled run and a manual one
+# bought the same sample twice), unless force is on; a dry run always goes ahead, since it pays nothing.
 on:
   schedule:
     - cron: "41 12 * * 0" # Sundays 12:41 UTC
@@ -22,6 +23,10 @@ on:
         description: "Dry run: everything up to the payment, nothing paid or published"
         type: boolean
         default: true
+      force:
+        description: "Buy even if this week's sample was already bought"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -45,9 +50,11 @@ jobs:
           if git fetch -q --depth 1 origin spot-data 2>/dev/null; then last=$(git show FETCH_HEAD:latest.json | jq -r '.date // "none"'); fi
           sunday=$(date -u -d "-$(date -u +%w) days" +%F)
           echo "Last published run: $last. This week started on Sunday $sunday."
-          if [ "${{ github.event_name }}" = "schedule" ] && [ "$last" != "none" ] && [[ ! "$last" < "$sunday" ]]; then
+          manual_ok=false
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && { [ "${{ github.event.inputs.force }}" = "true" ] || [ "${{ github.event.inputs.dry_run }}" = "true" ]; }; then manual_ok=true; fi
+          if [ "$manual_ok" = "false" ] && [ "$last" != "none" ] && [[ ! "$last" < "$sunday" ]]; then
             echo "buy=false" >> "$GITHUB_OUTPUT"
-            echo "Already bought this week (run of $last): nothing to do." >> "$GITHUB_STEP_SUMMARY"
+            echo "Already bought this week (run of $last): nothing to do. To buy again anyway, start it by hand with force on." >> "$GITHUB_STEP_SUMMARY"
           else
             echo "buy=true" >> "$GITHUB_OUTPUT"
           fi
@@ -93,7 +100,12 @@ jobs:
           fi
           mkdir -p results
           cp ../spot-data/latest.json latest.json
-          for f in ../spot-data/20*.json; do cp "$f" results/; done
+          # A second run on the same day (force) is kept next to the first, never over it.
+          for f in ../spot-data/20*.json; do
+            base=$(basename "$f" .json); dest="results/$base.json"; n=2
+            while [ -e "$dest" ]; do dest="results/$base-$n.json"; n=$((n+1)); done
+            cp "$f" "$dest"
+          done
           cat > README.md <<'MD'
           # x402 spot-buy sample
 
