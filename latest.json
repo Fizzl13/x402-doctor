@@ -1,7 +1,7 @@
 {
   "date": "2026-10-18",
-  "started_at": "2026-10-18T16:08:52.573Z",
-  "finished_at": "2026-10-18T16:12:59.697Z",
+  "started_at": "2026-10-18T16:13:50.235Z",
+  "finished_at": "2026-10-18T16:17:11.850Z",
   "seed": "2026-10-18",
   "index_date": "2026-10-18",
   "rules": {
@@ -30,18 +30,18 @@
     },
     "bought": 27,
     "outcomes": {
-      "delivered": 19,
+      "delivered": 20,
       "off_schema": 0,
       "empty": 0,
-      "charged_not_delivered": 1,
+      "charged_not_delivered": 0,
       "payment_rejected": 4,
       "error_not_charged": 3,
       "payment_failed": 0
     },
-    "paid_and_delivered_pct": 70.4,
+    "paid_and_delivered_pct": 74.1,
     "charged_without_answer": {
-      "count": 1,
-      "usd": 0.05
+      "count": 0,
+      "usd": 0
     },
     "errors_not_charged": {
       "with_example": 2,
@@ -82,10 +82,10 @@
       "body_bytes": 939,
       "proof": {
         "overall": "pass",
-        "transaction": "0x80c2f74a287fa50434dd6cc40f063e045cd48fad160472ccc02f01f5d0d49757",
-        "explorer": "https://basescan.org/tx/0x80c2f74a287fa50434dd6cc40f063e045cd48fad160472ccc02f01f5d0d49757"
+        "transaction": "0x20189d5bbc21b8b86484c17ca465eb7cb5ef2ced489b236263af0388f48dc89b",
+        "explorer": "https://basescan.org/tx/0x20189d5bbc21b8b86484c17ca465eb7cb5ef2ced489b236263af0388f48dc89b"
       },
-      "ms": 4447
+      "ms": 4412
     },
     {
       "url": "https://machine.soundiq.io/storefront/v1/capabilities/hash.compute/1.0.0/invoke",
@@ -110,10 +110,10 @@
       "body_bytes": 1851,
       "proof": {
         "overall": "pass",
-        "transaction": "0x7b43ba14b815704f4b6fd79c7bcf581064b7b638e56c6f46351e5cba1097ad55",
-        "explorer": "https://basescan.org/tx/0x7b43ba14b815704f4b6fd79c7bcf581064b7b638e56c6f46351e5cba1097ad55"
+        "transaction": "0xabd20ffb335777b42c6d4db01498ae25d00dd43a75c420b6884541c3aff3c24a",
+        "explorer": "https://basescan.org/tx/0xabd20ffb335777b42c6d4db01498ae25d00dd43a75c420b6884541c3aff3c24a"
       },
-      "ms": 5971
+      "ms": 6030
     },
     {
       "url": "https://riddlex402.vercel.app/api/riddle",
@@ -142,7 +142,7 @@
         "transaction": null,
         "explorer": null
       },
-      "ms": 9460
+      "ms": 9480
     },
     {
       "url": "https://jsonrecon.com/extract",
@@ -164,17 +164,17 @@
       "result": "delivered",
       "status": 200,
       "charged_usd": 0.01,
-      "body_bytes": 1951,
+      "body_bytes": 1949,
       "cache": {
         "cache_control": "private",
         "shared_cache": "no"
       },
       "proof": {
         "overall": "pass",
-        "transaction": "0xbba9b949a1062a3e37ff77cf3eb95631a2846e654423c58b1828b572f6fa97cd",
-        "explorer": "https://basescan.org/tx/0xbba9b949a1062a3e37ff77cf3eb95631a2846e654423c58b1828b572f6fa97cd"
+        "transaction": "0xd73bd1b2aa2a45ff8bae2d3750352231c9fa5118f6e3455ab0cb846ef8b2f286",
+        "explorer": "https://basescan.org/tx/0xd73bd1b2aa2a45ff8bae2d3750352231c9fa5118f6e3455ab0cb846ef8b2f286"
       },
-      "ms": 5746
+      "ms": 4246
     },
     {
       "url": "https://socialintel.dev/v1/user/:username",
@@ -199,7 +199,7 @@
       "body_bytes": 22,
       "reason": "Not Found",
       "proof": null,
-      "ms": 11505
+      "ms": 10669
     },
     {
       "url": "https://agent-entity-verify.iykykblog.workers.dev/verify",
@@ -224,7 +224,7 @@
       "body_bytes": 13,
       "reason": "404 Not Found",
       "proof": null,
-      "ms": 9765
+      "ms": 10142
     },
     {
       "url": "https://cloud.trycorpus.ai/v1/spot/latest",
@@ -252,7 +252,7 @@
         "shared_cache": "no"
       },
       "proof": null,
-      "ms": 3261
+      "ms": 3303
     },
     {
       "url": "https://api.phoneagent.xyz/countries",
@@ -284,7 +284,7 @@
         "transaction": null,
         "explorer": null
       },
-      "ms": 4303
+      "ms": 4052
     },
     {
       "url": "https://machinemint-native-x402-production.up.railway.app/v1/base-preflight",
@@ -313,10 +313,10 @@
       },
       "proof": {
         "overall": "pass",
-        "transaction": "0xeec563abc8832e5618fcdd9142c9c8e9c6370b2162c80d1f57e7462bf80df527",
-        "explorer": "https://basescan.org/tx/0xeec563abc8832e5618fcdd9142c9c8e9c6370b2162c80d1f57e7462bf80df527"
+        "transaction": "0xc9b807e6bd7a34bf96326b3f7a394f4da614c9080c217f3226a9c8c91a86b099",
+        "explorer": "https://basescan.org/tx/0xc9b807e6bd7a34bf96326b3f7a394f4da614c9080c217f3226a9c8c91a86b099"
       },
-      "ms": 4401
+      "ms": 4730
     },
     {
       "url": "https://x402.tavily.com/search",
@@ -333,7 +333,7 @@
         "codes": []
       },
       "price_usd": 0.01,
-      "pay_to": "0xc70b90b335678b849796384383a1205dd0fcee49",
+      "pay_to": "0x0e1bfd5eb8db8171f077ca485b1609f5b31a7491",
       "step": "paid",
       "result": "payment_rejected",
       "status": 402,
@@ -341,7 +341,7 @@
       "body_bytes": 45,
       "reason": "settlement_failed",
       "proof": null,
-      "ms": 10770
+      "ms": 11065
     },
     {
       "url": "https://stable.lonestaroracle.xyz/pulse",
@@ -363,17 +363,17 @@
       "result": "delivered",
       "status": 200,
       "charged_usd": 0.05,
-      "body_bytes": 18855,
+      "body_bytes": 18852,
       "cache": {
         "cache_control": null,
         "shared_cache": "unspecified"
       },
       "proof": {
         "overall": "pass",
-        "transaction": "0x5ebe7e69e6f7ce219b2e95fe8325183fb6f4f24441f6e21e8b4ec09fd6b92028",
-        "explorer": "https://basescan.org/tx/0x5ebe7e69e6f7ce219b2e95fe8325183fb6f4f24441f6e21e8b4ec09fd6b92028"
+        "transaction": "0xac1851cdfe80eb168cf5eeaadff681a7c8173b273f8baae2b6fed53328947abe",
+        "explorer": "https://basescan.org/tx/0xac1851cdfe80eb168cf5eeaadff681a7c8173b273f8baae2b6fed53328947abe"
       },
-      "ms": 4090
+      "ms": 4118
     },
     {
       "url": "https://readability.openverbs.com/v1/reading-time",
@@ -417,7 +417,7 @@
       "body_bytes": 3731,
       "reason": "Payment required",
       "proof": null,
-      "ms": 9351
+      "ms": 9378
     },
     {
       "url": "https://api.suverse.io/v1/gov",
@@ -442,10 +442,10 @@
       "body_bytes": 687,
       "proof": {
         "overall": "pass",
-        "transaction": "0xc3f00904a438a9cdd75008b5065d7fd80763dad51501a20a747ba015225d90e8",
-        "explorer": "https://basescan.org/tx/0xc3f00904a438a9cdd75008b5065d7fd80763dad51501a20a747ba015225d90e8"
+        "transaction": "0x6091f26ad8ca640adcec35a14fe39134cf0cac2a5424271dd596a4480d960695",
+        "explorer": "https://basescan.org/tx/0x6091f26ad8ca640adcec35a14fe39134cf0cac2a5424271dd596a4480d960695"
       },
-      "ms": 5793
+      "ms": 5419
     },
     {
       "url": "https://holidays.use.x402atlas.com/list",
@@ -474,10 +474,10 @@
       },
       "proof": {
         "overall": "pass",
-        "transaction": "0x0901245f314c2a0a49ae4666ab0e0fc61349493c741e2c9f76825942a70981eb",
-        "explorer": "https://basescan.org/tx/0x0901245f314c2a0a49ae4666ab0e0fc61349493c741e2c9f76825942a70981eb"
+        "transaction": "0x5e826b2156c8a5b5fddb2854bff07342ab65416a53073724481c8b8ee082786e",
+        "explorer": "https://basescan.org/tx/0x5e826b2156c8a5b5fddb2854bff07342ab65416a53073724481c8b8ee082786e"
       },
-      "ms": 4588
+      "ms": 4493
     },
     {
       "url": "https://api.orioncmd.com/v1/threat-check",
@@ -506,10 +506,10 @@
       },
       "proof": {
         "overall": "pass",
-        "transaction": "0x4663ace37e3df642f2f55dcecdb99d30b83a08977419ecbd296f58bc5bbf76f0",
-        "explorer": "https://basescan.org/tx/0x4663ace37e3df642f2f55dcecdb99d30b83a08977419ecbd296f58bc5bbf76f0"
+        "transaction": "0x59bff3af361b16e8e6f5fd73312f22f1cfdfc73ca672c306ccec751ded282217",
+        "explorer": "https://basescan.org/tx/0x59bff3af361b16e8e6f5fd73312f22f1cfdfc73ca672c306ccec751ded282217"
       },
-      "ms": 5598
+      "ms": 5750
     },
     {
       "url": "https://theartillerist.com/api/v1/x402-trial",
@@ -538,10 +538,10 @@
       },
       "proof": {
         "overall": "pass",
-        "transaction": "0x579ae3683a20ebe04984271913fab5d004a52f03e28be90731db6186b0c87753",
-        "explorer": "https://basescan.org/tx/0x579ae3683a20ebe04984271913fab5d004a52f03e28be90731db6186b0c87753"
+        "transaction": "0x697f934fae87c73da86d81c19da90857343f008b108458b81cf1c0cd8d3e7bea",
+        "explorer": "https://basescan.org/tx/0x697f934fae87c73da86d81c19da90857343f008b108458b81cf1c0cd8d3e7bea"
       },
-      "ms": 5509
+      "ms": 4726
     },
     {
       "url": "https://marketplaceforaiagents.com/api/public/v1/amazon-search",
@@ -566,7 +566,7 @@
       "body_bytes": 58,
       "reason": "missing_required_parameters",
       "proof": null,
-      "ms": 10047
+      "ms": 9673
     },
     {
       "url": "https://agentcash-fortune-demo3.vercel.app/api/fortune",
@@ -588,13 +588,13 @@
       "result": "delivered",
       "status": 200,
       "charged_usd": 0.001,
-      "body_bytes": 88,
+      "body_bytes": 100,
       "proof": {
         "overall": "pass",
-        "transaction": "0x08cbaf1ff5d45a904ece2766d34260c4b5afb62bd9c3a4ecb6a6c3046d256ddb",
-        "explorer": "https://basescan.org/tx/0x08cbaf1ff5d45a904ece2766d34260c4b5afb62bd9c3a4ecb6a6c3046d256ddb"
+        "transaction": "0x86972d3e5cc4ad60b9c54f1546df7df911c61b29b5ec4e1f09b407443827909c",
+        "explorer": "https://basescan.org/tx/0x86972d3e5cc4ad60b9c54f1546df7df911c61b29b5ec4e1f09b407443827909c"
       },
-      "ms": 3874
+      "ms": 4050
     },
     {
       "url": "https://otp.openverbs.com/v1/verify",
@@ -631,11 +631,21 @@
       },
       "price_usd": 0.05,
       "pay_to": "0x50ab2018c06c6E4eAA9BA52057Eb55eD284912fc",
-      "step": "pay",
-      "result": "charged_not_delivered",
-      "error": "The operation was aborted due to timeout",
+      "step": "paid",
+      "result": "delivered",
+      "status": 200,
       "charged_usd": 0.05,
-      "ms": 45029
+      "body_bytes": 13647,
+      "cache": {
+        "cache_control": "private, no-store",
+        "shared_cache": "no"
+      },
+      "proof": {
+        "overall": "pass",
+        "transaction": "0xd1c1b27bd9f16ae9b47040d7273e7fd33f3e348809590b495e499b29d1907cbc",
+        "explorer": "https://basescan.org/tx/0xd1c1b27bd9f16ae9b47040d7273e7fd33f3e348809590b495e499b29d1907cbc"
+      },
+      "ms": 4049
     },
     {
       "url": "https://brokenkey-api-link-ruby.vercel.app/api/brokenkeyremapperlink",
@@ -664,7 +674,7 @@
         "transaction": null,
         "explorer": null
       },
-      "ms": 9529
+      "ms": 9534
     },
     {
       "url": "https://straits.live/api/premium/snapshot",
@@ -693,10 +703,10 @@
       },
       "proof": {
         "overall": "pass",
-        "transaction": "0xe1cdc22c3863bd9c94d5d10d137f9017f97e0ded2dfa5ece04c292845963af74",
-        "explorer": "https://basescan.org/tx/0xe1cdc22c3863bd9c94d5d10d137f9017f97e0ded2dfa5ece04c292845963af74"
+        "transaction": "0x074e05d69453be97188e5dc464ba441d2ebe8fad658dde025fba62820c0cc52c",
+        "explorer": "https://basescan.org/tx/0x074e05d69453be97188e5dc464ba441d2ebe8fad658dde025fba62820c0cc52c"
       },
-      "ms": 4896
+      "ms": 4645
     },
     {
       "url": "https://wikidata.openverbs.com/v1/entity",
@@ -740,10 +750,10 @@
       "body_bytes": 1417,
       "proof": {
         "overall": "pass",
-        "transaction": "0x57c30d33f4ede77717936b373783757069abde56fd104a4f5bf6a92af967201c",
-        "explorer": "https://basescan.org/tx/0x57c30d33f4ede77717936b373783757069abde56fd104a4f5bf6a92af967201c"
+        "transaction": "0xeaf15273b491a37adbfc7b3ae8eeb2792feef1a42e535b5407bcdaa88910033c",
+        "explorer": "https://basescan.org/tx/0xeaf15273b491a37adbfc7b3ae8eeb2792feef1a42e535b5407bcdaa88910033c"
       },
-      "ms": 4894
+      "ms": 4642
     },
     {
       "url": "https://x402-paid-mcp.vercel.app/api/v1/sha256",
@@ -768,10 +778,10 @@
       "body_bytes": 206,
       "proof": {
         "overall": "pass",
-        "transaction": "0x13e9165902574fbd2e8486b9dde85221b6afc658651aa69740df0020d560351f",
-        "explorer": "https://basescan.org/tx/0x13e9165902574fbd2e8486b9dde85221b6afc658651aa69740df0020d560351f"
+        "transaction": "0xdf1d460513b7ef68eeac0c87c48e1895ef0854d0af108b58e98256efae1ca5ac",
+        "explorer": "https://basescan.org/tx/0xdf1d460513b7ef68eeac0c87c48e1895ef0854d0af108b58e98256efae1ca5ac"
       },
-      "ms": 4952
+      "ms": 5037
     },
     {
       "url": "https://api.myceliasignal.com/oracle/liq-flow/btc",
@@ -800,10 +810,10 @@
       },
       "proof": {
         "overall": "pass",
-        "transaction": "0x558a2cf6766d77ff6485942f2790690d60de26235688a58a5ef644a0e27d2718",
-        "explorer": "https://basescan.org/tx/0x558a2cf6766d77ff6485942f2790690d60de26235688a58a5ef644a0e27d2718"
+        "transaction": "0x0cc0af418cd1cc40d1007a9d05d4debf1dfe163ac4152db8d5e25943bff1d260",
+        "explorer": "https://basescan.org/tx/0x0cc0af418cd1cc40d1007a9d05d4debf1dfe163ac4152db8d5e25943bff1d260"
       },
-      "ms": 5638
+      "ms": 5068
     },
     {
       "url": "https://www.trezalabs.com/api/x402/speech",
@@ -828,10 +838,10 @@
       "body_bytes": 1300,
       "proof": {
         "overall": "pass",
-        "transaction": "0xc0c028c6cfd711b832226ac5359d0ebddd7e9c63f2d777e4705ddec3f37e014c",
-        "explorer": "https://basescan.org/tx/0xc0c028c6cfd711b832226ac5359d0ebddd7e9c63f2d777e4705ddec3f37e014c"
+        "transaction": "0x02cd0746ce6d09a67e2cbce1ee28459a30143a25c9d50436c9c9f0f1bbc4fa90",
+        "explorer": "https://basescan.org/tx/0x02cd0746ce6d09a67e2cbce1ee28459a30143a25c9d50436c9c9f0f1bbc4fa90"
       },
-      "ms": 7093
+      "ms": 5711
     },
     {
       "url": "https://edgar-search.x402.paywithlocus.com/edgar-search/search",
@@ -853,13 +863,13 @@
       "result": "delivered",
       "status": 200,
       "charged_usd": 0.008,
-      "body_bytes": 62353,
+      "body_bytes": 62354,
       "proof": {
         "overall": "pass",
-        "transaction": "0xc90496165ef146b6ee7d84aeccc7a1b39f2595cd87b9c9b70e6335b703671d15",
-        "explorer": "https://basescan.org/tx/0xc90496165ef146b6ee7d84aeccc7a1b39f2595cd87b9c9b70e6335b703671d15"
+        "transaction": "0xd4cac0359a61e1572ec5ba7dec65a4ccbb66abe65de92d067ab3a88275bab6a2",
+        "explorer": "https://basescan.org/tx/0xd4cac0359a61e1572ec5ba7dec65a4ccbb66abe65de92d067ab3a88275bab6a2"
       },
-      "ms": 4981
+      "ms": 2342
     },
     {
       "url": "https://dnsdoctor.dev/api/v1/bulk-scan",
@@ -884,10 +894,10 @@
       "body_bytes": 6082,
       "proof": {
         "overall": "pass",
-        "transaction": "0xbc9ac65151be89612dfbf404058ddaddfac29a4ed96d46a42aa81ce5a80a28c0",
-        "explorer": "https://basescan.org/tx/0xbc9ac65151be89612dfbf404058ddaddfac29a4ed96d46a42aa81ce5a80a28c0"
+        "transaction": "0xc9e1ec862ee3084aa68663ca3a0cb408dc8e1ad8332839b3bf3ec958a300bd1d",
+        "explorer": "https://basescan.org/tx/0xc9e1ec862ee3084aa68663ca3a0cb408dc8e1ad8332839b3bf3ec958a300bd1d"
       },
-      "ms": 5152
+      "ms": 4933
     }
   ]
 }
