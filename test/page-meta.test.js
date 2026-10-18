@@ -64,6 +64,8 @@ test('today\'s numbers in the HTML of /trust and the network pages, for crawlers
   const trust = await (await fetch(`${base}/trust`)).text();
   assert.ok(trust.includes(headline));
   assert.ok(!trust.includes("Loading today's scan…"));
+  const dataset = JSON.parse(trust.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]);
+  assert.deepEqual([dataset['@type'], dataset.dateModified, dataset.temporalCoverage], ['Dataset', '2026-10-18', '2026-10-17/2026-10-18']);
   const stellar = await (await fetch(`${base}/stellar`)).text();
   assert.match(stellar, /<div class="k">Endpoints<\/div><div class="v">1,631<\/div>.*Payable on Stellar now<\/div><div class="v">1,584<\/div>.*Sellers<\/div><div class="v">3<\/div>.*Distinct services<\/div><div class="v">599<\/div>/s);
   assert.match(stellar, /<p class="note" id="updated">From the daily scan of 2026-10-18\.<\/p>/);

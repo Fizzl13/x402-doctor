@@ -25,6 +25,7 @@ test('byNetwork: endpoints offering XRPL, payable or not and why, grouped per se
       c: { url: 'https://x.run.app/c', m: 'GET', h: 'g', last: { verdict: 'go', networks: ['xrpl:0'] } },
       d: { url: 'https://base.only/d', m: 'GET', h: 'g', last: { verdict: 'go', networks: ['eip155:8453'] } },
       e: { url: 'https://mpp.example/e', p: 'mpp', h: 'g', last: { verdict: 'go', networks: ['xrpl:0'] } },
+      f: { url: 'https://gone.example/f', m: 'GET', h: 'g-', last: { verdict: 'go', networks: ['xrpl:0'] } }, // not in the latest scan
     },
   };
   const ti = createTrustIndex({ url: 'http://index.test', fetchImpl: async () => new Response(JSON.stringify(index)) });
