@@ -51,6 +51,7 @@ test('trust index: seller() sums up the other resources on the same origin', asy
       'https://s.example/a': { h: 'ggg' },
       'https://s.example/b': { h: 'nnn' },
       'https://s.example/c': { h: '-gn' },
+      'https://s.example/d': { h: 'gg-' }, // missing from the latest scan: seen, but not payable now
       'https://s.example.evil/a': { h: 'ggg' },
       'https://other.example/a': { h: 'ggg' },
     },
@@ -58,6 +59,6 @@ test('trust index: seller() sums up the other resources on the same origin', asy
   const trust = createTrustIndex({ url: 'http://index', fetchImpl: async () => ({ ok: true, json: async () => index }) });
   await trust.refresh();
   const s = await trust.seller('https://s.example/a?x=1');
-  assert.deepEqual(s, { origin: 'https://s.example', resources: 3, payable_now: 1, avg_payable_ratio: 0.5, unreliable: 1 });
+  assert.deepEqual(s, { origin: 'https://s.example', resources: 4, payable_now: 1, avg_payable_ratio: 0.63, unreliable: 1 });
   assert.deepEqual(await trust.seller('https://unknown.example/x'), { origin: 'https://unknown.example', resources: 0 });
 });

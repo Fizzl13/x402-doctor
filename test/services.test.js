@@ -27,6 +27,8 @@ test('groupServices: one seller\'s near-identical endpoints are one service; onl
   assert.deepEqual(bySite['other.example'], { endpoints: 1, services: 1 });
   assert.equal(byUrl.get('https://api.farm.example/price/solana').members.length, 4);
   assert.equal(byUrl.has('https://other.example/broken'), false, 'not payable: not counted');
+  const gone = ['https://gone.example/a', { url: 'https://gone.example/a', d: 'Gone', h: 'gg-', last: { verdict: 'go', networks: ['eip155:8453'] } }];
+  assert.equal(groupServices({ ...resources, [gone[0]]: gone[1] }).byUrl.has(gone[0]), false, 'missing from the latest scan: not counted as payable');
 });
 
 test('guessCategory and categoryOf: keywords as the fallback, Jev\'s cached answer first', () => {
