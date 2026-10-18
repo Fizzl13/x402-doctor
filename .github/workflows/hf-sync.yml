@@ -1,0 +1,79 @@
+name: Trust Index to Hugging Face
+
+# After the Trust Index scan, and by hand: publishes the day's Trust Index as an open dataset on Hugging Face
+# (data/endpoints.jsonl, data/daily.csv and the dataset card, from scripts/hf-export.js). Reads only the
+# published trust-data branch; nothing is scanned, fetched from sellers or paid.
+#
+# Needs the repository secret HF_TOKEN (a Hugging Face token with write access). The dataset is the repository
+# variable HF_DATASET (for example fizzl/x402-trust-index), or <token owner>/x402-trust-index without it.
+# Without HF_TOKEN the run does nothing. The scan finishes up to four times a day; a run after the first stops
+# early once the dataset has today's scan. A manual run always uploads.
+on:
+  workflow_run:
+    workflows: ["Trust Index scan"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hf-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+    steps:
+      - name: Token
+        id: token
+        run: |
+          if [ -z "$HF_TOKEN" ]; then
+            echo "No HF_TOKEN secret, nothing to publish." >> "$GITHUB_STEP_SUMMARY"
+            echo "skip=1" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v5
+        if: steps.token.outputs.skip != '1'
+      - uses: actions/setup-node@v5
+        if: steps.token.outputs.skip != '1'
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-python@v6
+        if: steps.token.outputs.skip != '1'
+        with:
+          python-version: "3.12"
+      - name: Dataset and today's scan
+        id: day
+        if: steps.token.outputs.skip != '1'
+        run: |
+          pip install -q "huggingface_hub>=0.34,<2"
+          dataset="${{ vars.HF_DATASET }}"
+          [ -n "$dataset" ] || dataset="$(python -c 'from huggingface_hub import whoami; print(whoami()["name"])')/x402-trust-index"
+          echo "dataset=$dataset" >> "$GITHUB_OUTPUT"
+          mkdir -p trust-data
+          git fetch --depth 1 origin trust-data
+          git show FETCH_HEAD:index.json > trust-data/index.json
+          git show FETCH_HEAD:categories.json > trust-data/categories.json || echo "{}" > trust-data/categories.json
+          date=$(git show FETCH_HEAD:summary.json | jq -r '.date')
+          echo "date=$date" >> "$GITHUB_OUTPUT"
+          if [ "${{ github.event_name }}" != "workflow_dispatch" ] && curl -sfL -H "Authorization: Bearer $HF_TOKEN" "https://huggingface.co/datasets/$dataset/raw/main/README.md" | grep -qF "Scan of **$date**"; then
+            echo "$dataset already has the scan of $date." >> "$GITHUB_STEP_SUMMARY"
+            echo "skip=1" >> "$GITHUB_OUTPUT"
+          fi
+      - run: npm ci
+        if: steps.token.outputs.skip != '1' && steps.day.outputs.skip != '1'
+      - name: Export
+        if: steps.token.outputs.skip != '1' && steps.day.outputs.skip != '1'
+        run: node scripts/hf-export.js --index trust-data/index.json --categories trust-data/categories.json --out hf
+        env:
+          HF_DATASET: ${{ steps.day.outputs.dataset }}
+      - name: Upload
+        if: steps.token.outputs.skip != '1' && steps.day.outputs.skip != '1'
+        run: |
+          hf upload "${{ steps.day.outputs.dataset }}" hf . --repo-type dataset --commit-message "Trust Index scan of ${{ steps.day.outputs.date }}"
+          echo "Published the scan of ${{ steps.day.outputs.date }} to https://huggingface.co/datasets/${{ steps.day.outputs.dataset }}" >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,72 @@
+// The Trust Index as a Hugging Face dataset (scripts/hf-export.js): one row per endpoint in today's scan with its
+// category and track record, go / caution / no_go per day, and a dataset card whose counts match the rows.
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { execFileSync } = require('child_process');
+const { endpointRows, dailyRows, card } = require('../scripts/hf-export');
+const { descKey } = require('../lib/services');
+
+const index = {
+  version: 1,
+  updated: '2026-10-18T03:40:00Z',
+  days: ['2026-10-16', '2026-10-17', '2026-10-18'],
+  resources: {
+    'https://a.example/price': { url: 'https://a.example/price', m: 'GET', h: 'ggc', d: 'Bitcoin price feed', last: { verdict: 'caution', codes: ['no_bazaar_extension'], price_usd: 0.01, networks: ['eip155:8453', 'stellar:pubnet'], ms: 120 } },
+    'https://b.example/mpp': { url: 'https://b.example/mpp', m: 'POST', p: 'mpp', h: '-gn', d: 'Weather forecast', last: { verdict: 'no_go', codes: ['no_402'], price_usd: null, networks: [], ms: 80, unpayable: { 'stellar:pubnet': 'asset given as text' } }, probe: 'https://b.example/mpp/x' },
+    'https://c.example/gone': { url: 'https://c.example/gone', m: 'GET', h: 'gg-', d: 'Delisted', last: { verdict: 'go', codes: [], price_usd: 0.001, networks: ['eip155:8453'], ms: 50 } },
+  },
+  sanctions: { list: 'OFAC SDN', published: '2026-10-15', addresses: 1200 },
+};
+const categories = { [descKey('Bitcoin price feed')]: 'finance' };
+
+test('one row per endpoint in today\'s scan, with category and track record', () => {
+  const rows = endpointRows(index, categories);
+  assert.deepEqual(rows.map((r) => r.url), ['https://a.example/price', 'https://b.example/mpp']);
+  const [a, b] = rows;
+  assert.equal(a.host, 'a.example');
+  assert.equal(a.protocol, 'x402');
+  assert.equal(a.verdict, 'caution');
+  assert.deepEqual(a.networks, ['eip155:8453', 'stellar:pubnet']);
+  assert.equal(a.category, 'finance', 'Jev\'s category wins');
+  assert.equal(a.same_service_endpoints, 1);
+  assert.deepEqual([a.days_checked, a.days_payable, a.payable_ratio], [3, 3, 1]);
+  assert.equal(b.protocol, 'mpp');
+  assert.equal(b.method, 'POST');
+  assert.deepEqual(b.unpayable_networks, ['stellar:pubnet']);
+  assert.equal(b.category, 'places', 'keyword guess without Jev');
+  assert.deepEqual([b.days_checked, b.days_payable, b.payable_ratio], [2, 1, 0.5]);
+  assert.equal('probe' in b, false, 'only the published fields');
+});
+
+test('go / caution / no_go per day from the histories', () => {
+  assert.deepEqual(dailyRows(index), [
+    { date: '2026-10-16', go: 2, caution: 0, no_go: 0, checked: 2 },
+    { date: '2026-10-17', go: 3, caution: 0, no_go: 0, checked: 3 },
+    { date: '2026-10-18', go: 0, caution: 1, no_go: 1, checked: 2 },
+  ]);
+});
+
+test('the dataset card states today\'s counts and both configs', () => {
+  const md = card({ date: '2026-10-18', rows: endpointRows(index, categories), daily: dailyRows(index), sanctions: index.sanctions });
+  assert.match(md, /^---\nlicense: cc-by-4\.0\n/);
+  assert.match(md, /config_name: endpoints\n  data_files: data\/endpoints\.jsonl/);
+  assert.match(md, /config_name: daily\n  data_files: data\/daily\.csv/);
+  assert.match(md, /Scan of \*\*2026-10-18\*\*: 2 endpoints, 1 \(50%\) payable as listed\. Daily history since 2026-10-16\./);
+  assert.match(md, /OFAC SDN list, published 2026-10-15/);
+});
+
+test('the script writes the three files', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hf-export-'));
+  fs.writeFileSync(path.join(dir, 'index.json'), JSON.stringify(index));
+  fs.writeFileSync(path.join(dir, 'categories.json'), JSON.stringify({ categories }));
+  const out = path.join(dir, 'hf');
+  execFileSync(process.execPath, [path.join(__dirname, '..', 'scripts', 'hf-export.js'), '--index', path.join(dir, 'index.json'), '--categories', path.join(dir, 'categories.json'), '--out', out], { env: { ...process.env, HF_DATASET: 'someone/x402-trust-index' } });
+  const lines = fs.readFileSync(path.join(out, 'data', 'endpoints.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+  assert.equal(lines.length, 2);
+  assert.equal(fs.readFileSync(path.join(out, 'data', 'daily.csv'), 'utf8'), 'date,go,caution,no_go,checked\n2026-10-16,2,0,0,2\n2026-10-17,3,0,0,3\n2026-10-18,0,1,1,2\n');
+  assert.match(fs.readFileSync(path.join(out, 'README.md'), 'utf8'), /load_dataset\("someone\/x402-trust-index", "endpoints"/);
+  fs.rmSync(dir, { recursive: true, force: true });
+});
