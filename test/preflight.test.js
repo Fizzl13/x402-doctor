@@ -325,6 +325,13 @@ test("the weekly spot-buy: a signal always; money taken for the seller's own exa
   assert.equal(fine.verdict, 'go');
   assert.equal(fine.signals.spot_buy.status, 200);
   assert.equal((await run(url)).signals.spot_buy, undefined, 'not bought: no signal');
+  // A timeout after paying, and a slow but delivered answer.
+  const timedOut = { forUrl: async () => ({ url, date: '2026-10-18', result: 'charged_not_delivered', request: 'example', charged_usd: 0.05, status: null, timed_out: true, answer_s: 90 }) };
+  assert.match((await run(url, { spot: timedOut })).reasons.find((r) => r.code === 'charged_without_answer').message, /took \$0\.05 .* and gave no answer within 90 seconds/);
+  const slow = await run(url, { spot: { forUrl: async () => ({ url, date: '2026-10-18', result: 'delivered', request: 'example', status: 200, answer_s: 34.2 }) } });
+  assert.equal(slow.verdict, 'go', 'slow is information, not a caution');
+  assert.match(slow.reasons.find((r) => r.code === 'slow_after_payment').message, /answered 34\.2 seconds after the first request.*allow at least 50 seconds/);
+  assert.equal(fine.reasons.find((r) => r.code === 'slow_after_payment'), undefined, 'no answer time: nothing to say');
 });
 
 const USD1_BNB = '0x8d0D000Ee44948FC98c9B98A4FA4921476f08B0d';
