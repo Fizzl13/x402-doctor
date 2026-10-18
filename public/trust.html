@@ -92,6 +92,8 @@
  ],
  "measurementTechnique": "Each endpoint is called once a day without paying and its 402 challenge is checked the way a paying agent would. Once a week a random sample of up to 30 payable endpoints is bought.",
  "isAccessibleForFree": true,
+ "license": "https://creativecommons.org/licenses/by/4.0/",
+ "sameAs": "https://huggingface.co/datasets/x402Fizzl/x402-trust-index",
  "creator": {
   "@type": "Organization",
   "@id": "https://fizzl.eu/#fizzl",
@@ -110,6 +112,18 @@
    "name": "Latest spot-buy",
    "encodingFormat": "application/json",
    "contentUrl": "https://x402-doctor.fizzl.eu/api/trust/spot"
+  },
+  {
+   "@type": "DataDownload",
+   "name": "Every endpoint in the latest scan, with its 30-day history",
+   "encodingFormat": "application/jsonl",
+   "contentUrl": "https://huggingface.co/datasets/x402Fizzl/x402-trust-index/resolve/main/data/endpoints.jsonl"
+  },
+  {
+   "@type": "DataDownload",
+   "name": "Go, caution and no_go per day",
+   "encodingFormat": "text/csv",
+   "contentUrl": "https://huggingface.co/datasets/x402Fizzl/x402-trust-index/resolve/main/data/daily.csv"
   }
  ],
  "subjectOf": {
@@ -124,7 +138,7 @@
 <div class="wrap">
   <h1>x402 Trust Index</h1>
   <p class="sub">Once a day, x402 Doctor checks every resource listed in the CDP Bazaar and Circle's Agent Marketplace (x402) and in the MPP directory (Stripe + Tempo) the way a paying agent would, and stops at the 402 challenge. Would a payment settle today, and how often did it over the last 30 days?</p>
-  <p class="note">What the numbers show: <a href="https://fizzl.eu/research/x402-health-october-2026/">x402 health report, October 2026</a> (payable share, seller concentration, networks, prices and the most common seller mistakes).</p>
+  <p class="note">What the numbers show: <a href="https://fizzl.eu/research/x402-health-october-2026/">x402 health report, October 2026</a> (payable share, seller concentration, networks, prices and the most common seller mistakes). The whole index as an open dataset: <a href="https://huggingface.co/datasets/x402Fizzl/x402-trust-index">x402 Trust Index on Hugging Face</a> (CC BY 4.0, updated daily).</p>
 
   <h2>Can an AI agent pay?</h2>
   <p class="headline" id="headline" aria-live="polite">Loading today's scan…</p>
@@ -181,7 +195,7 @@
     <li>Want your origin left out of the scan? <a href="https://github.com/Fizzl13/x402-doctor/issues">Open an issue</a>.</li>
   </ul>
 
-  <footer>Data: <code>GET /api/trust?url=…</code> (free, rate-limited), <code>POST /api/trust/batch</code> with <code>{"urls": [...]}</code> (up to 100 at once), <code>GET /api/trust/summary</code> and <code>GET /api/trust/spot</code> (the latest spot-buy). The full daily index is public on the <a href="https://github.com/Fizzl13/x402-doctor/tree/trust-data">trust-data</a> branch. Per network: <a href="/xrpl">x402 on the XRP Ledger</a>, <a href="/algorand">x402 on Algorand</a> and <a href="/stellar">x402 on Stellar</a> (<code>GET /api/trust/network?network=xrpl</code>, <code>algorand</code> or <code>stellar</code>). · <a href="https://fizzl.eu/privacy/">Privacy</a> · <a href="https://fizzl.eu/terms/">Terms</a></footer>
+  <footer>Data: <code>GET /api/trust?url=…</code> (free, rate-limited), <code>POST /api/trust/batch</code> with <code>{"urls": [...]}</code> (up to 100 at once), <code>GET /api/trust/summary</code> and <code>GET /api/trust/spot</code> (the latest spot-buy). The full daily index is public on the <a href="https://github.com/Fizzl13/x402-doctor/tree/trust-data">trust-data</a> branch and as an <a href="https://huggingface.co/datasets/x402Fizzl/x402-trust-index">open dataset on Hugging Face</a>. Per network: <a href="/xrpl">x402 on the XRP Ledger</a>, <a href="/algorand">x402 on Algorand</a> and <a href="/stellar">x402 on Stellar</a> (<code>GET /api/trust/network?network=xrpl</code>, <code>algorand</code> or <code>stellar</code>). · <a href="https://fizzl.eu/privacy/">Privacy</a> · <a href="https://fizzl.eu/terms/">Terms</a></footer>
   <p class="by-fizzl"><a href="https://fizzl.eu" title="Fizzl: all pay-per-call tools for AI agents, with live demos">by <svg viewBox="-6 -14 236 126" role="img" aria-label="fizzl"><g fill="none" stroke="currentColor" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"><path d="M44 12 A20 20 0 0 0 20 32 V100"/><path d="M6 48 H38"/><path d="M64 56 V100"/><path d="M88 52 H124 L88 100 H124"/><path d="M144 52 H180 L144 100 H180"/><path d="M200 8 V84 A16 16 0 0 0 216 100"/></g><g class="b"><circle cx="64" cy="26" r="9"/><circle cx="78" cy="10" r="5"/><circle cx="90" cy="-2" r="3"/></g></svg><span>· all tools and live demos at fizzl.eu</span></a></p>
 </div>
 <script>

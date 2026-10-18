@@ -67,7 +67,9 @@ test('the homepage and the Trust Index page carry valid JSON-LD', () => {
   assert.deepEqual(app.offers.map((o) => o.price), ['0', '0.001']);
   const data = ld('trust.html');
   assert.equal(data['@type'], 'Dataset');
-  assert.ok(data.distribution.every((d) => d.contentUrl.startsWith('https://x402-doctor.fizzl.eu/api/trust/')));
+  const hf = 'https://huggingface.co/datasets/x402Fizzl/x402-trust-index';
+  assert.equal(data.sameAs, hf);
+  assert.ok(data.distribution.every((d) => d.contentUrl.startsWith('https://x402-doctor.fizzl.eu/api/trust/') || d.contentUrl.startsWith(`${hf}/resolve/main/data/`)));
 });
 
 test('the homepage FAQ: every question in the FAQPage JSON-LD is on the page, with the same answer', () => {

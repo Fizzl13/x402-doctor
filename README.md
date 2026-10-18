@@ -298,6 +298,11 @@ the CDP Bazaar, the MPP directory, the [GoPlausible](https://facilitator.goplaus
 `/openapi.json` per origin, a User-Agent that links to `/trust`). The results roll into a 30-day history per resource,
 one letter per day (`g` go, `c` caution, `n` no-go, `x` unreachable, `-` not scanned), published as
 `index.json` + `summary.json` on the `trust-data` branch.
+After each scan, [`hf-sync.yml`](.github/workflows/hf-sync.yml) publishes it as an open dataset on Hugging Face,
+[x402Fizzl/x402-trust-index](https://huggingface.co/datasets/x402Fizzl/x402-trust-index) (CC BY 4.0): `data/endpoints.jsonl` (every endpoint in the latest scan with its
+verdict, reasons, price, networks, category and history), `data/daily.csv` (go / caution / no_go per day) and the dataset
+card (`scripts/hf-export.js`). It needs the repository secret `HF_TOKEN` (a Hugging Face write token); the variable
+`HF_DATASET` overrides the dataset name.
 
 - The pre-payment check adds `signals.track_record` and a `caution` (`unreliable_history`) when a seller was
   payable on fewer than half of at least 3 scanned days.
