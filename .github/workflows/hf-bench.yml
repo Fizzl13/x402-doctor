@@ -1,0 +1,99 @@
+name: Agent Safety Bench to Hugging Face
+
+# Publishes the x402 Agent Safety Bench as an open dataset and a leaderboard Space on Hugging Face
+# (scripts/hf-bench.js), from the raw runs that Fizzl13/x402-examples archives on its public bench-data branch.
+# Runs when this workflow or the script changes on master, every Monday (to pick up new bench runs), and by hand.
+# Nothing is run or paid here. Needs the repository secret HF_TOKEN (a write token that may create repos); the
+# dataset and the Space are <token owner>/x402-agent-safety-bench unless the variable HF_BENCH_REPO names another.
+on:
+  push:
+    branches: [master]
+    paths: [scripts/hf-bench.js, .github/workflows/hf-bench.yml]
+  schedule:
+    - cron: "37 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hf-bench
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+    steps:
+      - name: Token
+        id: token
+        run: |
+          if [ -z "$HF_TOKEN" ]; then
+            echo "No HF_TOKEN secret, nothing to publish." >> "$GITHUB_STEP_SUMMARY"
+            echo "skip=1" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v5
+        if: steps.token.outputs.skip != '1'
+      - uses: actions/setup-node@v5
+        if: steps.token.outputs.skip != '1'
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v6
+        if: steps.token.outputs.skip != '1'
+        with:
+          python-version: "3.12"
+      - name: Bench runs
+        id: repo
+        if: steps.token.outputs.skip != '1'
+        run: |
+          pip install -q "huggingface_hub>=0.34,<2"
+          repo="${{ vars.HF_BENCH_REPO }}"
+          [ -n "$repo" ] || repo="$(python -c 'from huggingface_hub import whoami; print(whoami()["name"])')/x402-agent-safety-bench"
+          echo "repo=$repo" >> "$GITHUB_OUTPUT"
+          git clone -q --depth 1 https://github.com/Fizzl13/x402-examples ex
+          git -C ex fetch -q --depth 1 origin bench-data
+          mkdir -p bench
+          git -C ex archive FETCH_HEAD results | tar -x -C bench
+          echo "$(ls bench/results | wc -l) archived bench runs" >> "$GITHUB_STEP_SUMMARY"
+      - name: Export
+        if: steps.token.outputs.skip != '1'
+        run: node scripts/hf-bench.js --results bench/results --readme ex/agent-safety-bench/README.md --out hf-bench --space hf-space
+        env:
+          HF_BENCH_REPO: ${{ steps.repo.outputs.repo }}
+      - name: Upload
+        if: steps.token.outputs.skip != '1'
+        env:
+          REPO: ${{ steps.repo.outputs.repo }}
+        run: |
+          python - <<'PY'
+          import os
+          from huggingface_hub import HfApi
+          api = HfApi()
+          repo = os.environ["REPO"]
+          api.create_repo(repo, repo_type="dataset", exist_ok=True)
+          api.upload_folder(repo_id=repo, repo_type="dataset", folder_path="hf-bench", commit_message="Agent Safety Bench results")
+          api.create_repo(repo, repo_type="space", space_sdk="static", exist_ok=True)
+          api.upload_folder(repo_id=repo, repo_type="space", folder_path="hf-space", commit_message="Leaderboard")
+          PY
+          echo "Published https://huggingface.co/datasets/$REPO and https://huggingface.co/spaces/$REPO" >> "$GITHUB_STEP_SUMMARY"
+      - name: Collection
+        if: steps.token.outputs.skip != '1'
+        env:
+          REPO: ${{ steps.repo.outputs.repo }}
+        run: |
+          python - <<'PY' || echo "Collection skipped (the token may not write collections)." >> "$GITHUB_STEP_SUMMARY"
+          import os
+          from huggingface_hub import add_collection_item, create_collection
+          repo = os.environ["REPO"]
+          collection = create_collection(
+              title="x402 agent payments",
+              namespace=repo.split("/")[0],
+              description="Open data on AI agents paying APIs with x402: payable endpoints, real purchases, agent payment safety. By x402 Doctor (fizzl.eu).",
+              exists_ok=True,
+          )
+          add_collection_item(collection.slug, item_id=repo, item_type="space", exists_ok=True)
+          add_collection_item(collection.slug, item_id=repo, item_type="dataset", exists_ok=True)
+          print(f"collection: https://huggingface.co/collections/{collection.slug}")
+          PY
