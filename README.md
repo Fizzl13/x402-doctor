@@ -344,6 +344,18 @@ card (`scripts/hf-export.js`). It needs the repository secret `HF_TOKEN` (a Hugg
   Solana the System Program or the incinerator. The pre-payment check says `payto_burn`: `no_go` when no other option
   is payable, `caution` otherwise (a client that signs the first option it can would pay the broken one).
   `summary.json` counts them (`payto_burn`).
+- **Real payments on chain.** Every hour [`onchain-payments.yml`](.github/workflows/onchain-payments.yml) reads the
+  new Base blocks (`scripts/onchain-payments.js`, `lib/onchain-payments.js`) and counts, per payout address the daily
+  scan saw (`paytos.json` on `trust-data`), the USDC payments the payer signed with EIP-3009
+  (`transferWithAuthorization`, the way x402's exact scheme settles USDC) and from how many different wallets. Plain
+  transfers, Permit2 and Circle Gateway batches don't count, and x402 Doctor's own test wallet is left out. The result,
+  8 days per address, is on the `payments-data` branch. The paid pre-payment check adds `signals.onchain_payments`
+  (`days`, `payments`, `payers`, `usd`, `coverage`: the share of the window's blocks that were read) and an info line
+  (`onchain_payments`), e.g. "47 different wallets paid this seller's payout address on Base in the last 7 days". It
+  never changes the verdict: new sellers start at zero. `GET /api/trust/summary` adds the totals over all payout
+  addresses (`onchain_payments`), shown on `/trust`. Read-only, no key: `BASE_RPC_URL` is asked first when set, then
+  the public node `base-rpc.publicnode.com`, which serves only about the last 10,000 blocks, so a gap of more than
+  ~5 hours between runs shows up as lower `coverage`.
 - `GET /api/trust?url=<resource>` (free, 30/min per IP): the track record of one resource.
   `POST /api/trust/batch` with `{"urls": [...]}` (free, up to 100 URLs, 10 calls/min per IP): the same for many at once,
   in the order sent (`found: false` for a URL the index doesn't have), with the index's `days` and `updated` once at the

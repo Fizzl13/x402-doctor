@@ -53,6 +53,7 @@ jobs:
           mkdir -p trust-data
           if git fetch --depth 1 origin trust-data 2>/dev/null; then
             git show FETCH_HEAD:index.json > trust-data/index.json || rm -f trust-data/index.json
+            git show FETCH_HEAD:paytos.json > trust-data/paytos.json || rm -f trust-data/paytos.json
           fi
           ls -la trust-data
       - name: Scan
@@ -78,10 +79,11 @@ jobs:
           Written daily by `.github/workflows/trust-scan.yml` on `master`. `index.json`: 30-day history per
           resource (`days[]`, and per resource `h` with one letter per day: g go, c caution, n no-go,
           x unreachable, - not scanned). `summary.json`: totals of the latest scan. `categories.json`: the kind of
-          service per description (TypeSafe Jev, keyed by lib/services.js descKey). See https://x402-doctor.fizzl.eu/trust
+          service per description (TypeSafe Jev, keyed by lib/services.js descKey). `paytos.json`: the payout addresses on
+          Base and the day each was last seen, for the hourly on-chain payment count. See https://x402-doctor.fizzl.eu/trust
           MD
           git init -q -b trust-data
-          git add index.json summary.json categories.json README.md
+          git add index.json summary.json categories.json paytos.json README.md
           git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -qm "Trust index $(date -u +%F)"
           git push -qf "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" trust-data
         env:

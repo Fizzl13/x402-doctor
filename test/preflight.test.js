@@ -232,6 +232,24 @@ test('payTo is the zero or 0x…dEaD address: no_go on its own, caution next to 
   assert.ok(r.reasons.some((x) => x.code === 'payto_burn'));
 });
 
+test('on-chain payments: how many wallets paid the Base payout address shows as info and in signals, never changes the verdict', async () => {
+  const url = await seller({ accepts: [baseOption('20000'), solanaOption('15000')] });
+  const asked = [];
+  const stats = { network: BASE, days: 7, payments: 312, payers: 47, usd: 3.12, coverage: 1, as_of: '2026-10-19T05:00:00.000Z' };
+  let r = await run(url, { payments: { lookup: async (payTo) => { asked.push(payTo); return { ...stats, pay_to: payTo.toLowerCase() }; } } });
+  assert.equal(r.verdict, 'go', JSON.stringify(r.reasons));
+  assert.deepEqual(asked, [PAY_TO_BASE], 'the Solana option is recommended, so the Base option is looked up');
+  const line = r.reasons.find((x) => x.code === 'onchain_payments');
+  assert.equal(line.level, 'info');
+  assert.match(line.message, /^47 different wallets paid this seller's payout address on Base in the last 7 days: 312 signed USDC payments, \$3\.12 in total/);
+  assert.equal(r.signals.onchain_payments.payers, 47);
+  r = await run(url, { payments: { lookup: async () => ({ ...stats, days: 1, payments: 0, payers: 0, usd: 0 }) } });
+  assert.match(r.reasons.find((x) => x.code === 'onchain_payments').message, /^No signed USDC payments reached this seller's payout address on Base yesterday\. Not a problem by itself/);
+  r = await run(url, { payments: { lookup: async () => null } });
+  assert.ok(!r.reasons.some((x) => x.code === 'onchain_payments'), 'not watched: nothing said');
+  assert.equal(r.signals.onchain_payments, undefined);
+});
+
 test('MPP only (evm, USDC on Base): go, the MPP option is recommended, with an mpp_only note', async () => {
   const url = await mppSeller({ challenges: [{ method: 'evm', request: evmRequest('20000') }] });
   const r = await preflight(url, { safeFetch, rpcUrl, maxUsd: 0.05 });

@@ -149,6 +149,7 @@
   <div class="share" id="share" role="img" aria-label="Share of x402 services an agent can pay"></div>
   <div class="share-legend" id="shareLegend"></div>
   <p class="note" id="sanctionsLine" hidden></p>
+  <p class="note" id="onchainLine" hidden></p>
 
   <h2>Paid and delivered?</h2>
   <p class="note" id="spotLine" aria-live="polite">Loading the latest spot-buy…</p>
@@ -320,6 +321,13 @@
       const n = s.payto_sanctioned || 0;
       $('sanctionsLine').textContent = `Every payout address was screened against the OFAC SDN sanctions list (${fmt(s.sanctions.addresses)} addresses, published ${s.sanctions.published}): ${n === 0 ? 'none of the services pays out to a listed address' : `${fmt(n)} ${n === 1 ? 'service pays' : 'services pay'} out to a listed address and ${n === 1 ? 'is' : 'are'} marked no-go`}.`;
       $('sanctionsLine').hidden = false;
+    }
+    // Real payments on chain (lib/onchain-payments.js): signed USDC payments on Base to the payout addresses here.
+    const oc = s.onchain_payments;
+    if (oc && oc.payments) {
+      const period = oc.days === 1 ? 'yesterday' : `in the last ${oc.days} days`;
+      $('onchainLine').textContent = `Real payments: ${period}, ${fmt(oc.payers)} different wallets made ${fmt(oc.payments)} signed USDC payments ($${fmt(Math.round(oc.usd))}) on Base to ${fmt(oc.pay_tos_paid)} of the ${fmt(oc.watched)} payout addresses in this index (EIP-3009, the way x402 settles; x402 Doctor's own test purchases left out).${oc.coverage < 0.95 ? ` Based on ${Math.round(oc.coverage * 100)}% of the blocks in that period.` : ''}`;
+      $('onchainLine').hidden = false;
     }
     renderReasons(s);
     renderServices(s.services);
