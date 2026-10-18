@@ -41,3 +41,34 @@ test('GET /trust and the other pages carry link previews', async (t) => {
   assert.match(html, /og:url" content="https:\/\/x402-doctor.fizzl.eu\/trust"/);
   for (const p of ['/xrpl', '/algorand', '/stellar', '/settlement', '/status', '/sellers']) assert.match(await (await fetch(base + p)).text(), /property="og:title"/, p);
 });
+
+test('today\'s numbers in the HTML of /trust and the network pages, for crawlers that don\'t run scripts', async (t) => {
+  const { trustFill, networkFill, scanDate } = require('../lib/page-meta');
+  assert.equal(scanDate('2026-10-08'), '8 Oct 2026');
+  assert.deepEqual(trustFill(null), []);
+  assert.deepEqual(networkFill({ endpoints: 0, days: ['2026-10-18'] }), []);
+  const summary = { latest: { go: 600, caution: 40, no_go: 350, unreachable: 10 }, daily: [{ date: '2026-10-17' }, { date: '2026-10-18' }], services: { payable_endpoints: 640, services: 300, sellers: 20 } };
+  const [[placeholder, headline]] = trustFill(summary);
+  assert.equal(placeholder, "Loading today's scan…");
+  assert.equal(headline, 'In the scan of 18 Oct 2026, an agent could pay <strong>64%</strong> of the <strong>1,000</strong> paid services checked (x402 and MPP) without a failed payment.');
+  const m = createPageMeta({ read: () => '<div class="v">…</div><div class="v">…</div><p>…</p>' });
+  assert.equal(m.render('x', { fill: [['<div class="v">…</div>', '<div class="v">1</div>'], ['<div class="v">…</div>', '<div class="v">$2</div>']] }).split('<meta')[0], '<div class="v">1</div><div class="v">$2</div><p>…</p>');
+
+  const view = { endpoints: 1631, payable_now: 1584, sellers: [{}, {}, {}], services: 599, days: ['2026-10-18'] };
+  let networkCalls = 0;
+  const trustIndex = { lookup: async () => null, seller: async () => ({ resources: 0 }), summary: () => summary, refresh: async () => {}, updated: () => '2026-10-18T03:40:00Z', byNetwork: async (network) => { networkCalls++; return network === 'stellar' ? view : null; } };
+  const app = createApp({ env: {}, trustIndex, status: { snapshot: async () => ({}) } });
+  const server = await new Promise((resolve) => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
+  t.after(() => server.close());
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const trust = await (await fetch(`${base}/trust`)).text();
+  assert.ok(trust.includes(headline));
+  assert.ok(!trust.includes("Loading today's scan…"));
+  const stellar = await (await fetch(`${base}/stellar`)).text();
+  assert.match(stellar, /<div class="k">Endpoints<\/div><div class="v">1,631<\/div>.*Payable on Stellar now<\/div><div class="v">1,584<\/div>.*Sellers<\/div><div class="v">3<\/div>.*Distinct services<\/div><div class="v">599<\/div>/s);
+  assert.match(stellar, /<p class="note" id="updated">From the daily scan of 2026-10-18\.<\/p>/);
+  await fetch(`${base}/stellar`);
+  assert.equal(networkCalls, 1, 'once per index update');
+  const xrpl = await (await fetch(`${base}/xrpl`)).text();
+  assert.match(xrpl, /<div class="v">…<\/div>/, 'no numbers yet: the placeholders stay');
+});

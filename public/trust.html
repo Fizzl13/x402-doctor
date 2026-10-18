@@ -240,12 +240,17 @@
     el.setAttribute('aria-label', text);
   }
 
+  // Shares are of the services judged in the latest scan (not those missing from it); the server writes the same
+  // headline into the HTML (lib/page-meta.js trustFill).
+  const checkedOf = (s) => s.latest.go + s.latest.caution + s.latest.no_go + s.latest.unreachable;
   function renderShare(s) {
-    const total = s.resources;
+    const total = checkedOf(s);
     const fail = s.latest.no_go + s.latest.unreachable;
+    const day = s.daily && s.daily.length ? s.daily[s.daily.length - 1].date : null;
     $('headline').innerHTML = '';
-    $('headline').append('Of ', Object.assign(document.createElement('strong'), { textContent: fmt(total) }), ' paid services checked (x402 and MPP), an agent could pay ',
-      Object.assign(document.createElement('strong'), { textContent: pct(s.latest.go + s.latest.caution, total) }), ' without a failed payment.');
+    $('headline').append(day ? `In the scan of ${spotDate(day)}, an agent could pay ` : 'An agent could pay ',
+      Object.assign(document.createElement('strong'), { textContent: pct(s.latest.go + s.latest.caution, total) }), ' of the ',
+      Object.assign(document.createElement('strong'), { textContent: fmt(total) }), ' paid services checked (x402 and MPP) without a failed payment.');
     const parts = [
       { cls: 'g', icon: '✓', label: 'Works', n: s.latest.go, info: 'A payment would settle' },
       { cls: 'c', icon: '!', label: 'Works, with warnings', n: s.latest.caution, info: 'Payable, but something looks off' },
@@ -282,7 +287,7 @@
       track.append(bar);
       const n = document.createElement('div'); n.className = 'n'; n.textContent = fmt(r.count);
       row.append(t, track, n);
-      withTip(row, `${REASON[r.code] || r.code}: ${fmt(r.count)} services (${pct(r.count, s.resources)} of all checked). Code: ${r.code}`);
+      withTip(row, `${REASON[r.code] || r.code}: ${fmt(r.count)} services (${pct(r.count, checkedOf(s))} of all checked). Code: ${r.code}`);
       return row;
     }));
     $('reasonsTable').tBodies[0].replaceChildren(...list.map((r) => {
