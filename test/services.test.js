@@ -84,6 +84,7 @@ test('Trust Index: summary counts services, the largest sellers and categories; 
     fetchImpl: async (u) => (String(u).includes('cats') ? Response.json({ categories: { [weatherKey]: 'data' }, bait: { [weatherKey]: [0.95, 0.1], [checkKey]: [null, 0.2] } }) : Response.json({ updated: 'now', days: ['d'], resources })),
   });
   await ti.refresh();
+  assert.deepEqual(ti.summary().networks, [{ network: 'algorand:x', endpoints: 5 }, { network: 'eip155:8453', endpoints: 1 }], 'payable endpoints per network');
   const s = ti.summary().services;
   assert.equal(s.payable_endpoints, 6);
   assert.equal(s.services, 3);

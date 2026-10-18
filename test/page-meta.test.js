@@ -64,8 +64,16 @@ test('today\'s numbers in the HTML of /trust and the network pages, for crawlers
   const trust = await (await fetch(`${base}/trust`)).text();
   assert.ok(trust.includes(headline));
   assert.ok(!trust.includes("Loading today's scan…"));
-  const dataset = JSON.parse(trust.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]);
-  assert.deepEqual([dataset['@type'], dataset.dateModified, dataset.temporalCoverage], ['Dataset', '2026-10-18', '2026-10-17/2026-10-18']);
+  const blocks = [...trust.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => JSON.parse(m[1]));
+  assert.deepEqual([blocks[0]['@type'], blocks[0].dateModified, blocks[0].temporalCoverage], ['Dataset', '2026-10-18', '2026-10-17/2026-10-18']);
+  // The FAQ: today's numbers, and the visible questions and answers are the FAQPage JSON-LD's, word for word.
+  assert.equal(blocks[1]['@type'], 'FAQPage');
+  const unesc = (s) => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&amp;/g, '&');
+  const visible = [...trust.matchAll(/<h3>([^<]*)<\/h3>\s*<p>([^<]*)<\/p>/g)].map((m) => [unesc(m[1]), unesc(m[2])]);
+  assert.deepEqual(visible, blocks[1].mainEntity.map((q) => [q.name, q.acceptedAnswer.text]));
+  assert.match(visible[0][1], /^In the scan of 18 Oct 2026, x402 Doctor checked 1,000 paid API endpoints listed in .*The 640 payable ones are 300 distinct services from 20 sellers/);
+  assert.match(visible[1][1], /^64% in the scan of 18 Oct 2026: 640 of 1,000 endpoints/);
+  assert.ok(!trust.includes('<!--trust-faq'));
   const stellar = await (await fetch(`${base}/stellar`)).text();
   assert.match(stellar, /<div class="k">Endpoints<\/div><div class="v">1,631<\/div>.*Payable on Stellar now<\/div><div class="v">1,584<\/div>.*Sellers<\/div><div class="v">3<\/div>.*Distinct services<\/div><div class="v">599<\/div>/s);
   assert.match(stellar, /<p class="note" id="updated">From the daily scan of 2026-10-18\.<\/p>/);

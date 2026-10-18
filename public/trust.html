@@ -26,6 +26,8 @@
   h2 { font-size: 0.8rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-soft); margin: 32px 0 10px; }
   .sub { color: var(--text-soft); margin: 0 0 24px; }
   .headline { font-size: 17px; margin: 0 0 12px; }
+  .faq h3 { font-size: 15px; margin: 18px 0 4px; }
+  .faq p { margin: 0 0 8px; overflow-wrap: anywhere; }
   .headline strong { font-variant-numeric: tabular-nums; }
   .share { display: flex; gap: 2px; height: 34px; border-radius: 6px; overflow: hidden; background: var(--panel); }
   .share .seg { min-width: 4px; height: 100%; cursor: default; outline-offset: 2px; }
@@ -133,6 +135,7 @@
  }
 }
 </script>
+<!--trust-faq-ld-->
 </head>
 <body>
 <div class="wrap">
@@ -183,6 +186,8 @@
     <li>Its payout address (the x402 <code>payTo</code> or the MPP recipient) is not on the OFAC SDN sanctions list. Screened since 13 Oct 2026 against <a href="https://presign-guard.fizzl.eu/v1/sanctions">presign-guard's open copy</a> of the US Treasury list; a listed address is no-go.</li>
   </ul>
   <p>Agents get this track record in every <a href="/openapi.json">pre-payment check</a> (<code>GET /api/v1/preflight</code>, $0.001): a seller that was payable on fewer than half of its scanned days gets a <em>caution</em>.</p>
+
+  <!--trust-faq-->
 
   <h2>For sellers</h2>
   <p>All seller tools on one page: <a href="/sellers">x402 Doctor for sellers</a>.</p>
