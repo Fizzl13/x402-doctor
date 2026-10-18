@@ -1,8 +1,10 @@
 name: Trust Index to Hugging Face
 
 # After the Trust Index scan, and by hand: publishes the day's Trust Index as an open dataset on Hugging Face
-# (data/endpoints.jsonl, data/daily.csv and the dataset card, from scripts/hf-export.js). Reads only the
-# published trust-data branch; nothing is scanned, fetched from sellers or paid.
+# (data/endpoints.jsonl, data/daily.csv, the weekly spot-buy purchases data/spot_buys.jsonl, the on-chain payments
+# data/onchain_payments.csv and the dataset card, from scripts/hf-export.js). Reads only the published trust-data,
+# spot-data and payments-data branches; nothing is scanned, fetched from sellers or paid. It also keeps the dataset in
+# a Hugging Face collection, "x402 agent payments" (skipped when the token may not write collections).
 #
 # Needs the repository secret HF_TOKEN (a Hugging Face token with write access). The dataset is the repository
 # variable HF_DATASET (for example fizzl/x402-trust-index), or <token owner>/x402-trust-index without it.
@@ -60,6 +62,9 @@ jobs:
           git show FETCH_HEAD:index.json > trust-data/index.json
           git show FETCH_HEAD:categories.json > trust-data/categories.json || echo "{}" > trust-data/categories.json
           date=$(git show FETCH_HEAD:summary.json | jq -r '.date')
+          mkdir -p spot-data
+          if git fetch --depth 1 origin spot-data 2>/dev/null; then git archive FETCH_HEAD results | tar -x -C spot-data || true; fi
+          if git fetch --depth 1 origin payments-data 2>/dev/null; then git show FETCH_HEAD:payments.json > payments.json || rm -f payments.json; fi
           echo "date=$date" >> "$GITHUB_OUTPUT"
           if [ "${{ github.event_name }}" != "workflow_dispatch" ] && curl -sfL -H "Authorization: Bearer $HF_TOKEN" "https://huggingface.co/datasets/$dataset/raw/main/README.md" | grep -qF "Scan of **$date**"; then
             echo "$dataset already has the scan of $date." >> "$GITHUB_STEP_SUMMARY"
@@ -69,7 +74,7 @@ jobs:
         if: steps.token.outputs.skip != '1' && steps.day.outputs.skip != '1'
       - name: Export
         if: steps.token.outputs.skip != '1' && steps.day.outputs.skip != '1'
-        run: node scripts/hf-export.js --index trust-data/index.json --categories trust-data/categories.json --out hf
+        run: node scripts/hf-export.js --index trust-data/index.json --categories trust-data/categories.json --spot spot-data/results --payments payments.json --out hf
         env:
           HF_DATASET: ${{ steps.day.outputs.dataset }}
       - name: Upload
@@ -77,3 +82,21 @@ jobs:
         run: |
           hf upload "${{ steps.day.outputs.dataset }}" hf . --repo-type dataset --commit-message "Trust Index scan of ${{ steps.day.outputs.date }}"
           echo "Published the scan of ${{ steps.day.outputs.date }} to https://huggingface.co/datasets/${{ steps.day.outputs.dataset }}" >> "$GITHUB_STEP_SUMMARY"
+      - name: Collection
+        if: steps.token.outputs.skip != '1' && steps.day.outputs.skip != '1'
+        env:
+          DATASET: ${{ steps.day.outputs.dataset }}
+        run: |
+          python - <<'PY' || echo "Collection skipped (the token may not write collections)." >> "$GITHUB_STEP_SUMMARY"
+          import os
+          from huggingface_hub import add_collection_item, create_collection
+          dataset = os.environ["DATASET"]
+          collection = create_collection(
+              title="x402 agent payments",
+              namespace=dataset.split("/")[0],
+              description="Open data on AI agents paying APIs with x402: payable endpoints, real purchases, agent payment safety. By x402 Doctor (fizzl.eu).",
+              exists_ok=True,
+          )
+          add_collection_item(collection.slug, item_id=dataset, item_type="dataset", exists_ok=True)
+          print(f"collection: https://huggingface.co/collections/{collection.slug}")
+          PY

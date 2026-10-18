@@ -301,8 +301,11 @@ one letter per day (`g` go, `c` caution, `n` no-go, `x` unreachable, `-` not sca
 `index.json` + `summary.json` on the `trust-data` branch.
 After each scan, [`hf-sync.yml`](.github/workflows/hf-sync.yml) publishes it as an open dataset on Hugging Face,
 [x402Fizzl/x402-trust-index](https://huggingface.co/datasets/x402Fizzl/x402-trust-index) (CC BY 4.0): `data/endpoints.jsonl` (every endpoint in the latest scan with its
-verdict, reasons, price, networks, category and history), `data/daily.csv` (go / caution / no_go per day) and the dataset
-card (`scripts/hf-export.js`). It needs the repository secret `HF_TOKEN` (a Hugging Face write token); the variable
+verdict, reasons, price, networks, category and history), `data/daily.csv` (go / caution / no_go per day),
+`data/spot_buys.jsonl` (every purchase of the weekly spot-buy, from the `spot-data` branch), `data/onchain_payments.csv`
+(signed USDC payments on Base per payout address and day, from the `payments-data` branch) and the dataset card
+(`scripts/hf-export.js`). It also keeps the dataset in the Hugging Face collection "x402 agent payments" when the token
+may write collections. It needs the repository secret `HF_TOKEN` (a Hugging Face write token); the variable
 `HF_DATASET` overrides the dataset name.
 
 - The pre-payment check adds `signals.track_record` and a `caution` (`unreliable_history`) when a seller was
