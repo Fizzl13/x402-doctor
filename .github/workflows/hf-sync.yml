@@ -87,7 +87,7 @@ jobs:
         env:
           DATASET: ${{ steps.day.outputs.dataset }}
         run: |
-          python - <<'PY' || echo "Collection skipped (the token may not write collections)." >> "$GITHUB_STEP_SUMMARY"
+          python - <<'PY' 2> collection-error.txt || { cat collection-error.txt; echo "::warning title=Collection skipped::$(tail -n 1 collection-error.txt | cut -c1-300)"; }
           import os
           from huggingface_hub import add_collection_item, create_collection
           dataset = os.environ["DATASET"]
