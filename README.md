@@ -108,7 +108,9 @@ const report = await (await paidFetch("https://<host>/api/v1/diagnose?url=https:
 ### Pre-payment check for buyers: `GET /api/v1/preflight`
 
 `GET /api/v1/preflight?url=<endpoint>&max_usd=0.05&network=<caip2>&method=GET|POST`, **$0.001 USDC per call**:
-call it before your agent pays an x402 endpoint it has not used before. It never pays the endpoint.
+call it before your agent pays an x402 endpoint it has not used before. It never pays the endpoint. Add
+`client=gateway` when your agent pays with Circle's Gateway client from a Gateway balance: Circle Gateway-only
+endpoints (`gateway_only`, otherwise a caution) are then a go, and a Gateway option is recommended first.
 
 ```json
 {

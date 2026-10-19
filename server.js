@@ -116,10 +116,10 @@ function describeDoctorCall(req, _res, body) {
   }
   if (req.method === 'GET' && req.path === BATCH_ROUTE) {
     const urls = req.query.url === undefined ? [] : [].concat(req.query.url);
-    return { route: 'preflight batch', via: 'api', input: { urls: urls.slice(0, 10), max_usd: req.query.max_usd, network: req.query.network }, result: { counts: b.counts && Object.entries(b.counts).map(([k, v]) => `${k} ${v}`).join(', '), error: b.error } };
+    return { route: 'preflight batch', via: 'api', input: { urls: urls.slice(0, 10), max_usd: req.query.max_usd, network: req.query.network, client: req.query.client }, result: { counts: b.counts && Object.entries(b.counts).map(([k, v]) => `${k} ${v}`).join(', '), error: b.error } };
   }
   if (req.method === 'GET' && req.path === DEEP_ROUTE) {
-    return { route: 'preflight deep', via: 'api', input: { url: req.query.url, max_usd: req.query.max_usd, network: req.query.network }, result: { verdict: b.verdict, error: b.error } };
+    return { route: 'preflight deep', via: 'api', input: { url: req.query.url, max_usd: req.query.max_usd, network: req.query.network, client: req.query.client }, result: { verdict: b.verdict, error: b.error } };
   }
   if (req.method === 'GET' && req.path === DELIVERY_ROUTE) {
     return { route: 'delivery check', via: 'api', input: { url: req.query.url, method: req.query.method }, result: { status: b.status, id: b.id, error: b.error } };
@@ -129,7 +129,7 @@ function describeDoctorCall(req, _res, body) {
     return { route: 'trust batch', via: 'api', input: { count: urls.length, hosts: [...new Set(urls.map(hostOf).filter(Boolean))].slice(0, 10) }, result: { status: _res.statusCode, found: b.found, error: b.error } };
   }
   if (req.method === 'GET' && req.path === PREFLIGHT_ROUTE) {
-    return { route: 'preflight', via: 'api', input: { url: req.query.url, max_usd: req.query.max_usd, network: req.query.network }, result: { verdict: b.verdict, error: b.error } };
+    return { route: 'preflight', via: 'api', input: { url: req.query.url, max_usd: req.query.max_usd, network: req.query.network, client: req.query.client }, result: { verdict: b.verdict, error: b.error } };
   }
   if (req.method === 'POST' && req.path === '/mcp') {
     const call = mcpToolCall(req.body);
@@ -708,6 +708,7 @@ function openApi(origin, payment) {
         { name: 'method', in: 'query', required: false, schema: { type: 'string', enum: ['GET', 'POST'] }, description: 'Method you will call it with; default tries GET then POST' },
         { name: 'max_usd', in: 'query', required: false, example: '0.05', schema: { type: 'string' }, description: 'Your budget per call in USD; above it the verdict is no_go' },
         { name: 'network', in: 'query', required: false, schema: { type: 'string' }, description: 'CAIP-2 network you want to pay on, e.g. eip155:8453' },
+        { name: 'client', in: 'query', required: false, schema: { type: 'string', enum: ['gateway'] }, description: "Set to gateway when your agent pays with Circle's Gateway client (@circle-fin/x402-batching) from a Gateway balance: Gateway-only endpoints are then not a caution, and Gateway options are recommended first." },
       ],
       responses: {
         200: { description: 'Verdict (go / caution / no_go), recommended option and reasons', content: { 'application/json': { schema: withReceipt(PREFLIGHT_SCHEMA) } } },
@@ -720,6 +721,7 @@ function openApi(origin, payment) {
     { name: 'method', in: 'query', required: false, schema: { type: 'string', enum: ['GET', 'POST'] }, description: 'Method you will call it with; default tries GET then POST' },
     { name: 'max_usd', in: 'query', required: false, example: '0.05', schema: { type: 'string' }, description: 'Your budget per call in USD; above it the verdict is no_go' },
     { name: 'network', in: 'query', required: false, schema: { type: 'string' }, description: 'CAIP-2 network you want to pay on, e.g. eip155:8453' },
+        { name: 'client', in: 'query', required: false, schema: { type: 'string', enum: ['gateway'] }, description: "Set to gateway when your agent pays with Circle's Gateway client (@circle-fin/x402-batching) from a Gateway balance: Gateway-only endpoints are then not a caution, and Gateway options are recommended first." },
   ];
   const paidResponses = (description, schema) => ({
     200: { description, content: { 'application/json': { schema: withReceipt(schema) } } },
