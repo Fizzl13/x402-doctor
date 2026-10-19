@@ -13,6 +13,7 @@ const path = require('path');
 const { createTrustIndex } = require('../lib/trust-index');
 const { createBazaarIndex } = require('../lib/bazaar-index');
 const { marketDigest } = require('../lib/market-digest');
+const { previousFor, withBefore } = require('../lib/snapshots');
 
 const PREVIOUS_URL = 'https://raw.githubusercontent.com/Fizzl13/x402-doctor/weekly-reports/reports/market/market-latest.json';
 
@@ -42,12 +43,19 @@ async function main() {
   await bazaarIndex.refresh();
   const bazaar = bazaarIndex.siteCalls();
   if (!bazaar) throw new Error('the CDP Bazaar could not be read');
-  const previous = await loadPrevious(arg('previous'));
-  const { stats, markdown, posts, snapshot } = marketDigest({ map, bazaar, previous });
+  const latest = await loadPrevious(arg('previous'));
+  let previous = latest;
+  let digest = marketDigest({ map, bazaar, previous });
+  // Run again the same day: compare with what the first run compared with, not with its snapshot.
+  if (previousFor(latest, digest.stats.date) !== latest) {
+    previous = previousFor(latest, digest.stats.date);
+    digest = marketDigest({ map, bazaar, previous });
+  }
+  const { stats, markdown, posts, snapshot } = digest;
 
   fs.mkdirSync(path.join(out, 'market'), { recursive: true });
   fs.writeFileSync(path.join(out, `${stats.date}-market.md`), markdown);
-  fs.writeFileSync(path.join(out, 'market', 'market-latest.json'), `${JSON.stringify(snapshot)}\n`);
+  fs.writeFileSync(path.join(out, 'market', 'market-latest.json'), `${JSON.stringify(withBefore(snapshot, previous))}\n`);
   fs.writeFileSync(path.join(out, 'market', `${stats.date}.json`), `${JSON.stringify(stats, null, 2)}\n`);
   const drafts = [
     `# Market drafts for the week of ${stats.date}`,

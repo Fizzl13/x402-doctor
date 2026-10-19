@@ -12,6 +12,7 @@
 const fs = require('fs');
 const path = require('path');
 const { networkDigest, NETWORKS } = require('../lib/network-digest');
+const { previousFor, withBefore } = require('../lib/snapshots');
 
 const INDEX_URL = 'https://raw.githubusercontent.com/Fizzl13/x402-doctor/trust-data/index.json';
 const PREVIOUS_URL = 'https://raw.githubusercontent.com/Fizzl13/x402-doctor/weekly-reports/reports/networks';
@@ -45,11 +46,18 @@ async function main() {
   const index = await loadIndex(arg('index'));
   fs.mkdirSync(path.join(out, 'networks'), { recursive: true });
   for (const family of Object.keys(NETWORKS)) {
-    const previous = await loadPrevious(family, arg('previous'));
-    const { stats, snapshot, markdown, posts } = networkDigest(index, family, previous);
+    const latest = await loadPrevious(family, arg('previous'));
+    let previous = latest;
+    let digest = networkDigest(index, family, previous);
+    // Run again on the same day's data: compare with what the first run compared with, not with its snapshot.
+    if (previousFor(latest, digest.stats.date) !== latest) {
+      previous = previousFor(latest, digest.stats.date);
+      digest = networkDigest(index, family, previous);
+    }
+    const { stats, snapshot, markdown, posts } = digest;
     const date = stats.date;
     fs.writeFileSync(path.join(out, `${date}-${family}.md`), markdown);
-    fs.writeFileSync(path.join(out, 'networks', `${family}-latest.json`), `${JSON.stringify(snapshot)}\n`);
+    fs.writeFileSync(path.join(out, 'networks', `${family}-latest.json`), `${JSON.stringify(withBefore(snapshot, previous))}\n`);
     fs.writeFileSync(path.join(out, `${date}-${family}-posts.md`), [
       `# Drafts: x402 on ${NETWORKS[family].name}, week ending ${date}`,
       '',
