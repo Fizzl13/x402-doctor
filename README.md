@@ -438,7 +438,7 @@ The marketplace is [`.claude-plugin/marketplace.json`](.claude-plugin/marketplac
 
 ## MCP server
 
-`https://x402-doctor.fizzl.eu/mcp` is an MCP server (Streamable HTTP, stateless) for Claude, Cursor and agent frameworks, listed in the official MCP registry as `io.github.Fizzl13/x402-doctor`.
+`https://x402-doctor.fizzl.eu/mcp` is an MCP server (Streamable HTTP, stateless) for Claude, Cursor and agent frameworks, listed in the official MCP registry as `io.github.Fizzl13/x402-doctor`. Directories can read its tools without connecting from the server card at `/.well-known/mcp/server-card.json` (the same list as `tools/list`).
 
 | Tool | Price | Returns |
 |---|---|---|

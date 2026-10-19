@@ -135,6 +135,20 @@ test('mcp: a free quick check, five paid tools with their prices, the free payme
   await client.close();
 });
 
+test('mcp: the server card lists the same tools as tools/list', async () => {
+  const client = await mcpClient();
+  const { tools } = await client.listTools();
+  await client.close();
+  const res = await fetch(`${api}/.well-known/mcp/server-card.json`);
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get('access-control-allow-origin'), '*');
+  const card = await res.json();
+  assert.equal(card.serverInfo.name, 'x402-doctor');
+  assert.deepEqual(card.transport, { type: 'streamable-http', endpoint: '/mcp' });
+  assert.deepEqual(card.authentication, { required: false });
+  assert.deepEqual(card.tools, tools);
+});
+
 test('mcp: the free quick check gives the verdict and the top problems', async () => {
   const client = await mcpClient();
   const result = await client.callTool({ name: 'x402_quick_check', arguments: { url: targetUrl } });
