@@ -37,6 +37,9 @@ class Summaries(unittest.TestCase):
     def test_market_shares(self):
         s = app.summarize_market({"updated": "t", "latest": {"go": 60, "caution": 10, "no_go": 29, "unreachable": 1}, "reasons": [{"code": "no_402", "count": 29}]})
         self.assertEqual([s["endpoints_checked"], s["payable_pct"], s["clean_pct"], s["not_payable_pct"]], [100, 70.0, 60.0, 30.0])
+        self.assertNotIn("largest_seller", s)
+        farm = app.summarize_market({"latest": {"go": 60, "caution": 10, "no_go": 130, "unreachable": 0}, "largest_host": {"endpoints": 100, "share_pct": 50, "down": True, "latest_without": {"go": 60, "caution": 10, "no_go": 30, "unreachable": 0}}})
+        self.assertEqual(farm["largest_seller"]["without_it"], {"endpoints": 100, "payable_pct": 70.0, "clean_pct": 60.0, "not_payable_pct": 30.0})
 
 
 class Tools(unittest.TestCase):
