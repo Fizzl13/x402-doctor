@@ -142,6 +142,20 @@ test('preflight: a cheaper Gateway option is not recommended over a standard one
   assert.match(reason.message, /Circle's Gateway client.*Gateway balance/);
 });
 
+test("preflight with client=gateway: Gateway only is a go, and a Gateway option is recommended first", async () => {
+  const only = await preflight(await seller([gateway()]), { safeFetch, client: 'gateway' });
+  assert.equal(only.verdict, 'go');
+  const reason = only.reasons.find((r) => r.code === 'gateway_only');
+  assert.equal(reason.level, 'info');
+  assert.match(reason.message, /client=gateway/);
+
+  const mixed = await preflight(await seller([standard(), gateway()]), { safeFetch, client: 'gateway' });
+  assert.equal(mixed.verdict, 'go');
+  assert.equal(mixed.recommended_option, 1);
+  const plain = await preflight(await seller([standard(), gateway()]), { safeFetch });
+  assert.equal(plain.recommended_option, 0);
+});
+
 test("Trust Index: Circle's Agent Marketplace catalog, paged by 200, one entry per origin + path", async () => {
   const { loadCircleCatalog } = require('../lib/trust-scan');
   const item = (resource, method = 'GET', more = {}) => ({ resource, type: 'http', x402Version: 2, accepts: [gateway()], metadata: { method, description: `about ${resource}`, provider: { name: 'P' }, ...more } });
