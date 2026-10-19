@@ -52,7 +52,7 @@ The answer:
 | --- | --- |
 | `verdict` | `go`, `caution` or `no_go`. `safe_to_pay` is false only for no_go. |
 | `summary` | One line to show the user. |
-| `reasons` | `[{ level, code, message }]`, for example `no_402`, `server_error` (it answers only with server errors: down or failing), `over_budget`, `payto_sanctioned` (the payout address is on the OFAC SDN list), `payto_burn` (an option pays out to the zero address or another burn address), `testnet_only`, `price_above_advertised`, `price_far_above_advertised` (10 times the advertised price or more), `suspicious_amount`, or `payments_fail_after_preflight` (other buyers paid and it failed). |
+| `reasons` | `[{ level, code, message }]`, for example `no_402`, `server_error` (it answers only with server errors: down or failing), `over_budget`, `payto_sanctioned` (the payout address is on the OFAC SDN list), `payto_burn` (an option pays out to the zero address or another burn address), `nevermined_plan` (only payable with a Nevermined account and plan, not with a standard x402 client), `testnet_only`, `price_above_advertised`, `price_far_above_advertised` (10 times the advertised price or more), `suspicious_amount`, or `payments_fail_after_preflight` (other buyers paid and it failed). |
 | `recommended_option` | The cheapest payment option that will settle. Pay that one. |
 | `receipt` | Signed by Doctor. Keep it: it proves which verdict you got, for example to explain later why you paid. |
 

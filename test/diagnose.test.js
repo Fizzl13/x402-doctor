@@ -1181,6 +1181,52 @@ test('Bazaar routeTemplate that is not a path, or with a :param without a value:
   assert.deepEqual(exampleRequest('https://riddle.example/api/riddle', withQuery), { url: 'https://riddle.example/api/riddle?level=easy', method: 'GET' });
 });
 
+test('Nevermined plans: no payTo or amount asked; the rail, the plan id and the agent id are', () => {
+  const checks = [];
+  const plan = '44742763076047497640080230236781474129970992727896593861997347135613135571071';
+  const agent = { version: '1', agentId: '80918427023170428029540261117198154464497879145267720259488529685089104529015' };
+  checkAccepts([
+    { scheme: 'nvm:erc4337', network: 'eip155:84532', planId: plan, extra: agent },
+    { scheme: 'nvm:card-delegation', network: 'stripe', planId: plan, extra: agent },
+    { scheme: 'nvm:erc4337', network: 'sandbox', planId: plan, extra: agent }, // an environment, not a rail
+    { scheme: 'nvm:card-delegation', network: 'eip155:8453', planId: 'basic', extra: {} }, // wrong rail, no plan id
+    { scheme: 'nvm:erc4337', network: 'eip155:8453', planId: plan }, // no agent id
+    { scheme: 'nvm:erc4337', network: 'eip155:8453', planId: 123, extra: { agentId: 456 } }, // ids as JSON numbers
+  ], checks);
+  const get = (id) => checks.find((c) => c.id === id);
+  for (const i of [0, 1]) {
+    assert.equal(get(`accepts[${i}]-scheme`).status, 'info');
+    assert.match(get(`accepts[${i}]-scheme`).message, /Nevermined plan/);
+    assert.equal(get(`accepts[${i}]-network`).status, 'pass');
+    assert.equal(get(`accepts[${i}]-plan`).status, 'pass');
+    assert.equal(get(`accepts[${i}]-payto`), undefined);
+    assert.equal(get(`accepts[${i}]-amount`), undefined);
+  }
+  assert.match(get('accepts[0]-network').message, /Base Sepolia/);
+  assert.equal(get('accepts[2]-network').status, 'fail');
+  assert.match(get('accepts[2]-network').message, /environment/);
+  assert.equal(get('accepts[3]-network').status, 'warn');
+  assert.equal(get('accepts[3]-plan').status, 'fail');
+  assert.equal(get('accepts[4]-plan').status, 'warn');
+  assert.equal(get('accepts[5]-plan').status, 'pass');
+});
+
+test('resource.url as a path is judged against the endpoint: a warning, and a mismatch only when the path differs', () => {
+  const challenge = (url) => ({ x402Version: 2, resource: { url, description: 'x', mimeType: 'application/json' }, accepts: [] });
+  let checks = [];
+  checkResource(challenge('/api/v1/tasks'), 'https://agent.example/api/v1/tasks', checks);
+  let c = checks.find((x) => x.id === 'resource-url');
+  assert.equal(c.status, 'warn');
+  assert.match(c.message, /matches/);
+  assert.doesNotMatch(c.message, /differs/);
+  checks = [];
+  checkResource(challenge('/api/v1/other'), 'https://agent.example/api/v1/tasks', checks);
+  assert.match(checks.find((x) => x.id === 'resource-url').message, /differs/);
+  checks = [];
+  checkResource(challenge('api/v1/tasks'), 'https://agent.example/api/v1/tasks', checks);
+  assert.equal(checks.find((x) => x.id === 'resource-url').status, 'fail');
+});
+
 test('BNB Chain: 18-decimal dollar tokens, EIP-3009 vs Permit2, the token domain and a 6-decimal amount', () => {
   const checks = [];
   const payTo = '0x408C4610F6879a75c25722cfCd18A2Eff99dc20F';

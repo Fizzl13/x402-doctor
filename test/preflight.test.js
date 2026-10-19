@@ -406,6 +406,26 @@ test('BNB Chain: USDT over EIP-3009 is not payable; a 6-decimal amount on an 18-
   assert.ok(tiny.reasons.some((x) => x.code === 'suspicious_amount'));
 });
 
+// Nevermined's documented 402 (nevermined.ai/docs/development-guide/nevermined-x402): a plan, no amount or payTo.
+const PLAN = '44742763076047497640080230236781474129970992727896593861997347135613135571071';
+const nvmOption = (scheme = 'nvm:erc4337', network = 'eip155:8453') => ({ scheme, network, planId: PLAN, extra: { version: '1', agentId: '80918427023170428029540261117198154464497879145267720259488529685089104529015' } });
+
+test('Nevermined plans: a caution (payable only with a Nevermined account), not a no_go; next to an exact option, the exact one', async () => {
+  for (const option of [nvmOption(), nvmOption('nvm:card-delegation', 'stripe')]) {
+    const r = await run(await seller({ accepts: [option] }));
+    assert.equal(r.verdict, 'caution', JSON.stringify(r.reasons));
+    assert.deepEqual(r.reasons.map((x) => x.code), ['nevermined_plan']);
+    assert.match(r.reasons[0].message, /Nevermined account/);
+    assert.deepEqual([r.options[0].payable, r.options[0].client, r.options[0].plan_id], [false, 'nevermined', PLAN]);
+  }
+  const mixed = await run(await seller({ accepts: [nvmOption(), baseOption('10000')] }));
+  assert.equal(mixed.verdict, 'go', JSON.stringify(mixed.reasons));
+  assert.equal(mixed.recommended_option, 1);
+  const broken = await run(await seller({ accepts: [{ ...nvmOption(), planId: undefined }] }));
+  assert.equal(broken.verdict, 'no_go');
+  assert.ok(broken.reasons.some((x) => x.code === 'no_payable_option'));
+});
+
 test('at the same price, the option every x402 client can pay is recommended over a Permit2 one', async () => {
   const permit2 = bnbOption('10000000000000000', USDT_BNB, { name: 'Tether USD', version: '1', assetTransferMethod: 'permit2-exact' });
   const r = await run(await seller({ accepts: [permit2, baseOption('10000')] }));
