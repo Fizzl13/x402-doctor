@@ -1,6 +1,6 @@
 ---
 name: x402-seller-check
-description: "Check your own x402 or MPP paid endpoint the way a paying agent and the registries see it, and get it fixed. Use after building or changing a paid API (x402 with @x402/express, @x402/next, @x402/hono or another server library, Cloudflare's Monetization Gateway, Stripe's x402 support, or MPP), before listing it in the CDP Bazaar or another directory, or when agents don't pay, payments fail, or the endpoint isn't found. Free check with a fix hint per problem; $0.05 for the concrete code fix."
+description: "Check your own x402 or MPP paid endpoint the way a paying agent and the registries see it, and get it fixed. Use after building or changing a paid API (x402 with @x402/express, @x402/next, @x402/hono or another server library, Circle Gateway nanopayments with @circle-fin/x402-batching (Circle's accept-agent-payments skill), Cloudflare's Monetization Gateway, Stripe's x402 support, or MPP), before listing it in the CDP Bazaar or another directory, or when agents don't pay, payments fail, or the endpoint isn't found. Free check with a fix hint per problem; $0.05 for the concrete code fix."
 license: MIT
 allowed-tools: ["Bash(curl *)"]
 ---
@@ -49,6 +49,14 @@ GET https://x402-doctor.fizzl.eu/api/v1/fix?url=<your endpoint>&method=GET&stack
 - **Paying for it:** use any x402 client. It costs $0.05 in USDC on Base, Solana or Algorand, RLUSD on the XRP Ledger, or MPP. With Coinbase's Agentic Wallet: `npx awal@2.12.1 x402 pay "<the URL above, endpoint URL-encoded>" --max-amount 50000`.
 
 `GET /api/v1/diagnose?url=…` ($0.01) returns the same checks as the free one, with a signed receipt.
+
+## Selling through Circle Gateway
+
+Built with `@circle-fin/x402-batching` (for example with Circle's accept-agent-payments skill)? The check knows Gateway's options on every network it serves, testnets included. What it tells you that your own test won't:
+
+- **Who can pay you:** only buyers with USDC deposited in Circle's Gateway Wallet and Circle's client. Standard x402 clients and Coinbase's agent wallets can't. Add a plain `exact` option next to Gateway if you want every x402 agent to pay.
+- **Testnet or mainnet:** the preflight that buyers' agents run says caution (`testnet_only`) until your mainnet options are live.
+- **`resource.url`:** the middleware sends a path (`/summarize`); registries and some clients expect the full URL.
 
 ## 3. After it passes
 
