@@ -1211,6 +1211,31 @@ test('Nevermined plans: no payTo or amount asked; the rail, the plan id and the 
   assert.equal(get('accepts[5]-plan').status, 'pass');
 });
 
+test('unknown schemes: missing or unusual fields are warnings, a burn address a fail; "eip3009" as scheme gets the hint', () => {
+  const checks = [];
+  const usdc = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+  const payTo = '0x408C4610F6879a75c25722cfCd18A2Eff99dc20F';
+  checkAccepts([
+    { scheme: 'aggr_deferred', network: 'eip155:8453' }, // nothing the doctor can judge
+    { scheme: 'settled-transfer', network: 'eip155:8453', asset: usdc, payTo, amount: '10000' },
+    { scheme: 'memo-transfer', network: 'eip155:8453', asset: usdc, payTo: '0x0000000000000000000000000000000000000000', amount: '10000' },
+    { scheme: 'eip3009', network: 'eip155:8453', asset: usdc, payTo, amount: '10000' },
+    { scheme: 'exact', network: 'eip155:8453', asset: usdc, amount: '10000', extra: { name: 'USD Coin', version: '2' } }, // exact: still a fail
+  ], checks);
+  const get = (id) => checks.find((c) => c.id === id);
+  assert.equal(get('accepts[0]-scheme').status, 'warn');
+  assert.equal(get('accepts[0]-payto').status, 'warn');
+  assert.match(get('accepts[0]-payto').message, /doesn't know what "aggr_deferred" requires/);
+  assert.equal(get('accepts[0]-amount').status, 'warn');
+  assert.equal(get('accepts[1]-payto').status, 'pass');
+  assert.equal(get('accepts[1]-amount').status, 'pass');
+  assert.equal(get('accepts[2]-payto').status, 'fail');
+  assert.match(get('accepts[3]-scheme').message, /EIP-3009/);
+  assert.equal(get('accepts[3]-scheme').hint, 'Set "scheme": "exact".');
+  assert.equal(get('accepts[4]-payto').status, 'fail');
+  assert.ok(!checks.some((c) => /^accepts\[[0-3]\]/.test(c.id) && c.status === 'fail' && c.id !== 'accepts[2]-payto'), JSON.stringify(checks.filter((c) => c.status === 'fail')));
+});
+
 test('resource.url as a path is judged against the endpoint: a warning, and a mismatch only when the path differs', () => {
   const challenge = (url) => ({ x402Version: 2, resource: { url, description: 'x', mimeType: 'application/json' }, accepts: [] });
   let checks = [];

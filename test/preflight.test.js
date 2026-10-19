@@ -426,6 +426,25 @@ test('Nevermined plans: a caution (payable only with a Nevermined account), not 
   assert.ok(broken.reasons.some((x) => x.code === 'no_payable_option'));
 });
 
+test('unknown schemes: never recommended over a standard option; only them is a caution; a burn address still a no_go', async () => {
+  const custom = (scheme, amount = '5000', extra = {}) => ({ ...baseOption(amount), scheme, ...extra });
+  const only = await run(await seller({ accepts: [custom('settled-transfer')] }));
+  assert.equal(only.verdict, 'caution', JSON.stringify(only.reasons));
+  assert.deepEqual(only.reasons.map((x) => x.code), ['custom_scheme_only']);
+  assert.match(only.reasons[0].message, /"settled-transfer"/);
+  assert.deepEqual([only.options[0].payable, only.options[0].client], [false, 'custom']);
+  // Cheaper, but in a scheme a standard client can't pay: the exact option is the one to take.
+  const mixed = await run(await seller({ accepts: [custom('agent-pay', '1000'), baseOption('10000')] }));
+  assert.equal(mixed.verdict, 'go', JSON.stringify(mixed.reasons));
+  assert.equal(mixed.recommended_option, 1);
+  const noFields = await run(await seller({ accepts: [{ scheme: 'aggr_deferred', network: BASE }] }));
+  assert.equal(noFields.verdict, 'caution', JSON.stringify(noFields.reasons));
+  assert.ok(noFields.reasons.some((x) => x.code === 'custom_scheme_only'));
+  const burned = await run(await seller({ accepts: [custom('memo-transfer', '5000', { payTo: '0x0000000000000000000000000000000000000000' })] }));
+  assert.equal(burned.verdict, 'no_go');
+  assert.ok(burned.reasons.some((x) => x.code === 'payto_burn'));
+});
+
 test('at the same price, the option every x402 client can pay is recommended over a Permit2 one', async () => {
   const permit2 = bnbOption('10000000000000000', USDT_BNB, { name: 'Tether USD', version: '1', assetTransferMethod: 'permit2-exact' });
   const r = await run(await seller({ accepts: [permit2, baseOption('10000')] }));
