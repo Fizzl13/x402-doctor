@@ -312,6 +312,11 @@ may write collections. It needs the repository secret `HF_TOKEN` (a Hugging Face
 (`scripts/hf-bench.js`): a dataset `x402-agent-safety-bench` with every run and its transcript (from x402-examples'
 `bench-data` branch), the published tables as `leaderboard.csv`, and a static leaderboard Space of the same name. It
 runs when the script changes, every Monday and by hand; the variable `HF_BENCH_REPO` overrides the name.
+[`hf-mcp-space.yml`](.github/workflows/hf-mcp-space.yml) publishes [`hf-mcp/`](hf-mcp) as the Space
+[x402Fizzl/x402-doctor](https://huggingface.co/spaces/x402Fizzl/x402-doctor): a Gradio app that is also an MCP server
+(`https://x402fizzl-x402-doctor.hf.space/gradio_api/mcp/`, or added under Hugging Face's MCP settings), with three
+free tools over the public API: `check_x402_endpoint` (`/api/diagnose`), `trust_record` (`/api/trust`) and
+`x402_market_health` (`/api/trust/summary`). It never pays or holds a key; the variable `HF_MCP_SPACE` overrides the name.
 
 - The pre-payment check adds `signals.track_record` and a `caution` (`unreliable_history`) when a seller was
   payable on fewer than half of at least 3 scanned days.
