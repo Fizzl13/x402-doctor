@@ -33,7 +33,10 @@ jobs:
         run: node scripts/network-digest.js --out "$RUNNER_TEMP/new"
       - name: Market digest (CDP Bazaar)
         continue-on-error: true # the health report is still published when the Bazaar can't be read
-        run: node scripts/market-digest.js --out "$RUNNER_TEMP/new"
+        # The other steps need no packages; this one loads the Trust Index (lib/), which needs the dependencies.
+        run: |
+          npm ci --omit=dev --no-audit --no-fund
+          node scripts/market-digest.js --out "$RUNNER_TEMP/new"
       - name: Publish to the weekly-reports branch
         run: |
           git config user.name "github-actions[bot]"
