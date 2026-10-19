@@ -51,6 +51,12 @@ test('today\'s numbers in the HTML of /trust and the network pages, for crawlers
   const [[placeholder, headline]] = trustFill(summary);
   assert.equal(placeholder, "Loading today's scan…");
   assert.equal(headline, 'In the scan of 18 Oct 2026, an agent could pay <strong>64%</strong> of the <strong>1,000</strong> paid services checked (x402 and MPP) without a failed payment.');
+  // One seller with a large share of the scan: the share without it, in the headline and the FAQ answer.
+  const farm = { ...summary, latest: { go: 600, caution: 40, no_go: 1350, unreachable: 10 }, largest_host: { endpoints: 1000, share_pct: 50, down: true, latest_without: { go: 600, caution: 40, no_go: 350, unreachable: 10 } } };
+  const farmFill = trustFill(farm);
+  assert.equal(farmFill[0][1], 'In the scan of 18 Oct 2026, an agent could pay <strong>32%</strong> of the <strong>2,000</strong> paid services checked (x402 and MPP) without a failed payment. One seller with 1,000 of them (50%) could not be paid in this scan; without it, an agent could pay 64% of the other 1,000.');
+  assert.match(farmFill.find(([k]) => k === '<!--trust-faq-->')[1], /One seller with 1,000 of them \(50%\) could not be paid in this scan; without it, an agent could pay 64% of the other 1,000\./);
+  assert.match(trustFill({ ...farm, largest_host: { ...farm.largest_host, down: false } })[0][1], /One seller has 1,000 of them \(50%\); without it/);
   const m = createPageMeta({ read: () => '<div class="v">…</div><div class="v">…</div><p>…</p>' });
   assert.equal(m.render('x', { fill: [['<div class="v">…</div>', '<div class="v">1</div>'], ['<div class="v">…</div>', '<div class="v">$2</div>']] }).split('<meta')[0], '<div class="v">1</div><div class="v">$2</div><p>…</p>');
 

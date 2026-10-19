@@ -76,6 +76,19 @@ def summarize_trust(record):
     return out
 
 
+def largest(host):
+    """One seller with a large share of the scan moves the totals by itself: its share and the shares without it."""
+    w = host.get("latest_without") or {}
+    rest = sum(w.get(k, 0) for k in ("go", "caution", "no_go", "unreachable"))
+    pct = lambda n: round(100 * n / rest, 1) if rest else 0
+    return {
+        "endpoints": host.get("endpoints"),
+        "share_pct": host.get("share_pct"),
+        "could_not_be_paid": host.get("down"),
+        "without_it": {"endpoints": rest, "payable_pct": pct(w.get("go", 0) + w.get("caution", 0)), "clean_pct": pct(w.get("go", 0)), "not_payable_pct": pct(w.get("no_go", 0) + w.get("unreachable", 0))},
+    }
+
+
 def summarize_market(summary):
     latest = summary.get("latest") or {}
     checked = sum(latest.get(k, 0) for k in ("go", "caution", "no_go", "unreachable"))
@@ -91,6 +104,7 @@ def summarize_market(summary):
         "networks": (summary.get("networks") or [])[:5],
         "by_protocol": summary.get("by_protocol"),
         **({"onchain_payments": summary["onchain_payments"]} if summary.get("onchain_payments") else {}),
+        **({"largest_seller": largest(summary["largest_host"])} if summary.get("largest_host") else {}),
         "source": f"{DOCTOR}/trust",
     }
 

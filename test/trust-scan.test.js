@@ -302,6 +302,25 @@ test('trust index lookup reads the published index', async () => {
   assert.equal(trust.summary().latest.go, 1);
 });
 
+test('trust index summary: one seller with a large share of the latest scan is counted apart, never named', async () => {
+  const entry = (url, h, verdict) => [url, { url, m: 'GET', h, last: { verdict, codes: verdict === 'go' ? [] : ['server_error'], price_usd: 0.01, networks: [BASE] } }];
+  const resources = Object.fromEntries([
+    ...Array.from({ length: 1200 }, (_, i) => entry(`https://farm.example/e${i}`, 'gn', 'no_go')),
+    ...Array.from({ length: 1000 }, (_, i) => entry(`https://seller${i}.example/x`, 'gg', 'go')),
+  ]);
+  const index = { version: 1, updated: '2026-10-18T08:00:00Z', days: ['2026-10-17', '2026-10-18'], resources };
+  const trust = createTrustIndex({ url: 'https://raw.test/index.json', fetchImpl: async () => ({ ok: true, json: async () => index }) });
+  await trust.refresh();
+  const s = trust.summary();
+  assert.deepEqual(s.latest, { go: 1000, caution: 0, no_go: 1200, unreachable: 0 }, 'the totals themselves are unchanged');
+  assert.deepEqual(s.largest_host, { endpoints: 1200, share_pct: 54.5, down: true, latest_without: { go: 1000, caution: 0, no_go: 0, unreachable: 0 } });
+  assert.doesNotMatch(JSON.stringify(s.largest_host), /farm/);
+  // Small farms (under 1,000 endpoints) or small shares (under 20%) change nothing.
+  const small = createTrustIndex({ url: 'https://raw.test/index.json', fetchImpl: async () => ({ ok: true, json: async () => ({ ...index, resources: Object.fromEntries(Object.entries(resources).slice(600)) }) }) });
+  await small.refresh();
+  assert.equal(small.summary().largest_host, undefined);
+});
+
 test('trust index lookup: a concrete URL finds the record of its listed path template, and says so', async () => {
   const index = mergeIndex(null, [
     { key: 'https://w.example/wallet/:address', url: 'https://w.example/wallet/:address', probe: 'https://w.example/wallet/0xabc', method: 'GET', verdict: 'go', codes: [], price_usd: 0.005, networks: [BASE], ms: 5 },

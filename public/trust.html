@@ -250,6 +250,17 @@
   // Shares are of the services judged in the latest scan (not those missing from it); the server writes the same
   // headline into the HTML (lib/page-meta.js trustFill).
   const checkedOf = (s) => s.latest.go + s.latest.caution + s.latest.no_go + s.latest.unreachable;
+  // One seller with a large share of the scan moves the share by itself: the share without it (lib/page-meta.js
+  // largestLine writes the same words into the HTML).
+  function largestLine(s) {
+    const h = s.largest_host;
+    const w = h && h.latest_without;
+    if (!w) return '';
+    const rest = w.go + w.caution + w.no_go + w.unreachable;
+    if (!rest) return '';
+    const how = h.down ? `One seller with ${fmt(h.endpoints)} of them (${h.share_pct}%) could not be paid in this scan` : `One seller has ${fmt(h.endpoints)} of them (${h.share_pct}%)`;
+    return ` ${how}; without it, an agent could pay ${pct(w.go + w.caution, rest)} of the other ${fmt(rest)}.`;
+  }
   function renderShare(s) {
     const total = checkedOf(s);
     const fail = s.latest.no_go + s.latest.unreachable;
@@ -257,7 +268,7 @@
     $('headline').innerHTML = '';
     $('headline').append(day ? `In the scan of ${spotDate(day)}, an agent could pay ` : 'An agent could pay ',
       Object.assign(document.createElement('strong'), { textContent: pct(s.latest.go + s.latest.caution, total) }), ' of the ',
-      Object.assign(document.createElement('strong'), { textContent: fmt(total) }), ' paid services checked (x402 and MPP) without a failed payment.');
+      Object.assign(document.createElement('strong'), { textContent: fmt(total) }), ' paid services checked (x402 and MPP) without a failed payment.' + largestLine(s));
     const parts = [
       { cls: 'g', icon: '✓', label: 'Works', n: s.latest.go, info: 'A payment would settle' },
       { cls: 'c', icon: '!', label: 'Works, with warnings', n: s.latest.caution, info: 'Payable, but something looks off' },
