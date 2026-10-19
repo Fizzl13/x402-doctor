@@ -317,6 +317,8 @@ runs when the script changes, every Monday and by hand; the variable `HF_BENCH_R
 (`https://x402fizzl-x402-doctor.hf.space/gradio_api/mcp/`, or added under Hugging Face's MCP settings), with three
 free tools over the public API: `check_x402_endpoint` (`/api/diagnose`), `trust_record` (`/api/trust`) and
 `x402_market_health` (`/api/trust/summary`). It never pays or holds a key; the variable `HF_MCP_SPACE` overrides the name.
+Hugging Face hosts Gradio Spaces only for PRO accounts: without PRO the workflow warns and publishes nothing, and the
+Space waits in `hf-mcp/`. Doctor's own MCP server is `https://x402-doctor.fizzl.eu/mcp`.
 
 - The pre-payment check adds `signals.track_record` and a `caution` (`unreliable_history`) when a seller was
   payable on fewer than half of at least 3 scanned days.
