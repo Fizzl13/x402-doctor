@@ -64,5 +64,30 @@ class Tools(unittest.TestCase):
             self.assertIn("rate limiting", app.check_x402_endpoint("https://api.example.com/x")["error"])
 
 
+
+class AddToTrustIndex(unittest.TestCase):
+    def test_refuses_non_https_before_any_call(self):
+        with mock.patch.object(app, "_call") as call:
+            self.assertFalse(app.add_to_trust_index("http://api.example.com/paid")["ok"])
+            self.assertFalse(app.add_to_trust_index("")["ok"])
+            call.assert_not_called()
+
+    def test_passes_doctors_answer_on(self):
+        with mock.patch.object(app, "_call", return_value=(201, {"status": "added", "message": "Added."})) as call:
+            out = app.add_to_trust_index(" https://api.example.com/paid ")
+            self.assertEqual(out, {"ok": True, "status": "added", "message": "Added."})
+            call.assert_called_once_with("POST", "/api/trust/submit", json={"url": "https://api.example.com/paid"})
+        with mock.patch.object(app, "_call", return_value=(422, {"error": "Not added: no 402."})):
+            out = app.add_to_trust_index("https://api.example.com/free")
+            self.assertEqual(out["ok"], False)
+            self.assertIn("no 402", out["error"])
+
+    def test_unlisted_record_points_to_the_add_tool(self):
+        with mock.patch.object(app, "_call", return_value=(404, {"error": "not in the trust index yet", "submitted_at": "2026-10-19T20:00:00Z"})):
+            out = app.trust_record("https://api.example.com/paid")
+            self.assertFalse(out["listed"])
+            self.assertEqual(out["submitted_at"], "2026-10-19T20:00:00Z")
+            self.assertIn("add_to_trust_index", out["how_to_list"])
+
 if __name__ == "__main__":
     unittest.main()
