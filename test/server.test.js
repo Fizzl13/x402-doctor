@@ -56,7 +56,9 @@ test('checkAccepts flags malformed accepts entries and accepts valid CAIP-2 netw
   assert.equal(checks.some((check) => check.id === 'accepts[0]-network' && check.status === 'pass'), true);
   assert.equal(checks.some((check) => check.id === 'accepts[1]-network' && check.status === 'warn'), true);
   assert.equal(checks.some((check) => check.id === 'accepts[1]-payto' && check.status === 'fail'), true);
-  assert.equal(checks.some((check) => check.id === 'accepts[1]-amount' && check.status === 'warn'), true);
+  // Not CAIP-2, not a known name, no EVM payTo: unpayable for that reason; its amount isn't judged as EVM base units.
+  assert.match(checks.find((check) => check.id === 'accepts[1]-payto').message, /no x402 client pays network "mainnet"/);
+  assert.equal(checks.some((check) => check.id === 'accepts[1]-amount'), false);
 });
 
 test('checkAccepts validates payTo/asset as base58 for Solana entries, not EVM hex', () => {

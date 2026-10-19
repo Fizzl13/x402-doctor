@@ -1302,3 +1302,19 @@ test('BNB Chain: 18-decimal dollar tokens, EIP-3009 vs Permit2, the token domain
   assert.equal(get('accepts[6]-asset').status, 'warn');
   assert.match(get('accepts[6]-asset').message, /not a dollar stablecoin x402 Doctor knows \(USDC, USDT, USD1, U\) on BNB Chain/);
 });
+
+test('checkAccepts: a non-CAIP-2 network the doctor does not know is unpayable for that reason, not as a bad EVM address', () => {
+  const checks = [];
+  checkAccepts([
+    { scheme: 'exact', network: 'lightning:mainnet', amount: '539', payTo: '520ca7be-8ffe-4b50-ba8a-c1d8d6c2141a', asset: 'sat', extra: { merchantId: '520ca7be-8ffe-4b50-ba8a-c1d8d6c2141a' } },
+    { scheme: 'exact', network: 'base', amount: '10000', asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', payTo: '0x408C4610F6879a75c25722cfCd18A2Eff99dc20F' },
+  ], checks);
+  const lightning = checks.find((c) => c.id === 'accepts[0]-payto');
+  assert.equal(lightning.status, 'fail');
+  assert.match(lightning.message, /no x402 client pays network "lightning:mainnet"/);
+  assert.doesNotMatch(lightning.message, /EVM/);
+  assert.match(lightning.hint, /lnbtc:000000000019d6689c085ae165831e93/);
+  assert.equal(checks.filter((c) => c.id.startsWith('accepts[0]-asset')).length, 0, 'no asset checks for it');
+  // A v1 name with an EVM payTo still gets the EVM checks.
+  assert.equal(checks.find((c) => c.id === 'accepts[1]-payto').status, 'pass');
+});
