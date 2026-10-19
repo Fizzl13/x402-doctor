@@ -141,7 +141,7 @@
   <p>Built with <code>@circle-fin/x402-batching</code>, for example with Circle's accept-agent-payments skill for Claude Code? The check above knows Gateway's options on every network it serves, testnets included. What to watch:</p>
   <div class="tool" id="circle">
     <ul>
-      <li><b>Who can pay you:</b> only buyers with USDC deposited in Circle's Gateway Wallet, using Circle's client. Standard x402 clients and Coinbase's agent wallets can't. Add a plain <code>exact</code> option next to Gateway if every x402 agent should be able to pay.</li>
+      <li><b>Who can pay you:</b> only buyers with USDC deposited in Circle's Gateway Wallet, using Circle's client. Standard x402 clients and Coinbase's agent wallets can't. Without one, the preflight that buyers' agents run says caution (<code>gateway_only</code>). Add a plain <code>exact</code> option next to Gateway if every x402 agent should be able to pay.</li>
       <li><b>Testnet first, then mainnet.</b> The preflight that buyers' agents run says caution (<code>testnet_only</code>) until your mainnet options are live.</li>
       <li><b><code>resource.url</code></b>: the middleware sends a path (<code>/summarize</code>); registries and some clients expect the full URL.</li>
       <li><b>In Claude Code</b>, add the check next to Circle's skills: <code>/plugin marketplace add Fizzl13/x402-doctor</code>, then <code>/plugin install x402-doctor@fizzl</code>.</li>

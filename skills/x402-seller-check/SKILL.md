@@ -54,7 +54,7 @@ GET https://x402-doctor.fizzl.eu/api/v1/fix?url=<your endpoint>&method=GET&stack
 
 Built with `@circle-fin/x402-batching` (for example with Circle's accept-agent-payments skill)? The check knows Gateway's options on every network it serves, testnets included. What it tells you that your own test won't:
 
-- **Who can pay you:** only buyers with USDC deposited in Circle's Gateway Wallet and Circle's client. Standard x402 clients and Coinbase's agent wallets can't. Add a plain `exact` option next to Gateway if you want every x402 agent to pay.
+- **Who can pay you:** only buyers with USDC deposited in Circle's Gateway Wallet and Circle's client. Standard x402 clients and Coinbase's agent wallets can't. Without one, the preflight that buyers' agents run says caution (`gateway_only`). Add a plain `exact` option next to Gateway if you want every x402 agent to pay.
 - **Testnet or mainnet:** the preflight that buyers' agents run says caution (`testnet_only`) until your mainnet options are live.
 - **`resource.url`:** the middleware sends a path (`/summarize`); registries and some clients expect the full URL.
 
