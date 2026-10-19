@@ -101,6 +101,7 @@
   .overall.warn { background: var(--orange-bg); color: var(--warn); border: 1px solid var(--warn); }
   .overall.fail { background: var(--red-bg); color: var(--fail); border: 1px solid var(--fail); }
   .overall a { color: inherit; font-weight: 500; font-size: 13px; }
+  #overallText { min-width: 0; overflow-wrap: anywhere; }
   .watch-line { margin: -8px 0 20px; font-size: 14px; color: var(--text-soft); }
   .watch-line a { font-weight: 600; white-space: nowrap; }
   .checks { display: flex; flex-direction: column; gap: 8px; }
@@ -306,6 +307,7 @@
   <div class="error-box" id="errorBox" hidden></div>
   <div class="overall" id="overallBox" hidden><span id="overallText"></span><a id="shareLink" href="#">Copy link to this report</a></div>
   <p class="watch-line" id="watchLine" hidden>Get a notification on your phone, or a message on Telegram, Discord or Slack, when this endpoint stops being payable (checked every hour, nothing paid): <a id="watchLink" href="https://wallet.fizzl.eu/#/account">Watch this endpoint, free →</a></p>
+  <p class="watch-line" id="trustLine" hidden></p>
   <div class="fix-card" id="fixCard" hidden>
     <h3>Get the fix: $0.05</h3>
     <p id="fixIntro">The code that fixes these problems, for your stack, filled in with your own payTo, amount, network and route.</p>
@@ -524,6 +526,7 @@ async function diagnose(url, method) {
   $('errorBox').hidden = true;
   $('overallBox').hidden = true;
   $('watchLine').hidden = true;
+  $('trustLine').hidden = true;
   $('challengeBox').hidden = true;
   $('results').replaceChildren();
   $('diagnoseBtn').disabled = true;
@@ -567,6 +570,9 @@ async function diagnose(url, method) {
       $('watchLink').href = `https://wallet.fizzl.eu/?${new URLSearchParams({ watch: url, ...(watchMethod === 'POST' ? { method: 'POST' } : {}) })}#/account`;
       $('watchLine').hidden = false;
     }
+    // Asks for payment: its Trust Index record, or a way to add it when no registry lists it yet.
+    const challenged = data.challenge || (data.mpp || []).length || (data.l402 || []).length;
+    if (challenged && /^https:/i.test(url)) showTrust(url, id);
     lastDiagnosis = { url, method };
     const problems = counts[1] + counts[2];
     $('fixCard').hidden = problems === 0;
@@ -589,6 +595,41 @@ async function diagnose(url, method) {
     $('diagnoseBtn').disabled = false;
     $('diagnoseBtn').textContent = 'Diagnose →';
   }
+}
+
+// The Trust Index line under the result: the endpoint's daily record, or (not listed yet) "add it", which asks
+// POST /api/trust/submit; Doctor checks the 402 again and the next daily scan picks it up.
+async function showTrust(url, id) {
+  const line = $('trustLine');
+  const link = (href, text) => Object.assign(document.createElement('a'), { href, textContent: text });
+  try {
+    const res = await fetch('/api/trust?url=' + encodeURIComponent(url));
+    const data = await res.json();
+    if (id !== runId) return;
+    line.replaceChildren();
+    if (res.ok) {
+      line.append(`x402 Trust Index: payable on ${data.days_payable} of ${data.days_checked} scanned days. `, link(`/trust?url=${encodeURIComponent(url)}`, 'Track record and badge →'));
+    } else if (res.status === 404 && data.submitted_at) {
+      line.append(`Added to the x402 Trust Index on ${data.submitted_at.slice(0, 10)}: the next daily scan checks it.`);
+    } else if (res.status === 404) {
+      const add = link('#', 'Add it, free →');
+      add.addEventListener('click', async (e) => {
+        e.preventDefault();
+        line.textContent = 'Adding…';
+        try {
+          const r = await fetch('/api/trust/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) });
+          const j = await r.json();
+          line.textContent = j.message || j.error || 'Something went wrong.';
+        } catch {
+          line.textContent = 'Could not reach Doctor. Try again in a minute.';
+        }
+      });
+      line.append('Not in the x402 Trust Index yet, so agents that check it before paying find no track record. ', add);
+    } else {
+      return;
+    }
+    line.hidden = false;
+  } catch { /* the line is optional */ }
 }
 
 // ------------------------------------------------ the paid fix ($0.05, MetaMask on Base)
