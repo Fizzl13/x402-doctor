@@ -47,6 +47,7 @@ Examples:
 - The MCP tool `x402_quick_check` (10 calls an hour).
 - The website: paste an endpoint at https://x402-doctor.fizzl.eu for the full report in the browser.
 - `GET /api/trust?url=<resource>`: that resource's 30-day track record from the daily scan of every endpoint listed in the CDP Bazaar, Circle's Agent Marketplace, GoPlausible's discovery list or the MPP directory, and what came back if it was bought in the weekly spot-buy (30 a minute).
+- `POST /api/trust/submit` with `{"url": "https://…"}`: add your own endpoint to the daily scan when no registry lists it yet. Doctor first checks that it answers 402 with a payment challenge (10 an hour, 25 endpoints per host); the next scan builds its record.
 - `GET /api/trust/spot`: the latest weekly spot-buy. About 30 random endpoints that look payable are actually paid, and each purchase says what came back: delivered, an error after payment, or money taken without an answer.
 - After paying any x402 endpoint: `POST /api/settlement` with `{"header": "<the PAYMENT-RESPONSE header>"}` (or the MCP tool `check_payment_proof`) shows the on-chain transaction, network, payer and the USDC that moved. Web page: https://x402-doctor.fizzl.eu/settlement
 

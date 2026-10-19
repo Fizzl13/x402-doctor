@@ -55,6 +55,7 @@
   form { display: flex; gap: 8px; flex-wrap: wrap; }
   input[type=url] { flex: 1 1 320px; min-width: 0; font-family: 'SF Mono', Consolas, monospace; font-size: 14px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
   button { font: inherit; font-weight: 600; font-size: 14px; background: var(--accent); color: var(--on-accent); border: none; border-radius: 8px; padding: 12px 20px; cursor: pointer; }
+  button:disabled { opacity: .6; cursor: default; }
   .result { margin-top: 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; overflow-wrap: anywhere; }
   .days { display: flex; gap: 3px; margin: 10px 0 6px; flex-wrap: wrap; }
   .day { width: 14px; height: 22px; border-radius: 3px; background: var(--none); }
@@ -201,7 +202,7 @@
     <li>Want your origin left out of the scan? <a href="https://github.com/Fizzl13/x402-doctor/issues">Open an issue</a>.</li>
   </ul>
 
-  <footer>Data: <code>GET /api/trust?url=…</code> (free, rate-limited), <code>POST /api/trust/batch</code> with <code>{"urls": [...]}</code> (up to 100 at once), <code>GET /api/trust/summary</code> and <code>GET /api/trust/spot</code> (the latest spot-buy). The full daily index is public on the <a href="https://github.com/Fizzl13/x402-doctor/tree/trust-data">trust-data</a> branch and as an <a href="https://huggingface.co/datasets/x402Fizzl/x402-trust-index">open dataset on Hugging Face</a>. Per network: <a href="/xrpl">x402 on the XRP Ledger</a>, <a href="/algorand">x402 on Algorand</a> and <a href="/stellar">x402 on Stellar</a> (<code>GET /api/trust/network?network=xrpl</code>, <code>algorand</code> or <code>stellar</code>). · <a href="https://fizzl.eu/privacy/">Privacy</a> · <a href="https://fizzl.eu/terms/">Terms</a></footer>
+  <footer>Data: <code>GET /api/trust?url=…</code> (free, rate-limited), <code>POST /api/trust/batch</code> with <code>{"urls": [...]}</code> (up to 100 at once), <code>GET /api/trust/summary</code> and <code>GET /api/trust/spot</code> (the latest spot-buy). Sellers add an endpoint no registry lists yet with <code>POST /api/trust/submit</code> and <code>{"url": "…"}</code>; added endpoints get a track record but stay out of the totals. The full daily index is public on the <a href="https://github.com/Fizzl13/x402-doctor/tree/trust-data">trust-data</a> branch and as an <a href="https://huggingface.co/datasets/x402Fizzl/x402-trust-index">open dataset on Hugging Face</a>. Per network: <a href="/xrpl">x402 on the XRP Ledger</a>, <a href="/algorand">x402 on Algorand</a> and <a href="/stellar">x402 on Stellar</a> (<code>GET /api/trust/network?network=xrpl</code>, <code>algorand</code> or <code>stellar</code>). · <a href="https://fizzl.eu/privacy/">Privacy</a> · <a href="https://fizzl.eu/terms/">Terms</a></footer>
   <p class="by-fizzl"><a href="https://fizzl.eu" title="Fizzl: all pay-per-call tools for AI agents, with live demos">by <svg viewBox="-6 -14 236 126" role="img" aria-label="fizzl"><g fill="none" stroke="currentColor" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"><path d="M44 12 A20 20 0 0 0 20 32 V100"/><path d="M6 48 H38"/><path d="M64 56 V100"/><path d="M88 52 H124 L88 100 H124"/><path d="M144 52 H180 L144 100 H180"/><path d="M200 8 V84 A16 16 0 0 0 216 100"/></g><g class="b"><circle cx="64" cy="26" r="9"/><circle cx="78" cy="10" r="5"/><circle cx="90" cy="-2" r="3"/></g></svg><span>· all tools and live demos at fizzl.eu</span></a></p>
 </div>
 <script>
@@ -431,11 +432,37 @@
     if (res.status === 404 && data.check) {
       const p = document.createElement('p'), a = document.createElement('a');
       p.style.margin = '0';
-      p.textContent = `Not in the Trust Index yet. ${data.how_to_list} Meanwhile: `;
       a.href = data.check;
       a.textContent = 'check it now (free)';
+      if (data.submitted_at) {
+        p.textContent = `Not in the Trust Index yet: added ${data.submitted_at.slice(0, 10)}, the next daily scan checks it. Meanwhile: `;
+        p.append(a, '.');
+        box.append(p);
+        return;
+      }
+      p.textContent = "Not in the Trust Index yet. The daily scan checks every resource listed in the CDP Bazaar, Circle's Agent Marketplace, GoPlausible's discovery list or the MPP directory. Your own endpoint? Add it here; Doctor first checks that it answers 402 with a payment challenge. Or ";
       p.append(a, '.');
-      box.append(p);
+      // Sellers add their own endpoint (POST /api/trust/submit); the next scan picks it up.
+      const add = document.createElement('button');
+      add.type = 'button';
+      add.textContent = 'Add it to the Trust Index';
+      add.style.marginTop = '12px';
+      const said = document.createElement('p');
+      said.style.margin = '10px 0 0';
+      add.addEventListener('click', async () => {
+        add.disabled = true;
+        said.textContent = 'Checking the endpoint…';
+        try {
+          const r = await fetch('/api/trust/submit', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: data.url }) });
+          const j = await r.json();
+          said.textContent = j.message || j.error || 'Something went wrong.';
+          if (!r.ok) add.disabled = false;
+        } catch {
+          said.textContent = 'Could not reach Doctor. Try again in a minute.';
+          add.disabled = false;
+        }
+      });
+      box.append(p, add, said);
       return;
     }
     if (!res.ok) { box.textContent = data.error || 'Not found.'; return; }
@@ -453,6 +480,12 @@
     legend.className = 'legend';
     legend.textContent = 'Last 30 days, oldest left. Green: go · amber: caution · red: no-go or unreachable · grey: not scanned.';
     box.append(head, days, legend);
+    if (data.submitted) {
+      const note = document.createElement('div');
+      note.className = 'legend';
+      note.textContent = 'Added by its seller on Doctor: no public registry lists it yet, and the index totals leave it out.';
+      box.append(note);
+    }
     // The seller's badge: shown here so they can copy it into a README or a page.
     const target = $('url').value.trim(), origin = (() => { try { return new URL(target).origin; } catch { return ''; } })();
     const badgeUrl = (u) => `${location.origin}/badge.svg?url=${encodeURIComponent(u)}`, pageUrl = `${location.origin}/trust?url=${encodeURIComponent(target)}`;

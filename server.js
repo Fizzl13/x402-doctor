@@ -16,8 +16,9 @@ const { createPaidApi, ROUTE: PAID_ROUTE, PREFLIGHT_ROUTE, FIX_ROUTE, BATCH_ROUT
 const { DELIVERY_EXAMPLE } = require('./lib/delivery-checks');
 const { BATCH_SCHEMA } = require('./lib/preflight-plus');
 const { STACKS } = require('./lib/stack');
-const { PREFLIGHT_SCHEMA } = require('./lib/preflight');
+const { PREFLIGHT_SCHEMA, preflight } = require('./lib/preflight');
 const { createTrustIndex } = require('./lib/trust-index');
+const { createTrustSubmissions } = require('./lib/trust-submissions');
 const { createOnchainPayments } = require('./lib/onchain-payments');
 const { createSpotResults } = require('./lib/spot-results');
 const { createMediaCache } = require('./lib/media');
@@ -124,6 +125,9 @@ function describeDoctorCall(req, _res, body) {
   if (req.method === 'GET' && req.path === DELIVERY_ROUTE) {
     return { route: 'delivery check', via: 'api', input: { url: req.query.url, method: req.query.method }, result: { status: b.status, id: b.id, error: b.error } };
   }
+  if (req.method === 'POST' && req.path === '/api/trust/submit') {
+    return { route: 'trust submit', via: 'web', input: { url: req.body && req.body.url }, result: { status: b.status, error: b.error } };
+  }
   if (req.method === 'POST' && req.path === '/api/trust/batch') {
     const urls = Array.isArray(req.body && req.body.urls) ? req.body.urls : [];
     return { route: 'trust batch', via: 'api', input: { count: urls.length, hosts: [...new Set(urls.map(hostOf).filter(Boolean))].slice(0, 10) }, result: { status: _res.statusCode, found: b.found, error: b.error } };
@@ -202,7 +206,7 @@ function trustProxyHops(env) {
   return Number.isInteger(n) && n >= 0 && n <= 10 && String(env.TRUST_PROXY_HOPS).trim() !== '' ? n : 3;
 }
 
-function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, cdpValidate = env.CDP_VALIDATE === 'off' ? null : createCdpValidator(), trustIndex = createTrustIndex(), spotResults = createSpotResults(), onchainPayments = createOnchainPayments(), media = createMediaCache(), usageLog = createUsageLog({ service: 'doctor', env }), usageReader = createUsageReader({ env }), publicStats = createPublicStats({ usageReader }), settlementFetch = globalThis.fetch, status = null, outreachHook: outreachHookOverride = null, describe = createDescribe({ apiKey: env.TYPESAFE_API_KEY }), poison = createPoisonCheck({ apiKey: env.TYPESAFE_API_KEY }), creditStore, agentKinds = createAgentKinds({ apiKey: env.TYPESAFE_API_KEY }), downloads = createDownloads(), priceCheck = createPriceCheck({ apiKey: env.TYPESAFE_API_KEY, trustIndex }), deliveryStore, deliveryResults } = {}) {
+function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, cdpValidate = env.CDP_VALIDATE === 'off' ? null : createCdpValidator(), trustIndex = createTrustIndex(), spotResults = createSpotResults(), onchainPayments = createOnchainPayments(), media = createMediaCache(), usageLog = createUsageLog({ service: 'doctor', env }), usageReader = createUsageReader({ env }), publicStats = createPublicStats({ usageReader }), settlementFetch = globalThis.fetch, status = null, outreachHook: outreachHookOverride = null, describe = createDescribe({ apiKey: env.TYPESAFE_API_KEY }), poison = createPoisonCheck({ apiKey: env.TYPESAFE_API_KEY }), creditStore, agentKinds = createAgentKinds({ apiKey: env.TYPESAFE_API_KEY }), downloads = createDownloads(), priceCheck = createPriceCheck({ apiKey: env.TYPESAFE_API_KEY, trustIndex }), deliveryStore, deliveryResults, trustSubmissions: trustSubmissionsOverride = null } = {}) {
   const app = express();
   const safeFetch = createSafeFetch({ allowPrivate });
   // Outreach drafts for the owner (lib/outreach-hook.js); off without OUTREACH_URL and OUTREACH_KEY.
@@ -327,6 +331,13 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   // old onrender.com address still works, but discovery always names the
   // fizzl.eu address; any other host (a local run, a test) lists itself.
   const publicUrl = (env.PUBLIC_URL || 'https://x402-doctor.fizzl.eu').replace(/\/$/, '');
+  // Endpoints sellers add to the Trust Index themselves, kept in the usage log repo (lib/trust-submissions.js). Its own
+  // log: flushed after every submission, and no second SIGTERM handler next to the main log's.
+  const trustSubmissions = trustSubmissionsOverride || createTrustSubmissions({
+    usageLog: createUsageLog({ service: 'trust-submit', env, exitOnSignal: false }),
+    usageReader: createUsageReader({ env }),
+    publicUrl,
+  });
   const DISCOVERY_RESOURCES = [
     [PAID_ROUTE, 'Endpoint diagnosis', 'Why is an x402 endpoint broken? Every check (402 challenge, payment options, discovery, settlement) with pass/warn/fail and a fix hint.'],
     [PREFLIGHT_ROUTE, 'Pre-payment check', 'Is this x402 endpoint safe to pay? go / caution / no_go with the recommended payment option and the reasons. Never pays the endpoint.'],
@@ -387,17 +398,33 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
       return res.status(400).json({ error: 'url is required, e.g. /api/trust?url=https://api.example.com/paid' });
     }
     const record = await trustIndex.lookup(parsed.href, { waitMs: 5000 });
-    // Mostly sellers looking up their own endpoint: say where a listing comes from, and offer the free check meanwhile.
-    if (!record) return res.status(404).json({
-      url: parsed.href,
-      error: 'not in the trust index yet',
-      how_to_list: "The daily scan checks every resource listed in the CDP Bazaar, Circle's Agent Marketplace, GoPlausible's discovery list or the MPP directory. List it in one of them and the next scan picks it up.",
-      check: `${publicUrl}/?url=${encodeURIComponent(parsed.href)}`,
-      index: trustIndex.summary(),
-    });
+    // Mostly sellers looking up their own endpoint: say where a listing comes from, how to add it, and offer the free
+    // check meanwhile. Added but not scanned yet: say so.
+    if (!record) {
+      const added = await trustSubmissions.find(parsed.href).catch(() => null);
+      return res.status(404).json({
+        url: parsed.href,
+        error: 'not in the trust index yet',
+        ...(added ? { submitted_at: added.t, message: 'Added: the next daily scan checks it.' } : {}),
+        how_to_list: "The daily scan checks every resource listed in the CDP Bazaar, Circle's Agent Marketplace, GoPlausible's discovery list or the MPP directory, and endpoints their sellers add here (POST /api/trust/submit with {\"url\": \"…\"}). The next scan picks it up.",
+        check: `${publicUrl}/?url=${encodeURIComponent(parsed.href)}`,
+        index: trustIndex.summary(),
+      });
+    }
     // Bought in the latest weekly spot-buy sample: what actually happened after paying.
     const spot = await spotResults.forUrl(parsed.href, { waitMs: 2000 }).catch(() => null);
     res.json({ url: parsed.href, ...record, ...(spot ? { spot_buy: spot } : {}) });
+  });
+  // Sellers add their own endpoint (free): Doctor checks that it answers 402 with a payment challenge, and the next
+  // daily scan picks it up from /api/trust/submitted (lib/trust-submissions.js). Each one costs a live check of the
+  // endpoint, so 10 an hour per IP.
+  const submitLimit = rateLimit({ windowMs: 60 * 60 * 1000, max: 10 });
+  app.post('/api/trust/submit', submitLimit, async (req, res) => {
+    const out = await trustSubmissions.submit(req.body && req.body.url, { check: (url) => preflight(url, { safeFetch }), trustIndex });
+    res.status(out.status).json(out.body);
+  });
+  app.get('/api/trust/submitted', trustLimit, async (_req, res) => {
+    res.json({ submissions: await trustSubmissions.list() });
   });
   // Many track records at once, for directories and indexers that re-test their own lists (free): up to 100 URLs per
   // call. The index's days and date come once at the top instead of in every record.
