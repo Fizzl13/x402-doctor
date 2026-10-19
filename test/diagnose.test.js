@@ -1211,6 +1211,23 @@ test('Nevermined plans: no payTo or amount asked; the rail, the plan id and the 
   assert.equal(get('accepts[5]-plan').status, 'pass');
 });
 
+test('Circle Gateway testnets (as @circle-fin/x402-batching lists them) are known networks with their USDC', () => {
+  const checks = [];
+  const payTo = '0x408C4610F6879a75c25722cfCd18A2Eff99dc20F';
+  const gw = { name: 'GatewayWalletBatched', version: '1', verifyingContract: '0x0077777d7eba4688bdef3e311b846f25870a19b9' };
+  const testnets = [
+    ['eip155:11155111', '0x1c7d4b196cb0c7b01d743fbc6116a902379c7238'], ['eip155:421614', '0x75faf114eafb1bdbe2f0316df893fd58ce46aa4d'],
+    ['eip155:11155420', '0x5fd84259d66cd46123540766be93dfe6d43130d7'], ['eip155:1301', '0x31d0220469e10c4e71834a79b1f276d740d3768f'],
+    ['eip155:4801', '0x66145f38cbac35ca6f1dfb4914df98f1614aea88'], ['eip155:1328', '0x4fcf1784b31630811181f670aea7a7bef803eaed'],
+    ['eip155:998', '0x2b3370ee501b4a559b57d449569354196457d8ab'], ['eip155:14601', '0x0ba304580ee7c9a980cf72e55f5ed2e9fd30bc51'],
+  ];
+  checkAccepts(testnets.map(([network, asset]) => ({ scheme: 'exact', network, asset, amount: '10000', payTo, maxTimeoutSeconds: 604900, extra: gw })), checks);
+  testnets.forEach((_, i) => {
+    assert.equal(checks.find((c) => c.id === `accepts[${i}]-network`).status, 'pass', JSON.stringify(checks.filter((c) => c.id.startsWith(`accepts[${i}]`))));
+    assert.ok(!checks.some((c) => c.id === `accepts[${i}]-asset` && c.status !== 'pass'), `accepts[${i}] asset is that testnet's USDC`);
+  });
+});
+
 test('unknown schemes: missing or unusual fields are warnings, a burn address a fail; "eip3009" as scheme gets the hint', () => {
   const checks = [];
   const usdc = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
