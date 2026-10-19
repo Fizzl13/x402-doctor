@@ -1,0 +1,73 @@
+name: x402 Doctor MCP Space on Hugging Face
+
+# Publishes hf-mcp/ as a Gradio Space that is also an MCP server (<token owner>/x402-doctor, or the variable
+# HF_MCP_SPACE): three free tools that call Doctor's public API. The Space never pays, signs or holds a key.
+# Pull requests only run the offline tests; master publishes when hf-mcp/ or this workflow changes, and by hand.
+# Needs the repository secret HF_TOKEN (a write token that may create repos).
+on:
+  push:
+    branches: [master]
+    paths: [hf-mcp/**, .github/workflows/hf-mcp-space.yml]
+  pull_request:
+    paths: [hf-mcp/**, .github/workflows/hf-mcp-space.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hf-mcp-space
+  cancel-in-progress: false
+
+jobs:
+  space:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Offline tests
+        working-directory: hf-mcp
+        run: |
+          pip install -q -r requirements.txt
+          python -m unittest -v test_app
+      - name: Publish
+        id: publish
+        if: github.event_name != 'pull_request'
+        run: |
+          if [ -z "$HF_TOKEN" ]; then echo "No HF_TOKEN secret, nothing to publish." >> "$GITHUB_STEP_SUMMARY"; exit 0; fi
+          pip install -q "huggingface_hub>=0.34,<2"
+          repo="${{ vars.HF_MCP_SPACE }}"
+          [ -n "$repo" ] || repo="$(python -c 'from huggingface_hub import whoami; print(whoami()["name"])')/x402-doctor"
+          echo "repo=$repo" >> "$GITHUB_OUTPUT"
+          REPO="$repo" python - <<'PY'
+          import os
+          from huggingface_hub import HfApi
+          api = HfApi()
+          repo = os.environ["REPO"]
+          api.create_repo(repo, repo_type="space", space_sdk="gradio", exist_ok=True)
+          api.upload_folder(repo_id=repo, repo_type="space", folder_path="hf-mcp", commit_message="x402 Doctor MCP Space", ignore_patterns=["test_*.py", "__pycache__/*"])
+          PY
+          echo "Published https://huggingface.co/spaces/$repo (MCP: https://$(echo "$repo" | tr '/' '-' | tr 'A-Z' 'a-z').hf.space/gradio_api/mcp/)" >> "$GITHUB_STEP_SUMMARY"
+      - name: Collection
+        if: github.event_name != 'pull_request' && steps.publish.outputs.repo != ''
+        env:
+          REPO: ${{ steps.publish.outputs.repo }}
+        run: |
+          python - <<'PY' 2> collection-error.txt || { cat collection-error.txt; echo "::warning title=Collection skipped::$(tail -n 1 collection-error.txt | cut -c1-300)"; }
+          import os
+          from huggingface_hub import add_collection_item, create_collection
+          repo = os.environ["REPO"]
+          collection = create_collection(
+              title="x402 agent payments",
+              namespace=repo.split("/")[0],
+              description="Open data on AI agents paying APIs with x402: payable endpoints, real purchases, agent payment safety. By x402 Doctor (fizzl.eu).",
+              exists_ok=True,
+          )
+          add_collection_item(collection.slug, item_id=repo, item_type="space", exists_ok=True)
+          print(f"collection: https://huggingface.co/collections/{collection.slug}")
+          PY
