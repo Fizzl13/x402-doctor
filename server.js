@@ -584,7 +584,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     try {
       const report = await diagnoseLib.diagnose(targetUrl, { safeFetch, method, bazaarIndex: bazaar, cdpValidate, describe, poison, price: priceCheck });
       // A broken endpoint with a published contact: a draft for the owner's outreach (never sent from here).
-      outreachHook.maybeDraft(targetUrl, report).catch(() => {});
+      outreachHook.maybeDraft(targetUrl, report, { agent: req.get('user-agent') }).catch(() => {});
       // The page's own share link, for callers that only see JSON (curl, scripts):
       // opening it runs the same check again in the browser.
       const share = new URLSearchParams({ url: targetUrl, ...(method ? { method } : {}) });

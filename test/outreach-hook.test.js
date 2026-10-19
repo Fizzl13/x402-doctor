@@ -25,6 +25,7 @@ test('no draft: passing check, own host, no contact, or the hook off', async () 
   const { posts, h } = hook();
   assert.equal((await h.maybeDraft('https://a.test/x', { overall: 'warn', checks: [] })).skipped, 'off_or_not_failing');
   assert.equal((await h.maybeDraft('https://presign-guard.fizzl.eu/v1/check', failing)).skipped, 'own');
+  assert.equal((await h.maybeDraft('https://c.test/x', failing, { agent: 'fizzl-monitor/smoke' })).skipped, 'own');
   const none = hook({ spec: { info: {} } });
   assert.match((await none.h.maybeDraft('https://b.test/x', failing)).skipped, /no contact/);
   const off = createOutreachHook({ url: '', key: '', safeFetch: async () => ({}) });
