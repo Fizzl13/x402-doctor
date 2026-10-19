@@ -128,16 +128,18 @@ function seller(accepts) {
 }
 const safeFetch = createSafeFetch({ allowPrivate: true });
 
-test('preflight: a cheaper Gateway option is not recommended over a standard one; Gateway only is a go with a note', async () => {
+test('preflight: a cheaper Gateway option is not recommended over a standard one; Gateway only is caution', async () => {
   const mixed = await preflight(await seller([gateway({}, { amount: '500' }), standard()]), { safeFetch });
   assert.equal(mixed.verdict, 'go');
   assert.equal(mixed.recommended_option, 1);
   assert.equal(mixed.reasons.some((r) => r.code === 'gateway_only'), false);
 
   const only = await preflight(await seller([gateway()]), { safeFetch });
-  assert.equal(only.verdict, 'go');
+  assert.equal(only.verdict, 'caution');
   assert.equal(only.recommended_option, 0);
-  assert.match(only.reasons.find((r) => r.code === 'gateway_only').message, /Circle's Gateway client/);
+  const reason = only.reasons.find((r) => r.code === 'gateway_only');
+  assert.equal(reason.level, 'caution');
+  assert.match(reason.message, /Circle's Gateway client.*Gateway balance/);
 });
 
 test("Trust Index: Circle's Agent Marketplace catalog, paged by 200, one entry per origin + path", async () => {
