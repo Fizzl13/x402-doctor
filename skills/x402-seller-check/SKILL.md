@@ -60,7 +60,7 @@ Built with `@circle-fin/x402-batching` (for example with Circle's accept-agent-p
 
 ## 3. After it passes
 
-- **Track record:** once your endpoint is listed in the CDP Bazaar or the MPP directory, the daily scan builds its record. Look it up for free:
+- **Track record:** once your endpoint is listed in the CDP Bazaar, Circle's Agent Marketplace, GoPlausible's discovery list or the MPP directory, the daily scan builds its record. Look it up for free:
 
   ```bash
   curl -s "https://x402-doctor.fizzl.eu/api/trust?url=<your endpoint>"

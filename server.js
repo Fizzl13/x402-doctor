@@ -387,7 +387,14 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
       return res.status(400).json({ error: 'url is required, e.g. /api/trust?url=https://api.example.com/paid' });
     }
     const record = await trustIndex.lookup(parsed.href, { waitMs: 5000 });
-    if (!record) return res.status(404).json({ url: parsed.href, error: 'not in the trust index (only resources listed in the CDP Bazaar or the MPP directory are scanned, once a day)', index: trustIndex.summary() });
+    // Mostly sellers looking up their own endpoint: say where a listing comes from, and offer the free check meanwhile.
+    if (!record) return res.status(404).json({
+      url: parsed.href,
+      error: 'not in the trust index yet',
+      how_to_list: "The daily scan checks every resource listed in the CDP Bazaar, Circle's Agent Marketplace, GoPlausible's discovery list or the MPP directory. List it in one of them and the next scan picks it up.",
+      check: `${publicUrl}/?url=${encodeURIComponent(parsed.href)}`,
+      index: trustIndex.summary(),
+    });
     // Bought in the latest weekly spot-buy sample: what actually happened after paying.
     const spot = await spotResults.forUrl(parsed.href, { waitMs: 2000 }).catch(() => null);
     res.json({ url: parsed.href, ...record, ...(spot ? { spot_buy: spot } : {}) });
