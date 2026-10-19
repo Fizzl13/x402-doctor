@@ -228,7 +228,21 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   // Free payment-proof check (lib/settlement.js): the PAYMENT-RESPONSE header → the on-chain transaction.
   const rpcUrls = { ...(env.BASE_RPC_URL ? { 'eip155:8453': env.BASE_RPC_URL } : {}), ...(env.SOLANA_RPC_URL ? { 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp': env.SOLANA_RPC_URL } : {}) };
   const checkPaymentProof = (header) => checkSettlement(header, { fetch: settlementFetch, rpcUrls });
-  paidApi = createPaidApi({ safeFetch, env, trustIndex, feedback, bazaarIndex: bazaar, cdpValidate, outcomes, checkPaymentProof, creditStore, priceCheck, spotResults, onchainPayments, deliveryStore, ...(deliveryResults ? { deliveryResults } : {}) });
+  // Endpoints sellers add to the Trust Index themselves, kept in the usage log repo (lib/trust-submissions.js). Its own
+  // log: flushed after every submission, and no second SIGTERM handler next to the main log's. Used by
+  // POST /api/trust/submit and the free MCP tools.
+  const trustSubmissions = trustSubmissionsOverride || createTrustSubmissions({
+    usageLog: createUsageLog({ service: 'trust-submit', env, exitOnSignal: false }),
+    usageReader: createUsageReader({ env }),
+    publicUrl: (env.PUBLIC_URL || 'https://x402-doctor.fizzl.eu').replace(/\/$/, ''),
+  });
+  const submitToTrust = (url) => trustSubmissions.submit(url, { check: (u) => preflight(u, { safeFetch }), trustIndex });
+  const trustTools = {
+    lookup: (url) => trustIndex.lookup(url, { waitMs: 5000 }),
+    submit: submitToTrust,
+    howToList: "Not in the x402 Trust Index yet. Its daily scan checks every resource listed in the CDP Bazaar, Circle's Agent Marketplace, GoPlausible's discovery list or the MPP directory; your own endpoint can be added with x402_trust_add.",
+  };
+  paidApi = createPaidApi({ safeFetch, env, trustIndex, feedback, bazaarIndex: bazaar, cdpValidate, outcomes, checkPaymentProof, creditStore, priceCheck, spotResults, onchainPayments, deliveryStore, ...(deliveryResults ? { deliveryResults } : {}), trust: trustTools });
 
   // Doctor's requests reach the app through three proxies (the caller, then two
   // hops, the last a private Render address: measured 26 Sep), so Express has to
@@ -331,13 +345,6 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   // old onrender.com address still works, but discovery always names the
   // fizzl.eu address; any other host (a local run, a test) lists itself.
   const publicUrl = (env.PUBLIC_URL || 'https://x402-doctor.fizzl.eu').replace(/\/$/, '');
-  // Endpoints sellers add to the Trust Index themselves, kept in the usage log repo (lib/trust-submissions.js). Its own
-  // log: flushed after every submission, and no second SIGTERM handler next to the main log's.
-  const trustSubmissions = trustSubmissionsOverride || createTrustSubmissions({
-    usageLog: createUsageLog({ service: 'trust-submit', env, exitOnSignal: false }),
-    usageReader: createUsageReader({ env }),
-    publicUrl,
-  });
   const DISCOVERY_RESOURCES = [
     [PAID_ROUTE, 'Endpoint diagnosis', 'Why is an x402 endpoint broken? Every check (402 challenge, payment options, discovery, settlement) with pass/warn/fail and a fix hint.'],
     [PREFLIGHT_ROUTE, 'Pre-payment check', 'Is this x402 endpoint safe to pay? go / caution / no_go with the recommended payment option and the reasons. Never pays the endpoint.'],
@@ -420,7 +427,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   // endpoint, so 10 an hour per IP.
   const submitLimit = rateLimit({ windowMs: 60 * 60 * 1000, max: 10 });
   app.post('/api/trust/submit', submitLimit, async (req, res) => {
-    const out = await trustSubmissions.submit(req.body && req.body.url, { check: (url) => preflight(url, { safeFetch }), trustIndex });
+    const out = await submitToTrust(req.body && req.body.url);
     res.status(out.status).json(out.body);
   });
   app.get('/api/trust/submitted', trustLimit, async (_req, res) => {
