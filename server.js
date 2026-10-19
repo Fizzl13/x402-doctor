@@ -102,6 +102,8 @@ const hostOf = (u) => { try { return new URL(String(u)).host; } catch { return n
 function describeDoctorCall(req, _res, body) {
   // Who reads the EIP-8004 registration (e.g. agent registries such as Metaplex).
   if (req.method === 'GET' && req.path === '/.well-known/agent-registration.json') return { route: 'agent registration', via: 'discovery', input: {}, result: { status: _res.statusCode } };
+  // Who reads the MCP server card (directories such as Smithery).
+  if (req.method === 'GET' && req.path === '/.well-known/mcp/server-card.json') return { route: 'mcp server card', via: 'discovery', input: {}, result: { status: _res.statusCode } };
   const b = body || {};
   if (req.method === 'POST' && req.path === '/api/diagnose') {
     return { route: 'diagnose', via: 'web', input: { url: req.body && req.body.url, method: req.body && req.body.method }, result: { overall: b.overall, protocol: protocolOf(b), mpp: mppMethods(b), networks: networksOf(b), error: b.error } };
