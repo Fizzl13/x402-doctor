@@ -348,8 +348,9 @@ test('trust index refresh: unchanged index (304) is not downloaded again, a chan
   const trust = createTrustIndex({
     url: 'https://raw.test/index.json',
     categoriesUrl: 'https://raw.test/categories.json',
+    submittedUrl: 'https://raw.test/submitted.json',
     fetchImpl: async (u, opts = {}) => {
-      if (u.endsWith('categories.json')) return { ok: false, status: 404 };
+      if (u.endsWith('categories.json') || u.endsWith('submitted.json')) return { ok: false, status: 404 };
       seen.push(opts.headers?.['if-none-match'] ?? null);
       if (reply === '304') return { ok: false, status: 304 };
       if (reply === 'slow') return { ok: true, status: 200, headers: new Headers({ etag: '"v2"' }), json: () => new Promise((r) => { release = () => r(index); }) };

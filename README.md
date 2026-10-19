@@ -379,6 +379,12 @@ Space waits in `hf-mcp/`. Doctor's own MCP server is `https://x402-doctor.fizzl.
   `POST /api/trust/batch` with `{"urls": [...]}` (free, up to 100 URLs, 10 calls/min per IP): the same for many at once,
   in the order sent (`found: false` for a URL the index doesn't have), with the index's `days` and `updated` once at the
   top. For directories and indexers that re-test their own lists; the whole index is on the `trust-data` branch.
+  `POST /api/trust/submit` with `{"url": "https://…"}` (free, 10 an hour per IP): a seller adds an endpoint no registry
+  lists yet. Doctor checks that it answers 402 with a payment challenge (x402, MPP or L402) and keeps the submission in
+  the usage log repo (`events/trust-submit/`); the next scan reads `GET /api/trust/submitted` and scans it into
+  `submitted.json`, apart from `index.json`, so lookups and badges find it (marked `submitted: true`) while the totals,
+  pages and datasets keep counting registry listings only. At most 25 per host; one that a registry lists later moves to
+  the index, and one not payable on any of its last 14 scanned days drops out.
   `GET /api/trust/summary`: totals of the latest scan. `/trust`: the public page, with lookup and the scan's rules.
 - `GET /api/trust/network?network=xrpl` (or an id like `xrpl:0`, free): every scanned x402 endpoint that offers a network,
   payable there today or not and why (the scan records `unpayable` networks with their first problem), grouped per

@@ -7,11 +7,13 @@
 // resource in the CDP Bazaar (x402), the MPP directory (Stripe + Tempo), the GoPlausible facilitator's
 // discovery list (x402 on Algorand) and Circle's Agent Marketplace catalog, and writes
 // <out>/index.json and <out>/summary.json. Every payout address is screened against the OFAC SDN list.
+// Endpoints their sellers added on Doctor (/api/trust/submitted) are scanned too, into <out>/submitted.json (read
+// from <out> like index.json): kept apart, so the index and its numbers stay what the registries list.
 
 const fs = require('fs');
 const path = require('path');
 const { createSafeFetch } = require('../lib/safe-fetch');
-const { loadCatalog, loadMppCatalog, loadGoPlausibleCatalog, loadCircleCatalog, scan, mergeIndex, summarize } = require('../lib/trust-scan');
+const { loadCatalog, loadMppCatalog, loadGoPlausibleCatalog, loadCircleCatalog, loadSubmissions, submittedResources, scan, mergeIndex, summarize } = require('../lib/trust-scan');
 const { mergePayTos } = require('../lib/onchain-payments');
 const { createSanctions } = require('../lib/sanctions');
 
@@ -26,6 +28,8 @@ async function main() {
   fs.mkdirSync(out, { recursive: true });
   const indexPath = path.join(out, 'index.json');
   const previous = fs.existsSync(indexPath) ? JSON.parse(fs.readFileSync(indexPath, 'utf8')) : null;
+  const submittedPath = path.join(out, 'submitted.json');
+  const previousSubmitted = fs.existsSync(submittedPath) ? JSON.parse(fs.readFileSync(submittedPath, 'utf8')) : null;
 
   let resources = await loadCatalog();
   console.log(`catalog: ${resources.length} resources`);
@@ -48,6 +52,12 @@ async function main() {
   console.log(`Circle Agent Marketplace: ${circle.length} endpoints, ${circleOnly.length} new`);
   resources = [...resources, ...circleOnly];
   if (limit > 0) resources = resources.slice(0, limit);
+  // Added by their sellers: yesterday's plus the new submissions, without what a registry lists by now.
+  const submissions = await loadSubmissions({ ...(process.env.TRUST_SUBMISSIONS_URL ? { url: process.env.TRUST_SUBMISSIONS_URL } : {}) })
+    .catch((err) => (console.warn(`submissions: ${err.message}`), []));
+  const added = submittedResources(previousSubmitted, submissions, new Set(resources.map((r) => r.key)));
+  const addedKeys = new Set(added.map((r) => r.key));
+  console.log(`added by sellers: ${submissions.length} submissions, ${added.length} to scan`);
 
   // Every payout address against the OFAC SDN list (presign-guard's open copy). Without the list the scan runs
   // unscreened and says so.
@@ -56,7 +66,7 @@ async function main() {
   console.log(list ? `sanctions: ${list.count} OFAC SDN addresses (published ${list.published})` : `sanctions: list unavailable (${sanctions.status().lastError ?? 'timeout'}), scanning unscreened`);
 
   const started = Date.now();
-  const results = await scan(resources, {
+  const all = await scan([...resources, ...added], {
     sanctions: list ? sanctions : null,
     safeFetch: createSafeFetch({ allowPrivate: false, timeoutMs: 10000 }),
     rpcUrl: process.env.SOLANA_RPC_URL || undefined,
@@ -73,14 +83,19 @@ async function main() {
     },
   });
 
+  const results = all.filter((r) => !addedKeys.has(r.key));
   const date = new Date().toISOString().slice(0, 10);
   const descriptions = new Map(resources.map((r) => [r.key, r.description]));
   const index = mergeIndex(previous, results, { date, descriptions });
+  // Only what was scanned today stays: an endpoint a registry lists now, or that stopped being payable, drops out.
+  const submitted = mergeIndex(previousSubmitted, all.filter((r) => addedKeys.has(r.key)), { date });
+  submitted.resources = Object.fromEntries(Object.entries(submitted.resources).filter(([key]) => addedKeys.has(key)));
   // Which list today's payout screen used (null: the list was unavailable and the scan ran unscreened).
   index.sanctions = list ? { list: 'OFAC SDN', published: list.published, addresses: list.count } : null;
-  const summary = { ...summarize(index), scan_seconds: Math.round((Date.now() - started) / 1000) };
+  const summary = { ...summarize(index), submitted: Object.keys(submitted.resources).length, scan_seconds: Math.round((Date.now() - started) / 1000) };
 
   fs.writeFileSync(indexPath, JSON.stringify(index));
+  fs.writeFileSync(submittedPath, JSON.stringify(submitted));
   fs.writeFileSync(path.join(out, 'summary.json'), JSON.stringify(summary, null, 2));
   // The payout addresses on Base, for the hourly count of real payments (scripts/onchain-payments.js).
   const payTosPath = path.join(out, 'paytos.json');
