@@ -3,7 +3,8 @@ name: x402 Doctor MCP Space on Hugging Face
 # Publishes hf-mcp/ as a Gradio Space that is also an MCP server (<token owner>/x402-doctor, or the variable
 # HF_MCP_SPACE): three free tools that call Doctor's public API. The Space never pays, signs or holds a key.
 # Pull requests only run the offline tests; master publishes when hf-mcp/ or this workflow changes, and by hand.
-# Needs the repository secret HF_TOKEN (a write token that may create repos).
+# Needs the repository secret HF_TOKEN (a write token that may create repos), on an account with Hugging Face PRO:
+# Gradio Spaces are hosted only for PRO accounts. Without it the run warns and publishes nothing.
 on:
   push:
     branches: [master]
@@ -43,16 +44,30 @@ jobs:
           pip install -q "huggingface_hub>=0.34,<2"
           repo="${{ vars.HF_MCP_SPACE }}"
           [ -n "$repo" ] || repo="$(python -c 'from huggingface_hub import whoami; print(whoami()["name"])')/x402-doctor"
-          echo "repo=$repo" >> "$GITHUB_OUTPUT"
-          REPO="$repo" python - <<'PY'
-          import os
+          # Hugging Face hosts Gradio Spaces only on a PRO account (402 on create): then warn and wait, don't fail.
+          if REPO="$repo" python - <<'PY'
+          import os, sys
           from huggingface_hub import HfApi
+          from huggingface_hub.errors import HfHubHTTPError
           api = HfApi()
           repo = os.environ["REPO"]
-          api.create_repo(repo, repo_type="space", space_sdk="gradio", exist_ok=True)
+          try:
+              api.create_repo(repo, repo_type="space", space_sdk="gradio", exist_ok=True)
+          except HfHubHTTPError as err:
+              if getattr(err.response, "status_code", None) == 402:
+                  sys.exit(3)
+              raise
           api.upload_folder(repo_id=repo, repo_type="space", folder_path="hf-mcp", commit_message="x402 Doctor MCP Space", ignore_patterns=["test_*.py", "__pycache__/*"])
           PY
-          echo "Published https://huggingface.co/spaces/$repo (MCP: https://$(echo "$repo" | tr '/' '-' | tr 'A-Z' 'a-z').hf.space/gradio_api/mcp/)" >> "$GITHUB_STEP_SUMMARY"
+          then
+            echo "repo=$repo" >> "$GITHUB_OUTPUT"
+            echo "Published https://huggingface.co/spaces/$repo (MCP: https://$(echo "$repo" | tr '/' '-' | tr 'A-Z' 'a-z').hf.space/gradio_api/mcp/)" >> "$GITHUB_STEP_SUMMARY"
+          else
+            code=$?
+            [ "$code" = 3 ] || exit "$code"
+            echo "::warning title=Space not published::Hugging Face hosts Gradio Spaces only on a PRO account. hf-mcp/ waits until the account of HF_TOKEN has PRO; then run this workflow again."
+            echo "Not published: Hugging Face hosts Gradio Spaces only on a PRO account (huggingface.co/pro). The Space is ready in hf-mcp/." >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Collection
         if: github.event_name != 'pull_request' && steps.publish.outputs.repo != ''
         env:
