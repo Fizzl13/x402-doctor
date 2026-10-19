@@ -24,20 +24,35 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
+      # GitHub often starts the scheduled run hours late, after the week's report was already started by hand: then
+      # it stops here. A run started by hand always runs.
+      - name: Already published today?
+        id: today
+        if: github.event_name == 'schedule'
+        run: |
+          if git fetch -q --depth 20 origin weekly-reports 2>/dev/null && git log --format=%s FETCH_HEAD | grep -qxF "Weekly report $(date -u +%F)"; then
+            echo "This week's report was already published today; nothing to do." >> "$GITHUB_STEP_SUMMARY"
+            echo "done=1" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/setup-node@v5
+        if: steps.today.outputs.done != '1'
         with:
           node-version: 22
       - name: Report
+        if: steps.today.outputs.done != '1'
         run: node scripts/weekly-report.js --out "$RUNNER_TEMP/new"
       - name: Network digests (Algorand, XRP Ledger)
+        if: steps.today.outputs.done != '1'
         run: node scripts/network-digest.js --out "$RUNNER_TEMP/new"
       - name: Market digest (CDP Bazaar)
+        if: steps.today.outputs.done != '1'
         continue-on-error: true # the health report is still published when the Bazaar can't be read
         # The other steps need no packages; this one loads the Trust Index (lib/), which needs the dependencies.
         run: |
           npm ci --omit=dev --no-audit --no-fund
           node scripts/market-digest.js --out "$RUNNER_TEMP/new"
       - name: Publish to the weekly-reports branch
+        if: steps.today.outputs.done != '1'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -53,4 +68,5 @@ jobs:
           git commit -qm "Weekly report $(date -u +%F)" || echo "nothing new"
           git push -q origin weekly-reports
       - name: Summary
+        if: steps.today.outputs.done != '1'
         run: cat "$RUNNER_TEMP"/new/*-posts.md >> "$GITHUB_STEP_SUMMARY"
