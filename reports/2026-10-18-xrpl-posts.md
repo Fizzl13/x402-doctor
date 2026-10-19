@@ -2,13 +2,12 @@
 
 Review before posting. Only payable sellers are named; problems are counted, not named.
 
-## X (273/280)
+## X (255/280)
 
 x402 on the XRP Ledger, week ending 2026-10-18:
 
 1,870 paid APIs from 16 sellers accept the XRP Ledger. Median price $0.01.
-This week: +0 new, 0 stopped.
-Most endpoints: theaslangroupllc.com, edge-agents.ai and vextorium.com.
+This week: +823 new, 662 stopped, new sellers horizonpulse.dev and agentweather.io.
 
 Full list: x402-doctor.fizzl.eu/xrpl #XRPL #x402
 
@@ -17,7 +16,7 @@ Full list: x402-doctor.fizzl.eu/xrpl #XRPL #x402
 **x402 on the XRP Ledger, week ending 2026-10-18** (every endpoint in the x402 Trust Index that accepts the XRP Ledger, checked daily without paying)
 
 • 1,870 endpoints from 16 sellers could be paid on the XRP Ledger
-• Since 2026-10-18: 0 new endpoints, 0 stopped being payable.
+• Since 2026-10-12: 823 new endpoints, 662 stopped being payable, new sellers: horizonpulse.dev, agentweather.io, bruk-agent-api.fly.dev and scalpstream.com.
 • All of them accept other networks too; 100% accept USDC on Base
 • Median price: $0.01
 • Most endpoints: theaslangroupllc.com (801), edge-agents.ai (493), vextorium.com (463), horizonpulse.dev (27), babyblueviper.com (22)
