@@ -26,7 +26,7 @@ Backed by a daily Trust Index of ~50,000 paid x402 and MPP endpoints across Base
 - [For sellers](https://x402-doctor.fizzl.eu/sellers): the most common x402 seller mistakes and how to fix them
 - [Payment proof check](https://x402-doctor.fizzl.eu/settlement): the on-chain transaction behind a PAYMENT-RESPONSE header
 - `GET /api/trust?url=<resource>`: one resource's 30-day track record
-- `POST /api/trust/submit` with `{"url": "https://…"}`: a seller adds their own endpoint (not in a registry yet) to the daily scan, after a live check that it answers 402
+- `POST /api/trust/submit` with `{"url": "https://…"}`: a seller adds their own endpoint (not in a registry yet) to the daily scan, after a live check that it answers 402 (MCP: free tools `x402_trust_add` and `x402_trust_record`)
 - [x402 Trust Index dataset on Hugging Face](https://huggingface.co/datasets/x402Fizzl/x402-trust-index): every endpoint in the latest scan with its verdict, reasons, price, networks, category and 30-day history (JSONL), and go / caution / no_go per day (CSV); CC BY 4.0, updated after every daily scan
 - [x402 health report, October 2026](https://fizzl.eu/research/x402-health-october-2026/): what the Trust Index shows about the x402 market: payable share, seller concentration, networks, prices, the most common seller mistakes with fixes, and the spot-buy results
 

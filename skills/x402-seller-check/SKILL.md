@@ -66,6 +66,8 @@ Built with `@circle-fin/x402-batching` (for example with Circle's accept-agent-p
   curl -s -X POST "https://x402-doctor.fizzl.eu/api/trust/submit" -H 'content-type: application/json' -d '{"url":"<your endpoint>"}'
   ```
 
+  With x402 Doctor's MCP server connected, the free tool `x402_trust_add` does the same.
+
   Look up the record for free:
 
   ```bash
