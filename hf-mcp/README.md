@@ -27,7 +27,8 @@ a key. It calls the public API of [x402 Doctor](https://x402-doctor.fizzl.eu).
 | Tool | What it does |
 |---|---|
 | `check_x402_endpoint(url, method)` | Triggers the endpoint's 402 challenge once and checks it the way a paying agent meets it: protocol version, payment options (network, amount, asset, payout address), the resource URL, sanctions and burn addresses, the price against the OpenAPI document, and which wallets could pay. Every problem comes with its fix. |
-| `trust_record(url)` | The daily track record of an endpoint listed in the CDP Bazaar or the MPP directory: days payable, the latest verdict and reasons, price and networks, and what happened when Doctor bought it in its weekly spot-buy sample. |
+| `trust_record(url)` | The daily track record of an endpoint listed in the CDP Bazaar, Circle's Agent Marketplace, GoPlausible's discovery list or the MPP directory, or added by its seller: days payable, the latest verdict and reasons, price and networks, and what happened when Doctor bought it in its weekly spot-buy sample. |
+| `add_to_trust_index(url)` | Your own endpoint isn't listed anywhere yet? Doctor checks that it answers 402 with a payment challenge, and the next daily scan starts its track record. At most 25 endpoints per host. |
 | `x402_market_health()` | The latest daily check of every listed endpoint: shares payable, clean, with a caution and not payable, the most common reasons a payment would fail, and the networks. |
 
 ## Use it from an MCP client

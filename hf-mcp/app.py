@@ -1,10 +1,11 @@
 """x402 Doctor on Hugging Face: a Gradio app that is also an MCP server.
 
-Three free tools, each a call to x402 Doctor's public API (https://x402-doctor.fizzl.eu). Nothing here pays,
+Four free tools, each a call to x402 Doctor's public API (https://x402-doctor.fizzl.eu). Nothing here pays,
 signs or holds a key: the paid preflight ($0.001 over x402) stays on Doctor itself.
 
 - check_x402_endpoint: the full check of a paid endpoint (POST /api/diagnose), what an agent would meet before paying.
-- trust_record: the daily track record of an endpoint listed in the CDP Bazaar or the MPP directory (GET /api/trust).
+- trust_record: the daily track record of an endpoint listed in the CDP Bazaar, Circle's Agent Marketplace, GoPlausible's discovery list or the MPP directory, or added by its seller (GET /api/trust).
+- add_to_trust_index: a seller adds an endpoint no registry lists yet, after Doctor checks its 402 (POST /api/trust/submit).
 - x402_market_health: totals of the latest daily scan of every listed endpoint (GET /api/trust/summary).
 """
 
@@ -26,6 +27,13 @@ def _call(method, path, **kwargs):
     except requests.RequestException as err:
         return 0, {"error": f"x402 Doctor could not be reached: {err}"}
     if res.status_code == 429:
+        # Doctor's own refusal (e.g. a host's cap on added endpoints) is passed on; its rate limit gets the Space's note.
+        try:
+            err = (res.json() or {}).get("error")
+        except ValueError:
+            err = None
+        if err and not err.startswith("Too many"):
+            return 429, {"error": err}
         return 429, {"error": "x402 Doctor is rate limiting this Space (a few checks a minute for everyone using it). Try again in a minute, or run the check on https://x402-doctor.fizzl.eu."}
     try:
         return res.status_code, res.json()
@@ -133,24 +141,47 @@ def check_x402_endpoint(url: str, method: str = "") -> dict:
 
 
 def trust_record(url: str) -> dict:
-    """The daily track record of a paid endpoint listed in the CDP Bazaar or the MPP directory.
+    """The daily track record of a paid endpoint listed in the CDP Bazaar, Circle's Agent Marketplace, GoPlausible's discovery list or the MPP directory, or added by its seller.
 
     x402 Doctor checks every listed endpoint once a day without paying. The record shows how many days it was
     payable, the latest verdict (go, caution or no_go) with its reasons, the price and networks, and what
     happened when Doctor bought it in its weekly spot-buy sample, if it did.
 
     Args:
-        url: The full URL of the endpoint, as listed in the CDP Bazaar or the MPP directory.
+        url: The full URL of the endpoint.
     """
     target = _url_ok(url)
     if not target:
         return {"error": "url must be a full http(s) URL"}
     status, body = _call("GET", "/api/trust", params={"url": target})
     if status == 404:
-        return {"url": target, "listed": False, "note": body.get("error", "not in the trust index")}
+        return {
+            "url": target,
+            "listed": False,
+            "note": body.get("error", "not in the trust index"),
+            **({"submitted_at": body["submitted_at"]} if body.get("submitted_at") else {}),
+            "how_to_list": "Not in the x402 Trust Index yet. Your own endpoint? Add it with add_to_trust_index.",
+        }
     if status != 200:
         return body if "error" in body else {"error": f"HTTP {status}"}
     return summarize_trust(body)
+
+
+def add_to_trust_index(url: str) -> dict:
+    """Add your own paid endpoint to the x402 Trust Index when no registry lists it yet.
+
+    The daily scan covers every endpoint listed in the CDP Bazaar, Circle's Agent Marketplace, GoPlausible's discovery list or the MPP directory. Not listed anywhere? x402 Doctor
+    first checks that the endpoint answers 402 with a payment challenge (x402, MPP or L402); the next daily scan then
+    starts its track record, which buyers' agents see before they pay. At most 25 endpoints per host.
+
+    Args:
+        url: The full https URL of your paid endpoint.
+    """
+    target = (url or "").strip()
+    if not target.startswith("https://"):
+        return {"ok": False, "error": "url must be the full https URL of your paid endpoint"}
+    status, body = _call("POST", "/api/trust/submit", json={"url": target})
+    return {"ok": status in (200, 201), **body}
 
 
 def x402_market_health() -> dict:
@@ -168,7 +199,7 @@ def x402_market_health() -> dict:
 ABOUT = f"""# x402 Doctor
 
 Check paid APIs (x402 and MPP) before an AI agent pays them. Free, read-only: nothing is paid or signed here.
-These three tools are also an **MCP server**: add this Space in your [Hugging Face MCP settings](https://huggingface.co/settings/mcp),
+These four tools are also an **MCP server**: add this Space in your [Hugging Face MCP settings](https://huggingface.co/settings/mcp),
 or connect any MCP client to `https://x402fizzl-x402-doctor.hf.space/gradio_api/mcp/`.
 
 For a go / caution / no_go verdict with your budget before paying, agents can buy x402 Doctor's preflight ($0.001 over x402)
@@ -183,9 +214,13 @@ with gr.Blocks(title="x402 Doctor") as demo:
         check_out = gr.JSON(label="Result")
         gr.Button("Check", variant="primary").click(check_x402_endpoint, [url_in, method_in], check_out, api_name="check_x402_endpoint")
     with gr.Tab("Track record"):
-        trust_in = gr.Textbox(label="Endpoint URL (as listed in the CDP Bazaar or the MPP directory)")
+        trust_in = gr.Textbox(label="Endpoint URL")
         trust_out = gr.JSON(label="Track record")
         gr.Button("Look up", variant="primary").click(trust_record, [trust_in], trust_out, api_name="trust_record")
+    with gr.Tab("Add your endpoint"):
+        add_in = gr.Textbox(label="Your paid endpoint URL (https)", placeholder="https://api.example.com/v1/paid")
+        add_out = gr.JSON(label="Result")
+        gr.Button("Add to the Trust Index", variant="primary").click(add_to_trust_index, [add_in], add_out, api_name="add_to_trust_index")
     with gr.Tab("Market health"):
         market_out = gr.JSON(label="Latest daily scan")
         gr.Button("Show", variant="primary").click(x402_market_health, [], market_out, api_name="x402_market_health")

@@ -318,9 +318,9 @@ may write collections. It needs the repository secret `HF_TOKEN` (a Hugging Face
 runs when the script changes, every Monday and by hand; the variable `HF_BENCH_REPO` overrides the name.
 [`hf-mcp-space.yml`](.github/workflows/hf-mcp-space.yml) publishes [`hf-mcp/`](hf-mcp) as the Space
 [x402Fizzl/x402-doctor](https://huggingface.co/spaces/x402Fizzl/x402-doctor): a Gradio app that is also an MCP server
-(`https://x402fizzl-x402-doctor.hf.space/gradio_api/mcp/`, or added under Hugging Face's MCP settings), with three
-free tools over the public API: `check_x402_endpoint` (`/api/diagnose`), `trust_record` (`/api/trust`) and
-`x402_market_health` (`/api/trust/summary`). It never pays or holds a key; the variable `HF_MCP_SPACE` overrides the name.
+(`https://x402fizzl-x402-doctor.hf.space/gradio_api/mcp/`, or added under Hugging Face's MCP settings), with four
+free tools over the public API: `check_x402_endpoint` (`/api/diagnose`), `trust_record` (`/api/trust`),
+`add_to_trust_index` (`POST /api/trust/submit`) and `x402_market_health` (`/api/trust/summary`). It never pays or holds a key; the variable `HF_MCP_SPACE` overrides the name.
 Hugging Face hosts Gradio Spaces only for PRO accounts: without PRO the workflow warns and publishes nothing, and the
 Space waits in `hf-mcp/`. Doctor's own MCP server is `https://x402-doctor.fizzl.eu/mcp`.
 
