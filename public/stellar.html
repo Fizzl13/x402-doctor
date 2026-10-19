@@ -59,7 +59,7 @@
   .day.g { background: var(--go); } .day.c { background: var(--caution); } .day.n, .day.x { background: var(--nogo); }
   .legend { font-size: 12.5px; color: var(--text-soft); }
   ul { padding-left: 20px; } li { margin: 4px 0; }
-  code { font-family: 'SF Mono', Consolas, monospace; font-size: 13px; }
+  code { font-family: 'SF Mono', Consolas, monospace; font-size: 13px; overflow-wrap: anywhere; }
   a { color: var(--accent); }
   .snippet { display: block; margin-top: 6px; padding: 8px 10px; border-radius: 6px; background: var(--bg); border: 1px solid var(--line); font-size: 12px; overflow-wrap: anywhere; user-select: all; }
   footer { margin-top: 40px; color: var(--text-soft); font-size: 12.5px; }
@@ -84,6 +84,12 @@
   .ep .r { text-align: right; font-size: 13px; white-space: nowrap; } .ep .r a { font-size: 12.5px; }
   .strip { display: inline-flex; gap: 2px; vertical-align: middle; } .strip i { width: 5px; height: 12px; border-radius: 1px; background: var(--none); }
   .strip i.g { background: var(--go); } .strip i.c { background: var(--caution); } .strip i.n, .strip i.x { background: var(--nogo); }
+  .grp { border-bottom: 1px solid var(--line); }
+  .grp > summary { cursor: pointer; padding: 10px 2px; font-size: 14px; overflow-wrap: anywhere; }
+  .grp > summary .n { color: var(--text-soft); }
+  .grp[open] > summary { border-bottom: 1px solid var(--line); }
+  .grp > .ep { padding-left: 16px; }
+  .grp > .ep:last-child { border-bottom: 0; }
   #sellers td:first-child { overflow-wrap: anywhere; }
   @media (max-width: 520px) { #sellers td, #sellers th { padding: 5px 4px; font-size: 12.5px; } }
   @media (max-width: 520px) { .stats { grid-template-columns: 1fr 1fr; } .ep { grid-template-columns: 14px minmax(0, 1fr); } .ep .r { grid-column: 2; text-align: left; } }
@@ -137,27 +143,56 @@
   let data = null, shown = PAGE;
   function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
   function strip(h) { const s = el('span', 'strip'); s.setAttribute('aria-hidden', 'true'); for (const c of String(h || '').slice(-14)) s.append(el('i', c)); return s; }
+  // A seller with more than FOLD endpoints in the list gets one row that opens to show them all.
+  const FOLD = 15;
+  const opened = new Set(), sellerCache = new Map();
+  function sellerOf(r) {
+    if (!sellerCache.has(r.host)) sellerCache.set(r.host, (data.sellers.find((s) => r.host === s.host || String(r.host).endsWith(`.${s.host}`)) || {}).host || r.host);
+    return sellerCache.get(r.host);
+  }
+  function group(g, only) {
+    const box = el('details', 'grp');
+    const ok = g.rows.filter((r) => r.payable).length;
+    const sum = el('summary');
+    sum.append(el('b', null, g.seller), el('span', 'n', ` · ${fmt(g.rows.length)} endpoints, ${fmt(ok)} payable`));
+    box.append(sum);
+    const fill = () => { if (box.childElementCount === 1) for (const r of g.rows) box.append(endpoint(r)); };
+    box.addEventListener('toggle', () => { if (box.open) { opened.add(g.seller); fill(); } else opened.delete(g.seller); });
+    if (opened.has(g.seller) || only) { box.open = true; fill(); }
+    return box;
+  }
   function render() {
     const q = $('q').value.trim().toLowerCase(), broken = $('broken').checked;
     const rows = data.resources.filter((r) => (!broken || !r.payable) && (!q || `${r.url} ${r.description}`.toLowerCase().includes(q)));
-    const list = $('list'); list.replaceChildren();
-    for (const r of rows.slice(0, shown)) {
-      const row = el('div', 'ep');
-      row.append(el('span', `dot ${r.payable ? 'ok' : 'bad'}`));
-      const mid = el('div');
-      mid.append(el('div', 'u', r.url));
-      if (r.description) mid.append(el('div', 'd', r.description));
-      if (r.bait) mid.append(el('div', 'why', `Possible bait: ${[(r.bait.impersonation || 0) >= 0.85 ? 'poses as a brand it is not' : '', (r.bait.lure || 0) >= 0.85 ? 'lures with free tokens or guaranteed returns' : ''].filter(Boolean).join(' and ')} (TypeSafe Jev).`));
-      if (r.category) mid.append(el('div', 'cat', `${(data.categories || []).find((c) => c.id === r.category)?.name || r.category}${r.same_service_endpoints > 1 ? ` · one of ${r.same_service_endpoints} near-identical endpoints of this seller` : ''}`));
-      if (!r.payable) mid.append(el('div', 'why', r.problem || (r.verdict === 'no_go' ? 'Not payable today (see the full check).' : `Verdict: ${r.verdict}`)));
-      const right = el('div', 'r');
-      right.append(el('div', null, usd(r.price_usd)), strip(r.history));
-      const a = el('a', null, 'check →'); a.href = `/?url=${encodeURIComponent(r.url)}`; right.append(el('div')); right.lastChild.append(a);
-      row.append(mid, right);
-      list.append(row);
+    const count = new Map();
+    for (const r of rows) count.set(sellerOf(r), (count.get(sellerOf(r)) || 0) + 1);
+    // A folded seller takes the place of its first endpoint in the list.
+    const items = [], groups = new Map();
+    for (const r of rows) {
+      const s = sellerOf(r);
+      if (count.get(s) <= FOLD) { items.push(r); continue; }
+      if (!groups.has(s)) { groups.set(s, { seller: s, rows: [] }); items.push(groups.get(s)); }
+      groups.get(s).rows.push(r);
     }
-    $('more').textContent = rows.length > shown ? `Showing ${shown} of ${fmt(rows.length)}.` : `${fmt(rows.length)} endpoint${rows.length === 1 ? '' : 's'}.`;
-    if (rows.length > shown) { const b = el('button', null, 'Show more'); b.type = 'button'; b.onclick = () => { shown += PAGE; render(); }; $('more').append(' ', b); }
+    const list = $('list'); list.replaceChildren();
+    for (const it of items.slice(0, shown)) list.append(it.rows ? group(it, items.length === 1) : endpoint(it));
+    $('more').textContent = items.length > shown ? `Showing ${shown} of ${fmt(items.length)} rows (${fmt(rows.length)} endpoints).` : `${fmt(rows.length)} endpoint${rows.length === 1 ? '' : 's'}.`;
+    if (items.length > shown) { const b = el('button', null, 'Show more'); b.type = 'button'; b.onclick = () => { shown += PAGE; render(); }; $('more').append(' ', b); }
+  }
+  function endpoint(r) {
+    const row = el('div', 'ep');
+    row.append(el('span', `dot ${r.payable ? 'ok' : 'bad'}`));
+    const mid = el('div');
+    mid.append(el('div', 'u', r.url));
+    if (r.description) mid.append(el('div', 'd', r.description));
+    if (r.bait) mid.append(el('div', 'why', `Possible bait: ${[(r.bait.impersonation || 0) >= 0.85 ? 'poses as a brand it is not' : '', (r.bait.lure || 0) >= 0.85 ? 'lures with free tokens or guaranteed returns' : ''].filter(Boolean).join(' and ')} (TypeSafe Jev).`));
+    if (r.category) mid.append(el('div', 'cat', `${(data.categories || []).find((c) => c.id === r.category)?.name || r.category}${r.same_service_endpoints > 1 ? ` · one of ${r.same_service_endpoints} near-identical endpoints of this seller` : ''}`));
+    if (!r.payable) mid.append(el('div', 'why', r.problem || (r.verdict === 'no_go' ? 'Not payable today (see the full check).' : `Verdict: ${r.verdict}`)));
+    const right = el('div', 'r');
+    right.append(el('div', null, usd(r.price_usd)), strip(r.history));
+    const a = el('a', null, 'check →'); a.href = `/?url=${encodeURIComponent(r.url)}`; right.append(el('div')); right.lastChild.append(a);
+    row.append(mid, right);
+    return row;
   }
   fetch('/api/trust/network?network=stellar').then((r) => r.json()).then((d) => {
     if (!d.resources) throw new Error(d.error || 'no data');
