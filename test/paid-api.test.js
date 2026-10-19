@@ -264,7 +264,10 @@ test('free trust lookup: track record for a scanned URL, 404 for an unknown one,
   assert.equal((await known.json()).payable_ratio, 0.2);
   const unknown = await fetch(`${api}/api/trust?url=${encodeURIComponent('https://nobody.example/x')}`);
   assert.equal(unknown.status, 404);
-  assert.equal((await unknown.json()).index.resources, 1);
+  const miss = await unknown.json();
+  assert.equal(miss.index.resources, 1);
+  assert.match(miss.how_to_list, /CDP Bazaar, Circle's Agent Marketplace, GoPlausible's discovery list or the MPP directory/);
+  assert.match(miss.check, /\/\?url=https%3A%2F%2F/);
   assert.equal((await fetch(`${api}/api/trust`)).status, 400);
   assert.equal((await (await fetch(`${api}/api/trust/summary`)).json()).latest.no_go, 1);
 });

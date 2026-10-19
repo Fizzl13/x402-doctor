@@ -140,7 +140,7 @@
 <body>
 <div class="wrap">
   <h1>x402 Trust Index</h1>
-  <p class="sub">Once a day, x402 Doctor checks every resource listed in the CDP Bazaar and Circle's Agent Marketplace (x402) and in the MPP directory (Stripe + Tempo) the way a paying agent would, and stops at the 402 challenge. Would a payment settle today, and how often did it over the last 30 days?</p>
+  <p class="sub">Once a day, x402 Doctor checks every resource listed in the CDP Bazaar, Circle's Agent Marketplace and GoPlausible's discovery list (x402) and in the MPP directory (Stripe + Tempo) the way a paying agent would, and stops at the 402 challenge. Would a payment settle today, and how often did it over the last 30 days?</p>
   <p class="note">What the numbers show: <a href="https://fizzl.eu/research/x402-health-october-2026/">x402 health report, October 2026</a> (payable share, seller concentration, networks, prices and the most common seller mistakes). Other ways to check an endpoint: <a href="https://fizzl.eu/guides/x402-endpoint-checkers/">x402 endpoint checkers compared</a>. The whole index as an open dataset: <a href="https://huggingface.co/datasets/x402Fizzl/x402-trust-index">x402 Trust Index on Hugging Face</a> (CC BY 4.0, updated daily).</p>
 
   <h2>Can an AI agent pay?</h2>
@@ -428,6 +428,16 @@
     const res = await fetch('/api/trust?url=' + encodeURIComponent($('url').value));
     const data = await res.json();
     box.textContent = '';
+    if (res.status === 404 && data.check) {
+      const p = document.createElement('p'), a = document.createElement('a');
+      p.style.margin = '0';
+      p.textContent = `Not in the Trust Index yet. ${data.how_to_list} Meanwhile: `;
+      a.href = data.check;
+      a.textContent = 'check it now (free)';
+      p.append(a, '.');
+      box.append(p);
+      return;
+    }
     if (!res.ok) { box.textContent = data.error || 'Not found.'; return; }
     const head = document.createElement('div');
     head.textContent = `Payable on ${data.days_payable} of ${data.days_checked} scanned days (${Math.round(data.payable_ratio * 100)}%). Latest: ${label[data.last]}${data.last_scan && data.last_scan.price_usd != null ? `, $${data.last_scan.price_usd}` : ''}.`;
