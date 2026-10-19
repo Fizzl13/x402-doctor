@@ -141,6 +141,13 @@ test('broken options, unknown token and non-402 endpoints', async () => {
   const free = await run(await seller({ accepts: [], status: 200 }));
   assert.equal(free.verdict, 'no_go');
   assert.equal(free.reasons[0].code, 'no_402');
+  // Only server errors (Cloudflare's 530: it can't reach the origin): the server is down, not missing a 402.
+  const down = await run(await seller({ accepts: [], status: 530 }));
+  assert.equal(down.verdict, 'no_go');
+  assert.equal(down.reasons[0].code, 'server_error');
+  assert.match(down.reasons[0].message, /530/);
+  const notImplemented = await run(await seller({ accepts: [], status: 501 }));
+  assert.equal(notImplemented.reasons[0].code, 'no_402', '501 says the method is not implemented, not that the server is down');
 });
 
 test('not listed in the CDP Bazaar is only information', async () => {

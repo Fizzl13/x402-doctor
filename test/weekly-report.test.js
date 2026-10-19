@@ -53,6 +53,35 @@ test('weekly report: markdown and posts name no seller, and the X post fits', ()
   assert.match(markdown, /Fizzl endpoint monitor.*https:\/\/wallet\.fizzl\.eu/);
 });
 
+test('weekly report: one host with a large share of the endpoints is counted apart, never named', () => {
+  const many = (host, n, h, last) => Array.from({ length: n }, (_, i) => res(`https://${host}/e${i}`, h, last));
+  const down = { verdict: 'no_go', codes: ['server_error'], networks: [] };
+  const others = Array.from({ length: 1000 }, (_, i) => res(`https://seller${i}.example/x`, 'gggggggg', go(0.01)));
+  const farm = { days, resources: Object.fromEntries([...many('farm.example', 1200, 'gggggggn', down), ...others]) };
+  const r = weeklyReport(farm);
+  const l = r.stats.largest_host;
+  assert.deepEqual([l.resources, l.share_pct, l.down, l.reason.code, l.broke], [1200, 54.5, true, 'server_error', 1200]);
+  assert.deepEqual([l.without.resources, l.without.clean_pct, l.without.no_go_pct, l.without.broke], [1000, 100, 0, 0]);
+  assert.equal(r.stats.no_go_pct, 54.5, 'the totals themselves are unchanged');
+  assert.match(r.posts.x, /One host with 1,200 endpoints couldn't be paid on 2026-09-29\. Without it: 1,000 endpoints, 100% clean/);
+  assert.ok(r.posts.x_length <= 280);
+  assert.match(r.posts.discord, /One host with 1,200 endpoints \(54\.5% of those checked\) could not be paid on 2026-09-29 \(answer with a server error\)/);
+  assert.match(r.posts.discord, /This week \(without that host\): 0 stopped being payable/);
+  assert.match(r.posts.reddit, /\*\*Title:\*\* x402 health, week ending 2026-09-29: 100% of 1,000 Bazaar endpoints clean, not counting one host with 1,200 \(down that day\)/);
+  assert.match(r.markdown, /- One host with 1,200 endpoints .*Without it: \*\*100%\*\* clean/);
+  assert.match(r.markdown, /\| Answered with a server error \(5xx\): down or failing \| 1,200 \|/);
+  for (const text of [r.markdown, r.posts.x, r.posts.discord, r.posts.reddit]) assert.doesNotMatch(text, /farm\.example/);
+
+  // A healthy host with a large share moves the totals too: counted apart as well, as payable.
+  const healthy = weeklyReport({ days, resources: Object.fromEntries([...many('farm.example', 1200, 'gggggggg', go(0.01)), ...others]) });
+  assert.equal(healthy.stats.largest_host.down, false);
+  assert.match(healthy.posts.x, /One host with 1,200 endpoints is 54\.5% of all\./);
+  // Under the minimum of 1,000 endpoints: nothing extra, whatever its share.
+  assert.equal(weeklyReport({ days, resources: Object.fromEntries([...many('farm.example', 600, 'gggggggg', go(0.01)), ...others.slice(0, 100)]) }).stats.largest_host, undefined);
+  // Below the share or the minimum: nothing extra.
+  assert.equal(weeklyReport(index).stats.largest_host, undefined);
+});
+
 test('weekly report: an empty index is an error, not an empty report', () => {
   assert.throws(() => weeklyReport({ days: [], resources: {} }), /empty index/);
 });
