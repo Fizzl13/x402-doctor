@@ -1318,3 +1318,12 @@ test('checkAccepts: a non-CAIP-2 network the doctor does not know is unpayable f
   // A v1 name with an EVM payTo still gets the EVM checks.
   assert.equal(checks.find((c) => c.id === 'accepts[1]-payto').status, 'pass');
 });
+
+test('checkAccepts: amount "0" is a warning that the price depends on the request, not a failure', () => {
+  const checks = [];
+  checkAccepts([{ scheme: 'exact', network: 'eip155:8453', amount: '0', asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', payTo: '0x408C4610F6879a75c25722cfCd18A2Eff99dc20F', extra: { name: 'USD Coin', version: '2' } }], checks);
+  const zero = checks.find((c) => c.id === 'accepts[0]-amount-zero');
+  assert.equal(zero.status, 'warn');
+  assert.match(zero.message, /depends on the request/);
+  assert.equal(checks.some((c) => c.id === 'accepts[0]-amount' && c.status === 'fail'), false);
+});

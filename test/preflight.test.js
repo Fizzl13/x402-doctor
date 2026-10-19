@@ -455,3 +455,14 @@ test('at the same price, the option every x402 client can pay is recommended ove
   const usd1First = await run(await seller({ accepts: [bnbOption('10000000000000000'), baseOption('10000')] }));
   assert.equal(usd1First.recommended_option, 1, 'USDC before USD1 at the same price');
 });
+
+test('a $0 quote: the price depends on the request, so caution and a priced option first', async () => {
+  const zero = await run(await seller({ accepts: [baseOption('0')] }));
+  assert.equal(zero.verdict, 'caution', JSON.stringify(zero.reasons));
+  assert.ok(zero.reasons.some((x) => x.code === 'price_depends_on_request'));
+  assert.ok(!zero.reasons.some((x) => x.code === 'no_payable_option'));
+  assert.equal(zero.options[0].payable, true);
+  const mixed = await run(await seller({ accepts: [baseOption('0'), baseOption('10000')] }));
+  assert.equal(mixed.recommended_option, 1);
+  assert.ok(!mixed.reasons.some((x) => x.code === 'price_depends_on_request'));
+});
