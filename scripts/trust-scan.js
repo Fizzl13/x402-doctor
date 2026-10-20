@@ -13,7 +13,7 @@
 const fs = require('fs');
 const path = require('path');
 const { createSafeFetch } = require('../lib/safe-fetch');
-const { loadCatalog, loadMppCatalog, loadGoPlausibleCatalog, loadCircleCatalog, loadSubmissions, submittedResources, scan, mergeIndex, summarize } = require('../lib/trust-scan');
+const { loadCatalog, loadMppCatalog, loadGoPlausibleCatalog, loadCircleCatalog, loadSubmissions, submittedResources, scan, mergeIndex, summarize, indexLines } = require('../lib/trust-scan');
 const { mergePayTos } = require('../lib/onchain-payments');
 const { createSanctions } = require('../lib/sanctions');
 
@@ -95,6 +95,8 @@ async function main() {
   const summary = { ...summarize(index), submitted: Object.keys(submitted.resources).length, scan_seconds: Math.round((Date.now() - started) / 1000) };
 
   fs.writeFileSync(indexPath, JSON.stringify(index));
+  // The same index, one resource per line: what the server loads (line by line, a much lower memory peak).
+  fs.writeFileSync(path.join(out, 'index.ndjson'), `${[...indexLines(index)].join('\n')}\n`);
   fs.writeFileSync(submittedPath, JSON.stringify(submitted));
   fs.writeFileSync(path.join(out, 'summary.json'), JSON.stringify(summary, null, 2));
   // The payout addresses on Base, for the hourly count of real payments (scripts/onchain-payments.js).
