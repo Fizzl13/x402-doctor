@@ -70,6 +70,12 @@ jobs:
           [ -f trust-data/categories.json ] || cp prev-categories.json trust-data/categories.json
         env:
           TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+      # The small files the Doctor reads instead of the whole index. A failure here must not stop the publish: the
+      # Doctor then keeps reading the previous views (or the full index).
+      - name: Views for the Doctor
+        if: steps.today.outputs.skip != 'true'
+        continue-on-error: true
+        run: node scripts/trust-views.js --dir trust-data
       - name: Publish to the trust-data branch
         if: steps.today.outputs.skip != 'true'
         run: |
@@ -80,7 +86,10 @@ jobs:
           Written daily by `.github/workflows/trust-scan.yml` on `master`. `index.json`: 30-day history per
           resource (`days[]`, and per resource `h` with one letter per day: g go, c caution, n no-go,
           x unreachable, - not scanned); `index.ndjson` is the same index with one resource per line (a header line,
-          then `[key, resource]`), which the Doctor reads line by line. `summary.json`: totals of the latest scan. `categories.json`: the kind of
+          then `[key, resource]`). `views/` and `keys/`: the same index as small precomputed files (the summary, the
+          atlas, path templates, seller totals, the price check's word index, one view per network, and the resources in
+          256 buckets by key), which the Doctor reads instead of the whole index (lib/trust-views.js,
+          lib/trust-reader.js). `summary.json`: totals of the latest scan. `categories.json`: the kind of
           service per description (TypeSafe Jev, keyed by lib/services.js descKey). `paytos.json`: the payout addresses on
           Base and the day each was last seen, for the hourly on-chain payment count. `submitted.json`: the same history for
           endpoints their sellers added on Doctor (POST /api/trust/submit), kept apart from the registry listings in
@@ -88,6 +97,7 @@ jobs:
           MD
           git init -q -b trust-data
           git add index.json index.ndjson summary.json categories.json paytos.json submitted.json README.md
+          if [ -f views/meta.json ]; then git add views keys; fi
           git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -qm "Trust index $(date -u +%F)"
           git push -qf "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" trust-data
         env:

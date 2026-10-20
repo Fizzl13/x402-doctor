@@ -17,7 +17,8 @@ const { DELIVERY_EXAMPLE } = require('./lib/delivery-checks');
 const { BATCH_SCHEMA } = require('./lib/preflight-plus');
 const { STACKS } = require('./lib/stack');
 const { PREFLIGHT_SCHEMA, preflight } = require('./lib/preflight');
-const { createTrustIndex } = require('./lib/trust-index');
+const { createTrustReader } = require('./lib/trust-reader');
+const { Readable } = require('node:stream');
 const { createTrustSubmissions } = require('./lib/trust-submissions');
 const { createOnchainPayments } = require('./lib/onchain-payments');
 const { createSpotResults } = require('./lib/spot-results');
@@ -206,7 +207,7 @@ function trustProxyHops(env) {
   return Number.isInteger(n) && n >= 0 && n <= 10 && String(env.TRUST_PROXY_HOPS).trim() !== '' ? n : 3;
 }
 
-function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, cdpValidate = env.CDP_VALIDATE === 'off' ? null : createCdpValidator(), trustIndex = createTrustIndex(), spotResults = createSpotResults(), onchainPayments = createOnchainPayments(), media = createMediaCache(), usageLog = createUsageLog({ service: 'doctor', env }), usageReader = createUsageReader({ env }), publicStats = createPublicStats({ usageReader }), settlementFetch = globalThis.fetch, status = null, outreachHook: outreachHookOverride = null, describe = createDescribe({ apiKey: env.TYPESAFE_API_KEY }), poison = createPoisonCheck({ apiKey: env.TYPESAFE_API_KEY }), creditStore, agentKinds = createAgentKinds({ apiKey: env.TYPESAFE_API_KEY }), downloads = createDownloads(), priceCheck = createPriceCheck({ apiKey: env.TYPESAFE_API_KEY, trustIndex }), deliveryStore, deliveryResults, trustSubmissions: trustSubmissionsOverride = null } = {}) {
+function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, cdpValidate = env.CDP_VALIDATE === 'off' ? null : createCdpValidator(), trustIndex = createTrustReader(), spotResults = createSpotResults(), onchainPayments = createOnchainPayments(), media = createMediaCache(), usageLog = createUsageLog({ service: 'doctor', env }), usageReader = createUsageReader({ env }), publicStats = createPublicStats({ usageReader }), settlementFetch = globalThis.fetch, status = null, outreachHook: outreachHookOverride = null, describe = createDescribe({ apiKey: env.TYPESAFE_API_KEY }), poison = createPoisonCheck({ apiKey: env.TYPESAFE_API_KEY }), creditStore, agentKinds = createAgentKinds({ apiKey: env.TYPESAFE_API_KEY }), downloads = createDownloads(), priceCheck = createPriceCheck({ apiKey: env.TYPESAFE_API_KEY, trustIndex }), deliveryStore, deliveryResults, trustSubmissions: trustSubmissionsOverride = null } = {}) {
   const app = express();
   const safeFetch = createSafeFetch({ allowPrivate });
   // Outreach drafts for the owner (lib/outreach-hook.js); off without OUTREACH_URL and OUTREACH_KEY.
@@ -514,9 +515,17 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   app.get('/api/trust/network', trustLimit, async (req, res) => {
     const network = String(req.query.network || '').trim().toLowerCase();
     if (!/^[a-z0-9-]{2,32}(:[a-z0-9-]{1,64})?$/i.test(network)) return res.status(400).json({ error: 'network is required, e.g. /api/trust/network?network=xrpl (a family) or xrpl:0' });
+    res.set('Cache-Control', 'public, max-age=600').set('Access-Control-Allow-Origin', '*');
+    // The precomputed view file is passed through as it is (Base's is ~11 MB): never parsed in Doctor's memory.
+    const opened = trustIndex.openNetwork ? await trustIndex.openNetwork(network).catch(() => null) : null;
+    if (opened?.empty) return res.json(opened.empty);
+    if (opened?.res?.body) {
+      res.type('application/json');
+      return Readable.fromWeb(opened.res.body).on('error', () => res.destroy()).pipe(res);
+    }
     const view = await trustIndex.byNetwork(network, { waitMs: 8000 });
     if (!view) return res.status(503).json({ error: 'trust index loading, try again shortly' });
-    res.set('Cache-Control', 'public, max-age=600').set('Access-Control-Allow-Origin', '*').json(view);
+    res.json(view);
   });
   const networkPage = (network) => page(`${network}.html`, `/${network}`, undefined, onceper(network, async () => networkFill(await trustIndex.byNetwork(network))));
   app.get('/xrpl', networkPage('xrpl'));
