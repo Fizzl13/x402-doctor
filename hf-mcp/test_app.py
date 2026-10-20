@@ -47,6 +47,8 @@ class Tools(unittest.TestCase):
         with mock.patch.object(app, "_call") as call:
             self.assertIn("error", app.check_x402_endpoint("not a url"))
             self.assertIn("error", app.check_x402_endpoint("https://api.example.com", "DELETE"))
+            self.assertIn("error", app.check_x402_endpoint("https://api.example.com/x", "POST", "not json"))
+            self.assertIn("error", app.check_x402_endpoint("https://api.example.com/x", "GET", '{"a":1}'))
             self.assertIn("error", app.trust_record("ftp://x"))
             call.assert_not_called()
 
@@ -56,6 +58,11 @@ class Tools(unittest.TestCase):
             app.check_x402_endpoint("https://api.example.com/paid", "post")
         self.assertEqual(call.call_args_list[0].kwargs["json"], {"url": "https://api.example.com/paid"})
         self.assertEqual(call.call_args_list[1].kwargs["json"], {"url": "https://api.example.com/paid", "method": "POST"})
+
+    def test_check_sends_an_example_body(self):
+        with mock.patch.object(app, "_call", return_value=(200, {"checks": [], "overall": "pass"})) as call:
+            app.check_x402_endpoint("https://api.example.com/csv", "", ' {"csvText":"a,b"} ')
+        self.assertEqual(call.call_args.kwargs["json"], {"url": "https://api.example.com/csv", "body": '{"csvText":"a,b"}'})
 
     def test_unlisted_and_rate_limited(self):
         with mock.patch.object(app, "_call", return_value=(404, {"error": "not in the trust index"})):

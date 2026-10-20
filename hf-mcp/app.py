@@ -9,6 +9,7 @@ signs or holds a key: the paid preflight ($0.001 over x402) stays on Doctor itse
 - x402_market_health: totals of the latest daily scan of every listed endpoint (GET /api/trust/summary).
 """
 
+import json
 import os
 
 import gradio as gr
@@ -69,6 +70,7 @@ def summarize_check(report):
         "checks_passed": sum(1 for c in checks if c.get("status") == "pass"),
         "payment_options": options,
         "wallets_that_can_pay": wallets,
+        **({"body_source": report["body_source"]} if report.get("body_source") else {}),
         "full_report": report.get("share_url"),
     }
 
@@ -117,7 +119,7 @@ def summarize_market(summary):
     }
 
 
-def check_x402_endpoint(url: str, method: str = "") -> dict:
+def check_x402_endpoint(url: str, method: str = "", body: str = "") -> dict:
     """Check a paid x402 (or MPP) API endpoint the way a paying agent meets it, without paying.
 
     Triggers the 402 challenge once and checks it: protocol version, payment options (network, amount, asset,
@@ -127,6 +129,8 @@ def check_x402_endpoint(url: str, method: str = "") -> dict:
     Args:
         url: The full URL of the paid endpoint, for example https://api.example.com/v1/forecast?city=Amsterdam
         method: GET or POST. Leave empty to try both.
+        body: Optional example JSON request body, for a POST endpoint that checks its input before the 402
+            (implies POST). Leave empty to send {} and try the requestBody example in the endpoint's /openapi.json.
     """
     target = _url_ok(url)
     if not target:
@@ -134,10 +138,19 @@ def check_x402_endpoint(url: str, method: str = "") -> dict:
     method = (method or "").strip().upper()
     if method not in ("", "GET", "POST"):
         return {"error": "method must be GET, POST or empty"}
-    status, body = _call("POST", "/api/diagnose", json={"url": target, **({"method": method} if method else {})})
-    if status != 200 or "checks" not in body:
-        return body if "error" in body else {"error": f"HTTP {status}", **body}
-    return summarize_check(body)
+    example = (body or "").strip()
+    if example:
+        try:
+            json.loads(example)
+        except ValueError:
+            return {"error": "body must be JSON"}
+        if method == "GET":
+            return {"error": "body goes with POST"}
+    payload = {"url": target, **({"method": method} if method else {}), **({"body": example} if example else {})}
+    status, report = _call("POST", "/api/diagnose", json=payload)
+    if status != 200 or "checks" not in report:
+        return report if "error" in report else {"error": f"HTTP {status}", **report}
+    return summarize_check(report)
 
 
 def trust_record(url: str) -> dict:
@@ -211,8 +224,9 @@ with gr.Blocks(title="x402 Doctor") as demo:
     with gr.Tab("Check an endpoint"):
         url_in = gr.Textbox(label="Paid endpoint URL", placeholder="https://api.example.com/v1/forecast?city=Amsterdam")
         method_in = gr.Dropdown(choices=["", "GET", "POST"], value="", label="Method (empty: try both)")
+        body_in = gr.Textbox(label="Example request body (JSON, optional, for a POST that checks its input first)", lines=3)
         check_out = gr.JSON(label="Result")
-        gr.Button("Check", variant="primary").click(check_x402_endpoint, [url_in, method_in], check_out, api_name="check_x402_endpoint")
+        gr.Button("Check", variant="primary").click(check_x402_endpoint, [url_in, method_in, body_in], check_out, api_name="check_x402_endpoint")
     with gr.Tab("Track record"):
         trust_in = gr.Textbox(label="Endpoint URL")
         trust_out = gr.JSON(label="Track record")

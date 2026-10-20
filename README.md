@@ -93,6 +93,9 @@ Solana via x402, with no rate limit. It is meant for agents and CI pipelines; th
 
 - Unpaid requests get the x402 challenge (`PAYMENT-REQUIRED` header, mirrored in the body) with a Bazaar input and
   output schema.
+- `body=<URL-encoded JSON>` (optional, also on preflight, deep and fix, and as `body` in the MCP tools): an example
+  request body for a POST route that checks its input before the 402. It implies POST; with `method=GET`, or when it
+  is not JSON, the answer is a 400 before payment. The batch takes no body.
 - Invalid input (bad URL, non-http(s), unknown method) gets a 400 **before** payment. The bare route without `url`
   answers 402, so indexers such as x402scan can register it. Paying without a `url` returns a 400.
 - The x402 middleware settles only after a 2xx response, so a diagnosis that errors out is never charged.

@@ -144,6 +144,19 @@ test('invalid input is rejected before payment', async () => {
     assert.equal(res.status, 400, url);
     assert.equal(res.headers.get('payment-required'), null, url);
   }
+  // An example body: JSON, one value, with POST, one endpoint (not the batch).
+  const body = (b) => `&body=${encodeURIComponent(b)}`;
+  for (const url of [diagnoseUrl(targetUrl, body('not json')), diagnoseUrl(targetUrl, `&method=GET${body('{}')}`), diagnoseUrl(targetUrl, `${body('{}')}${body('{}')}`),
+    `${api}/api/v1/preflight/batch?url=${encodeURIComponent(targetUrl)}${body('{}')}`]) {
+    const res = await fetch(url);
+    assert.equal(res.status, 400, url.slice(0, 200));
+    assert.equal(res.headers.get('payment-required'), null);
+  }
+  for (const url of [diagnoseUrl(targetUrl, body('{"csvText":"a,b"}')), `${api}/api/v1/fix?url=${encodeURIComponent(targetUrl)}&method=POST${body('{"a":1}')}`, diagnoseUrl(targetUrl, '&body=')]) {
+    assert.equal((await fetch(url)).status, 402, 'a valid (or blank) body gets the challenge');
+  }
+  const header = JSON.parse(Buffer.from((await fetch(diagnoseUrl(targetUrl))).headers.get('payment-required'), 'base64').toString('utf8'));
+  assert.equal(header.extensions.bazaar.schema.properties.input.properties.queryParams.properties.body.type, 'string', 'the Bazaar input schema lists body');
 });
 
 test('paid request: a real signed Base payment returns the diagnosis and is settled once', async () => {
