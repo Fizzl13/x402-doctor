@@ -32,6 +32,7 @@ test('submit: checks the endpoint, adds it once, and the list has it', async () 
   assert.deepEqual(checked, ['https://seller.example/paid?x=1']);
   assert.equal(usageLog.events[0].route, 'trust submit');
   assert.equal(usageLog.events[0].result.accepted, true);
+  assert.equal(usageLog.events[0].via, 'web');
   assert.equal(usageLog.flushes(), 1);
 
   const again = await subs.submit('https://seller.example/paid', { check, trustIndex: noIndex });
@@ -42,6 +43,10 @@ test('submit: checks the endpoint, adds it once, and the list has it', async () 
   assert.equal(list.length, 1);
   assert.equal(list[0].url, 'https://seller.example/paid?x=1');
   assert.equal(list[0].method, 'GET');
+
+  // Who submitted goes along, for the daily watch.
+  await subs.submit('https://seller.example/other', { check, trustIndex: noIndex, via: 'mcp', agent: 'Python-urllib/3.12', visitor: 'v1' });
+  assert.deepEqual([usageLog.events[1].via, usageLog.events[1].agent, usageLog.events[1].visitor], ['mcp', 'Python-urllib/3.12', 'v1']);
 });
 
 test('submit: already listed by a registry, no challenge, MPP only', async () => {
