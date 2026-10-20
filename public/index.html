@@ -690,10 +690,11 @@ function renderFixes(out) {
 
 // Pays one x402 call with the visitor's own wallet (MetaMask, USDC on Base) and returns the paid answer. A refusal
 // before the 402 (the route checks first) is thrown with the server's reason: nothing was paid then.
-async function payWithWallet(url, { say, what, payToEl = null }) {
+async function payWithWallet(url, { say, what, payToEl = null, precheck = false }) {
   if (!window.ethereum) throw new Error(`No browser wallet found. Install MetaMask and reload, or call GET ${url.split('?')[0]} from your agent.`);
   say('Reading the price…');
-  const probe = await fetch(url);
+  // precheck: the route's check before payment answers now, so the wallet isn't asked for something that can't be bought.
+  const probe = await fetch(url, precheck ? { headers: { 'x-delivery-precheck': '1' } } : undefined);
   const challenge = await probe.json().catch(() => ({}));
   if (probe.status !== 402) throw Object.assign(new Error(challenge.error ? `${challenge.error}.` : `Unexpected HTTP ${probe.status}`), { before: true });
   const need = (challenge.accepts || []).find((a) => a.network === BASE);
@@ -820,7 +821,7 @@ async function buyDelivery() {
   try {
     const q = new URLSearchParams({ url: lastDiagnosis.url });
     if (lastDiagnosis.method) q.set('method', lastDiagnosis.method);
-    const { out, price } = await payWithWallet(`/api/v1/delivery-check?${q}`, { say: deliveryStatus, what: 'delivery check' });
+    const { out, price } = await payWithWallet(`/api/v1/delivery-check?${q}`, { say: deliveryStatus, what: 'delivery check', precheck: true });
     deliveryStatus(`Paid ${price}. Delivery check ${out.id} is queued.`);
     const here = new URL(location.href);
     here.searchParams.set('delivery', out.id);
