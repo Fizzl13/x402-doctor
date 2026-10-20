@@ -249,3 +249,14 @@ test('the check before payment is rate-limited per caller', async () => {
   assert.equal((await call()).code, 'next');
   assert.equal((await call()).code, 429);
 });
+
+test('the same dispatcher starts the hourly on-chain count; a refusal names that workflow', async () => {
+  const calls = [];
+  const errors = [];
+  const d = createDispatcher({ token: 'tok', workflow: 'onchain-payments.yml', waits: 'the hourly schedule is the fallback', fetchImpl: async (url, opts) => (calls.push({ url, opts }), new Response(null, { status: 204 })), log: { error: (m) => errors.push(m) } });
+  assert.equal(await d.dispatch(), true);
+  assert.equal(calls[0].url, 'https://api.github.com/repos/Fizzl13/x402-doctor/actions/workflows/onchain-payments.yml/dispatches');
+  const bad = createDispatcher({ token: 'tok', workflow: 'onchain-payments.yml', waits: 'the hourly schedule is the fallback', fetchImpl: async () => new Response('{}', { status: 403 }), log: { error: (m) => errors.push(m) } });
+  assert.equal(await bad.dispatch(), false);
+  assert.match(errors[0], /onchain-payments\.yml \(HTTP 403\); the hourly schedule is the fallback/);
+});

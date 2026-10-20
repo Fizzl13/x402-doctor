@@ -374,7 +374,8 @@ Space waits in `hf-mcp/`. Doctor's own MCP server is `https://x402-doctor.fizzl.
   never changes the verdict: new sellers start at zero. `GET /api/trust/summary` adds the totals over all payout
   addresses (`onchain_payments`), shown on `/trust`. Read-only, no key: `BASE_RPC_URL` is asked first when set, then
   the public node `base-rpc.publicnode.com`, which serves only about the last 10,000 blocks, so a gap of more than
-  ~5 hours between runs shows up as lower `coverage`.
+  ~5 hours between runs shows up as lower `coverage`. GitHub runs the hourly schedule late (every 3.5 to 6.5 hours on
+  19 Oct), so the Doctor starts the workflow every hour itself, with the `DELIVERY_DISPATCH_TOKEN` it already has.
 - `GET /api/trust?url=<resource>` (free, 30/min per IP): the track record of one resource.
   `POST /api/trust/batch` with `{"urls": [...]}` (free, up to 100 URLs, 10 calls/min per IP): the same for many at once,
   in the order sent (`found: false` for a URL the index doesn't have), with the index's `days` and `updated` once at the

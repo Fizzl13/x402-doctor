@@ -873,6 +873,19 @@ if (require.main === module) {
       host: new URL(origin).host,
       urls: () => [...sitemapUrls(fs.readFileSync(path.join(__dirname, 'public', 'sitemap.xml'), 'utf8')), ...['/llms.txt', '/skill.md', '/openapi.json'].map((p) => origin + p)],
     });
+    // The hourly on-chain payment count (onchain-payments.yml): GitHub ran its schedule only every 3.5 to 6.5 hours on
+    // 19 Oct, and the public Base node serves about the last 5 hours of logs, so every longer gap lost blocks (coverage
+    // 0.68). Doctor starts it every hour itself, with the token it has for the delivery check (Actions access to this
+    // repository); the schedule stays as the fallback. First start 5 minutes after boot, so a restart loop starts few.
+    const dispatchToken = process.env.DELIVERY_DISPATCH_TOKEN?.trim();
+    if (dispatchToken) {
+      const { createDispatcher } = require('./lib/delivery-dispatch');
+      const onchain = createDispatcher({ token: dispatchToken, workflow: 'onchain-payments.yml', waits: 'the hourly schedule is the fallback' });
+      setTimeout(() => {
+        onchain.dispatch();
+        setInterval(() => onchain.dispatch(), 60 * 60 * 1000).unref();
+      }, 5 * 60 * 1000).unref();
+    }
   });
 }
 
