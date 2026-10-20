@@ -532,3 +532,46 @@ test('scan: a seller that answers too slowly is cut short (not checked today), w
   assert.equal(merged.resources[cutKey].h, 'g-');
   assert.equal(merged.resources[cutKey].last.verdict, 'go');
 });
+
+test('index.ndjson: written line by line and read back the same, also from chunks that split lines and characters', async () => {
+  const { indexLines } = require('../lib/trust-scan');
+  const { readIndex } = require('../lib/trust-index');
+  const index = {
+    version: 1, updated: '2026-10-20T01:00:00Z', days: ['2026-10-19', '2026-10-20'], sanctions: null,
+    resources: {
+      'https://a.example/paid': { url: 'https://a.example/paid', m: 'GET', h: 'gg', last: { verdict: 'go', codes: [] }, d: 'Café prices €' },
+      'https://b.example/run': { url: 'https://b.example/run?x=1', m: 'POST', h: '-n', last: { verdict: 'no_go', codes: ['no_402'] }, d: '' },
+    },
+  };
+  const text = `${[...indexLines(index)].join('\n')}\n`;
+  assert.equal(text.split('\n').filter(Boolean).length, 3, 'a header and one line per resource');
+  const bytes = new TextEncoder().encode(text);
+  const chunked = (size) => new Response(new ReadableStream({
+    start(controller) {
+      for (let i = 0; i < bytes.length; i += size) controller.enqueue(bytes.slice(i, i + size));
+      controller.close();
+    },
+  }));
+  assert.deepEqual(await readIndex(new Response(text)), index);
+  assert.deepEqual(await readIndex(chunked(7)), index, 'chunks of 7 bytes split lines and the two-byte é');
+  assert.deepEqual(await readIndex(new Response(JSON.stringify(index))), index, 'a whole index.json on one line');
+  assert.deepEqual(await readIndex({ json: async () => index }), index, 'no body stream: res.json()');
+});
+
+test('trust index: falls back to index.json while index.ndjson is not published yet', async () => {
+  const { createTrustIndex } = require('../lib/trust-index');
+  const index = { version: 1, updated: 'now', days: ['2026-10-20'], resources: { 'https://a.example/paid': { url: 'https://a.example/paid', m: 'GET', h: 'g', last: { verdict: 'go' } } } };
+  const asked = [];
+  const fetchImpl = async (u) => {
+    asked.push(u.split('/').pop());
+    if (u.endsWith('/index.json')) return new Response(JSON.stringify(index), { headers: { etag: '"j1"' } });
+    return new Response('not found', { status: 404 });
+  };
+  const ti = createTrustIndex({ categoriesUrl: 'http://cat.test/categories.json', submittedUrl: 'http://sub.test/submitted.json', fetchImpl });
+  await ti.refresh();
+  assert.equal((await ti.lookup('https://a.example/paid')).days_payable, 1);
+  assert.deepEqual(asked.slice(0, 2), ['index.ndjson', 'index.json']);
+  asked.length = 0;
+  await ti.refresh();
+  assert.equal(asked[0], 'index.json', 'within 6 hours: straight to index.json');
+});
