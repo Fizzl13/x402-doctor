@@ -167,6 +167,16 @@ test('preflight: needs_input is caution, and the openapi example gives a real ve
   const p2 = await preflight(`${listed}/v1/csv-preflight`, { safeFetch, method: 'POST' });
   assert.ok(!p2.reasons.some((r) => r.code === 'needs_input' || r.code === 'no_402'));
   assert.ok(p2.options.length > 0, 'the payment options are read');
+
+  // The caller's body reaches the 402, and the cached verdict is kept per body.
+  const { createPreflight } = require('../lib/preflight');
+  const cached = createPreflight({ safeFetch });
+  const withBody = await cached(`${bare}/v1/csv-preflight`, { method: 'POST', body: '{"csvText":"a,b"}' });
+  assert.ok(!withBody.reasons.some((r) => r.code === 'needs_input' || r.code === 'no_402'));
+  assert.ok(withBody.options.length > 0);
+  const refused = await cached(`${bare}/v1/csv-preflight`, { method: 'POST', body: '{"wrong":1}' });
+  assert.equal(refused.cached, false, 'another body is another check');
+  assert.match(refused.reasons.find((r) => r.code === 'needs_input').message, /refused this body/);
 });
 
 test('POST /api/diagnose: body must be JSON and goes with POST', async () => {

@@ -41,6 +41,7 @@ Examples:
 
 - Before paying an unknown API: `GET https://x402-doctor.fizzl.eu/api/v1/preflight?url=https%3A%2F%2Fexample.com%2Fpaid&max_usd=0.05` (max $0.001). Pay the endpoint only on `go`; on `caution`, tell your owner why.
 - "Why does my x402 endpoint fail?": `GET https://x402-doctor.fizzl.eu/api/v1/diagnose?url=<your endpoint>` (max $0.01)
+- A POST route that checks its input before the 402 (400 or 422 to an empty body): add `&body=<URL-encoded JSON>` with an example request body to preflight, deep, diagnose or fix (the MCP tools take `body` too). Without it, x402 Doctor tries the `requestBody` example in the endpoint's `/openapi.json`, and otherwise reports that it needs input instead of calling the endpoint broken.
 
 ## Free
 

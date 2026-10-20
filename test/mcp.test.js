@@ -183,6 +183,14 @@ test('mcp: a paid tool without payment answers with a challenge on Base and Sola
   const bad = await client.callTool({ name: 'x402_diagnose', arguments: { url: 'ftp://nope' } });
   assert.ok(bad.isError);
   assert.match(bad.content[0].text, /http\(s\)/);
+  // An example body: JSON only, with POST, one endpoint; refused before the payment step.
+  const notJson = await client.callTool({ name: 'x402_preflight', arguments: { url: targetUrl, body: 'not json' } });
+  assert.ok(notJson.isError);
+  assert.match(notJson.content[0].text, /body must be JSON/);
+  const withGet = await client.callTool({ name: 'x402_diagnose', arguments: { url: targetUrl, method: 'GET', body: '{"a":1}' } });
+  assert.match(withGet.content[0].text, /body goes with POST/);
+  const good = await client.callTool({ name: 'x402_diagnose', arguments: { url: targetUrl, body: '{"a":1}' } });
+  assert.ok((good.structuredContent || JSON.parse(good.content[0].text)).accepts, 'a valid body gets the payment challenge');
   assert.equal(state.verify, 0);
   await client.close();
 });

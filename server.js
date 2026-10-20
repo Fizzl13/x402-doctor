@@ -730,6 +730,8 @@ const CONTACT = { name: 'Fizzl', url: 'https://fizzl.eu', email: 'Fizzl13@proton
 const OWNERSHIP_PROOFS = ['0x9965f72e5451dd9c70e8fd24a5b15dc42978be04998630bcdf8387b6651c63db4e5e3fa4d206fa09d777260a45964ac6bd412b5a53c9d82d58f841c855df7e271b'];
 
 function openApi(origin, payment) {
+  // An example request body, for a POST route that checks its input before the 402 (not for the batch).
+  const bodyParam = { name: 'body', in: 'query', required: false, schema: { type: 'string' }, description: 'Example JSON request body (URL-encoded) for a POST endpoint that checks its input before the 402; implies POST. Without it, {} is sent and the requestBody example in the endpoint\'s /openapi.json is tried.' };
   const spec = {
     openapi: '3.1.0',
     info: {
@@ -760,6 +762,7 @@ function openApi(origin, payment) {
       parameters: [
         { name: 'url', in: 'query', required: true, example: 'https://ichimoku-signal.fizzl.eu/signal/BTC-USDT', schema: { type: 'string', format: 'uri' }, description: 'The x402 endpoint to diagnose' },
         { name: 'method', in: 'query', required: false, schema: { type: 'string', enum: ['GET', 'POST'] }, description: 'Endpoint method; default tries GET then POST' },
+        bodyParam,
       ],
       responses: {
         200: { description: 'Diagnosis report', content: { 'application/json': { schema: withReceipt(REPORT_SCHEMA) } } },
@@ -782,6 +785,7 @@ function openApi(origin, payment) {
       parameters: [
         { name: 'url', in: 'query', required: true, example: 'https://ichimoku-signal.fizzl.eu/signal/BTC-USDT', schema: { type: 'string', format: 'uri' }, description: 'The x402 endpoint you are about to pay' },
         { name: 'method', in: 'query', required: false, schema: { type: 'string', enum: ['GET', 'POST'] }, description: 'Method you will call it with; default tries GET then POST' },
+        bodyParam,
         { name: 'max_usd', in: 'query', required: false, example: '0.05', schema: { type: 'string' }, description: 'Your budget per call in USD; above it the verdict is no_go' },
         { name: 'network', in: 'query', required: false, schema: { type: 'string' }, description: 'CAIP-2 network you want to pay on, e.g. eip155:8453' },
         { name: 'client', in: 'query', required: false, schema: { type: 'string', enum: ['gateway'] }, description: "Set to gateway when your agent pays with Circle's Gateway client (@circle-fin/x402-batching) from a Gateway balance: Gateway-only endpoints are then not a caution, and Gateway options are recommended first." },
@@ -830,6 +834,7 @@ function openApi(origin, payment) {
         parameters: [
           { name: 'url', in: 'query', required: true, example: 'https://ichimoku-signal.fizzl.eu/setups', schema: { type: 'string', format: 'uri' }, description: 'The x402 endpoint you are about to pay' },
           ...buyerParams,
+          bodyParam,
         ],
         responses: paidResponses('The preflight verdict plus the full diagnosis, daily history, seller reliability and domain-move checks', DEEP_SCHEMA),
       },
@@ -881,6 +886,7 @@ function openApi(origin, payment) {
       parameters: [
         { name: 'url', in: 'query', required: true, example: 'https://x402-doctor.fizzl.eu/demo/broken', schema: { type: 'string', format: 'uri' }, description: 'Your x402 endpoint' },
         { name: 'method', in: 'query', required: false, schema: { type: 'string', enum: ['GET', 'POST'] }, description: 'Endpoint method; default tries GET then POST' },
+        bodyParam,
         { name: 'stack', in: 'query', required: false, schema: { type: 'string', enum: Object.keys(STACKS) }, description: 'Your stack, if detection from the response headers is wrong' },
       ],
       responses: {
