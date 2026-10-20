@@ -237,10 +237,11 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     usageReader: createUsageReader({ env }),
     publicUrl: (env.PUBLIC_URL || 'https://x402-doctor.fizzl.eu').replace(/\/$/, ''),
   });
-  const submitToTrust = (url) => trustSubmissions.submit(url, { check: (u) => preflight(u, { safeFetch }), trustIndex });
+  // who: { via, agent, visitor } for the usage log, so the daily submissions watch can tell callers apart.
+  const submitToTrust = (url, who = {}) => trustSubmissions.submit(url, { check: (u) => preflight(u, { safeFetch }), trustIndex, ...who });
   const trustTools = {
     lookup: (url) => trustIndex.lookup(url, { waitMs: 5000 }),
-    submit: submitToTrust,
+    submit: (url) => submitToTrust(url, { via: 'mcp' }),
     howToList: "Not in the x402 Trust Index yet. Its daily scan checks every resource listed in the CDP Bazaar, Circle's Agent Marketplace, GoPlausible's discovery list or the MPP directory; your own endpoint can be added with x402_trust_add.",
   };
   paidApi = createPaidApi({ safeFetch, env, trustIndex, feedback, bazaarIndex: bazaar, cdpValidate, outcomes, checkPaymentProof, creditStore, priceCheck, spotResults, onchainPayments, deliveryStore, ...(deliveryResults ? { deliveryResults } : {}), trust: trustTools });
@@ -428,7 +429,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   // endpoint, so 10 an hour per IP.
   const submitLimit = rateLimit({ windowMs: 60 * 60 * 1000, max: 10 });
   app.post('/api/trust/submit', submitLimit, async (req, res) => {
-    const out = await submitToTrust(req.body && req.body.url);
+    const out = await submitToTrust(req.body && req.body.url, { via: 'web', agent: agentOf(req.headers['user-agent']), visitor: visitorOf(req.ip, env.USAGE_LOG_SALT || env.USAGE_LOG_TOKEN) });
     res.status(out.status).json(out.body);
   });
   app.get('/api/trust/submitted', trustLimit, async (_req, res) => {
