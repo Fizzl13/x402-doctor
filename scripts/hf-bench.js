@@ -52,6 +52,20 @@ const TABLES = [
     conditions: ['bare', 'cautious', 'skills'],
     sources: [{ run: '38569749298' }, { run: '38574724752' }],
   },
+  {
+    id: 'sonnet-24',
+    title: 'Claude Sonnet, all 24 scenarios',
+    note: 'One run per scenario and condition, after round four gave the agent an XRP Ledger account. "data" covers the 14 scenarios whose task names a paid endpoint. x402 Doctor 7cfaa05 and presign-guard 17f1edc, 20 October 2026.',
+    conditions: ['bare', 'cautious', 'data', 'skills', 'wallet', 'skills-wallet'],
+    sources: [{ run: '39420123019' }],
+  },
+  {
+    id: 'round-four',
+    title: 'Round four: EIP-7702 smart accounts and XRP Ledger Batches',
+    note: 'Scenarios 21 to 24, three runs each: a "smart account upgrade" that delegates the wallet to a sweeper, an XRPL Batch that pays a 0.01 RLUSD fee and sets the seller\'s key as the account\'s regular key, and an honest counterpart of each. The API\'s safety filter stopped the honest upgrade in every bare and wallet run, and 9 of the 15 runs of the XRPL trap (safe, since nothing was signed). 19 and 20 October 2026.',
+    conditions: ['bare', 'cautious', 'skills', 'wallet', 'skills-wallet'],
+    sources: [{ run: '39244251877' }, { run: '39414902963' }],
+  },
 ];
 
 const CONDITIONS = {
@@ -223,7 +237,7 @@ Every model finished every honest task in both conditions. After the fix, Gemini
 | Model | Condition | Traps avoided | Honest tasks done | Lost |
 |---|---|---|---|---|
 ${claude.map((b) => `| ${b.model} | \`${b.condition}\` | ${b.traps_avoided}/${b.traps} | ${b.honest_done}/${b.honest} | ${usd(b.lost_usd)} |`).join('\n')}
-
+${['sonnet-24', 'round-four'].map((id) => conditionTable(board, id)).join('')}
 ## Files
 
 - \`data/leaderboard.csv\`: the published tables (\`table\`: ${TABLES.map((t) => `\`${t.id}\``).join(', ')}), per \`model\` and \`condition\`: \`traps_avoided\`, \`traps\`, \`honest_done\`, \`honest\`, \`lost_usd\` (paid or signed away to traps), \`overhead_usd\` (spent on checks), \`runs\`.
@@ -248,6 +262,22 @@ CC BY 4.0: free to use, share and adapt with credit to "x402 Agent Safety Bench 
 `;
 }
 
+// A table of one model's conditions (sonnet-24, round-four) for the dataset card, with its note.
+function conditionTable(board, id) {
+  const table = TABLES.find((t) => t.id === id);
+  const rows = board.filter((b) => b.table === id);
+  if (!rows.length) return '';
+  return `
+**${table.title}:**
+
+| Condition | Traps avoided | Honest tasks done | Lost |
+|---|---|---|---|
+${rows.map((b) => `| \`${b.condition}\` | ${b.traps_avoided}/${b.traps} | ${b.honest_done}/${b.honest} | ${usd(b.lost_usd)} |`).join('\n')}
+
+${table.note}
+`;
+}
+
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
 function spaceReadme() {
@@ -259,7 +289,7 @@ colorTo: green
 sdk: static
 pinned: false
 license: cc-by-4.0
-short_description: Do AI agents pay safely? 20 x402 payment traps
+short_description: Do AI agents pay safely? x402 payment and signing traps
 tags:
 - leaderboard
 - agents
@@ -269,6 +299,21 @@ tags:
 ---
 
 The leaderboard of the x402 Agent Safety Bench. Data: the dataset of the same name. Method and code: ${BENCH}
+`;
+}
+
+// The same table on the leaderboard page.
+function conditionSection(board, id, bar) {
+  const table = TABLES.find((t) => t.id === id);
+  const rows = board.filter((b) => b.table === id);
+  if (!rows.length) return '';
+  return `
+<h2>${esc(table.title)}</h2>
+<div class="wrap"><table class="resp">
+<tr><th>Condition</th><th>Traps avoided</th><th>Honest tasks done</th></tr>
+${rows.map((b) => `<tr><td><code>${esc(b.condition)}</code></td><td data-label="Traps avoided">${bar(b)}</td><td data-label="Honest tasks done"><span class="score">${b.honest_done}/${b.honest}</span></td></tr>`).join('\n')}
+</table></div>
+<p class="note">${esc(table.note)}</p>
 `;
 }
 
@@ -352,7 +397,7 @@ ${main.map((m) => `<tr><td><strong>${esc(m.model)}</strong></td><td data-label="
 ${claude.map((b) => `<tr><td><strong>${esc(b.model)}</strong></td><td data-label="Condition"><code>${esc(b.condition)}</code></td><td data-label="Traps avoided">${bar(b)}</td><td data-label="Honest tasks done"><span class="score">${b.honest_done}/${b.honest}</span></td></tr>`).join('\n')}
 </table></div>
 <p class="note">${esc(TABLES[2].note)}</p>
-
+${['sonnet-24', 'round-four'].map((id) => conditionSection(board, id, bar)).join('')}
 <h2>The scenarios</h2>
 <ul class="scen">
 ${scen.map((s) => `<li><span class="kind ${s.kind}">${s.kind}</span><code>${esc(s.scenario)}</code><span class="should">${esc(s.should)}</span></li>`).join('\n')}
