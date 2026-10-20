@@ -303,6 +303,13 @@ the CDP Bazaar, the MPP directory, the [GoPlausible](https://facilitator.goplaus
 `/openapi.json` per origin, a User-Agent that links to `/trust`). The results roll into a 30-day history per resource,
 one letter per day (`g` go, `c` caution, `n` no-go, `x` unreachable, `-` not scanned), published as
 `index.json` + `summary.json` on the `trust-data` branch.
+The server doesn't load that index (32 MB, ~70,000 resources): after the scan, `scripts/trust-views.js`
+(`lib/trust-views.js`) writes it as small precomputed files on the same branch, from the same code (`views/meta.json`
+with the summary, `views/atlas.json`, `views/templates.json`, `views/sellers.json`, the price check's word index under
+`views/similar/`, one `views/networks/<key>.json` per network, and the resources in 256 buckets by key under `keys/`).
+`lib/trust-reader.js` reads only what a request needs (one ~130 kB bucket per lookup, at most 32 kept) with the same
+answers as the full index, and falls back to the full index while the views aren't published. Measured on the 20 Oct
+index: 116 MB peak instead of 285 MB, 37 MB of heap instead of ~100 MB.
 After each scan, [`hf-sync.yml`](.github/workflows/hf-sync.yml) publishes it as an open dataset on Hugging Face,
 [x402Fizzl/x402-trust-index](https://huggingface.co/datasets/x402Fizzl/x402-trust-index) (CC BY 4.0): `data/endpoints.jsonl` (every endpoint in the latest scan with its
 verdict, reasons, price, networks, category and history), `data/daily.csv` (go / caution / no_go per day),
@@ -374,7 +381,8 @@ Space waits in `hf-mcp/`. Doctor's own MCP server is `https://x402-doctor.fizzl.
   never changes the verdict: new sellers start at zero. `GET /api/trust/summary` adds the totals over all payout
   addresses (`onchain_payments`), shown on `/trust`. Read-only, no key: `BASE_RPC_URL` is asked first when set, then
   the public node `base-rpc.publicnode.com`, which serves only about the last 10,000 blocks, so a gap of more than
-  ~5 hours between runs shows up as lower `coverage`.
+  ~5 hours between runs shows up as lower `coverage`. GitHub runs the hourly schedule late (every 3.5 to 6.5 hours on
+  19 Oct), so the Doctor starts the workflow every hour itself, with the `DELIVERY_DISPATCH_TOKEN` it already has.
 - `GET /api/trust?url=<resource>` (free, 30/min per IP): the track record of one resource.
   `POST /api/trust/batch` with `{"urls": [...]}` (free, up to 100 URLs, 10 calls/min per IP): the same for many at once,
   in the order sent (`found: false` for a URL the index doesn't have), with the index's `days` and `updated` once at the
@@ -403,7 +411,7 @@ Space waits in `hf-mcp/`. Doctor's own MCP server is `https://x402-doctor.fizzl.
   returns) goes over every service, at most 1,000 new ones a day, cached per description in `categories.json`.
   Services Jev is sure about (≥ 0.85) are listed on `/trust` and in `/api/trust/summary` (`services.bait`: checked,
   flagged and the surest 100), and marked on their endpoints in `/api/trust/network` and on `/algorand` and `/xrpl`.
-- Run it yourself: `node scripts/trust-scan.js --out trust-data --limit 200`.
+- Run it yourself: `node scripts/trust-scan.js --out trust-data --limit 200`, then `node scripts/trust-views.js --dir trust-data`.
 
 ### Weekly x402 health report
 

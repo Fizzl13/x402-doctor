@@ -4,6 +4,8 @@ name: On-chain payments
 # in the Trust Index, from the blocks since the last run (scripts/onchain-payments.js). The result, 8 days per payout
 # address, is published as a single commit on the payments-data branch (rewritten each run, so the repo does not grow).
 # The Doctor reads it for the preflight's onchain_payments signal and /trust. Never pays, holds no key.
+# GitHub runs this schedule late (every 3.5 to 6.5 hours on 19 Oct), so the Doctor also starts it every hour itself
+# (server.js, with DELIVERY_DISPATCH_TOKEN); the schedule is the fallback.
 on:
   schedule:
     - cron: "23 * * * *"
