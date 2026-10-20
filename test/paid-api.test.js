@@ -600,7 +600,10 @@ test('delivery check: the bare route gives the 402; without a job store an order
   assert.equal(bare.status, 402);
   const challenge = JSON.parse(Buffer.from(bare.headers.get('payment-required'), 'base64').toString('utf8'));
   assert.equal(challenge.accepts.find((a) => a.network === BASE).amount, '250000', '$0.25');
-  const off = await fetch(`${api}/api/v1/delivery-check?url=${encodeURIComponent('https://a.example/paid')}`);
+  // Without a payment a well-formed order gets the 402, whatever the state (uptime monitors probe it so); asked
+  // with X-Delivery-Precheck, or with a payment, it is refused before anything settles.
+  assert.equal((await fetch(`${api}/api/v1/delivery-check?url=${encodeURIComponent('https://a.example/paid')}`)).status, 402);
+  const off = await fetch(`${api}/api/v1/delivery-check?url=${encodeURIComponent('https://a.example/paid')}`, { headers: { 'x-delivery-precheck': '1' } });
   assert.equal(off.status, 503);
   assert.match((await off.json()).error, /nothing was charged/);
   assert.equal((await fetch(`${api}/api/v1/delivery-check?url=http://a.example/x`)).status, 400);

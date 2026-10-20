@@ -22,10 +22,14 @@ test('before payment: one public https endpoint of someone else, a "go" on Base 
   assert.equal((await deliveryError({ url: DELIVERY_EXAMPLE }, opts)).status, 0, 'the example the route declares passes its own checks');
   assert.match((await deliveryError({ url: ['https://a.example/x', 'https://b.example/y'] }, opts)).error, /one url/);
   assert.match((await deliveryError({ url: 'https://a.example/x', method: 'PUT' }, opts)).error, /GET or POST/);
+  for (const bad of [{ url: 'not a url' }, { url: 'http://a.example/x' }, { url: 'https://x402-doctor.fizzl.eu/api/v1/diagnose' }, { url: 'https://a.example/x', method: 'PUT' }]) {
+    assert.equal((await deliveryError(bad, opts)).form, true, `${JSON.stringify(bad)} is malformed whatever the endpoint's state`);
+  }
   assert.equal((await deliveryError({ url: 'https://a.example/x' }, { store: { ready: false }, runPreflight: go() })).status, 503);
 
   const noGo = await deliveryError({ url: 'https://a.example/x' }, { store, runPreflight: async () => ({ verdict: 'no_go', summary: 'Do not pay: payout address on the OFAC list', recommended_option: null, options: [], reasons: [{ level: 'no_go', code: 'payto_sanctioned' }] }) });
   assert.equal(noGo.status, 400);
+  assert.equal(noGo.form, undefined, "an endpoint that can't be bought now is not a malformed request");
   assert.deepEqual(noGo.preflight, { verdict: 'no_go', reasons: ['payto_sanctioned'] });
   assert.equal((await deliveryError({ url: 'https://a.example/x' }, { store, runPreflight: go(0.02, 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp') })).status, 400, 'Base only');
   assert.match((await deliveryError({ url: 'https://a.example/x' }, { store, runPreflight: go(0.5) })).error, /at most \$0\.1/);
@@ -238,16 +242,42 @@ test('a probe without payment gets its 402 within the time budget; a paid reques
   assert.equal(fastProbe.job.price_usd, 0.02, 'a check that finishes in time still runs before the 402');
 });
 
-test('the check before payment is rate-limited per caller', async () => {
-  const d = createDelivery({ express, store: memoryStore(), results: null, runPreflight: go(), checksPerHour: 2 });
-  const call = () => new Promise((resolve) => {
-    const req = { query: { url: 'https://a.example/x' }, ip: '1.2.3.4' };
+test('a probe without payment gets the 402 for an endpoint that cannot be bought now; only a malformed request is refused first', async () => {
+  // Uptime monitors fill the required url with a placeholder (https://example.com, no 402 there) and count anything
+  // but a 402 as the route being down. The buyer is still protected: with a payment the same request is refused
+  // before anything settles.
+  const noGo = async () => ({ verdict: 'no_go', summary: 'Do not pay: no 402', recommended_option: null, options: [], reasons: [{ level: 'no_go', code: 'no_402' }] });
+  const d = createDelivery({ express, store: memoryStore(), results: null, runPreflight: noGo });
+  const call = (url, headers = {}) => new Promise((resolve) => {
+    const req = { query: { url }, ip: '1.2.3.6', get: (name) => headers[name.toLowerCase()] };
     const res = { status(c) { this.code = c; return this; }, json(b) { resolve({ code: this.code, body: b }); } };
-    d.validate(req, res, () => resolve({ code: 'next' }));
+    d.validate(req, res, () => resolve({ code: 'next', job: req.deliveryJob }));
   });
-  assert.equal((await call()).code, 'next');
-  assert.equal((await call()).code, 'next');
-  assert.equal((await call()).code, 429);
+  assert.deepEqual(await call('https://example.com'), { code: 'next', job: undefined }, 'on to the 402, nothing to order');
+  const paid = await call('https://example.com', { 'payment-signature': 'eyJ4' });
+  assert.equal(paid.code, 400);
+  assert.deepEqual(paid.body.preflight, { verdict: 'no_go', reasons: ['no_402'] });
+  assert.equal((await call('http://example.com')).code, 400, 'a malformed request is answered without payment too');
+  assert.equal((await call('https://example.com', { 'x-delivery-precheck': '1' })).code, 400, 'asked for, the answer comes before any payment (the homepage asks)');
+  const down = createDelivery({ express, store: { ready: false }, results: null, runPreflight: noGo });
+  const busy = await new Promise((resolve) => {
+    const req = { query: { url: 'https://a.example/x' }, ip: '1.2.3.7', get: () => undefined };
+    down.validate(req, { status() { return this; }, json: resolve }, () => resolve('next'));
+  });
+  assert.equal(busy, 'next', 'a store that is down still shows the 402 to a probe');
+});
+
+test('the check before payment is rate-limited per caller; a probe over the limit still gets the 402', async () => {
+  const d = createDelivery({ express, store: memoryStore(), results: null, runPreflight: go(), checksPerHour: 2 });
+  const call = (headers = {}) => new Promise((resolve) => {
+    const req = { query: { url: 'https://a.example/x' }, ip: '1.2.3.4', get: (name) => headers[name.toLowerCase()] };
+    const res = { status(c) { this.code = c; return this; }, json(b) { resolve({ code: this.code, body: b }); } };
+    d.validate(req, res, () => resolve({ code: 'next', job: req.deliveryJob }));
+  });
+  assert.equal((await call()).job.price_usd, 0.02);
+  assert.equal((await call()).job.price_usd, 0.02);
+  assert.deepEqual(await call(), { code: 'next', job: undefined }, 'over the limit: no check, on to the 402');
+  assert.equal((await call({ 'payment-signature': 'eyJ4' })).code, 429, 'a paid request over the limit is refused before it settles');
 });
 
 test('the same dispatcher starts the hourly on-chain count; a refusal names that workflow', async () => {
