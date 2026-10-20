@@ -37,7 +37,7 @@ const { checkSettlement } = require('./lib/settlement');
 const { createStatus } = require('./lib/status');
 const { renderBadge, badgeFor } = require('./lib/badge');
 const { addMppOffers } = require('./lib/mpp-pay');
-const { createOutreachHook } = require('./lib/outreach-hook');
+const { createOutreachHook, recheckFindings } = require('./lib/outreach-hook');
 const { createPageMeta, trustDescription, trustFill, networkFill } = require('./lib/page-meta');
 const { createTriage } = require('./lib/jev-triage');
 const { createDescribe } = require('./lib/jev-describe');
@@ -641,6 +641,24 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
       res.json({ ...report, share_url: `${req.protocol}://${req.get('host')}/?${share}` });
     } catch (err) {
       res.status(err.statusCode || 502).json({ error: err.message, checks: [] });
+    }
+  });
+
+  // The wallet server, right before it mails an outreach draft: which of its findings are still there? Only with the
+  // OUTREACH_KEY Doctor uses to hand in drafts (it runs the paid preflight's checks, so it isn't public).
+  const recheckKey = env.OUTREACH_KEY ? crypto.createHash('sha256').update(env.OUTREACH_KEY).digest() : null;
+  app.post('/api/outreach/recheck', async (req, res) => {
+    if (!recheckKey) return res.status(404).json({ error: 'not_found' });
+    const header = req.get('authorization') || '';
+    const given = crypto.createHash('sha256').update(header.startsWith('Bearer ') ? header.slice(7) : '').digest();
+    if (!crypto.timingSafeEqual(given, recheckKey)) return res.status(401).json({ error: 'unauthorized' });
+    const { url, ids } = req.body || {};
+    try { if (typeof url !== 'string' || !/^https?:$/.test(new URL(url).protocol)) throw new Error(); } catch { return res.status(400).json({ error: 'url is required' }); }
+    if (!Array.isArray(ids) || !ids.length || ids.length > 12 || !ids.every((id) => typeof id === 'string' && id.length <= 60)) return res.status(400).json({ error: 'ids: 1 to 12 finding ids' });
+    try {
+      res.json(await recheckFindings({ url, ids, diagnose: (u) => diagnoseLib.diagnose(u, { safeFetch, bazaarIndex: bazaar }), preflight: (u) => preflight(u, { safeFetch }) }));
+    } catch (err) {
+      res.status(502).json({ error: err.message });
     }
   });
 
