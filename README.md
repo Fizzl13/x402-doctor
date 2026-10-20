@@ -23,7 +23,7 @@ the medicine, the exact code that fixes each problem for your stack, in the brow
 
 | Group | Check | Catches |
 |-------|-------|---------|
-| 402 challenge | `returns-402` | No 402 for GET or POST (tries both, or `--method`). Behind Cloudflare or Amazon CloudFront the hint names the usual Monetization Gateway or AWS WAF Monetize rule misses. An endpoint that asks for x401 proof first is info, not a failure |
+| 402 challenge | `returns-402` | No 402 for GET or POST (tries both, or `--method`). Behind Cloudflare or Amazon CloudFront the hint names the usual Monetization Gateway or AWS WAF Monetize rule misses. An endpoint that asks for x401 proof first is info, not a failure. A POST that answers 400 or 422 to an empty body checks its input before payment: Doctor sends the `requestBody` example from the seller's `/openapi.json` (or one built from its schema), or your own example body, and without one the check is a warning (needs input), not a failure |
 | | `x401` | An x401 proof request (`PROOF-REQUEST`, [x401.id](https://x401.id)) instead of a 402: the endpoint asks who is behind the agent before it asks for payment. Pass when the base64url payload names scheme `x401`, a version and credential requests (with their protocols, the token endpoint and the payment hint); a warning when agents can't read it; info for the older header name `PROOF-REQUIRED` |
 | | `protocol-version`, `challenge-header` | v1 vs v2, missing `x402Version`, challenge in the wrong header, undecodable header |
 | | `envelope-body-mirror` | Header-only challenge (`@x402/express` sends `{}`), header and body disagreeing |
@@ -79,10 +79,12 @@ npm install
 npm start          # http://localhost:3001
 ```
 
-Reports are shareable: `https://<host>/?url=<endpoint>&method=GET` runs the diagnosis on load.
+Reports are shareable: `https://<host>/?url=<endpoint>&method=GET` runs the diagnosis on load (`&method=POST&body=<json>` for a POST with an example body).
 
-API: `POST /api/diagnose` with `{ "url": "...", "method": "GET" | "POST" }` (method optional) returns
-`{ url, method, overall, checks[], challenge, share_url }`: `share_url` is the page link above, to paste into an issue or a chat. Rate-limited to 10 diagnoses per minute per IP.
+API: `POST /api/diagnose` with `{ "url": "...", "method": "GET" | "POST", "body": { ... } }` (method and body optional)
+returns `{ url, method, overall, checks[], challenge, share_url }`. `body` is an example request body (JSON, up to
+16 KB) for a POST that checks its input before the 402; it implies POST, and the report says which body reached the 402
+(`body`, and `body_source` when it came from the seller's `/openapi.json`). `share_url` is the page link above, to paste into an issue or a chat. Rate-limited to 10 diagnoses per minute per IP.
 
 ## Paid API for agents (x402)
 
@@ -492,6 +494,7 @@ curl -X POST https://x402-doctor.fizzl.eu/feedback \
 ```bash
 npx github:Fizzl13/x402-doctor https://api.example.com/paid
 npx github:Fizzl13/x402-doctor https://api.example.com/paid --method POST --json
+npx github:Fizzl13/x402-doctor https://api.example.com/v1/score --body '{"text":"hello"}'
 ```
 
 Exit code `0` on pass/warn, `1` when a check fails (or on warnings with `--strict`), `2` on usage errors.
@@ -618,6 +621,7 @@ public/trust.html      /trust page
 lib/media.js           Serves the explainer and paid-fix videos from their branches (/media/explainer.mp4, /media/fix.mp4)
 media/explainer/       Explainer video pipeline (script, voice, recording, encoding)
 lib/diagnose.js        The checks
+lib/request-body.js    Example POST body: the caller's, or the requestBody example from the seller's /openapi.json
 lib/site-scan.js       MetaMask's site scanner verdict for the domain
 lib/mcp-check.js       x402 over MCP: tools/list, unpaid tools/call, the payment requirement in the tool result
 lib/networks.js        Known networks, USDC (or BNB Chain's dollar tokens) per network, address validation

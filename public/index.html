@@ -91,6 +91,7 @@
   :root { --bg: var(--ink); --panel: var(--ink-2); --text-soft: var(--soft); --pass: var(--green); --warn: var(--orange); --fail: var(--red); --info: #93c5fd; --accent: var(--mint); }
   .sub { color: var(--soft); margin: 0 0 32px; font-size: 18px; max-width: 58ch; }
   form { display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; }
+  #bodyInput { flex: 1 1 100%; min-height: 76px; background: var(--ink-3); border: 1px solid var(--line); border-radius: 14px; padding: 10px 14px; color: inherit; font: 13px/1.45 var(--mono, ui-monospace, monospace); resize: vertical; }
   input[type=url] { flex: 1 1 320px; min-width: 0; font: 14px var(--mono); background: var(--ink-2); border: 1px solid var(--line); border-radius: 999px; padding: 14px 18px; }
   select { background: var(--ink-3); border: 1px solid var(--line); border-radius: 999px; padding: 0 14px; font: inherit; font-size: 14px; }
   button { font: inherit; font-weight: 800; font-size: 15px; background: var(--mint); color: var(--ink); border: none; border-radius: 999px; padding: 14px 22px; cursor: pointer; box-shadow: 0 8px 28px rgba(97,245,195,.22); }
@@ -302,6 +303,7 @@
       <option>POST</option>
     </select>
     <button id="diagnoseBtn" type="submit">Diagnose →</button>
+    <textarea id="bodyInput" hidden aria-label="Example request body (JSON)" placeholder='Optional example request body (JSON), for a POST route that checks its input before asking for payment, e.g. {"text": "hello"}'></textarea>
   </form>
 
   <div class="error-box" id="errorBox" hidden></div>
@@ -520,7 +522,7 @@ let runId = 0; // only the latest diagnosis may fill the page
 // Two URLs pasted into each other, e.g. "https://examplehttps://api.real.com/...".
 const GLUED = /^https?:\/\/[^/?#]*https?:/i;
 
-async function diagnose(url, method) {
+async function diagnose(url, method, body = '') {
   $('fixCard').hidden = true;
   $('deliveryCard').hidden = true;
   clearTimeout(deliveryTimer);
@@ -538,6 +540,7 @@ async function diagnose(url, method) {
   share.search = '';
   share.searchParams.set('url', url);
   if (method) share.searchParams.set('method', method);
+  if (body && body.length <= 2000) share.searchParams.set('body', body);
   history.replaceState(null, '', share);
 
   if (GLUED.test(url)) {
@@ -551,7 +554,7 @@ async function diagnose(url, method) {
     const res = await fetch('/api/diagnose', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(method ? { url, method } : { url })
+      body: JSON.stringify({ url, ...(method ? { method } : {}), ...(body ? { body } : {}) })
     });
     const data = await res.json();
     if (id !== runId) return;
@@ -838,13 +841,17 @@ $('deliveryBtn').addEventListener('click', buyDelivery);
 $('form').addEventListener('submit', (e) => {
   e.preventDefault();
   const url = $('urlInput').value.trim();
-  if (url) diagnose(url, $('methodInput').value);
+  const method = $('methodInput').value;
+  if (url) diagnose(url, method, method === 'POST' ? $('bodyInput').value.trim() : '');
 });
+// The example body only goes with POST.
+$('methodInput').addEventListener('change', () => { $('bodyInput').hidden = $('methodInput').value !== 'POST'; });
 
 $('exampleLink').addEventListener('click', (e) => {
   e.preventDefault();
   $('urlInput').value = $('exampleLink').dataset.url;
   $('methodInput').value = '';
+  $('bodyInput').hidden = true;
   diagnose($('urlInput').value, '');
 });
 
@@ -862,7 +869,9 @@ const params = new URLSearchParams(location.search);
 if (params.get('url')) {
   $('urlInput').value = params.get('url');
   if (['GET', 'POST'].includes(params.get('method'))) $('methodInput').value = params.get('method');
-  diagnose(params.get('url'), $('methodInput').value).then(() => {
+  const sharedBody = $('methodInput').value === 'POST' ? params.get('body') || '' : '';
+  if ($('methodInput').value === 'POST') { $('bodyInput').hidden = false; $('bodyInput').value = sharedBody; }
+  diagnose(params.get('url'), $('methodInput').value, sharedBody).then(() => {
     if (DELIVERY_ID.test(params.get('delivery') || '')) followDelivery(params.get('delivery'));
   });
 } else if (DELIVERY_ID.test(params.get('delivery') || '')) followDelivery(params.get('delivery'));

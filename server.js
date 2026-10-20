@@ -10,6 +10,7 @@ const { nohumansClaim } = require('./lib/nohumans-claim');
 const { fizzlCors } = require('./lib/fizzl-cors');
 const { createSafeFetch, isPrivateIp } = require('./lib/safe-fetch');
 const diagnoseLib = require('./lib/diagnose');
+const { normaliseBody } = require('./lib/request-body');
 const { createBazaarIndex } = require('./lib/bazaar-index');
 const { createCdpValidator } = require('./lib/cdp-validate');
 const { createPaidApi, ROUTE: PAID_ROUTE, PREFLIGHT_ROUTE, FIX_ROUTE, BATCH_ROUTE, DEEP_ROUTE, DELIVERY_ROUTE, REPORT_SCHEMA, FIX_SCHEMA, DEEP_SCHEMA } = require('./lib/paid-api');
@@ -623,9 +624,15 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   // The free check may also be called from the live demo on fizzl.eu (browser, CORS).
   app.use('/api/diagnose', fizzlCors);
   app.post('/api/diagnose', rateLimit(limits), async (req, res) => {
-    const { url: targetUrl, method } = req.body || {};
+    const { url: targetUrl, body: rawBody } = req.body || {};
+    let { method } = req.body || {};
     if (!targetUrl || typeof targetUrl !== 'string') return res.status(400).json({ error: 'url is required' });
     if (method !== undefined && !['GET', 'POST'].includes(method)) return res.status(400).json({ error: 'method must be GET or POST' });
+    // An example request body for a POST route that checks its input before the 402 (JSON, at most 16 KB).
+    const { body, error: bodyError } = normaliseBody(rawBody);
+    if (bodyError) return res.status(400).json({ error: bodyError });
+    if (body !== undefined && method === 'GET') return res.status(400).json({ error: 'body goes with POST' });
+    if (body !== undefined) method = 'POST';
     try {
       new URL(targetUrl);
     } catch {
@@ -633,12 +640,12 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     }
     if (/^https?:\/\/[^/?#]*https?:/i.test(targetUrl)) return res.status(400).json({ error: 'This looks like two URLs pasted into each other; send only the endpoint URL.' });
     try {
-      const report = await diagnoseLib.diagnose(targetUrl, { safeFetch, method, bazaarIndex: bazaar, cdpValidate, describe, poison, price: priceCheck });
+      const report = await diagnoseLib.diagnose(targetUrl, { safeFetch, method, body, bazaarIndex: bazaar, cdpValidate, describe, poison, price: priceCheck });
       // A broken endpoint with a published contact: a draft for the owner's outreach (never sent from here).
       outreachHook.maybeDraft(targetUrl, report, { agent: req.get('user-agent') }).catch(() => {});
       // The page's own share link, for callers that only see JSON (curl, scripts):
       // opening it runs the same check again in the browser.
-      const share = new URLSearchParams({ url: targetUrl, ...(method ? { method } : {}) });
+      const share = new URLSearchParams({ url: targetUrl, ...(method ? { method } : {}), ...(body !== undefined && body.length <= 2000 ? { body } : {}) });
       res.json({ ...report, share_url: `${req.protocol}://${req.get('host')}/?${share}` });
     } catch (err) {
       res.status(err.statusCode || 502).json({ error: err.message, checks: [] });

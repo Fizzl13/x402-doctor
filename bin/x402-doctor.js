@@ -3,6 +3,7 @@
 //
 //   x402-doctor https://api.example.com/paid
 //   x402-doctor https://api.example.com/paid --method POST
+//   x402-doctor https://api.example.com/paid --body '{"text":"hello"}'   (POST with an example body)
 //   x402-doctor http://localhost:3002/signal/BTC-USDT --json
 //
 // Exit code: 0 pass/warn, 1 when a check fails, 2 on usage errors.
@@ -10,10 +11,12 @@
 
 const { createSafeFetch } = require('../lib/safe-fetch');
 const { diagnose } = require('../lib/diagnose');
+const { normaliseBody } = require('../lib/request-body');
 
 function usage(message) {
   if (message) console.error(`x402-doctor: ${message}\n`);
-  console.error('usage: x402-doctor <url> [--method GET|POST] [--json] [--strict]');
+  console.error('usage: x402-doctor <url> [--method GET|POST] [--body JSON] [--json] [--strict]');
+  console.error('  --body     an example JSON request body, for a POST route that checks its input before the 402');
   console.error('  --strict   exit 1 on warnings too');
   process.exit(2);
 }
@@ -25,6 +28,7 @@ function parseArgs(argv) {
     if (a === '--json') args.json = true;
     else if (a === '--strict') args.strict = true;
     else if (a === '--method') args.method = String(argv[++i] || '').toUpperCase();
+    else if (a === '--body') args.body = String(argv[++i] ?? '');
     else if (a === '--help' || a === '-h') usage();
     else if (a.startsWith('-')) usage(`unknown option ${a}`);
     else if (!args.url) args.url = a;
@@ -32,6 +36,14 @@ function parseArgs(argv) {
   }
   if (!args.url) usage('missing url');
   if (args.method && !['GET', 'POST'].includes(args.method)) usage('--method must be GET or POST');
+  if (args.body !== undefined) {
+    const { body, error } = normaliseBody(args.body);
+    if (error) usage(`--body: ${error}`);
+    if (body === undefined) usage('--body needs a JSON value');
+    if (args.method === 'GET') usage('--body goes with POST');
+    args.body = body;
+    args.method = 'POST';
+  }
   return args;
 }
 
@@ -54,7 +66,7 @@ function print(report) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  const report = await diagnose(args.url, { safeFetch: createSafeFetch({ allowPrivate: true }), method: args.method });
+  const report = await diagnose(args.url, { safeFetch: createSafeFetch({ allowPrivate: true }), method: args.method, body: args.body });
   if (args.json) console.log(JSON.stringify(report, null, 2));
   else print(report);
   process.exitCode = report.overall === 'fail' || (args.strict && report.overall === 'warn') ? 1 : 0;
