@@ -5,9 +5,11 @@ name: Trust Index scan
 # single commit on the trust-data branch (rewritten each day, so the repo does
 # not grow). The Doctor reads it for /api/trust and preflight's track record.
 #
-# GitHub drops scheduled runs when it is busy (on 24 Sep the 03:17 run never
-# started), so the schedule fires four times a day and a scheduled run stops
-# early once today's scan is published. A manual run always scans.
+# GitHub drops scheduled runs when it is busy (on 24 Sep and 21 Oct the 03:17
+# run never started), so the schedule fires four times a day and a scheduled run
+# stops early once today's scan is published. Doctor also starts it from 04:15 UTC
+# while it still serves the day before (lib/scan-watch.js), with only_if_missing,
+# which stops early the same way. A manual run without it always scans.
 on:
   schedule:
     - cron: "17 3,9,15,21 * * *" # 03:17, 09:17, 15:17, 21:17 UTC; the first that runs does the day
@@ -17,6 +19,10 @@ on:
         description: "Scan only the first N resources (0 = all)"
         required: false
         default: "0"
+      only_if_missing:
+        description: "Stop if today's scan is already published (what Doctor sends)"
+        required: false
+        default: "false"
 
 permissions:
   contents: write
@@ -36,7 +42,7 @@ jobs:
         run: |
           done=$(git fetch --depth 1 origin trust-data 2>/dev/null && git show FETCH_HEAD:summary.json 2>/dev/null | jq -r '.date // empty' || true)
           echo "latest scan: ${done:-none}, today: $(date -u +%F)"
-          if [ "${{ github.event_name }}" = "schedule" ] && [ "$done" = "$(date -u +%F)" ]; then
+          if { [ "${{ github.event_name }}" = "schedule" ] || [ "${{ inputs.only_if_missing }}" = "true" ]; } && [ "$done" = "$(date -u +%F)" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
             echo "Today's scan is already published; nothing to do." >> "$GITHUB_STEP_SUMMARY"
           fi

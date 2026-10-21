@@ -561,6 +561,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   // Explainer and paid-fix videos, posters and subtitles (see lib/media.js).
   app.get('/media/:name', media.handler);
   app.media = media;
+  app.trustIndex = trustIndex;
 
   // Intentionally broken x402 endpoint for demos and videos: a price written
   // as dollars instead of atomic units, and a Solana option without a fee
@@ -926,6 +927,13 @@ if (require.main === module) {
         onchain.dispatch();
         setInterval(() => onchain.dispatch(), 60 * 60 * 1000).unref();
       }, 5 * 60 * 1000).unref();
+      // The day's Trust Index scan when GitHub dropped its scheduled run (lib/scan-watch.js), checked every half hour.
+      const { createScanWatch } = require('./lib/scan-watch');
+      const scanWatch = createScanWatch({
+        dispatcher: createDispatcher({ token: dispatchToken, workflow: 'trust-scan.yml', inputs: { only_if_missing: 'true' }, waits: 'the next scheduled run scans' }),
+        trustIndex: app.trustIndex,
+      });
+      setInterval(() => { scanWatch.tick().catch(() => {}); }, 30 * 60 * 1000).unref();
     }
   });
 }
