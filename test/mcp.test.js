@@ -12,7 +12,7 @@ const { wrapMCPClientWithPayment } = require('@x402/mcp');
 const { x402Client } = require('@x402/core/client');
 const { ExactEvmScheme } = require('@x402/evm/exact/client');
 const { createApp } = require('../server');
-const { FREE_CALLS_PER_HOUR } = require('../lib/mcp');
+const { FREE_CALLS_PER_HOUR, isAnthropicIp } = require('../lib/mcp');
 
 const BASE = 'eip155:8453';
 const SOLANA = 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp';
@@ -108,10 +108,19 @@ test.beforeEach(() => {
   state.settle = 0;
 });
 
-async function mcpClient() {
+async function mcpClient(path = '/mcp') {
   const client = new Client({ name: 'test', version: '1.0.0' });
-  await client.connect(new StreamableHTTPClientTransport(new URL(`${api}/mcp`)));
+  await client.connect(new StreamableHTTPClientTransport(new URL(`${api}${path}`)));
   return client;
+}
+
+// Claude's connectors directory wants a title and readOnlyHint or destructiveHint on every tool.
+function assertAnnotated(tools) {
+  for (const t of tools) {
+    assert.ok(t.title, `${t.name} has a title`);
+    const a = t.annotations || {};
+    assert.ok(a.readOnlyHint === true || typeof a.destructiveHint === 'boolean', `${t.name}: readOnlyHint or destructiveHint`);
+  }
 }
 
 test('mcp: a free quick check, five paid tools with their prices, the free payment proof and receipt checks and the free feedback tool', async () => {
@@ -132,7 +141,36 @@ test('mcp: a free quick check, five paid tools with their prices, the free payme
     assert.notEqual(t.outputSchema.additionalProperties, false, `${t.name}: extra fields allowed`);
   }
   assert.equal(fb.structuredContent.service, 'doctor', 'the answer as structured content too');
+  assertAnnotated(tools);
   await client.close();
+});
+
+test('mcp/free: only the free tools, annotated, with no price or paid tool in any description', async () => {
+  const client = await mcpClient('/mcp/free');
+  const { tools } = await client.listTools();
+  assert.deepEqual(tools.map((t) => t.name).sort(), ['check_payment_proof', 'x402_quick_check', 'x402_trust_add', 'x402_trust_record']);
+  assertAnnotated(tools);
+  for (const t of tools) {
+    assert.doesNotMatch(t.description, /\$\d|x402_diagnose|x402_preflight|x402_fix/, `${t.name} points to nothing paid`);
+  }
+  const out = await client.callTool({ name: 'x402_quick_check', arguments: { url: targetUrl } });
+  assert.ok(!out.isError, JSON.stringify(out.content));
+  assert.ok(['pass', 'warn', 'fail'].includes(out.structuredContent.overall));
+  const paid = await client.callTool({ name: 'x402_diagnose', arguments: { url: targetUrl } });
+  assert.ok(paid.isError, 'no paid tool here');
+  await client.close();
+  const get = await fetch(`${api}/mcp/free`);
+  assert.equal(get.status, 405);
+});
+
+test("mcp: Claude's outbound addresses share one larger free pool", () => {
+  assert.equal(isAnthropicIp('160.79.104.1'), true);
+  assert.equal(isAnthropicIp('::ffff:160.79.111.255'), true);
+  assert.equal(isAnthropicIp('160.79.112.0'), false);
+  assert.equal(isAnthropicIp('160.79.103.255'), false);
+  assert.equal(isAnthropicIp('127.0.0.1'), false);
+  assert.equal(isAnthropicIp('2607:6bc0::1'), false);
+  assert.equal(isAnthropicIp(undefined), false);
 });
 
 test('mcp: the free Trust Index tools look up a record and refuse a non-https endpoint', async () => {
@@ -239,6 +277,8 @@ test('mcp: the delivery check as a paid tool and its free status, when there is 
   const { tools } = await client.listTools();
   const paidTool = tools.find((t) => t.name === 'x402_delivery_check');
   assert.match(paidTool.description, /\$0\.25/);
+  assert.deepEqual(paidTool.annotations, { readOnlyHint: false, destructiveHint: false, openWorldHint: true }, 'a purchase, not a reading');
+  assertAnnotated(tools);
   assert.ok(tools.find((t) => t.name === 'x402_delivery_status'), 'the free status tool');
   // Refused before payment: not https (the same check as the HTTP route), nothing verified.
   const refused = await client.callTool({ name: 'x402_delivery_check', arguments: { url: targetUrl } });

@@ -393,6 +393,20 @@ test('BNB Chain: 18-decimal dollar tokens are priced, so the budget and the adve
   assert.ok(far.reasons.some((x) => x.code === 'price_far_above_advertised'));
 });
 
+test('X Layer, Celo and Robinhood Chain: priced in their dollar tokens; a wrong USDC domain on Celo is not payable', async () => {
+  const option = (network, asset, extra, amount = '10000') => ({ scheme: 'exact', network, amount, asset, payTo: PAY_TO_BASE, maxTimeoutSeconds: 60, extra });
+  const xlayer = await run(await seller({ accepts: [option('eip155:196', '0x779Ded0c9e1022225f8E0630b35a9b54bE713736', { name: 'USD₮0', version: '1' })] }));
+  assert.equal(xlayer.verdict, 'go', JSON.stringify(xlayer.reasons));
+  assert.deepEqual([xlayer.options[0].network_name, xlayer.options[0].asset_symbol, xlayer.options[0].usd], ['X Layer', 'USD₮0', 0.01]);
+  const usdg = await run(await seller({ accepts: [option('eip155:4663', '0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168', { name: 'Global Dollar', version: '1' }, '30000')] }), { maxUsd: 0.02 });
+  assert.deepEqual([usdg.options[0].network_name, usdg.options[0].asset_symbol, usdg.options[0].usd], ['Robinhood Chain', 'USDG', 0.03]);
+  assert.ok(usdg.reasons.some((x) => x.code === 'over_budget'));
+  const celo = await run(await seller({ accepts: [option('eip155:42220', '0xcebA9300f2b948710d2653dD7B07f33A8B32118C', { name: 'USD Coin', version: '2' })] }));
+  assert.equal(celo.verdict, 'no_go');
+  assert.equal(celo.options[0].payable, false);
+  assert.match(celo.options[0].problems[0], /signs as "USDC" v2/);
+});
+
 test('BNB Chain: USDT over EIP-3009 is not payable; a 6-decimal amount on an 18-decimal token is a caution', async () => {
   const usdt = await run(await seller({ accepts: [bnbOption('10000000000000000', USDT_BNB, { name: 'Tether USD', version: '1' })] }));
   assert.equal(usdt.verdict, 'no_go');
