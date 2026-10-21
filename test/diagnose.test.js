@@ -1085,6 +1085,102 @@ test('batch-settlement escrow: fail when it has no code on the network, pass whe
   assert.deepEqual(checks.map((c) => [c.id, c.status]), [['batch-escrow', 'pass']]);
 });
 
+test('auth-capture escrow: checked like the batch-settlement escrow, at the address the option names', async (t) => {
+  const { checkBatchEscrow } = require('../lib/diagnose');
+  const asked = [];
+  let reply = '0x';
+  const server = http.createServer((req, res) => { let b = ''; req.on('data', (c) => (b += c)); req.on('end', () => { const body = JSON.parse(b); asked.push(body.params[0]); res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, result: reply })); }); }).listen(0);
+  t.after(() => server.close());
+  await new Promise((r) => server.once('listening', r));
+  const rpcs = { 'eip155:8453': `http://127.0.0.1:${server.address().port}/` };
+  const option = { scheme: 'auth-capture', network: BASE, amount: '1', asset: USDC_BASE, payTo: '0x408C4610F6879a75c25722cfCd18A2Eff99dc20F', extra: {} };
+  let checks = [];
+  await checkBatchEscrow([option], checks, { evmRpcUrls: rpcs });
+  assert.deepEqual(checks.map((c) => [c.id, c.status]), [['auth-capture-escrow', 'fail']]);
+  assert.match(checks[0].message, /commerce-payments escrow .*0xf96815976523E00e65Be8f34cA5e64b4f41EB19c.* is not deployed on Base/);
+  reply = '0x6080604052';
+  checks = [];
+  const v10 = { ...option, extra: { authCaptureEscrow: '0xBdEA0D1bcC5966192B070Fdf62aB4EF5b4420cff' } };
+  await checkBatchEscrow([v10, { ...option, extra: { authCaptureEscrow: '0x1234567890123456789012345678901234567890' } }], checks, { evmRpcUrls: rpcs });
+  assert.deepEqual(checks.map((c) => [c.id, c.status]), [['auth-capture-escrow', 'pass']], 'an escrow that is not commerce-payments is not looked up (checkAccepts fails it)');
+  assert.equal(asked.at(-1), '0xBdEA0D1bcC5966192B070Fdf62aB4EF5b4420cff');
+});
+
+test('auth-capture: a well-formed option passes; operator, escrow, deadlines, fees, token domain and a charge without receiverAuthorizer are checked', () => {
+  const now = Math.floor(Date.now() / 1000);
+  const extra = { name: 'USD Coin', version: '2', authCaptureEscrow: '0xf96815976523E00e65Be8f34cA5e64b4f41EB19c', captureAuthorizer: '0x1111111111111111111111111111111111111111', operatorType: 'delegated', paymentFlow: 'escrow', captureDeadline: now + 86400, refundDeadline: now + 604800, minFeeBps: 0, maxFeeBps: 100, feeRecipient: '0x3333333333333333333333333333333333333333' };
+  const opt = (over = {}, network = BASE, asset = USDC_BASE) => ({ scheme: 'auth-capture', network, amount: '10000', asset, payTo: '0x408C4610F6879a75c25722cfCd18A2Eff99dc20F', maxTimeoutSeconds: 60, extra: { ...extra, ...over } });
+  const run = (option) => { const checks = []; checkAccepts([option], checks); return checks; };
+  const failsOf = (option) => run(option).filter((c) => c.status === 'fail').map((c) => c.id);
+
+  const good = run(opt());
+  assert.deepEqual(good.filter((c) => c.status === 'fail' || c.status === 'warn'), []);
+  assert.ok(!good.some((c) => c.id === 'accepts[0]-scheme'), 'a standard scheme, not an unknown one');
+  assert.equal(good.find((c) => c.id === 'accepts[0]-extra').status, 'pass');
+  const info = good.find((c) => c.id === 'accepts[0]-auth-capture');
+  assert.equal(info.status, 'info');
+  assert.match(info.message, /amount \(\$0\.01\) is held in the commerce-payments escrow until the seller captures it by \d{4}-\d\d-\d\d, or it can go back to the buyer; refunds are possible until \d{4}-\d\d-\d\d\. Browser wallets can't pay it/);
+  assert.match(run(opt({ paymentFlow: 'authorization', receiverAuthorizer: '0x2222222222222222222222222222222222222222' })).find((c) => c.id === 'accepts[0]-auth-capture').message, /charged \(\$0\.01\) at once; the seller can refund it until/);
+
+  assert.deepEqual(failsOf(opt({ captureAuthorizer: undefined })), ['accepts[0]-extra']);
+  assert.deepEqual(failsOf(opt({ captureAuthorizer: '0x0000000000000000000000000000000000000000' })), ['accepts[0]-extra']);
+  assert.deepEqual(failsOf(opt({ authCaptureEscrow: '0x1234567890123456789012345678901234567890' })), ['accepts[0]-auth-escrow']);
+  assert.deepEqual(failsOf(opt({ authCaptureEscrow: undefined })), [], 'no escrow means v1.1');
+  assert.deepEqual(failsOf(opt({ authCaptureEscrow: '0xbdea0d1bcc5966192b070fdf62ab4ef5b4420cff' })), [], 'v1.0, any case');
+  assert.deepEqual(failsOf(opt({ captureDeadline: undefined })), ['accepts[0]-auth-deadlines']);
+  assert.match(run(opt({ captureDeadline: now - 60 })).find((c) => c.id === 'accepts[0]-auth-deadlines').message, /has passed/);
+  assert.match(run(opt({ refundDeadline: now + 3600 })).find((c) => c.id === 'accepts[0]-auth-deadlines').message, /refundDeadline is before captureDeadline/);
+  assert.deepEqual(failsOf(opt({ minFeeBps: 200, maxFeeBps: 100 })), ['accepts[0]-auth-fees']);
+  assert.deepEqual(failsOf(opt({ maxFeeBps: 10001 })), ['accepts[0]-auth-fees']);
+  assert.deepEqual(failsOf(opt({ feeRecipient: undefined })), ['accepts[0]-auth-fees']);
+  assert.deepEqual(failsOf(opt({ name: undefined })), ['accepts[0]-auth-domain']);
+  assert.deepEqual(failsOf(opt({ name: undefined, version: undefined, assetTransferMethod: 'permit2' })), [], 'Permit2 needs no token domain');
+  assert.deepEqual(failsOf(opt({ paymentFlow: 'authorization' })), ['accepts[0]-auth-flow']);
+  assert.deepEqual(failsOf(opt({ paymentFlow: 'instant' })), ['accepts[0]-auth-flow']);
+  const policy = run(opt({ operatorType: 'policy' })).find((c) => c.id === 'accepts[0]-auth-operator');
+  assert.equal(policy.status, 'warn');
+  const solana = run(opt({}, SOLANA, USDC_SOLANA)).filter((c) => c.id === 'accepts[0]-scheme');
+  assert.deepEqual(solana.map((c) => c.status), ['warn']);
+  assert.match(solana[0].message, /EVM chains only/);
+});
+
+test('Cloudflare pay per crawl (cloudflare:402): the spec example passes; payTo, currency, amount and version are checked; registration URL', () => {
+  const { checkCloudflareRegistration } = require('../lib/diagnose');
+  const opt = (over = {}) => ({ scheme: 'batch-settlement', network: 'cloudflare:402', amount: '1', asset: 'USD', payTo: 'merchant', extra: { version: '1.0.0' }, ...over });
+  const run = (option) => { const checks = []; checkAccepts([option], checks); return checks; };
+  const good = run(opt());
+  assert.deepEqual(good.filter((c) => c.status === 'fail' || c.status === 'warn'), []);
+  assert.equal(good.find((c) => c.id === 'accepts[0]-amount').message, 'accepts[0]: amount "1" cents ($0.01).');
+  assert.match(good.find((c) => c.id === 'accepts[0]-cloudflare').message, /registered with Cloudflare \(Web Bot Auth, HTTP Message Signatures\).*Standard x402 clients and wallets can't pay it/);
+  assert.ok(!good.some((c) => c.id === 'accepts[0]-batch-delay' || c.id === 'accepts[0]-extra'), 'not judged as batch-settlement on a chain');
+  const statusOf = (option, id) => run(option).find((c) => c.id === id)?.status;
+  assert.equal(statusOf(opt({ payTo: '0x408C4610F6879a75c25722cfCd18A2Eff99dc20F' }), 'accepts[0]-payto'), 'warn');
+  assert.equal(statusOf(opt({ asset: 'usd-coin' }), 'accepts[0]-asset'), 'warn');
+  assert.equal(statusOf(opt({ amount: '0.01' }), 'accepts[0]-amount'), 'fail');
+  assert.equal(statusOf(opt({ amount: undefined }), 'accepts[0]-amount'), 'info', 'Cloudflare may give the price only to a recognised agent');
+  assert.equal(statusOf(opt({ extra: {} }), 'accepts[0]-extra'), 'warn');
+  assert.equal(statusOf(opt({ scheme: 'exact' }), 'accepts[0]-scheme'), 'warn');
+
+  const reg = (challenge) => { const checks = []; checkCloudflareRegistration(challenge, checks); return checks.map((c) => [c.id, c.status]); };
+  const info = { registrationUrl: 'https://developers.cloudflare.com/ai-crawl-control/features/pay-per-crawl/use-pay-per-crawl-as-ai-owner/verify-ai-crawler/', signatureSchemes: ['ed25519'], tags: ['web-bot-auth'] };
+  assert.deepEqual(reg({ accepts: [opt()], extensions: { 'http-message-signatures': { info } } }), [['cloudflare-registration', 'pass']]);
+  assert.deepEqual(reg({ accepts: [opt()] }), [['cloudflare-registration', 'warn']]);
+  assert.deepEqual(reg({ accepts: [{ scheme: 'exact', network: BASE }] }), [], 'nothing to say without a Cloudflare option');
+});
+
+test('wallets: auth-capture needs an auth-capture client; Cloudflare pay per crawl is for registered agents, not wallets', () => {
+  const { walletCompatibility, summaryCheck } = require('../lib/wallets');
+  const now = Math.floor(Date.now() / 1000);
+  const ac = { scheme: 'auth-capture', network: BASE, amount: '10000', asset: USDC_BASE, payTo: '0x408C4610F6879a75c25722cfCd18A2Eff99dc20F', extra: { name: 'USD Coin', version: '2', captureAuthorizer: '0x1111111111111111111111111111111111111111', captureDeadline: now + 86400, refundDeadline: now + 604800, minFeeBps: 0, maxFeeBps: 0, feeRecipient: '0x3333333333333333333333333333333333333333' } };
+  const wallets = walletCompatibility([ac], []);
+  assert.match(wallets.find((w) => w.wallet === 'MetaMask').no[0].reason, /"auth-capture" is an authorization into the commerce-payments escrow/);
+  const agent = wallets.find((w) => w.agent);
+  assert.match(agent.needs.join(' '), /auth-capture client/);
+  assert.match(summaryCheck([ac], wallets).message, /\(with an auth-capture client\)/);
+  const cf = [{ scheme: 'batch-settlement', network: 'cloudflare:402', amount: '1', asset: 'USD', payTo: 'merchant' }];
+  assert.match(summaryCheck(cf, walletCompatibility(cf, [])).message, /^Only Cloudflare pay per crawl/);
+});
+
 test('merchant: the x402-merchant extension is checked, and its absence noted only when Algorand is offered', () => {
   const ALGO = 'algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=';
   const run = (challenge) => { const checks = []; checkMerchant(challenge, checks); return checks; };
