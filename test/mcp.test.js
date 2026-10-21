@@ -156,6 +156,7 @@ test('mcp/free: only the free tools, annotated, with no price or paid tool in an
   const out = await client.callTool({ name: 'x402_quick_check', arguments: { url: targetUrl } });
   assert.ok(!out.isError, JSON.stringify(out.content));
   assert.ok(['pass', 'warn', 'fail'].includes(out.structuredContent.overall));
+  assert.doesNotMatch(out.structuredContent.next, /\$\d|x402_diagnose|x402_fix/, 'the answer points to nothing paid either');
   const paid = await client.callTool({ name: 'x402_diagnose', arguments: { url: targetUrl } });
   assert.ok(paid.isError, 'no paid tool here');
   await client.close();
