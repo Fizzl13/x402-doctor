@@ -387,8 +387,11 @@ Space waits in `hf-mcp/`. Doctor's own MCP server is `https://x402-doctor.fizzl.
   8 days per address, is on the `payments-data` branch. The paid pre-payment check adds `signals.onchain_payments`
   (`days`, `payments`, `payers`, `usd`, `coverage`: the share of the window's blocks that were read) and an info line
   (`onchain_payments`), e.g. "47 different wallets paid this seller's payout address on Base in the last 7 days". It
-  never changes the verdict: new sellers start at zero. `GET /api/trust/summary` adds the totals over all payout
-  addresses (`onchain_payments`), shown on `/trust`. Read-only, no key: `BASE_RPC_URL` is asked first when set, then
+  never changes the verdict: new sellers start at zero. A wallet that paid 10 or more different payout addresses in the
+  window is a checker or scanner, not an ordinary buyer: `payers_wide` counts those, and the info line says when some
+  or all of the payers are such wallets ("no ordinary buyer seen yet"). `GET /api/trust/summary` adds the totals over
+  all payout addresses (`onchain_payments`, with `pay_tos_paid_only_wide`: the addresses paid only by such wallets;
+  393 of 774 on 19–20 Oct), shown on `/trust`. Read-only, no key: `BASE_RPC_URL` is asked first when set, then
   the public node `base-rpc.publicnode.com`, which serves only about the last 10,000 blocks, so a gap of more than
   ~5 hours between runs shows up as lower `coverage`. GitHub runs the hourly schedule late (every 3.5 to 6.5 hours on
   19 Oct), so the Doctor starts the workflow every hour itself, with the `DELIVERY_DISPATCH_TOKEN` it already has.

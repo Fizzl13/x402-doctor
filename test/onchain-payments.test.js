@@ -89,9 +89,23 @@ test('collect: signed USDC payments per payout address per day; unsigned transfe
   const later = { ...state, updated: '2026-10-19T23:00:00.000Z', pay_tos: { ...state.pay_tos, [P1]: { ...state.pay_tos[P1], since: '2026-10-18' } } };
   assert.equal(windowOf(later, P2), null, 'watched since 19 Oct: no complete day yet');
   const w = windowOf(later, P1.toUpperCase().replace('0X', '0x'));
-  assert.deepEqual({ ...w, as_of: undefined }, { network: 'eip155:8453', pay_to: P1, days: 1, payments: 2, payers: 1, usd: 0.03, coverage: 0.201, as_of: undefined });
+  assert.deepEqual({ ...w, as_of: undefined }, { network: 'eip155:8453', pay_to: P1, days: 1, payments: 2, payers: 1, payers_wide: 0, usd: 0.03, coverage: 0.201, as_of: undefined });
   const t = totalsOf(later);
   assert.deepEqual([t.days, t.watched, t.pay_tos_paid, t.payments, t.payers, t.usd], [1, 2, 1, 2, 1, 0.03]);
+});
+
+test('wallets that pay 10 or more payout addresses (checkers, scanners) are counted apart, per address and in total', () => {
+  const day = '2026-10-20';
+  const addr = (i) => `0x${String(i).padStart(40, 'a')}`;
+  const pay_tos = {};
+  // Twelve sellers paid by the same wallet W; the first also by an ordinary buyer O, the last by a wallet paying 2.
+  for (let i = 1; i <= 12; i++) pay_tos[addr(i)] = { since: '2026-10-19', d: { [day]: [3, 30000, ['wwwwwwwwww', ...(i === 1 ? ['oooooooooo'] : []), ...(i >= 11 ? ['tttttttttt'] : [])]] } };
+  const state = { version: 1, updated: '2026-10-21T08:00:00.000Z', days: { [day]: { covered: 43200 } }, pay_tos };
+  assert.equal(windowOf(state, addr(1)).payers_wide, 1, 'W pays 12 sellers');
+  assert.deepEqual([windowOf(state, addr(1)).payers, windowOf(state, addr(5)).payers, windowOf(state, addr(5)).payers_wide], [2, 1, 1]);
+  assert.deepEqual([windowOf(state, addr(12)).payers, windowOf(state, addr(12)).payers_wide], [2, 1], 'paying 2 sellers is not wide');
+  const t = totalsOf(state);
+  assert.deepEqual([t.pay_tos_paid, t.pay_tos_paid_only_wide, t.payers, t.payers_wide, t.wide_sellers], [12, 9, 3, 1, 10]);
 });
 
 test('collect: a range the node finds too wide is halved; blocks it no longer serves are skipped, not retried forever', async () => {
@@ -121,7 +135,7 @@ test('collect: no payout addresses or nothing new is a no-op; days older than 8 
 test('createOnchainPayments: lookup and totals from the published file', async () => {
   const data = { version: 1, updated: '2026-10-19T05:00:00.000Z', last_block: 1, days: { '2026-10-18': { covered: 43200 } }, pay_tos: { [P1]: { since: '2026-10-01', d: { '2026-10-18': [5, 50000, ['aa', 'bb']] } } } };
   const payments = createOnchainPayments({ url: 'https://raw.test/payments.json', fetchImpl: async () => ({ ok: true, json: async () => data }) });
-  assert.deepEqual(await payments.lookup(P1, { waitMs: 1000 }), { network: 'eip155:8453', pay_to: P1, days: 1, payments: 5, payers: 2, usd: 0.05, coverage: 1, as_of: data.updated });
+  assert.deepEqual(await payments.lookup(P1, { waitMs: 1000 }), { network: 'eip155:8453', pay_to: P1, days: 1, payments: 5, payers: 2, payers_wide: 0, usd: 0.05, coverage: 1, as_of: data.updated });
   assert.equal(await payments.lookup(P2), null);
   assert.equal((await payments.totals()).payers, 2);
 });
