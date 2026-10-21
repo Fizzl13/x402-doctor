@@ -445,6 +445,39 @@ test('unknown schemes: never recommended over a standard option; only them is a 
   assert.ok(burned.reasons.some((x) => x.code === 'payto_burn'));
 });
 
+// Cloudflare pay per crawl (x402 specs/schemes/batch-settlement/scheme_batch_settlement_cloudflare.md): USD in cents,
+// payTo "merchant", paid by agents registered with Cloudflare.
+const cloudflareOption = (over = {}) => ({ scheme: 'batch-settlement', network: 'cloudflare:402', amount: '1', asset: 'USD', payTo: 'merchant', extra: { version: '1.0.0' }, ...over });
+
+test('Cloudflare pay per crawl: a caution (payable by agents registered with Cloudflare), not a no_go; max_usd is checked in dollars', async () => {
+  const r = await run(await seller({ accepts: [cloudflareOption()] }));
+  assert.equal(r.verdict, 'caution', JSON.stringify(r.reasons));
+  assert.deepEqual(r.reasons.map((x) => x.code), ['cloudflare_crawler_only']);
+  assert.match(r.reasons[0].message, /\(\$0\.01 a request\).*registered with Cloudflare/);
+  assert.deepEqual([r.options[0].payable, r.options[0].client, r.options[0].usd], [false, 'cloudflare', 0.01]);
+  const pricey = await run(await seller({ accepts: [cloudflareOption({ amount: '250' })] }), { maxUsd: 1 });
+  assert.equal(pricey.verdict, 'no_go');
+  assert.deepEqual(pricey.reasons.map((x) => x.code), ['cloudflare_crawler_only', 'over_budget']);
+  // Next to an exact option, the exact one is what a standard client pays.
+  const mixed = await run(await seller({ accepts: [cloudflareOption(), baseOption('10000')] }));
+  assert.equal(mixed.verdict, 'go', JSON.stringify(mixed.reasons));
+  assert.equal(mixed.recommended_option, 1);
+  const broken = await run(await seller({ accepts: [cloudflareOption({ amount: '0.01' })] }));
+  assert.equal(broken.verdict, 'no_go');
+  assert.ok(broken.reasons.some((x) => x.code === 'no_payable_option'));
+});
+
+test('auth-capture: a well-formed option is payable like any standard scheme; one with a passed capture deadline is not', async () => {
+  const now = Math.floor(Date.now() / 1000);
+  const extra = { name: 'USD Coin', version: '2', captureAuthorizer: '0x1111111111111111111111111111111111111111', captureDeadline: now + 86400, refundDeadline: now + 604800, minFeeBps: 0, maxFeeBps: 100, feeRecipient: '0x3333333333333333333333333333333333333333' };
+  const ok = await run(await seller({ accepts: [{ ...baseOption('10000'), scheme: 'auth-capture', extra }] }));
+  assert.equal(ok.verdict, 'go', JSON.stringify(ok.reasons));
+  assert.deepEqual([ok.options[0].payable, ok.options[0].client, ok.options[0].usd], [true, undefined, 0.01]);
+  const late = await run(await seller({ accepts: [{ ...baseOption('10000'), scheme: 'auth-capture', extra: { ...extra, captureDeadline: now - 60 } }] }));
+  assert.equal(late.verdict, 'no_go');
+  assert.match(late.options[0].problems.join(' '), /captureDeadline .* has passed/);
+});
+
 test('at the same price, the option every x402 client can pay is recommended over a Permit2 one', async () => {
   const permit2 = bnbOption('10000000000000000', USDT_BNB, { name: 'Tether USD', version: '1', assetTransferMethod: 'permit2-exact' });
   const r = await run(await seller({ accepts: [permit2, baseOption('10000')] }));
