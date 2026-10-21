@@ -137,7 +137,7 @@ function describeDoctorCall(req, _res, body) {
   if (req.method === 'GET' && req.path === PREFLIGHT_ROUTE) {
     return { route: 'preflight', via: 'api', input: { url: req.query.url, max_usd: req.query.max_usd, network: req.query.network, client: req.query.client }, result: { verdict: b.verdict, error: b.error } };
   }
-  if (req.method === 'POST' && req.path === '/mcp') {
+  if (req.method === 'POST' && (req.path === '/mcp' || req.path === '/mcp/free')) {
     const call = mcpToolCall(req.body);
     if (!call) return null; // initialize, tools/list
     if (call.tool === 'feedback') return null; // feedback.js logs it itself, with the full message
@@ -150,7 +150,7 @@ function describeDoctorCall(req, _res, body) {
     return {
       route: call.tool,
       via: 'mcp',
-      input: { url: a.url, method: a.method, max_usd: a.max_usd, stack: a.stack },
+      input: { url: a.url, method: a.method, max_usd: a.max_usd, stack: a.stack, ...(req.path === '/mcp/free' ? { endpoint: 'free' } : {}) },
       result: { overall: parsed && parsed.overall, protocol: call.tool === 'x402_diagnose' ? protocolOf(parsed) : undefined, mpp: call.tool === 'x402_diagnose' ? mppMethods(parsed) : undefined, networks: call.tool === 'x402_diagnose' ? networksOf(parsed) : undefined, verdict: parsed && parsed.verdict, error: reply.result && reply.result.isError ? String(text).slice(0, 200) : undefined },
       payment: mcpPayment(req.body, body),
     };
@@ -298,7 +298,8 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   });
   app.use(feedback.router(express)); // its own 16 kB JSON parser, before the 4 kB one
   // MCP calls (lib/mcp.js) carry a payment in _meta, and verify_receipt a whole signed answer: 256 kB like /api/v1/verify.
-  app.post('/mcp', express.json({ limit: '256kb' }));
+  // /mcp/free is the same server with only the free tools (for Claude's connectors directory).
+  app.post(['/mcp', '/mcp/free'], express.json({ limit: '256kb' }));
   app.use(express.json({ limit: '4kb' }));
   app.use(usageLog.middleware((req, res, body) => {
     // Prepaid credits (credits.js): a pack sale, or a call paid from credits.

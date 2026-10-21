@@ -472,6 +472,8 @@ The marketplace is [`.claude-plugin/marketplace.json`](.claude-plugin/marketplac
 
 `https://x402-doctor.fizzl.eu/mcp` is an MCP server (Streamable HTTP, stateless) for Claude, Cursor and agent frameworks, listed in the official MCP registry as `io.github.Fizzl13/x402-doctor`. Directories can read its tools without connecting from the server card at `/.well-known/mcp/server-card.json` (the same list as `tools/list`).
 
+`https://x402-doctor.fizzl.eu/mcp/free` is the same server with only the free tools (`x402_quick_check`, `check_payment_proof`, `x402_trust_record`, `x402_trust_add`), for directories whose clients don't pay, such as Claude's connectors directory. Claude calls connectors from Anthropic's outbound range (`160.79.104.0/21`), so calls from there share one pool of 300 free calls an hour instead of 10 per address, on both endpoints.
+
 | Tool | Price | Returns |
 |---|---|---|
 | `x402_quick_check` | free, 10 calls/hour | pass/warn/fail, the number of problems and the top three |
