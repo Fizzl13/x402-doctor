@@ -250,6 +250,12 @@ test('on-chain payments: how many wallets paid the Base payout address shows as 
   assert.equal(line.level, 'info');
   assert.match(line.message, /^47 different wallets paid this seller's payout address on Base in the last 7 days: 312 signed USDC payments, \$3\.12 in total/);
   assert.equal(r.signals.onchain_payments.payers, 47);
+  assert.doesNotMatch(line.message, /checkers and scanners/, 'no wide payers: nothing about them');
+  r = await run(url, { payments: { lookup: async () => ({ ...stats, payers_wide: 5 }) } });
+  assert.match(r.reasons.find((x) => x.code === 'onchain_payments').message, /\$3\.12 in total .*\)\. 5 of these wallets paid 10 or more different sellers in the same days, as checkers and scanners do\.$/);
+  r = await run(url, { payments: { lookup: async () => ({ ...stats, payers: 2, payers_wide: 2 }) } });
+  assert.match(r.reasons.find((x) => x.code === 'onchain_payments').message, /All of them paid 10 or more different sellers in the same days, as checkers and scanners do: no ordinary buyer seen yet\.$/);
+  assert.equal(r.verdict, 'go', 'a signal only');
   r = await run(url, { payments: { lookup: async () => ({ ...stats, days: 1, payments: 0, payers: 0, usd: 0 }) } });
   assert.match(r.reasons.find((x) => x.code === 'onchain_payments').message, /^No signed USDC payments reached this seller's payout address on Base yesterday\. Not a problem by itself/);
   r = await run(url, { payments: { lookup: async () => null } });

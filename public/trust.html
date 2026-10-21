@@ -342,7 +342,7 @@
     const oc = s.onchain_payments;
     if (oc && oc.payments) {
       const period = oc.days === 1 ? 'yesterday' : `in the last ${oc.days} days`;
-      $('onchainLine').textContent = `Real payments: ${period}, ${fmt(oc.payers)} different wallets made ${fmt(oc.payments)} signed USDC payments ($${fmt(Math.round(oc.usd))}) on Base to ${fmt(oc.pay_tos_paid)} of the ${fmt(oc.watched)} payout addresses in this index (EIP-3009, the way x402 settles; x402 Doctor's own test purchases left out).${oc.coverage < 0.95 ? ` Based on ${Math.round(oc.coverage * 100)}% of the blocks in that period.` : ''}`;
+      $('onchainLine').textContent = `Real payments: ${period}, ${fmt(oc.payers)} different wallets made ${fmt(oc.payments)} signed USDC payments ($${fmt(Math.round(oc.usd))}) on Base to ${fmt(oc.pay_tos_paid)} of the ${fmt(oc.watched)} payout addresses in this index (EIP-3009, the way x402 settles; x402 Doctor's own test purchases left out).${oc.pay_tos_paid_only_wide ? ` ${fmt(oc.pay_tos_paid_only_wide)} of those ${fmt(oc.pay_tos_paid)} were paid only by wallets that pay ${oc.wide_sellers} or more of them, as checkers and scanners do, not by ordinary buyers.` : ''}${oc.coverage < 0.95 ? ` Based on ${Math.round(oc.coverage * 100)}% of the blocks in that period.` : ''}`;
       $('onchainLine').hidden = false;
     }
     renderReasons(s);
