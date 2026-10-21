@@ -642,7 +642,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     }
     if (/^https?:\/\/[^/?#]*https?:/i.test(targetUrl)) return res.status(400).json({ error: 'This looks like two URLs pasted into each other; send only the endpoint URL.' });
     try {
-      const report = await diagnoseLib.diagnose(targetUrl, { safeFetch, method, body, bazaarIndex: bazaar, cdpValidate, describe, poison, price: priceCheck });
+      const report = await diagnoseLib.diagnose(targetUrl, { safeFetch, method, body, bazaarIndex: bazaar, cdpValidate, describe, poison, price: priceCheck, payments: onchainPayments });
       // A broken endpoint with a published contact: a draft for the owner's outreach (never sent from here).
       outreachHook.maybeDraft(targetUrl, report, { agent: req.get('user-agent') }).catch(() => {});
       // The page's own share link, for callers that only see JSON (curl, scripts):

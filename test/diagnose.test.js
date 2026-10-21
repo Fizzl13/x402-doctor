@@ -980,6 +980,54 @@ test('description quality: opt-in, an info line from the describe judge, verdict
   assert.equal(rated.overall, plain.overall);
 });
 
+test('onchain payments: an info line with the real payments to the Base payout address, verdict unchanged', async () => {
+  const PAY_TO = '0x209693Bc6afc0C5328bA36FaF03C514EF312287C';
+  const asked = [];
+  const payments = (found, { loaded = true } = {}) => ({ lookup: async (payTo) => { asked.push(payTo); if (found instanceof Error) throw found; return found; }, loaded: () => loaded });
+  const window = { network: BASE, pay_to: PAY_TO.toLowerCase(), days: 7, payments: 42, payers: 5, payers_wide: 2, usd: 1.23, coverage: 1, as_of: '2026-10-21T21:00:00.000Z' };
+  const line = async (p) => (await diagnose(`${healthyUrl}/signal/BTC-USDT`, { safeFetch, rpcUrl, payments: p })).checks.find((c) => c.id === 'onchain-payments');
+  const plain = await diagnose(`${healthyUrl}/signal/BTC-USDT`, { safeFetch, rpcUrl });
+  assert.equal(plain.checks.some((c) => c.id === 'onchain-payments'), false);
+
+  const paid = await diagnose(`${healthyUrl}/signal/BTC-USDT`, { safeFetch, rpcUrl, payments: payments(window) });
+  const l = paid.checks.find((c) => c.id === 'onchain-payments');
+  assert.equal(l.status, 'info');
+  assert.equal(l.group, 'discovery');
+  assert.match(l.message, /^Real payments on Base in the last 7 days: 5 different wallets paid this payout address \(0x2096…287C\) 42 times, \$1\.23 in USDC in total\. 2 of these wallets paid 10 or more different sellers/);
+  assert.match(l.hint, /EIP-3009/);
+  assert.equal(asked[0], PAY_TO);
+  assert.equal(paid.overall, plain.overall);
+
+  // Only checkers and scanners, a day with gaps, and "at least" when a day had too many payers to keep.
+  const probes = await line(payments({ ...window, days: 1, payments: 1, payers: 1, payers_wide: 1, coverage: 0.84, payers_at_least: true }));
+  assert.match(probes.message, /^Real payments on Base yesterday: at least 1 wallet paid this payout address \(0x2096…287C\) 1 time, \$1\.23 in USDC in total\. That wallet paid 10 or more different sellers in the same days, as checkers and scanners do: no ordinary buyer seen yet\. The count covers 84% of the blocks in those days\.$/);
+
+  // Watched, nothing paid: new sellers start at zero.
+  assert.match((await line(payments({ ...window, payments: 0, payers: 0, payers_wide: 0, usd: 0 }))).message, /^No signed USDC payments reached this payout address \(0x2096…287C\) on Base in the last 7 days\. Not a problem by itself: new sellers start at zero\.$/);
+
+  // Counts loaded but this address isn't watched: how to get it counted.
+  const unwatched = await line(payments(null));
+  assert.match(unwatched.message, /aren't counted yet: x402 Doctor counts the payout addresses on Base of the endpoints in the x402 Trust Index/);
+  assert.match(unwatched.hint, /x402-doctor\.fizzl\.eu\/trust/);
+
+  // No counts loaded, or a failing lookup: no line, nothing breaks.
+  assert.equal(await line(payments(null, { loaded: false })), undefined);
+  assert.equal(await line(payments(new Error('down'))), undefined);
+});
+
+test('onchain payments: Gateway-only and burn payout addresses are never looked up', async () => {
+  const { checkOnchainPayments } = require('../lib/diagnose');
+  const asked = [];
+  const payments = { lookup: async (a) => { asked.push(a); return null; }, loaded: () => true };
+  const checks = [];
+  await checkOnchainPayments([
+    { scheme: 'exact', network: BASE, payTo: '0x000000000000000000000000000000000000dEaD' },
+    { scheme: 'exact', network: SOLANA, payTo: PAYOUT_WITH_ATA },
+  ], payments, checks);
+  assert.deepEqual(asked, []);
+  assert.deepEqual(checks, []);
+});
+
 test('market price: opt-in, an info line from the price comparison, asked with the lowest USDC price, verdict unchanged', async () => {
   const seen = [];
   const cmp = { price_usd: 0.02, comparable_median_usd: 0.01, comparables: 6, ratio: 2, range_usd: [0.005, 0.05], cheaper: [] };

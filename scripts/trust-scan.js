@@ -103,7 +103,8 @@ async function main() {
   const payTosPath = path.join(out, 'paytos.json');
   let previousPayTos = null;
   try { previousPayTos = JSON.parse(fs.readFileSync(payTosPath, 'utf8')); } catch { /* first run */ }
-  const payTos = mergePayTos(previousPayTos, results, date);
+  // Endpoints sellers added count too: the web check tells them their payments are counted once they are in.
+  const payTos = mergePayTos(previousPayTos, all, date);
   fs.writeFileSync(payTosPath, JSON.stringify(payTos));
   console.log(`payout addresses on Base: ${Object.keys(payTos.pay_tos).length}`);
   console.log(JSON.stringify(summary, null, 2));
