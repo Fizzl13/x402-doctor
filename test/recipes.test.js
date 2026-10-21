@@ -106,6 +106,19 @@ test('Solana fee payer and USDC account, EIP-712 domain', () => {
   assert.match(code(fix(out, 'solana-account')), /spl-token create-account EPjF\S+ --owner ATWJ82T8/);
 });
 
+test("EIP-712 domain: the token's own where it differs from Base's USDC (Celo, BNB Chain)", () => {
+  const celo = buildFixes(report({
+    accepts: [{ scheme: 'exact', network: 'eip155:42220', amount: '10000', asset: '0xcebA9300f2b948710d2653dD7B07f33A8B32118C', payTo: PAY_TO, extra: { name: 'USD Coin', version: '2' } }],
+    checks: [{ id: 'accepts[0]-extra', status: 'fail', message: 'EIP-712 domain "USD Coin" v2, but USDC on Celo signs as "USDC" v2' }],
+  }));
+  assert.match(code(fix(celo, 'eip712')), /"name":"USDC","version":"2"/);
+  const bnb = buildFixes(report({
+    accepts: [{ scheme: 'exact', network: 'eip155:56', amount: '10000000000000000', asset: '0x8d0D000Ee44948FC98c9B98A4FA4921476f08B0d', payTo: PAY_TO }],
+    checks: [{ id: 'accepts[0]-extra', status: 'fail', message: "extra.name/extra.version (the token's EIP-712 domain) is missing" }],
+  }));
+  assert.match(code(fix(bnb, 'eip712')), /"name":"World Liberty Financial USD","version":"1"/);
+});
+
 test('http resource URL behind a proxy -> trust proxy (Express)', () => {
   const out = buildFixes(report({ checks: [{ id: 'resource-url', status: 'fail', message: 'resource.url is http://api.example.com/paid but the endpoint is served over https.' }] }));
   assert.match(code(fix(out, 'resource-https')), /app\.set\("trust proxy", 1\)/);

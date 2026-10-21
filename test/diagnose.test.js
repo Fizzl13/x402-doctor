@@ -1399,6 +1399,39 @@ test('BNB Chain: 18-decimal dollar tokens, EIP-3009 vs Permit2, the token domain
   assert.match(get('accepts[6]-asset').message, /not a dollar stablecoin x402 Doctor knows \(USDC, USDT, USD1, U\) on BNB Chain/);
 });
 
+test('X Layer, Celo and Robinhood Chain: their dollar tokens, decimals and EIP-712 domains', () => {
+  const checks = [];
+  const payTo = '0x408C4610F6879a75c25722cfCd18A2Eff99dc20F';
+  const option = (network, asset, extra) => ({ scheme: 'exact', network, amount: '10000', asset, payTo, maxTimeoutSeconds: 60, extra });
+  checkAccepts([
+    option('eip155:196', '0x779Ded0c9e1022225f8E0630b35a9b54bE713736', { name: 'USD₮0', version: '1' }), // USD₮0 on X Layer
+    option('eip155:196', '0x74b7f16337b8972027f6196a17a631ac6de26d22', { name: 'USD Coin', version: '2' }), // USDC on X Layer
+    option('eip155:42220', '0xcebA9300f2b948710d2653dD7B07f33A8B32118C', { name: 'USDC', version: '2' }), // USDC on Celo
+    option('eip155:42220', '0xcebA9300f2b948710d2653dD7B07f33A8B32118C', { name: 'USD Coin', version: '2' }), // Base's domain on Celo
+    option('eip155:4663', '0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168', { name: 'Global Dollar', version: '1' }), // USDG
+    option('eip155:196', '0x1111111111111111111111111111111111111111', { name: 'X', version: '1' }), // unknown token
+    option('eip155:4663', '0x1111111111111111111111111111111111111111', { name: 'X', version: '1' }), // unknown token
+  ], checks);
+  const get = (id) => checks.find((c) => c.id === id);
+  assert.match(get('accepts[0]-network').message, /X Layer \(eip155:196\)/);
+  assert.equal(get('accepts[0]-asset'), undefined);
+  assert.match(get('accepts[0]-amount').message, /\$0\.01 USD₮0/);
+  assert.equal(get('accepts[0]-extra').status, 'pass');
+  assert.match(get('accepts[1]-amount').message, /\$0\.01 USDC/);
+  assert.equal(get('accepts[1]-extra').status, 'pass');
+  assert.match(get('accepts[2]-network').message, /Celo/);
+  assert.equal(get('accepts[2]-extra').status, 'pass');
+  assert.equal(get('accepts[3]-extra').status, 'fail');
+  assert.match(get('accepts[3]-extra').message, /USDC on Celo signs as "USDC" v2/);
+  assert.match(get('accepts[4]-network').message, /Robinhood Chain/);
+  assert.match(get('accepts[4]-amount').message, /\$0\.01 USDG/);
+  assert.equal(get('accepts[4]-extra').status, 'pass');
+  assert.equal(get('accepts[5]-asset').status, 'warn');
+  assert.match(get('accepts[5]-asset').message, /not a dollar stablecoin x402 Doctor knows \(USDC, USD₮0\) on X Layer/);
+  assert.match(get('accepts[5]-asset').hint, /USDC 0x74b7.*USD₮0 0x779d/);
+  assert.match(get('accepts[6]-asset').message, /\(USDG\) on Robinhood Chain/);
+});
+
 test('checkAccepts: a non-CAIP-2 network the doctor does not know is unpayable for that reason, not as a bad EVM address', () => {
   const checks = [];
   checkAccepts([
