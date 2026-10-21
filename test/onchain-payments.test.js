@@ -138,6 +138,12 @@ test('createOnchainPayments: lookup and totals from the published file', async (
   assert.deepEqual(await payments.lookup(P1, { waitMs: 1000 }), { network: 'eip155:8453', pay_to: P1, days: 1, payments: 5, payers: 2, payers_wide: 0, usd: 0.05, coverage: 1, as_of: data.updated });
   assert.equal(await payments.lookup(P2), null);
   assert.equal((await payments.totals()).payers, 2);
+  assert.equal(payments.loaded(), true);
+  // Before the file is loaded (or when it can't be), lookup's null doesn't mean "not watched".
+  const down = createOnchainPayments({ url: 'https://raw.test/payments.json', fetchImpl: async () => ({ ok: false, status: 503 }) });
+  assert.equal(down.loaded(), false);
+  assert.equal(await down.lookup(P1, { waitMs: 1000 }), null);
+  assert.equal(down.loaded(), false);
 });
 
 test('payTosOf: the Base payout addresses of a check, lowercase, once each', () => {
