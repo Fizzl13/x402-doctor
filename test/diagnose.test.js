@@ -158,7 +158,7 @@ test('healthy v2 service: no failures, every group covered', async () => {
   const report = await diagnose(`${healthyUrl}/signal/BTC-USDT`, { safeFetch, rpcUrl });
   const failures = report.checks.filter((c) => c.status === 'fail');
   assert.deepEqual(failures, []);
-  for (const id of ['returns-402', 'protocol-version', 'envelope-body-mirror', 'resource-url', 'resource-metadata', 'bazaar', 'bazaar-output', 'bazaar-replay', 'solana-payout-account', 'openapi-present', 'paywall']) {
+  for (const id of ['returns-402', 'protocol-version', 'envelope-body-mirror', 'resource-url', 'resource-metadata', 'payto-stable', 'bazaar', 'bazaar-output', 'bazaar-replay', 'solana-payout-account', 'openapi-present', 'paywall']) {
     assert.deepEqual(statusOf(report, id), ['pass'], id);
   }
   assert.deepEqual(statusOf(report, 'accepts[0]-extra'), ['pass']);
@@ -188,6 +188,23 @@ test('healthy v2 service: no failures, every group covered', async () => {
   assert.equal(summary.status, 'info');
   assert.match(summary.message, /^Who can pay: MetaMask ✓ Base \(may warn\) .*Phantom ✓ Base, ✗ Solana/);
   assert.equal(summary.hint, undefined);
+});
+
+test('a payout address that changes from one 402 to the next: a warning, since a buyer asked again may pay twice', async () => {
+  let n = 0;
+  const url = await listen((req, res) => {
+    const origin = `http://${req.headers.host}`;
+    const challenge = healthyChallenge(origin, '/signal/BTC-USDT');
+    n++;
+    challenge.accepts[0].payTo = `0x${String(n).padStart(40, '0')}`; // a new address every time
+    res.writeHead(402, { 'content-type': 'application/json', 'payment-required': b64(challenge) }).end(JSON.stringify(challenge));
+  });
+  const report = await diagnose(`${url}/signal/BTC-USDT`, { safeFetch, rpcUrl });
+  const [check] = byId(report)['payto-stable'];
+  assert.equal(check.status, 'warn');
+  assert.equal(check.group, 'challenge');
+  assert.match(check.message, /eip155:8453: 0x0+1 the first time, 0x0+2 the second.*pays twice for one call/);
+  assert.match(check.hint, /one fixed payout address per network.*never answer a paid request with a fresh 402/);
 });
 
 test('broken service: nobody can pay, and the wallet summary says so', async () => {
