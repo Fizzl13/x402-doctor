@@ -52,6 +52,15 @@ test('search: only what may be bought, best first; the search URL carries the ne
   assert.match(calls[0], /q=weather\+amsterdam&max=0\.01&net=eip155%3A8453/);
   assert.equal(leftOut(result('https://d.test/w', { usd: 0.02 }), 0.01), 'price $0.02 above the cap of $0.01');
   await assert.rejects(candidatesFor('x', { capUsd: 0.01, fetch: async () => new Response('', { status: 500 }) }), (e) => e.status === 503);
+  // A slow or failing search gets one more try; a 4xx doesn't; after two failures a 503 that says what happened.
+  let n = 0;
+  const flaky = async () => { n++; if (n === 1) throw Object.assign(new Error('The operation was aborted due to timeout'), { name: 'TimeoutError' }); return Response.json({ results: [] }); };
+  assert.deepEqual(await candidatesFor('x', { capUsd: 0.01, fetch: flaky }), []);
+  assert.equal(n, 2);
+  n = 0;
+  await assert.rejects(candidatesFor('x', { capUsd: 0.01, fetch: async () => { n++; return new Response('', { status: 400 }); } }), (e) => e.status === 503 && /HTTP 400/.test(e.message));
+  assert.equal(n, 1, 'no retry on a 4xx');
+  await assert.rejects(candidatesFor('x', { capUsd: 0.01, fetch: async () => { throw new TypeError('fetch failed'); } }), (e) => e.status === 503 && /fetch failed.*Nothing was charged/.test(e.message));
 });
 
 test('fill: Claude answers the input; path parameters into the path, the rest into the query or the body', async () => {
