@@ -156,6 +156,15 @@ in `signals.jev_lure`. On 300 real CDP Bazaar listings it raised no caution for 
 question changes (`BAIT_VERSION` in `lib/jev-lure.js`), the Trust Index's next run asks again, first, every service
 the old wording flagged or was unsure about; clear answers carry over.
 
+**Namesakes** (same key, from the daily Trust Index scan, `lib/namesakes.js`): the x402 Bazaar indexes each
+listing's service name, so an agent that searches for a known service finds every listing with that name. When
+another seller, with its own payout address and fewer payers, lists under the brand name of an established service,
+the preflight adds `namesake` (info: the name, the original's site and both payer counts). Sites that share a payout
+address, a distinctive host-name word or three or more names count as one owner, and TypeSafe's Jev must be sure
+(0.85) that the name is a brand rather than a description such as "web search". On 23 Oct 2026, 83 names were listed
+by more than one owner and one was a brand with a better-known original. It never changes the verdict: a namesake
+can be a fair reseller or an unrelated service.
+
 **Price check** (same key): is the price far above what comparable services ask? Doctor takes up to 24 paid APIs
 of other sellers from the x402 Trust Index whose descriptions share rare words with this one (at most two per
 seller), and Jev judges per candidate whether a buyer would be served just as well by it. With at least 5 such
