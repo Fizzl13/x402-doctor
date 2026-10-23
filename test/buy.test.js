@@ -176,6 +176,10 @@ test('server: free pick with its limit, the purchase, bad input, no wallet, disc
   assert.equal(agent.name, 'Fizzl Buy');
   assert.deepEqual(agent.services.map((x) => x.endpoint), ['https://buy.test/', 'https://buy.test/mcp']);
   assert.equal(agent.x402Support, true);
+  assert.equal(agent.image, 'https://buy.test/icon.png');
+  const icon = await fetch(`${base}/icon.png`);
+  assert.equal(icon.headers.get('content-type'), 'image/png');
+  assert.equal((await fetch(`${base}/favicon.ico`)).headers.get('content-type'), 'image/png');
   assert.deepEqual(agent.registrations, [{ agentId: 988891, agentRegistry: 'eip155:8453:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432' }]);
   assert.match(await (await fetch(`${base}/`, { headers: { accept: 'text/html' } })).text(), /Fizzl Buy/);
   const health = await (await fetch(`${base}/health`)).json();
@@ -194,6 +198,7 @@ test('routes: $0.02 on Base, and on Solana with a Solana payout address; five mi
   assert.equal(routesFor({ AGENT_PAYOUT_WALLET: PAY_TO })['POST /v1/buy'].accepts.length, 1);
   assert.equal(r.extensions.bazaar.info.input.body.need, 'weather forecast for Amsterdam tomorrow');
   assert.equal(r.extensions['x402-merchant'].info.name, 'Fizzl');
+  assert.equal(r.iconUrl, 'https://buy.fizzl.eu/icon.png');
   assert.equal(r.extensions['builder-code'], undefined, 'no Builder Code without BUILDER_CODE');
   assert.equal(routesFor({ AGENT_PAYOUT_WALLET: PAY_TO, BUILDER_CODE: 'fizzl_test' })['POST /v1/buy'].extensions['builder-code'].info.a, 'fizzl_test');
 });

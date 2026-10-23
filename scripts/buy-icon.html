@@ -1,0 +1,25 @@
+<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;background:transparent}svg{display:block}</style></head><body>
+<!-- Source of public-buy/icon.png (512x512) and public-buy/favicon.png (32x32), Fizzl Buy's icon: a screenshot of the
+     <svg> with a transparent background, at 512 and at 32 px (Playwright, or any browser). -->
+<!-- Fizzl Buy icon, in the style of the x402 Doctor, presign-guard and Ichimoku Signal icons: a dark rounded square with a
+     thin mint border and one glowing mint line glyph (here a shopping cart). 512x512, transparent corners. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0b1a17"/><stop offset="1" stop-color="#040b0a"/></linearGradient>
+    <radialGradient id="halo" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#1d5245" stop-opacity=".55"/><stop offset="1" stop-color="#0b1a17" stop-opacity="0"/></radialGradient>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="20" result="wide"/>
+      <feColorMatrix in="wide" type="matrix" values="0 0 0 0 0.38  0 0 0 0 0.96  0 0 0 0 0.76  0 0 0 0.55 0" result="wideTint"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="near"/>
+      <feColorMatrix in="near" type="matrix" values="0 0 0 0 0.38  0 0 0 0 0.96  0 0 0 0 0.76  0 0 0 0.6 0" result="nearTint"/>
+      <feMerge><feMergeNode in="wideTint"/><feMergeNode in="nearTint"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect x="7" y="7" width="498" height="498" rx="96" fill="url(#bg)" stroke="#2f7d67" stroke-width="3.5"/>
+  <circle cx="256" cy="226" r="150" fill="url(#halo)"/>
+  <g fill="none" stroke="#61f5c3" stroke-width="22" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)">
+    <path d="M118 162 H158 L196 322 H346 L378 206 H174"/>
+    <circle cx="214" cy="378" r="17"/>
+    <circle cx="328" cy="378" r="17"/>
+  </g>
+</svg></body></html>

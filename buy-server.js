@@ -100,7 +100,7 @@ function routesFor(env) {
       mimeType: 'application/json',
       serviceName: 'Fizzl Buy',
       tags: ['agents', 'x402', 'marketplace', 'buyer', 'trust'],
-      iconUrl: 'https://x402-doctor.fizzl.eu/icon.png',
+      iconUrl: `${env.PUBLIC_URL || 'https://buy.fizzl.eu'}/icon.png`,
       // Who sells it, and the Base Builder Code once BUILDER_CODE is set, as on the other fizzl.eu services.
       extensions: {
         ...declareDiscoveryExtension({
@@ -334,7 +334,7 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
     type: 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1',
     name: 'Fizzl Buy',
     description: routes[`POST ${BUY_ROUTE}`].description,
-    image: 'https://fizzl.eu/logo-512.png',
+    image: `${publicUrl}/icon.png`,
     services: [
       { name: 'web', endpoint: `${publicUrl}/` },
       { name: 'MCP', endpoint: `${publicUrl}/mcp`, version: '2025-06-18' },
@@ -344,6 +344,9 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
     registrations: AGENT_REGISTRATIONS,
     supportedTrust: [],
   }));
+  // Fizzl Buy's icon (a shopping cart, in the style of the other Fizzl agents; source scripts/buy-icon.html).
+  app.get('/icon.png', (_req, res) => res.set('cache-control', 'public, max-age=86400').sendFile(path.join(__dirname, 'public-buy', 'icon.png')));
+  app.get('/favicon.ico', (_req, res) => res.set('cache-control', 'public, max-age=86400').type('image/png').sendFile(path.join(__dirname, 'public-buy', 'favicon.png')));
   app.get('/', (req, res) => {
     if (req.accepts(['html', 'json']) === 'json') return res.json({ name: 'Fizzl Buy', description: routes[`POST ${BUY_ROUTE}`].description, buy: `POST ${publicUrl}${BUY_ROUTE}`, pick: `GET ${publicUrl}/v1/pick?need=…`, mcp: `${publicUrl}/mcp`, price_usd: PRICE_USD, cap_usd: CAP_USD });
     res.type('html').send(fs.readFileSync(path.join(__dirname, 'public-buy', 'index.html'), 'utf8'));
