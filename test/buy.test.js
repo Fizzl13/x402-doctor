@@ -8,7 +8,7 @@ const { candidatesFor, leftOut } = require('../lib/buy/search');
 const { createFiller, requestOf } = require('../lib/buy/fill');
 const { buy, createBudget, BuyError } = require('../lib/buy/purchase');
 const { createStrikes } = require('../lib/buy/strikes');
-const { createBuyApp, routesFor } = require('../buy-server');
+const { createBuyApp, routesFor, networksText } = require('../buy-server');
 const { createSafeFetch } = require('../lib/safe-fetch');
 const { paymentKey } = require('../lib/buy/once');
 const { spentByOthers } = require('../lib/buy/spent-log');
@@ -182,7 +182,10 @@ test('server: free pick with its limit, the purchase, bad input, no wallet, disc
   assert.equal(icon.headers.get('content-type'), 'image/png');
   assert.equal((await fetch(`${base}/favicon.ico`)).headers.get('content-type'), 'image/png');
   assert.deepEqual(agent.registrations, [{ agentId: 988891, agentRegistry: 'eip155:8453:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432' }]);
-  assert.match(await (await fetch(`${base}/`, { headers: { accept: 'text/html' } })).text(), /Fizzl Buy/);
+  const home = await (await fetch(`${base}/`, { headers: { accept: 'text/html' } })).text();
+  assert.match(home, /Fizzl Buy/);
+  assert.match(home, /over x402 \(USDC on Base\), for services/);
+  assert.doesNotMatch(home, /\{\{networks\}\}/);
   const health = await (await fetch(`${base}/health`)).json();
   assert.equal(health.wallet, '0xBuy');
 
@@ -197,6 +200,14 @@ test('routes: $0.02 on Base, and on Solana with a Solana payout address; five mi
   const r = routesFor({ AGENT_PAYOUT_WALLET: PAY_TO, AGENT_PAYOUT_WALLET_SOLANA: 'ATWJ82T8nRdQwZnaysB68N5EpaSvLRsQP4h6eWmaJBH9' })['POST /v1/buy'];
   assert.deepEqual(r.accepts.map((a) => [a.network, a.price, a.maxTimeoutSeconds]), [['eip155:8453', '$0.02', 300], ['solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp', '$0.02', 300]]);
   assert.equal(routesFor({ AGENT_PAYOUT_WALLET: PAY_TO })['POST /v1/buy'].accepts.length, 1);
+  // The other networks the Fizzl services take, each with its payout address (as on x402 Doctor).
+  const all = routesFor({ AGENT_PAYOUT_WALLET: PAY_TO, AGENT_PAYOUT_WALLET_SOLANA: 'ATWJ82T8nRdQwZnaysB68N5EpaSvLRsQP4h6eWmaJBH9', XRPL_PAY_TO: 'r9xmBsRr8Ao7jRgjjxreMiAwGiCK2FGwqw', ALGORAND_PAY_TO: 'LOYVFSQ6ZTS2YWUW4GQ5L6VPP2TPIOXWYDACK53CPOHQQHLDMEMKJDXAX4', STELLAR_FACILITATOR_URL: 'https://stellar.example' })['POST /v1/buy'].accepts;
+  assert.deepEqual(all.map((a) => a.network), ['eip155:8453', 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp', 'xrpl:0', 'algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=', 'stellar:pubnet']);
+  assert.equal(all[2].extra.invoiceId, 'buy.fizzl.eu');
+  assert.ok(all.every((a) => a.price === '$0.02' && a.maxTimeoutSeconds === 300));
+  assert.equal(networksText(all), 'USDC on Base, Solana, Algorand or Stellar, or RLUSD on the XRP Ledger');
+  assert.equal(networksText(r.accepts), 'USDC on Base or Solana');
+  assert.equal(routesFor({ AGENT_PAYOUT_WALLET: PAY_TO, CDP_API_KEY_ID: 'k', CDP_API_KEY_SECRET: 's' })['POST /v1/buy'].accepts.some((a) => a.network === 'xrpl:0'), true, 'XRPL by default in production, as on Doctor');
   assert.equal(r.extensions.bazaar.info.input.body.need, 'weather forecast for Amsterdam tomorrow');
   assert.equal(r.extensions['x402-merchant'].info.name, 'Fizzl');
   assert.equal(r.iconUrl, 'https://buy.fizzl.eu/icon.png');

@@ -3,7 +3,8 @@
 // x402 Doctor has seen paying out day after day at a fair price, fills in its input, buys it with its own wallet and
 // returns the answer, checked by TypeSafe Jev, with a signed receipt (lib/buy/*).
 //
-//   POST /v1/buy { need }  $0.02 (x402, USDC on Base or Solana): buys a service of at most $0.01. Nothing is charged
+//   POST /v1/buy { need }  $0.02 (x402: USDC on Base, Solana, Algorand or Stellar, RLUSD on the XRP Ledger): buys a
+//                          service of at most $0.01 (the inkoper itself pays on Base). Nothing is charged
 //                          when no service delivers (the paywall settles only a 2xx answer).
 //   GET  /v1/pick?need=…   free (10 an hour per caller): which service the inkoper would buy, and why.
 //   POST /mcp              MCP: x402_pick (free) and x402_buy ($0.02, paid inside the call, _meta["x402/payment"]).
@@ -11,7 +12,9 @@
 // Runs as its own Render service from this repository (render.yaml, service fizzl-buy). Env: PUBLIC_URL,
 // AGENT_PAYOUT_WALLET (+ AGENT_PAYOUT_WALLET_SOLANA), CDP_API_KEY_ID/SECRET, BUY_WALLET_KEY (the inkoper's own wallet,
 // kept small), BUY_DAILY_USD (default 5), ANTHROPIC_API_KEY (fills in requests), TYPESAFE_API_KEY (answer and bait
-// checks), RECEIPT_SIGNER_SECRET, USAGE_LOG_TOKEN.
+// checks), RECEIPT_SIGNER_SECRET, USAGE_LOG_TOKEN. The other networks as on x402 Doctor (lib/paid-api.js): RLUSD on the
+// XRP Ledger to XRPL_PAY_TO (by default Frits's account when the CDP keys are set; off with XRPL_PAY_TO=off), USDC on
+// Algorand to ALGORAND_PAY_TO, USDC on Stellar with STELLAR_FACILITATOR_KEY (or _URL) to STELLAR_PAY_TO.
 'use strict';
 
 const fs = require('fs');
@@ -21,6 +24,10 @@ const { paymentMiddleware, x402ResourceServer } = require('@x402/express');
 const { HTTPFacilitatorClient } = require('@x402/core/server');
 const { ExactEvmScheme } = require('@x402/evm/exact/server');
 const { ExactSvmScheme } = require('@x402/svm/exact/server');
+const { ExactXrplScheme } = require('@x402/xrpl/exact/server');
+const { ExactAvmScheme } = require('@x402/avm/exact/server');
+const { ExactStellarScheme } = require('@x402/stellar/exact/server');
+const { createXrplFacilitator, XRPL, X402_SOURCE_TAG } = require('./lib/xrpl-facilitator');
 const { declareDiscoveryExtension } = require('@x402/extensions/bazaar');
 const { createPaymentWrapper } = require('@x402/mcp');
 const { createFacilitatorConfig } = require('@coinbase/x402');
@@ -30,7 +37,7 @@ const { z } = require('zod');
 const { createFacilitatorStart } = require('./lib/facilitator-start');
 const { onPublicHost } = require('./lib/public-host');
 const { fizzlCors } = require('./lib/fizzl-cors');
-const { mirrorChallengeIntoBody } = require('./lib/paid-api');
+const { mirrorChallengeIntoBody, onlyNetworks, xrplPayTo, algorandPayTo, stellarPayTo, stellarFacilitator, ALGORAND, STELLAR, DEFAULT_ALGORAND_FACILITATOR } = require('./lib/paid-api');
 const { merchantExtension, builderCodeExtension } = require('./lib/merchant');
 const { createSigner, signPaidResponses, paymentOf } = require('./lib/receipt');
 const { createUsageLog, mcpPayment } = require('./lib/usage-log');
@@ -87,12 +94,30 @@ const OUTPUT_EXAMPLE = {
   tried: 1,
 };
 
-// The paywall's route: $0.02 on Base (and Solana with a Solana payout address), long enough to buy for the agent.
+// The networks a route takes, in words: "USDC on Base or Solana", "USDC on Base, Solana, Algorand or Stellar, or RLUSD on
+// the XRP Ledger".
+function networksText(accepts) {
+  const names = { [BASE]: 'Base', [SOLANA]: 'Solana', [ALGORAND]: 'Algorand', [STELLAR]: 'Stellar' };
+  const usdc = accepts.map((a) => names[a.network]).filter(Boolean);
+  const list = usdc.length > 1 ? `${usdc.slice(0, -1).join(', ')} or ${usdc.at(-1)}` : usdc[0];
+  return `USDC on ${list}${accepts.some((a) => a.network === XRPL) ? ', or RLUSD on the XRP Ledger' : ''}`;
+}
+
+// The paywall's route: $0.02 on Base, and on the other networks the other Fizzl services take (each when its payout
+// address is set, as on x402 Doctor), long enough to buy for the agent. The inkoper itself always pays sellers on Base
+// from its own wallet; what agents pay on the other networks goes to those payout addresses.
 function routesFor(env) {
   const price = `$${PRICE_USD}`;
+  const xrpl = xrplPayTo(env);
+  const algorand = algorandPayTo(env);
+  const stellar = stellarPayTo(env);
   const accepts = [
     { scheme: 'exact', price, network: BASE, payTo: env.AGENT_PAYOUT_WALLET, maxTimeoutSeconds: 300 },
     ...(env.AGENT_PAYOUT_WALLET_SOLANA ? [{ scheme: 'exact', price, network: SOLANA, payTo: env.AGENT_PAYOUT_WALLET_SOLANA, maxTimeoutSeconds: 300 }] : []),
+    // RLUSD on the XRP Ledger, the same dollar price; the InvoiceID binds the payment to this service.
+    ...(xrpl ? [{ scheme: 'exact', price, network: XRPL, payTo: xrpl, maxTimeoutSeconds: 300, extra: { invoiceId: 'buy.fizzl.eu', sourceTag: X402_SOURCE_TAG } }] : []),
+    ...(algorand ? [{ scheme: 'exact', price, network: ALGORAND, payTo: algorand, maxTimeoutSeconds: 300 }] : []),
+    ...(stellar ? [{ scheme: 'exact', price, network: STELLAR, payTo: stellar, maxTimeoutSeconds: 300 }] : []),
   ];
   return {
     [`POST ${BUY_ROUTE}`]: {
@@ -152,6 +177,7 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
   const instance = deps.instance ?? INSTANCE;
   const locks = deps.paymentLocks ?? createPaymentLocks();
   const strikes = deps.strikes ?? createStrikes();
+  const payText = networksText(routesFor(env)[`POST ${BUY_ROUTE}`].accepts);
 
   // One purchase, counting what it pays sellers (for the usage log: the day budget across deploys). Throws BuyError
   // with .spent set.
@@ -264,7 +290,7 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
     if (resourceServer && wallet) {
       server.registerTool('x402_buy', {
         title: 'Buy what your agent needs ($0.02)',
-        description: `Paid ($${PRICE_USD} via x402 in USDC on Base or Solana, inside the call): say what your agent needs ("weather forecast for Amsterdam tomorrow", "BTC price", "EUR to USD rate") and Fizzl buys the right paid x402 API, the one x402 Doctor has seen paying out day after day at a fair price (up to $${CAP_USD}), fills in its input, pays it from its own wallet and returns the answer, checked by TypeSafe Jev, with which service it came from and a signed receipt. Nothing is charged when no seller delivers. To see first what it would buy, call x402_pick (free).`,
+        description: `Paid ($${PRICE_USD} via x402 in ${payText}, inside the call): say what your agent needs ("weather forecast for Amsterdam tomorrow", "BTC price", "EUR to USD rate") and Fizzl buys the right paid x402 API, the one x402 Doctor has seen paying out day after day at a fair price (up to $${CAP_USD}), fills in its input, pays it from its own wallet and returns the answer, checked by TypeSafe Jev, with which service it came from and a signed receipt. Nothing is charged when no seller delivers. To see first what it would buy, call x402_pick (free).`,
         inputSchema: { need: z.string().describe('What your agent needs, in a sentence, with the details (place, symbol, query)') },
         annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
       }, async ({ need }, extra) => {
@@ -326,10 +352,10 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
   const routes = routesFor(env);
   app.get('/openapi.json', (_req, res) => res.json(openApi(publicUrl)));
   app.get('/.well-known/x402', (_req, res) => res.json({ version: 1, x402Version: 2, name: 'Fizzl Buy', serviceName: 'Fizzl Buy', description: routes[`POST ${BUY_ROUTE}`].description, resources: [{ url: `${publicUrl}${BUY_ROUTE}`, method: 'POST', name: 'Buy for your agent', description: 'One call: the right paid API, bought and checked.' }], openapi: `${publicUrl}/openapi.json` }));
-  app.get('/llms.txt', (_req, res) => res.type('text/plain; charset=utf-8').send(llmsTxt(publicUrl)));
+  app.get('/llms.txt', (_req, res) => res.type('text/plain; charset=utf-8').send(llmsTxt(publicUrl, payText)));
   // Instructions an AI agent can read and follow ("Connect to buy.fizzl.eu/skill.md"), as the other Fizzl services
   // serve theirs; the Agent Wallet offers that line for every Fizzl service.
-  app.get('/skill.md', (_req, res) => res.set('cache-control', 'public, max-age=300').type('text/markdown; charset=utf-8').send(skillMd(publicUrl)));
+  app.get('/skill.md', (_req, res) => res.set('cache-control', 'public, max-age=300').type('text/markdown; charset=utf-8').send(skillMd(publicUrl, payText)));
   // Agent registration (ERC-8004 format): the document the agent's entry in the ERC-8004 Identity Registry on Base
   // points to (tokenURI), as x402 Doctor, presign-guard and Ichimoku Signal serve theirs.
   app.get('/.well-known/agent-registration.json', (_req, res) => res.json({
@@ -351,7 +377,7 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
   app.get('/favicon.ico', (_req, res) => res.set('cache-control', 'public, max-age=86400').type('image/png').sendFile(path.join(__dirname, 'public-buy', 'favicon.png')));
   app.get('/', (req, res) => {
     if (req.accepts(['html', 'json']) === 'json') return res.json({ name: 'Fizzl Buy', description: routes[`POST ${BUY_ROUTE}`].description, buy: `POST ${publicUrl}${BUY_ROUTE}`, pick: `GET ${publicUrl}/v1/pick?need=…`, mcp: `${publicUrl}/mcp`, price_usd: PRICE_USD, cap_usd: CAP_USD });
-    res.type('html').send(fs.readFileSync(path.join(__dirname, 'public-buy', 'index.html'), 'utf8'));
+    res.type('html').send(fs.readFileSync(path.join(__dirname, 'public-buy', 'index.html'), 'utf8').replace('{{networks}}', payText));
   });
 
   // Paid: the purchase. The paywall settles the agent's payment only for a 2xx answer; the challenge goes into the
@@ -395,10 +421,10 @@ function openApi(publicUrl) {
   };
 }
 
-function skillMd(publicUrl) {
+function skillMd(publicUrl, payText) {
   return `---
 name: fizzl-buy
-description: Get data or a result you don't have (weather, prices, exchange rates, web search, news…) by saying what you need: Fizzl Buy picks the paid x402 API with a good track record, pays it, checks the answer and returns it. $${PRICE_USD} a purchase over x402 (USDC on Base or Solana); nothing is charged when no seller delivers. Free pick to see first what it would buy.
+description: Get data or a result you don't have (weather, prices, exchange rates, web search, news…) by saying what you need: Fizzl Buy picks the paid x402 API with a good track record, pays it, checks the answer and returns it. $${PRICE_USD} a purchase over x402 (${payText}); nothing is charged when no seller delivers. Free pick to see first what it would buy.
 ---
 
 # Fizzl Buy
@@ -429,10 +455,10 @@ Add \`${publicUrl}/mcp\` (Streamable HTTP) to your MCP client. In Claude Code: \
 `;
 }
 
-function llmsTxt(publicUrl) {
+function llmsTxt(publicUrl, payText) {
   return `# Fizzl Buy
 
-> The inkoper for AI agents: say what you need and Fizzl buys the right paid x402 API for you. It picks the service x402 Doctor has seen paying out day after day at a fair price, fills in its input, pays it (up to $${CAP_USD}) and returns the answer, checked by TypeSafe Jev, with a signed receipt. $${PRICE_USD} per purchase over x402 (USDC on Base or Solana); nothing is charged when no service delivers.
+> The inkoper for AI agents: say what you need and Fizzl buys the right paid x402 API for you. It picks the service x402 Doctor has seen paying out day after day at a fair price, fills in its input, pays it (up to $${CAP_USD}) and returns the answer, checked by TypeSafe Jev, with a signed receipt. $${PRICE_USD} per purchase over x402 (${payText}); nothing is charged when no service delivers.
 
 - POST ${publicUrl}${BUY_ROUTE} with {"need": "${EXAMPLE_NEED}"} ($${PRICE_USD})
 - GET ${publicUrl}/v1/pick?need=… (free, ${FREE_PER_HOUR} an hour): which service would be bought, and why
@@ -447,12 +473,22 @@ if (require.main === module) {
   const env = process.env;
   if (!env.AGENT_PAYOUT_WALLET) throw new Error('AGENT_PAYOUT_WALLET is required');
   const useCdp = Boolean(env.CDP_API_KEY_ID && env.CDP_API_KEY_SECRET);
+  // As on x402 Doctor: CDP for Base (and Solana), Algorand through GoPlausible and Stellar through OpenZeppelin before
+  // PayAI so PayAI never claims them, then PayAI, and the XRP Ledger in this process (CDP and PayAI don't do XRPL).
   const facilitators = [
     ...(useCdp ? [new HTTPFacilitatorClient(createFacilitatorConfig(env.CDP_API_KEY_ID, env.CDP_API_KEY_SECRET))] : []),
+    ...(algorandPayTo(env) ? [onlyNetworks(new HTTPFacilitatorClient({ url: env.ALGORAND_FACILITATOR_URL || DEFAULT_ALGORAND_FACILITATOR }), (network) => network.startsWith('algorand:'))] : []),
+    ...(stellarPayTo(env) ? [onlyNetworks(stellarFacilitator(env), (network) => network.startsWith('stellar:'))] : []),
     new HTTPFacilitatorClient({ url: env.FACILITATOR_URL || 'https://facilitator.payai.network' }),
+    ...(xrplPayTo(env) ? [createXrplFacilitator({ wsUrl: env.XRPL_WS_URL || 'wss://xrplcluster.com' })] : []),
   ];
   const start = createFacilitatorStart(facilitators);
-  const resourceServer = new x402ResourceServer(start.clients).register(BASE, new ExactEvmScheme()).register(SOLANA, new ExactSvmScheme());
+  const resourceServer = new x402ResourceServer(start.clients)
+    .register(BASE, new ExactEvmScheme())
+    .register(SOLANA, new ExactSvmScheme())
+    .register(XRPL, new ExactXrplScheme())
+    .register(ALGORAND, new ExactAvmScheme())
+    .register(STELLAR, new ExactStellarScheme());
   const routes = routesFor(env);
   start.attach(resourceServer, [...new Set(routes[`POST ${BUY_ROUTE}`].accepts.map((a) => a.network))]);
   // The challenge names buy.fizzl.eu also when called on the Render address.
@@ -462,4 +498,4 @@ if (require.main === module) {
   app.listen(port, () => console.log(`fizzl-buy on :${port}`));
 }
 
-module.exports = { createBuyApp, routesFor, openApi, PRICE_USD, CAP_USD, BUY_ROUTE };
+module.exports = { createBuyApp, routesFor, networksText, openApi, PRICE_USD, CAP_USD, BUY_ROUTE };
