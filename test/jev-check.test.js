@@ -17,6 +17,12 @@ test('report: verdict, reasons, bait scores and price comparison', () => {
   assert.match(md, /cheaper: https:\/\/b\.example\/y \(\$0\.01\): Same thing/);
 });
 
+test('report: how long Jev took, and when the live preflight would have skipped it', () => {
+  const md = report('https://api.example.com/x', { verdict: 'go', reasons: [] }, { bait: { impersonation: 0.1, lure: 0.1, mismatch: null } }, { bait: [900], price: [3400] });
+  assert.match(md, /Jev answered in 900 ms; the live preflight waits 2500 ms\./);
+  assert.match(md, /Jev answered in 3400 ms; the live preflight waits 3000 ms, so there this answer would be skipped\./);
+});
+
 test('report: no answer from either check', () => {
   const md = report('https://api.example.com/x', { verdict: 'go', reasons: [] }, {});
   assert.match(md, /### Bait check[^\n]*\n\nNo answer/);
