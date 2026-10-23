@@ -519,3 +519,14 @@ test('a $0 quote: the price depends on the request, so caution and a priced opti
   assert.equal(mixed.recommended_option, 1);
   assert.ok(!mixed.reasons.some((x) => x.code === 'price_depends_on_request'));
 });
+
+test('namesake (lib/namesakes.js): an info line from the track record, the verdict stays', async () => {
+  const url = await seller({ accepts: [baseOption('20000')] });
+  const namesake = { name: 'X402 Doctor', original: { site: 'fizzl.eu', url: 'https://x402-doctor.fizzl.eu/api/v1/preflight', payers: 6 }, payers: 4 };
+  const trustIndex = { lookup: async () => ({ days_checked: 5, days_payable: 5, payable_ratio: 1, history: 'ggggg', last: 'g', streak: 5, namesake }) };
+  const r = await run(url, { trustIndex });
+  assert.equal(r.verdict, 'go', JSON.stringify(r.reasons));
+  const line = r.reasons.find((x) => x.code === 'namesake');
+  assert.equal(line.level, 'info');
+  assert.match(line.message, /"X402 Doctor" is also at fizzl\.eu \(6 payers in the last 30 days, this one 4\), with a different payout address/);
+});
