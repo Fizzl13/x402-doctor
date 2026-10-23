@@ -34,4 +34,4 @@ jobs:
           TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
           URL: ${{ inputs.url }}
           METHOD: ${{ inputs.method }}
-        run: node scripts/jev-check.js "$URL" "$METHOD"
+        run: node scripts/jev-ab.cjs
