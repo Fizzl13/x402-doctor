@@ -331,7 +331,7 @@
   </div>
   <div class="fix-card" id="deliveryCard" hidden>
     <h3>Does it really deliver? Have it bought once: $0.25</h3>
-    <p>A check reads the 402; only a purchase shows what you get for your money. x402 Doctor buys this endpoint once (at most $0.10, USDC on Base, with the example input its own listing declares), checks the answer against its declared output schema and measures the charge on chain. The result is public, usually within 30 minutes. For sellers who want proof, and buyers before a big order.</p>
+    <p>A check reads the 402; only a purchase shows what you get for your money. x402 Doctor buys this endpoint once (at most $0.10, USDC on Base, with the example input its own listing declares), checks the answer against its declared output schema, has TypeSafe's Jev judge whether it is what was paid for, and measures the charge on chain. The result is public, usually within 30 minutes. For sellers who want proof, and buyers before a big order.</p>
     <div class="fix-row"><button id="deliveryBtn" type="button">Order with MetaMask</button></div>
     <p class="fix-note">You pay $0.25 in USDC on Base, signed in your own wallet, to our payout wallet; the endpoint itself is paid from a separate wallet of ours. If this endpoint can't be bought (not a "go", not on Base, over $0.10), you see why before anything is paid. Agents: <code>GET /api/v1/delivery-check?url=…</code></p>
     <div class="fix-status" id="deliveryStatus" aria-live="polite"></div>
@@ -777,15 +777,21 @@ const CACHE_LINES = {
 };
 function renderDelivery(job) {
   const r = job.result;
-  const tone = r.result === 'delivered' && r.cache?.shared_cache !== 'yes' ? 'pass' : r.paid_and_delivered ? 'warn' : 'fail';
+  // TypeSafe Jev's view of the answer (lib/jev-answer.js): not what was paid for, or instructions for the agent, is a warning.
+  const a = r.answer || {};
+  const offTarget = a.delivered?.verdict === 'no' || a.injection?.flagged;
+  const judgedBy = (j) => (j.decidedBy === 'jev+claude' ? 'TypeSafe Jev and Claude' : j.decidedBy === 'code' ? 'a fixed rule' : 'TypeSafe Jev');
+  const tone = r.result === 'delivered' && r.cache?.shared_cache !== 'yes' && !offTarget ? 'pass' : r.paid_and_delivered ? 'warn' : 'fail';
   const box = el('div', `delivery-result ${tone}`);
-  box.append(el('b', null, OUTCOME_TITLES[r.result] || `Not bought: ${String(r.result || 'unknown').replace(/_/g, ' ')}`));
+  box.append(el('b', null, a.delivered?.verdict === 'no' ? 'Paid, but the answer is not what was paid for' : OUTCOME_TITLES[r.result] || `Not bought: ${String(r.result || 'unknown').replace(/_/g, ' ')}`));
   const lines = [
     `Endpoint: ${job.url}`,
     r.price_usd !== null && r.price_usd !== undefined ? `Asked: $${r.price_usd}` : null,
     r.charged_usd !== null && r.charged_usd !== undefined ? `Charged, measured on chain: $${r.charged_usd}` : null,
     r.status ? `Answer: HTTP ${r.status}${r.result === 'off_schema' ? ', not matching the declared output schema' : ''}` : null,
     r.reason ? `Why: ${r.reason}` : null,
+    a.delivered ? `What was paid for? ${a.delivered.verdict === 'yes' ? 'Yes, a real answer to it' : a.delivered.verdict === 'no' ? 'No: an error, a placeholder or something else' : 'Unclear'} (judged by ${judgedBy(a.delivered)}).` : null,
+    a.injection?.flagged ? `The answer contains instructions aimed at AI agents (judged by ${judgedBy(a.injection)}): an agent that obeys them can be steered into paying or leaking secrets.` : null,
     r.cache ? `Caching: ${CACHE_LINES[r.cache.shared_cache] || r.cache.shared_cache}${r.cache.cache_control ? ` (Cache-Control: ${r.cache.cache_control})` : ''}` : null,
   ].filter(Boolean);
   for (const line of lines) box.append(el('div', null, line));

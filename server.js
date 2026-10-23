@@ -853,7 +853,7 @@ function openApi(origin, payment) {
       get: {
         operationId: 'deliveryCheckX402Endpoint',
         summary: 'Have an x402 endpoint bought once: paid and delivered?',
-        description: `x402 Doctor buys the endpoint once with the example input its listing declares (at most $${payment.delivery.cap_usd}, USDC on Base, from a dedicated wallet in GitHub Actions), checks the answer against the declared output schema and measures the charge on chain. Answers with a job id at once; GET ${DELIVERY_ROUTE}/{id} gives the status and, usually within 30 minutes, the result.`,
+        description: `x402 Doctor buys the endpoint once with the example input its listing declares (at most $${payment.delivery.cap_usd}, USDC on Base, from a dedicated wallet in GitHub Actions), checks the answer against the declared output schema, has TypeSafe's Jev judge whether it is what was paid for, and measures the charge on chain. Answers with a job id at once; GET ${DELIVERY_ROUTE}/{id} gives the status and, usually within 30 minutes, the result.`,
         tags: ['x402', 'payments'],
         'x-payment-info': paymentInfo(payment.delivery.price),
         parameters: [

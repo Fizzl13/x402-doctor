@@ -346,3 +346,26 @@ test('a run can name its own user agent; the default is the spot-buy one', async
   await runSpotBuy([await seller({ mode: 'deliver' })], opts);
   assert.deepEqual(seen, [INDEX_PAYMENT.userAgent, USER_AGENT]);
 });
+
+test('the answer check (lib/jev-answer.js): only answers that came back are judged, with what was paid for; the summary counts them', async () => {
+  const account = privateKeyToAccount(generatePrivateKey());
+  const client = new x402Client((_v, accepts) => accepts.find((x) => x.network === BASE));
+  client.register(BASE, new ExactEvmScheme(account));
+  const asked = [];
+  const answer = {
+    enabled: true,
+    check: async (a) => { asked.push(a); return a.body.includes('42') ? { delivered: { verdict: 'yes', p: 0.9, decidedBy: 'jev' }, injection: { flagged: false, p: 0.02, decidedBy: 'jev' } } : { delivered: { verdict: 'no', p: 0.1, why: 'not what was paid for (90% sure)', decidedBy: 'jev' }, injection: { flagged: true, p: 0.93, why: 'instructions aimed at the agent (93% sure)', decidedBy: 'jev' } }; },
+  };
+  const candidates = [await seller({ mode: 'deliver' }), await seller({ mode: 'off_schema' }), await seller({ mode: 'error_500' })];
+  const { results, summary } = await runSpotBuy(candidates, { safeFetch: createSafeFetch({ allowPrivate: true }), payFetch: wrapFetchWithPayment(fetch, client), balance: async () => chain.balance, capUsd: 0.05, budgetUsd: 0.05, allowPrivate: true, wait: async () => {}, answer });
+  assert.deepEqual(results.map((r) => r.result), ['delivered', 'off_schema', 'error_not_charged'], 'the answer check never changes the result');
+  assert.equal(asked.length, 2, 'the error answer is not judged');
+  assert.deepEqual({ url: asked[0].url, description: asked[0].description, httpStatus: asked[0].httpStatus, contentType: asked[0].contentType, body: asked[0].body }, { url: candidates[0].url, description: 'test seller (deliver)', httpStatus: 200, contentType: 'application/json', body: '{"price":42}' });
+  assert.equal(results[0].answer.delivered.verdict, 'yes');
+  assert.equal(results[1].answer.delivered.verdict, 'no');
+  assert.equal(results[2].answer, undefined);
+  assert.deepEqual(summary.answer_check, { checked: 2, not_what_was_paid_for: { count: 1, hosts: [candidates[1].host] }, unsure: 0, injection: { count: 1, hosts: [candidates[1].host] } });
+  const off = await runSpotBuy([await seller({ mode: 'deliver' })], { safeFetch: createSafeFetch({ allowPrivate: true }), payFetch: wrapFetchWithPayment(fetch, client), balance: async () => chain.balance, capUsd: 0.05, budgetUsd: 0.05, allowPrivate: true, wait: async () => {}, answer: { enabled: false, check: async () => { throw new Error('not asked'); } } });
+  assert.equal(off.results[0].answer, undefined);
+  assert.equal(off.summary.answer_check, undefined, 'no answer_check without judged answers');
+});

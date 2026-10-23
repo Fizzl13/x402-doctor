@@ -175,6 +175,10 @@ test('what is published for a purchase', () => {
   assert.equal(rec.explorer, 'https://basescan.org/tx/0xabc');
   assert.equal(rec.cap_usd, CAP_USD);
   assert.deepEqual(rec.cache, { cache_control: 'public, max-age=60', shared_cache: 'yes' }, 'whether a CDN could serve the paid answer for free');
+  assert.equal(rec.answer, undefined, 'no answer check when Jev did not judge it');
+  const judged = recordOf({ id: 'cccccccccc', url: 'https://c.example/z' }, { ...r, answer: { delivered: { verdict: 'no', p: 0.1, why: 'not what was paid for (90% sure)', decidedBy: 'jev' } } });
+  assert.equal(judged.answer.delivered.verdict, 'no', "TypeSafe Jev's view is published next to the result");
+  assert.equal(judged.paid_and_delivered, true, 'and never changes it');
   assert.equal(recordOf({ id: 'bbbbbbbbbb', url: 'https://b.example/y' }, { result: 'not_go_now', step: 'preflight', preflight: { verdict: 'caution', codes: ['x'] } }).paid_and_delivered, false);
 });
 
