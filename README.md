@@ -474,7 +474,9 @@ Amsterdam tomorrow"}`, $0.02 over x402 (USDC on Base or Solana), for services up
    answer moves on to the next candidate, at most three. When none delivers the answer is an error and the agent's
    own payment is not settled.
 
-`GET /v1/pick?need=…` and the MCP tool `x402_pick` (free, 10 an hour) say what would be bought and why. The MCP server
+`GET /v1/pick?need=…` and the MCP tool `x402_pick` (free, 10 an hour) say what would be bought and why; the MCP tool
+`x402_buy` buys, paid inside the call ($0.02 over x402, `_meta["x402/payment"]`, the same networks as the HTTP route, and
+the same lock against one payment used twice). The MCP server
 (`https://buy.fizzl.eu/mcp`) is in the official MCP registry as `io.github.Fizzl13/fizzl-buy` (`server.buy.json`,
 published with the Publish to MCP registry workflow, server `fizzl-buy`). In the ERC-8004 Identity Registry on Base it
 is agent #988891.
