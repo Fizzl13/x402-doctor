@@ -6,7 +6,7 @@
 //   POST /v1/buy { need }  $0.02 (x402, USDC on Base or Solana): buys a service of at most $0.01. Nothing is charged
 //                          when no service delivers (the paywall settles only a 2xx answer).
 //   GET  /v1/pick?need=…   free (10 an hour per caller): which service the inkoper would buy, and why.
-//   POST /mcp              MCP: x402_pick (free).
+//   POST /mcp              MCP: x402_pick (free) and x402_buy ($0.02, paid inside the call, _meta["x402/payment"]).
 //
 // Runs as its own Render service from this repository (render.yaml, service fizzl-buy). Env: PUBLIC_URL,
 // AGENT_PAYOUT_WALLET (+ AGENT_PAYOUT_WALLET_SOLANA), CDP_API_KEY_ID/SECRET, BUY_WALLET_KEY (the inkoper's own wallet,
@@ -22,6 +22,7 @@ const { HTTPFacilitatorClient } = require('@x402/core/server');
 const { ExactEvmScheme } = require('@x402/evm/exact/server');
 const { ExactSvmScheme } = require('@x402/svm/exact/server');
 const { declareDiscoveryExtension } = require('@x402/extensions/bazaar');
+const { createPaymentWrapper } = require('@x402/mcp');
 const { createFacilitatorConfig } = require('@coinbase/x402');
 const { McpServer } = require('@modelcontextprotocol/sdk/server/mcp.js');
 const { StreamableHTTPServerTransport } = require('@modelcontextprotocol/sdk/server/streamableHttp.js');
@@ -31,8 +32,8 @@ const { onPublicHost } = require('./lib/public-host');
 const { fizzlCors } = require('./lib/fizzl-cors');
 const { mirrorChallengeIntoBody } = require('./lib/paid-api');
 const { merchantExtension, builderCodeExtension } = require('./lib/merchant');
-const { createSigner, signPaidResponses } = require('./lib/receipt');
-const { createUsageLog } = require('./lib/usage-log');
+const { createSigner, signPaidResponses, paymentOf } = require('./lib/receipt');
+const { createUsageLog, mcpPayment } = require('./lib/usage-log');
 const { createSafeFetch } = require('./lib/safe-fetch');
 const { createSanctions } = require('./lib/sanctions');
 const { createTrustReader } = require('./lib/trust-reader');
@@ -42,7 +43,7 @@ const { createSpotWallet } = require('./lib/spot-wallet');
 const { candidatesFor } = require('./lib/buy/search');
 const { createFiller } = require('./lib/buy/fill');
 const { buy, createBudget, BuyError, MAX_TRIES } = require('./lib/buy/purchase');
-const { createOncePerPayment } = require('./lib/buy/once');
+const { createOncePerPayment, createPaymentLocks, keyOf, REFUSED } = require('./lib/buy/once');
 const { spentByOthers, INSTANCE } = require('./lib/buy/spent-log');
 
 const BASE = 'eip155:8453';
@@ -116,7 +117,24 @@ function routesFor(env) {
   };
 }
 
-function createBuyApp({ env = process.env, deps = {}, paywall = null } = {}) {
+// accepts[] for the paid MCP tool from the kinds the HTTP paywall fetched at start; only when those aren't there yet
+// are the facilitators asked again (as lib/mcp.js does for x402 Doctor's tools).
+async function requirementsFor(resourceServer, options) {
+  const build = async () => {
+    const accepts = [];
+    for (const option of options) accepts.push(...(await resourceServer.buildPaymentRequirements(option)));
+    return accepts;
+  };
+  try {
+    return await build();
+  } catch {
+    await resourceServer.initialize();
+    return build();
+  }
+}
+
+// resourceServer: the x402 resource server the paywall uses; with it (and a wallet) the MCP server also sells x402_buy.
+function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceServer = deps.resourceServer ?? null } = {}) {
   const publicUrl = (env.PUBLIC_URL || 'https://buy.fizzl.eu').replace(/\/+$/, '');
   const safeFetch = deps.safeFetch ?? createSafeFetch({ allowPrivate: false, timeoutMs: 15000 });
   const searchFetch = deps.fetch ?? globalThis.fetch;
@@ -131,6 +149,21 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null } = {}) {
   const usageLog = deps.usageLog ?? createUsageLog({ service: 'buy', env });
   const signer = deps.signer === undefined ? createSigner(env, { label: 'fizzl-buy', service: 'fizzl-buy' }) : deps.signer;
   const instance = deps.instance ?? INSTANCE;
+  const locks = deps.paymentLocks ?? createPaymentLocks();
+
+  // One purchase, counting what it pays sellers (for the usage log: the day budget across deploys). Throws BuyError
+  // with .spent set.
+  async function purchase(need) {
+    let spent = 0;
+    const counted = { left: () => budget.left(), add: (usd) => { spent = Math.round((spent + usd) * 1e6) / 1e6; budget.add(usd); } };
+    if (!wallet) throw Object.assign(new BuyError(503, 'The inkoper has no wallet on this server (BUY_WALLET_KEY). Nothing was charged.'), { spent });
+    try {
+      const out = await buy({ need }, { fill: filler.fill, payFetch: wallet.payFetch, balance: wallet.balance, budget: counted, answerCheck, safeFetch, sanctions, trustIndex, lure, capUsd: CAP_USD, fetch: searchFetch });
+      return { out, spent };
+    } catch (err) {
+      throw Object.assign(err, { spent });
+    }
+  }
 
   // The day budget across deploys: what the other instances spent today, now and again once the old one has stopped
   // and written its last calls.
@@ -176,6 +209,10 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null } = {}) {
     if (req.path === '/v1/pick') return { route: 'pick', via, input: { chars: String(req.query.need || '').length }, result: { pick: body?.pick?.url ? new URL(body.pick.url).host : null, error: body?.error } };
     // Who reads the ERC-8004 registration (agent registries and their indexers).
     if (req.method === 'GET' && req.path === '/.well-known/agent-registration.json') return { route: 'agent registration', via: 'discovery', input: {}, result: { status: res.statusCode } };
+    if (req.path === '/mcp' && req.body?.method === 'tools/call' && req.body.params?.name === 'x402_buy') {
+      const r = body?.result?.structuredContent;
+      return { route: 'x402_buy', via, input: { chars: String(req.body.params?.arguments?.need || '').length, ...(res.locals.spentUsd ? { spent_usd: res.locals.spentUsd, instance } : {}) }, result: { delivered: r?.delivered, paid_usd: r?.paid_usd, service: r?.service?.url ? new URL(r.service.url).host : undefined, tried: r?.tried, error: body?.result?.isError ? String(body.result.content?.[0]?.text || '').slice(0, 200) : undefined }, payment: mcpPayment(req.body, body) };
+    }
     if (req.path === '/mcp' && req.body?.method === 'tools/call') return { route: String(req.body.params?.name || 'mcp'), via, input: {}, result: {} };
     return null;
   }));
@@ -192,9 +229,72 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null } = {}) {
     }
   });
 
-  // MCP: the free pick as a tool.
+  // MCP: the free pick, and the purchase paid inside the call (x402 over MCP, the same price and networks as POST
+  // /v1/buy). The payment wrapper verifies the payment, runs the purchase and settles only an answer that isn't an
+  // error, so nothing is charged when no seller delivers. Invalid input is refused before any payment.
+  let buyWrapper = null;
+  const toolError = (text) => ({ content: [{ type: 'text', text }], isError: true });
+  async function paidBuy() {
+    if (buyWrapper) return buyWrapper;
+    const route = routesFor(env)[`POST ${BUY_ROUTE}`];
+    const accepts = await requirementsFor(resourceServer, route.accepts);
+    if (!accepts.length) throw new Error('no payout wallet');
+    buyWrapper = createPaymentWrapper(resourceServer, {
+      accepts,
+      resource: { url: 'mcp://tool/x402_buy', description: 'Buy the right paid API for your agent in one call, answer checked.', mimeType: 'application/json', serviceName: 'Fizzl Buy', tags: route.tags },
+      extensions: {
+        ...declareDiscoveryExtension({
+          toolName: 'x402_buy',
+          description: 'Say what your agent needs; Fizzl buys the right paid x402 API (up to $0.01) and returns the answer, checked. Nothing is charged when no seller delivers.',
+          transport: 'streamable-http',
+          inputSchema: { type: 'object', properties: { need: { type: 'string', description: 'What your agent needs, in a sentence, with the details (place, symbol, query)' } }, required: ['need'] },
+          example: { need: EXAMPLE_NEED },
+        }),
+        ...merchantExtension,
+        ...builderCodeExtension(env.BUILDER_CODE),
+      },
+    });
+    return buyWrapper;
+  }
+
   app.post('/mcp', express.json({ limit: '64kb' }), async (req, res) => {
-    const server = new McpServer({ name: 'fizzl-buy', version: '1.0.0' });
+    const server = new McpServer({ name: 'fizzl-buy', version: '1.1.0' });
+    if (resourceServer && wallet) {
+      server.registerTool('x402_buy', {
+        title: 'Buy what your agent needs ($0.02)',
+        description: `Paid ($${PRICE_USD} via x402 in USDC on Base or Solana, inside the call): say what your agent needs ("weather forecast for Amsterdam tomorrow", "BTC price", "EUR to USD rate") and Fizzl buys the right paid x402 API, the one x402 Doctor has seen paying out day after day at a fair price (up to $${CAP_USD}), fills in its input, pays it from its own wallet and returns the answer, checked by TypeSafe Jev, with which service it came from and a signed receipt. Nothing is charged when no seller delivers. To see first what it would buy, call x402_pick (free).`,
+        inputSchema: { need: z.string().describe('What your agent needs, in a sentence, with the details (place, symbol, query)') },
+        annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+      }, async ({ need }, extra) => {
+        let wanted;
+        try { wanted = needOf(need); } catch (err) { return toolError(err.message); }
+        let paid;
+        try { paid = await paidBuy(); } catch (err) { return toolError(`payments unavailable: ${err.message}`); }
+        // One payment buys one answer, also across HTTP and MCP (lib/buy/once.js).
+        const payload = extra?._meta?.['x402/payment'];
+        const key = payload ? keyOf(payload) : null;
+        if (key) { const refused = locks.take(key); if (refused) return toolError(REFUSED[refused]); }
+        let settled = false;
+        try {
+          const out = await paid(async () => {
+            try {
+              const { out: result, spent } = await purchase(wanted);
+              res.locals.spentUsd = spent;
+              const signed = signer ? await signer.sign(result, { route: 'mcp x402_buy', input: { need }, payment: paymentOf(payload) }) : result;
+              return { content: [{ type: 'text', text: JSON.stringify(signed) }], structuredContent: signed };
+            } catch (err) {
+              res.locals.spentUsd = err.spent || 0;
+              if (!err.status) console.error('[buy] mcp', err);
+              return toolError(`${err.status ? err.message : 'internal error'}${err.attempts?.length ? ` Tried: ${err.attempts.map((a) => `${new URL(a.url).host} (${a.step}${a.why ? `: ${a.why}` : ''})`).join('; ')}.` : ''}`);
+            }
+          })({ need }, extra);
+          settled = out?._meta?.['x402/payment-response']?.success === true;
+          return out;
+        } finally {
+          if (key) locks.done(key, settled);
+        }
+      });
+    }
     server.registerTool('x402_pick', {
       title: 'Which paid API to buy (free)',
       description: `Free: say what your agent needs and get the paid x402 API that x402 Doctor has seen paying out day after day at a fair price (up to $${CAP_USD}), with its track record, price and example input, plus alternatives. To buy it in one call, POST ${publicUrl}${BUY_ROUTE} {"need": …} ($${PRICE_USD} over x402): the answer comes back checked, and nothing is charged when no service delivers. Limited to ${FREE_PER_HOUR} free calls an hour.`,
@@ -253,21 +353,16 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null } = {}) {
   // 402's body too, for clients that read accepts[] there.
   // One payment buys one answer (lib/buy/once.js), checked before the paywall verifies it.
   app.use(mirrorChallengeIntoBody);
-  app.use(deps.oncePerPayment ?? createOncePerPayment({ paths: [BUY_ROUTE] }));
+  app.use(deps.oncePerPayment ?? createOncePerPayment({ paths: [BUY_ROUTE], locks }));
   if (paywall) app.use(paywall);
   app.use(signPaidResponses(signer, [`POST ${BUY_ROUTE}`]));
   app.post(BUY_ROUTE, express.json({ limit: '16kb' }), async (req, res) => {
-    // What this call pays sellers, for the usage log.
-    let spent = 0;
-    const counted = { left: () => budget.left(), add: (usd) => { spent = Math.round((spent + usd) * 1e6) / 1e6; budget.add(usd); } };
     try {
-      const need = needOf(req.body?.need);
-      if (!wallet) throw new BuyError(503, 'The inkoper has no wallet on this server (BUY_WALLET_KEY). Nothing was charged.');
-      const out = await buy({ need }, { fill: filler.fill, payFetch: wallet.payFetch, balance: wallet.balance, budget: counted, answerCheck, safeFetch, sanctions, trustIndex, lure, capUsd: CAP_USD, fetch: searchFetch });
+      const { out, spent } = await purchase(needOf(req.body?.need));
       res.locals.spentUsd = spent;
       res.set('Cache-Control', 'no-store').json(out);
     } catch (err) {
-      res.locals.spentUsd = spent;
+      res.locals.spentUsd = err.spent || 0;
       if (!err.status) console.error('[buy]', err);
       res.status(err.status || 500).json({ error: err.status ? err.message : 'internal error', ...(err.attempts?.length ? { attempts: err.attempts } : {}) });
     }
@@ -309,7 +404,12 @@ Website: ${publicUrl} · Schemas: ${publicUrl}/openapi.json
 
 ## Use it as an MCP server
 
-Add \`${publicUrl}/mcp\` (Streamable HTTP) to your MCP client. In Claude Code: \`claude mcp add --transport http fizzl-buy ${publicUrl}/mcp\`. Tool \`x402_pick\` (free, ${FREE_PER_HOUR} an hour): which paid API it would buy for your need, with its price and track record.
+Add \`${publicUrl}/mcp\` (Streamable HTTP) to your MCP client. In Claude Code: \`claude mcp add --transport http fizzl-buy ${publicUrl}/mcp\`.
+
+| Tool | Price | What it does |
+|---|---|---|
+| \`x402_pick\` | free, ${FREE_PER_HOUR}/hour | Which paid API it would buy for your need, with its price and track record |
+| \`x402_buy\` | $${PRICE_USD} | Buys it and returns the checked answer, paid inside the call with x402 (for MCP clients that pay x402 over MCP, such as ones built with @x402/mcp; with the Fizzl Agent Wallet, use \`pay_x402\` on the HTTP route below) |
 
 ## Or call the HTTP API
 
@@ -331,7 +431,7 @@ function llmsTxt(publicUrl) {
 
 - POST ${publicUrl}${BUY_ROUTE} with {"need": "${EXAMPLE_NEED}"} ($${PRICE_USD})
 - GET ${publicUrl}/v1/pick?need=… (free, ${FREE_PER_HOUR} an hour): which service would be bought, and why
-- MCP: ${publicUrl}/mcp (tool x402_pick, free)
+- MCP: ${publicUrl}/mcp (tools x402_pick, free, and x402_buy, $${PRICE_USD} paid inside the call over x402)
 
 ## Optional
 - [Fizzl](https://fizzl.eu/llms.txt): x402 Doctor (trust), presign-guard (safety), the agent wallet
@@ -352,7 +452,7 @@ if (require.main === module) {
   start.attach(resourceServer, [...new Set(routes[`POST ${BUY_ROUTE}`].accepts.map((a) => a.network))]);
   // The challenge names buy.fizzl.eu also when called on the Render address.
   const paywall = onPublicHost(env.PUBLIC_URL || 'https://buy.fizzl.eu', paymentMiddleware(routes, resourceServer, undefined, undefined, false));
-  const app = createBuyApp({ env, paywall });
+  const app = createBuyApp({ env, paywall, resourceServer });
   const port = Number(env.PORT) || 3000;
   app.listen(port, () => console.log(`fizzl-buy on :${port}`));
 }

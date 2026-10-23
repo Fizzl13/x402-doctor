@@ -502,7 +502,7 @@
   // paid the sellers (input.spent_usd, logged since 23 Oct 2026, also for purchases where no seller delivered) ----
   function renderBuy() {
     const ev = (state.data.events || []).filter((e) => e.service === 'buy' && (!state.hideBots || !isBot(e)));
-    const buys = ev.filter((e) => e.route === 'buy' && !e.quote).sort((a, b) => (a.t < b.t ? 1 : -1));
+    const buys = ev.filter((e) => (e.route === 'buy' || e.route === 'x402_buy') && !e.quote).sort((a, b) => (a.t < b.t ? 1 : -1));
     const delivered = buys.filter((e) => e.paid && e.status >= 200 && e.status < 300);
     const none = buys.filter((e) => e.status === 502);
     const picks = ev.filter((e) => (e.route === 'pick' || e.route === 'x402_pick') && !e.quote);
@@ -517,9 +517,9 @@
       tile('Free picks', picks.length.toLocaleString(), 'GET /v1/pick and MCP x402_pick'),
     );
     const result = (e) => (e.paid && e.status >= 200 && e.status < 300 ? 'delivered' : e.status === 502 ? 'no seller delivered' : e.status === 404 ? 'nothing suitable' : e.status === 503 ? 'budget or wallet empty' : `HTTP ${e.status}`);
-    table('buyTable', ['When', 'Result', 'Seller', 'Agent paid', 'Paid to sellers', 'Tried', 'Took'], buys.slice(0, 25).map((e) => [
-      `${new Date(e.t).toLocaleString()} (${ago(e.t)})`, result(e), e.result?.service || '', e.paid ? usd(Number(e.usd) || 0) : '', e.input?.spent_usd ? usd(Number(e.input.spent_usd)) : '', e.result?.tried ?? '', Number.isFinite(e.ms) ? `${(e.ms / 1000).toFixed(1)} s` : '',
-    ]), 3);
+    table('buyTable', ['When', 'Via', 'Result', 'Seller', 'Agent paid', 'Paid to sellers', 'Tried', 'Took'], buys.slice(0, 25).map((e) => [
+      `${new Date(e.t).toLocaleString()} (${ago(e.t)})`, e.route === 'x402_buy' ? 'MCP' : 'HTTP', result(e), e.result?.service || '', e.paid ? usd(Number(e.usd) || 0) : '', e.input?.spent_usd ? usd(Number(e.input.spent_usd)) : '', e.result?.tried ?? '', Number.isFinite(e.ms) ? `${(e.ms / 1000).toFixed(1)} s` : '',
+    ]), 4);
     const sellers = new Map();
     for (const e of delivered) {
       const host = e.result?.service || '?';
