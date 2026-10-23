@@ -164,6 +164,7 @@ test('server: free pick with its limit, the purchase, bad input, no wallet, disc
   assert.equal(agent.name, 'Fizzl Buy');
   assert.deepEqual(agent.services.map((x) => x.endpoint), ['https://buy.test/', 'https://buy.test/mcp']);
   assert.equal(agent.x402Support, true);
+  assert.deepEqual(agent.registrations, [{ agentId: 988891, agentRegistry: 'eip155:8453:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432' }]);
   assert.match(await (await fetch(`${base}/`, { headers: { accept: 'text/html' } })).text(), /Fizzl Buy/);
   const health = await (await fetch(`${base}/health`)).json();
   assert.equal(health.wallet, '0xBuy');

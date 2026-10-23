@@ -52,8 +52,9 @@ const CAP_USD = 0.01;
 const FREE_PER_HOUR = 10;
 const BUY_ROUTE = '/v1/buy';
 const EXAMPLE_NEED = 'weather forecast for Amsterdam tomorrow';
-// The agent's entries in agent registries (ERC-8004 Identity Registry on Base: the agentId once registered).
-const AGENT_REGISTRATIONS = [];
+// The agent's entries in agent registries: the ERC-8004 Identity Registry on Base (registered 23 Oct 2026 from Fizzl's
+// wallet 0x2c7c…128b, like the other Fizzl agents; tokenURI = /.well-known/agent-registration.json).
+const AGENT_REGISTRATIONS = [{ agentId: 988891, agentRegistry: 'eip155:8453:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432' }];
 
 const memoryOf = () => {
   const m = process.memoryUsage();
