@@ -285,7 +285,7 @@ test('an indexing payment goes only to one of our own routes', () => {
   assert.equal(indexCapFor(ownTarget('https://ichimoku-signal.fizzl.eu/setups?top=3')), 0.5);
   assert.equal(indexCapFor(ownTarget('https://ichimoku-signal.fizzl.eu/signal/ETH-USDT')), 0.01, 'only the listed example path has the route cap');
   assert.equal(indexCapFor(ownTarget('https://plaintext.fizzl.eu/api/explain')), 0.01);
-  assert.equal(INDEX_PAYMENT.routes.length, 16);
+  assert.equal(INDEX_PAYMENT.routes.length, 17);
   assert.ok(INDEX_PAYMENT.routes.every((r) => ownTarget(r.url) && r.capUsd > 0 && r.capUsd <= LIMITS.ownCapUsd), 'every route is ours and within the hard ceiling');
   assert.equal(LIMITS.capUsd, 0.1, 'the ceiling for other sellers is unchanged');
   assert.equal(LIMITS.ownCapUsd, 0.5);
