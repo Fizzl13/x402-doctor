@@ -16,6 +16,7 @@ const { createSpotWallet } = require('../lib/spot-wallet');
 const { runSpotBuy, BASE } = require('../lib/spot-buy');
 const { jobsToRun, candidateOf, recordOf, RETRY, USER_AGENT } = require('../lib/delivery-runner');
 const { CAP_USD } = require('../lib/delivery-checks');
+const { createAnswerCheck } = require('../lib/jev-answer');
 
 function arg(name, fallback) {
   const i = process.argv.indexOf(`--${name}`);
@@ -45,6 +46,8 @@ async function main() {
     console.log(`wallet ${wallet.address}: ${((await wallet.balance()) / 1e6).toFixed(2)} USDC on Base`);
   }
 
+  // Is the answer what was paid for (TypeSafe's Jev, with TYPESAFE_API_KEY)? No hurry here, so a longer wait than live.
+  const answer = createAnswerCheck({ timeoutMs: 10000 });
   const done = [];
   for (const job of jobs) {
     const { results } = await runSpotBuy([candidateOf(job)], {
@@ -56,6 +59,7 @@ async function main() {
       capUsd: CAP_USD,
       budgetUsd: CAP_USD,
       userAgent: USER_AGENT,
+      answer,
     });
     const r = results[0];
     console.log(`${job.id} ${r.result} ${r.price_usd ?? ''} ${job.url}`);
@@ -64,7 +68,7 @@ async function main() {
   }
 
   if (process.env.GITHUB_STEP_SUMMARY) {
-    const lines = [`## Delivery checks (${dry ? 'dry run, nothing paid' : 'live'})`, '', '| Job | Result | Price | Charged | Endpoint |', '|---|---|---|---|---|', ...done.map((d) => `| ${d.id} | ${d.result} | ${d.price_usd ?? ''} | ${d.charged_usd ?? ''} | ${d.url} |`)];
+    const lines = [`## Delivery checks (${dry ? 'dry run, nothing paid' : 'live'})`, '', '| Job | Result | What was paid for (Jev) | Price | Charged | Endpoint |', '|---|---|---|---|---|---|', ...done.map((d) => `| ${d.id} | ${d.result} | ${d.answer?.delivered?.verdict ?? ''}${d.answer?.injection?.flagged ? ', instructions for the agent' : ''} | ${d.price_usd ?? ''} | ${d.charged_usd ?? ''} | ${d.url} |`)];
     fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join('\n') + '\n');
   }
   if (dry || !done.length) return;

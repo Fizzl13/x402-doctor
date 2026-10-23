@@ -50,6 +50,9 @@ jobs:
         env:
           SPOT_BUY_KEY: ${{ secrets.SPOT_BUY_KEY }}
           BASE_RPC_URL: ${{ secrets.BASE_RPC_URL }}
+          # Whether the answer is what was paid for (lib/jev-answer.js); without them it isn't judged.
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       - name: Publish to the delivery-data branch
         if: steps.queue.outputs.queued != '0' && hashFiles('delivery-data/results/*.json') != ''
         run: |

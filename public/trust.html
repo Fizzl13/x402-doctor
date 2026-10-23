@@ -385,14 +385,18 @@
     const answered = (o.delivered || 0) + (o.off_schema || 0);
     $('spotLine').classList.remove('note');
     const slow = s.slow_answers || { count: 0 };
+    // TypeSafe Jev's view of the answers that came back (lib/jev-answer.js), in runs since it was added.
+    const ac = s.answer_check;
     $('spotLine').textContent = `In the latest spot-buy (${spotDate(v.date)}), ${answered} of ${s.bought} purchases were paid and delivered (${s.paid_and_delivered_pct}%). ` +
       (lost.count ? `${lost.count} took the money without an answer ($${lost.usd}).` : 'None took the money without an answer.') +
-      (slow.count ? ` ${slow.count} answered only after more than ${slow.over_s} seconds, when many agents have given up.` : '');
+      (slow.count ? ` ${slow.count} answered only after more than ${slow.over_s} seconds, when many agents have given up.` : '') +
+      (ac?.not_what_was_paid_for.count ? ` ${ac.not_what_was_paid_for.count} of the answers were not what was paid for (judged by TypeSafe Jev).` : '');
     const tiles = [
       ['Paid and delivered', fmt(answered), `${s.paid_and_delivered_pct}%`],
       ['Took the money, no answer', fmt(lost.count), lost.count ? `$${lost.usd}` : ''],
       ['Error after paying, not charged', fmt((o.error_not_charged || 0) + (o.payment_rejected || 0)), ''],
       ...(s.slow_answers ? [[`Delivered, but slower than ${s.slow_answers.over_s} s`, fmt(s.slow_answers.count), s.answer_s_median != null ? `median ${s.answer_s_median} s` : '']] : []),
+      ...(ac ? [['Answered, but not what was paid for', fmt(ac.not_what_was_paid_for.count), `of ${ac.checked} judged by TypeSafe Jev`]] : []),
     ];
     $('spotTiles').replaceChildren(...tiles.map(([label, value, extra]) => {
       const box = document.createElement('div');

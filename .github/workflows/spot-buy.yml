@@ -88,6 +88,9 @@ jobs:
           SPOT_BUY_N: ${{ vars.SPOT_BUY_N }}
           SPOT_BUY_MAX_USD: ${{ vars.SPOT_BUY_MAX_USD }}
           SPOT_BUY_BUDGET_USD: ${{ vars.SPOT_BUY_BUDGET_USD }}
+          # Whether each answer is what was paid for (lib/jev-answer.js); without them it isn't judged.
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       - name: Publish to the spot-data branch
         if: hashFiles('spot-data/latest.json') != ''
         run: |

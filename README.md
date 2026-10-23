@@ -218,8 +218,8 @@ their endpoint delivers, and for buyers before a large order.
   `lib/delivery-dispatch.js`); its schedule, every 10 minutes, is the fallback, since GitHub runs scheduled
   workflows late or not at all.
 - **The same steps as the spot-buy** (`lib/spot-buy.js`): a fresh preflight with the OFAC payout screen right before
-  paying, the seller's declared example input, the answer checked against the declared output schema, and the charge
-  measured on chain.
+  paying, the seller's declared example input, the answer checked against the declared output schema and judged by TypeSafe's Jev (is it what was
+  paid for, does it carry instructions for the agent: `lib/jev-answer.js`), and the charge measured on chain.
 - **Public result**: `GET /api/v1/delivery-check/<id>` (free) shows `queued`, then `done` with the result
   (`delivered`, `off_schema`, `empty`, `charged_not_delivered`, `payment_rejected`, `error_not_charged`, or the step
   that stopped it before paying) and the transaction. Every result is on the `delivery-data` branch.

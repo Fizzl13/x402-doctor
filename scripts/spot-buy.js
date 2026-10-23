@@ -14,6 +14,7 @@ const { createSanctions } = require('../lib/sanctions');
 const { checkSettlement } = require('../lib/settlement');
 const { createSpotWallet } = require('../lib/spot-wallet');
 const { selectCandidates, runSpotBuy, DEFAULTS, LIMITS, OUTCOMES, BASE } = require('../lib/spot-buy');
+const { createAnswerCheck } = require('../lib/jev-answer');
 
 function arg(name, fallback) {
   const i = process.argv.indexOf(`--${name}`);
@@ -57,6 +58,8 @@ async function main() {
     capUsd,
     budgetUsd,
     log: (line) => console.log(line),
+    // Is each answer what was paid for (TypeSafe's Jev, with TYPESAFE_API_KEY)? No hurry here: a longer wait than live.
+    answer: createAnswerCheck({ timeoutMs: 10000 }),
   });
 
   const date = startedAt.slice(0, 10);
