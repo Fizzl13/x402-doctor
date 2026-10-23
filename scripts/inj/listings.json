@@ -1,0 +1,482 @@
+[
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Base gas oracle / gas price API for AI agents and bots — get the gas price for a transaction on Base in one x402 call. Real-time slow/standard/fast EIP-1559 fee tiers from a live eth_feeHistory call, returned as DROP-IN maxFeePerGas + maxPriorityFeePerGas in wei — plug straight into a viem/ethers transaction, no gwei conversion. Plus base fee, head block, and network fullness. Call it before every Base tx to set a fair fee or wait out congestion."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Use when you need to extract text from a pdf, pdf to text or document parsing for an LLM. Do not use for scanned PDFs (no OCR), password-protected files or files over 15 MB. Returns JSON with PDF text extraction: the text of each page (first 20 pages) plus title, author and producer metadata for 0.0025 USDC per page, up to 0.05 USDC per call (clients without upto pay the cap). Asynchronous: the paid call returns a jobId and a free pollUrl; typical job time 10000 ms (p95). Category: Data."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Web-content reader: fetch any http(s) URL and return clean readable text, title/description/canonical, and outbound links as JSON — the data an agent ingests on each step of a crawl or RAG loop. Input: url."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "What agents actually pay for across a 500+ tool x402 catalog: the tools ranked by settled calls, distinct buyers and dollars over a window you choose, read from the seller's own sales ledger rather than the chain. Use it when an agent is deciding what to build, what to buy, or what paying demand on x402 looks like this week."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Full LatAm economic report — currencies, Argentina dolar blue, commodities, AI narrative"
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Invoice field verification for AI agents: arithmetic consistency of invoice fields, line-item totals, JP registration number check-digit + corporate-number existence observation (official NTA registry), accounting JSON. $0.015/call."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Pre-payment risk and usefulness check for AI agents deciding whether to pay an x402 endpoint."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Generate an AI-powered similarity key for individual/person name matching. Handles variations like 'Bob Smith', 'Robert Smith', 'Smith, Robert J.' producing the same key for matching and deduplication."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Search tweets with advanced operators (recommended). Body param is `query` (not q), e.g. {\"query\":\"from:elonmusk AI min_faves:100\"}"
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Paid AI-agent access to Blockchain.com Explorer API"
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "How to store & preserve a collectible: storage methods and product recommendations for cards, coins, comics, vinyl, watches and memorabilia, controlling for humidity, light and handling. Worldwide. For collector agents."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Every federal rule and proposed rule published on one date, significant documents sorted first, with deadline flags and day-counts — optionally one agency. One call gives a briefing agent the whole day's rulemaking, pre-triaged. Pay per call (x402 USDC or prepaid card credits); no subscription, no API key signup."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "TRANSLATION — POST {text, target} and get the translation plus the detected source language. Any language pair; target as a name or ISO code ('spanish', 'de', 'ja'). Up to 8,000 chars per call; line breaks and markdown preserved; code, URLs, and proper names left alone. Optional {source} to pin the source language, {formality}: formal|informal. Fast cheap LLM under the hood; the x402 payment IS the auth."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Detect the language of any text input using stopword-set matching and Unicode script analysis — returns the detected language, ISO code, a high/medium/low confidence level, and top alternative languages so agents can route multilingual content, trigger translation workflows, and classify text without a paid NLP API."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Pay-per-Seal: one post-quantum (Dilithium-3) provenance seal + a self-contained ML-DSA-65/Dilithium-3 (NIST FIPS 204) signature — drand-timestamped, with on-chain anchoring attempted per call and reported in the response — over a dataset/training/content hash. EU AI Act (Art. 10/50/53) provenance for autonomous agents, x402-native."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Web search plus page reading in one call: answer with sources. Runs a web search, scrapes the top results, and returns the ranked search results together with each page's content as clean LLM-ready markdown, so an agent gets the SERP AND the underlying text without a second round of scrape calls. Per-page fetch errors are reported honestly per URL."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "GPU compute spot prices — best deals across Vast.ai, RunPod, AWS, Lambda + market signal + AI brief"
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "AI chat completions API - pay per request with USDC on Base"
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Signed spend receipts for agent x402 payments — who paid which call, verifiable by a third party. Treasury desk and possession book for agent spend — export, policy, evidence. POST /v1/chat/completions is the x402 USDC door on Base and Solana. Returns signed receipt + public verify_url. Paying this host is real mainnet USDC."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Stablecoin parallel-rate premium — how far the street price of a digital dollar (per-venue USDT quotes) diverges from the official FX rate in capital-controlled economies: venue table, median street rate, premium %, signal read. ARS, VES, BRL, COP, PEN, MXN, CLP, BOB; ARS includes the blue/MEP/CCL board. Live quotes, no LLM."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Real-time gas price oracle for agents timing a transaction: slow/standard/fast tiers with trend analysis for any supported EVM chain. Category: infra."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "POST /api/scan — agent-readiness scan for a domain (~$0.01 USDC per call)"
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Web search API - live Google (default) or Bing SERP for a query: search engine results returned as ranked organic hits with title, URL, domain and snippet, localised by location and language. A google search api / serp api for agents: search the web, live web search for grounding, RAG and web lookup."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "High-precision Islamic prayer times (fajr, sunrise, dhuhr, asr, maghrib, isha) plus qibla direction for any coordinates and date. Pure astronomical computation (adhan library), 11 calculation methods including Umm al-Qura, Dubai, Egyptian, MWL. Ideal for agents building Muslim-facing schedules, reminders, or travel plans."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Pre-trade risk check for AI agents trading crypto: live orderbook slippage at YOUR size, side-aware funding carry, open-interest crowding, and optional contract security — composed into a single ok/caution/avoid verdict with per-factor reasons and raw data embedded. Answers 'is this trade sane?' before trading, not after. Replaces four API integrations plus the judgment layer."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Smart contract security check before you approve or pay an address: reads the bytecode, behind proxies too, for privileged functions (mint, pause, blacklist, upgrade), dangerous opcodes and protocol type, and checks whether a single key holds those powers. Adds OFAC SDN screening, who funded the address, sybil-filtered ERC-8004 reputation for agents and a 0-100 score with proceed / hold / block. Static analysis, not an audit. Free: GET /v1/verify. Trial: /v1/trial."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Web scraping API for AI agents — extract clean text and metadata from one safe public HTTPS URL in a single x402 call."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Industrial metals prices with momentum signals, category analysis, and AI brief"
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Invasive species alerts for conservation and naturalist agents. Returns threats, spread, control methods, and reporting channels for any region."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "x402 endpoint reliability pre-flight: factual service-delivery measurements of a target x402 endpoint before an agent pays it — reachability/uptime rate, valid-402 rate, response latency (p50/p95/p99), last status, and sampled paid delivery verification. Facts only (no trust score, no 'scam' label). Check whether an endpoint is live and delivers before spending on it."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Macro economic snapshot API — dated Eurozone economic indicators for trading/research agents: euro-area inflation (HICP / CPI), ECB policy interest rates (deposit, refi), unemployment and EUR FX from the official European Central Bank data portal — each indicator with value, as_of date, next_release cadence and a signed dated snapshot receipt for reproducible backtests. The interest-rate, inflation and currency context an agent needs before trading."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "invinoveritas /regime — the daily crypto risk-on/off + exposure-scalar read our own live trading bot acts on, recomputable from the raw inputs we return"
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Fusion Model. Internal reviewers examine the conversation and available tool results, then a final model returns the next OpenAI-compatible response, including tool calls when tools are provided. Supports repeated multi-turn calls, client-executed tools, and JSON responses. Internal review notes are not returned."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Test your x402 client or agent for the minimum price: confirms the payment arrived and echoes back the network, scheme, payer and amount the server saw, your IP, user agent, time and any 'eco' text you send."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Executive and C-suite total compensation benchmark by role, sector, level and country — CEO/CFO/CTO/VP pay, base salary percentiles, bonus and STI structure, equity and LTI grant norms, benefits, and total target compensation across major markets. For compensation, HR, comp-committee and board agents. Worldwide, any currency, 10 languages."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "CitePulse AI v4.0 — Live Server-Side GEO, Schema.org JSON-LD & /llms.txt Readiness Audit ($0.01 USDC on Base)."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "International state pension intelligence: eligibility, amount, and claiming-timing guidance for public pension systems worldwide. Deep coverage for UK, Canada, Australia, Germany, India, Japan, plus totalization agreements and frozen-pension-abroad rules. For retirement-planning and caregiver agents."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Spend-policy verdict for AI agents: POST a proposed spend, get allow/review/deny with the exact rules that fired (per-tx caps, per-agent daily ledger, destination allowlists, time windows) - 'review' can page a human on Telegram for approval before the agent proceeds. Pay per call."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Credit-card benefit coverage check — extended warranty, purchase protection, trip delay, cell phone, return protection — against ISSUER-verified published benefit guides (Chase, Amex, Capital One, Citi, HSBC, Amex UK, RBC CA + negative facts for Discover/gutted cards). Caps, deductibles, eligibility windows, and the filing deadlines that kill late claims, computed. No LLM."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Real-time web search for AI agents — search the web and get ranked SERP-style results as clean JSON: title, URL, snippet, relevance score, optional LLM-generated answer. Find up-to-date information online — latest news, current events, finance. Date, domain and exact-phrase filters."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Real-time local business and places search for AI agents. Find restaurants, coffee shops, stores, services, and nearby businesses with structured names, addresses, coordinates, ratings, categories, phone numbers, and websites where available. Send query, optional num, country, and lang as URL parameters. Keyless x402 pay-per-call; no API key, account, or subscription required."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Search Polymarket prediction markets by free text: elections, Fed rates, crypto prices, sports, geopolitics, AI. Returns the top matching open markets with live odds (outcome probabilities), best bid/ask, spread, volume, liquidity, end date and event link as flat JSON. Prediction market search, event odds lookup, \"what are the odds of X\". $0.001 per call — 5x cheaper than comparable PM search."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "On-demand AI responses backed by autonomous ICP canisters. Submit a prompt, get an answer — redundant infrastructure, pay-per-query, no account required."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "AI wallet portfolio analysis: token balances, PnL, risk metrics."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Real-time and ML-forecasted Solana (SOL) price. Kronos deep-learning model: up-probability, expected close, price range, p10-p90 quantiles, forward volatility across 1h/4h/24h horizons. Crypto price prediction / price forecast API for AI agents and trading bots. Pay-per-call via x402 on Base USDC. Live scored track record at /api/stats — measured on served predictions, not a backtest."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Agent-tier preview of the $5 medical-bill letter: deterministic eligibility verdict, which rights/statutes apply, computed deadlines, and exactly what the full letter adds — no document drafted, no LLM. Honest-no on expired windows and unprotected scenarios."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "$0.01 queryable trust badge summarizing an agent's verified settlement history - the minimum-viable signal to check before a first transaction. An agent with no history returns an honest zero and badge `none`, never a synthetic score. | BlindOracle by Craig M. Brown (craigmbrown.com) - counterparty-risk infrastructure sold to autonomous AI agents; self-built multi-agent framework (42+ agents); ERC-8004 agent passport #60979; paid via x402 in USDC on Base"
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Crypto news for AI agents: give a coin or topic, get the latest news articles from the past hour, day or week with publisher, date, snippet and link, plus an AI read of the coverage: mood, summary and themes."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Hourly air-quality data (PM2.5, PM10, ozone, NO2, European/US AQI) for any lat/lon, from the Copernicus CAMS model served by Open-Meteo (CC-BY 4.0), updated hourly. Query: ?latitude=48.8566&longitude=2.3522&hourly=pm2_5,pm10,european_aqi&forecast_days=2 (1..7 days). Returns parallel time/value arrays with units; cached 1h."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Deepent Research — refusal-free LLM inference (per-request)"
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Find the best accelerator or incubator for your startup worldwide — YC, Techstars, 500 Global, Antler, EF and 50+ regional programs, with equity terms, deadlines and acceptance rates. For founder and startup agents."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Student discounts / college student deals / verified student savings by category. Returns the best current verified student discounts for a category, with how to verify student status to claim each. For shopping and savings agents."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Trademark search / brand-name clearance / trademark availability check for any mark. Returns existing similar marks, USPTO/TESS status, likelihood-of-confusion analysis, filing strategy, domain-availability context, and opposition/enforcement risk for given goods/services. For IP and brand agents. Worldwide."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Web search. Send a query; returns up to 20 ranked Google web results with title, URL, snippet and date where known. Use when an agent needs links to read or to check what exists on the web. Not for reading page content (use /v1/fetch-page) or for a written answer (use /v1/research-answer). Typical response 1 to 2 s. Failed calls are not charged."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Is my medication recalled? Checks the FDA enforcement databases (drug AND food — infant formula and supplements are filed under food) for active and past recalls, explains the recall class (I/II/III) in plain language, and lays out what to do. For patient, caregiver, pharmacy, and health-assistant agents."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Screen Japanese listed companies by fundamentals from EDINET annual reports. Filter any of 40+ normalized metrics with _gte/_lte query params — revenue, operating income, net income, total assets, roe, roa, operating_margin, equity_ratio (ratio thresholds in percent) — plus sector and accounting standard (JGAAP/IFRS/USGAAP). Returns the latest fiscal year per company with all indicators and ratios. Example: /v2/screener?roe_gte=8&revenue_gte=100000000000. Japan stock screener for agents."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "GLEIF LEI lookup for AI agents — Legal Entity Identifier search by LEI code, legal name, or domain. Keyless Global LEI Index Golden Copy (api.gleif.org), no API key. LEI, jurisdiction, registration status, LOU. Ed25519-attested. $0.005 Base USDC x402. Matches: LEI, GLEIF, legal entity identifier, LEI lookup, company LEI."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Check if an agent's reputation is real: Sybil forensics for one ERC-8004 AI agent — reviewer concentration, ghost reviewers, burst detection. Is this agent's feedback bought? No account, no API key"
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Argentine peso dollar rates in one GET with no parameters: oficial, blue, MEP, CCL, tarjeta and cripto with buy and sell quotes from DolarApi (open source, MIT), plus the gap percent between the crypto dollar and the official rate, source URL, read time and provider update time. Use this when an agent prices, converts or reports anything in Argentina and needs the real dollar, not only the official one. JSON, no model inference. Free sample at /api/dolar-ar/sample."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Resolve any public IPv4/IPv6 address (or hostname) to geolocation for analytics, fraud, and ops agents. Returns ISO country code, region, city, IANA timezone, latitude/longitude, EU membership flag, and the matched network range. Backed by an embedded MaxMind GeoLite2 dataset (no external API calls). Private and reserved IP ranges are rejected; no shell access."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "SWARM Read Page - Retrieve the content of a URL as clean, LLM-ready text (headings with #, lists with -; menus, scripts, styles and markup removed). Use when an agent needs to read a web page, article or docs page without paying model tokens for raw HTML: on 15 public pages we measured, the text was a median 97% smaller than the HTML (about 67,000 fewer tokens per page). Requires `url`; HTML or text up to 3 MB. Not billed if the page cannot be read. $0.002."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Fast deterministic check that a public URL is alive: HTTP status, redirects, content-type, size, and title. Built for agent workflows before paying for deeper crawls."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "AI Disruption Radar. Combines macro, market and risk evidence into strategic scenarios, timing questions and option-value context. Purpose: Improve strategic choices by making assumptions, reversibility, triggers and evidence gaps explicit. 15-minute freshness target; missing evidence is reported explicitly rather than invented."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Check this CA: Base ERC-20 verdict of a token contract address. Not financial advice. Returns: an AI-written token verdict on one token contract: grade (BASED/MID/COOKED/RADIOACTIVE, a stated rule over the contract's own state), a one-liner and a roast, and the facts read: code size, name, symbol, decimals, supply, owner(), proxy slots; plus the deepest Uniswap V3 pool's USD price and depth. No holders, no safety or legitimacy call."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Trending games tracker for gamer agents. Returns what's exploding on Steam right now and why."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Generate or edit images, video, music, and speech via fal.ai. Pass `model` (one of the registered keys) plus the model-specific params (prompt, image_url, aspect_ratio, duration, text, etc.)."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Structured evaluation with TypeSafe's Jev (System One) model. Send any state plus typed questions — noul (true/false), choice (pick one), or score (ordinal scale) — and get back calibrated probabilities and confidence for each. Built for routing, classification, triage and policy checks where a fast, predictable, machine-readable answer beats prose."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Returns network-wide totals: total x402 events, service count, and a UA classification breakdown (agent vs browser vs bot). Use it to benchmark your service's agent-traffic share against the network."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "NexusSDR AI v2.4 — Live B2B Domain Buying-Intent Signal, ICP Fit & 3-Touch Outbound Sequence Audit ($0.01 USDC on Base)."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Convert raw HTML you already have into clean markdown. Send JSON {\"html\": \"...\"} and get back markdown with scripts, styles and boilerplate stripped. Cheaper than /read when the agent has already fetched the page."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "529 withdrawal & rollover checker — LITE preview. Same deterministic engine as the full product: verdict + a one-line federal headline for THIS withdrawal (K-12 OBBBA cap, credentialing, SECURE 2.0 Roth rollover, student-loan cap, non-qualified) and a California-trap flag. Full federal/CA breakdown, all flags, and IRC/SECURE 2.0/OBBBA/FTB citations are in the full product. Deterministic, no LLM."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Domain trust score in one call: combines RDAP domain age and registry status, DNS, MX, SPF, DMARC, DKIM and an HTTPS reachability probe into a deterministic 0-100 score, a verdict (low_risk, review, high_risk) and the reason codes behind it. For vetting a vendor, sender, signup or link before an agent acts. Uncharged if a data source is down. $0.01 USDC per call on Base."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Send a Base token contract address, get an AI-written verdict: onchain metrics, a plain-language take, and a shareable verdict card. Entertainment, not trading advice."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Fetch any public web page and return its main readable content as clean Markdown or plain text plus metadata (title), stripping nav/ads/boilerplate (trafilatura). Optional JS rendering via headless browser for SPAs; markdown or text output. Robots-respecting, public content only — the reader/scraper building block for RAG and agent pipelines."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Boolean pre-flight check for L2 transaction safety across all 12 chains (?chain= param, default: base). Returns safe=true/false with reason code. Revert ratio data available for Base and Arbitrum only (eth_getBlockReceipts); other chains use RTT-only analysis. Optimized for high-frequency agent calls."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Use when an agent needs a trusted UTC timestamp or the smallest end-to-end test of its x402 payment client. Returns Current server time as ISO 8601 and Unix epoch milliseconds, returned only after a real settlement. $0.01."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "cc0.company — x402 agent-services marketplace on Base (USDC): CC0 image generation, market-data digests, and third-party agent tools. This endpoint: Sartoshi Generator, Generate 1/1 hand-drawn mfer art in the style of sartoshi (CC0). Thin wobbly ink lines, naive doodle style. Fine-tuned by cc0toshi on a public-domain corpus. CC0 output. Async — returns a job_id to poll."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Premium event-weather brief for any date and location worldwide. Rain, heat, frost, wind, and extreme-heat odds computed in code from 10 years of actual NASA POWER reanalysis rows (counted, not model-estimated), the live 10-day MET Norway forecast when the date is in range, a dated go/no-go decision timeline, contingency plan, schedule guidance, and heat-safety plan for weddings, festivals, marathons, and any outdoor event."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Prepare ERC-8004 agent registration. Prepare an unsigned ERC-8004 agent registration transaction."
+ },
+ {
+  "kind": "listing",
+  "source": "api",
+  "task": "choose a paid API for the user",
+  "text": "Text and embedding similarity scoring: cosine match and dedupe decisions at fixed model precision. POST /v1/semantic with {text_a, text_b} and get a similarity score as one JSON object. Deterministic. Pay per request in USDC; no account, no API key."
+ }
+]
