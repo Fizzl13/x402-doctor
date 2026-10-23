@@ -52,6 +52,8 @@ const CAP_USD = 0.01;
 const FREE_PER_HOUR = 10;
 const BUY_ROUTE = '/v1/buy';
 const EXAMPLE_NEED = 'weather forecast for Amsterdam tomorrow';
+// The agent's entries in agent registries (ERC-8004 Identity Registry on Base: the agentId once registered).
+const AGENT_REGISTRATIONS = [];
 
 const memoryOf = () => {
   const m = process.memoryUsage();
@@ -171,6 +173,8 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null } = {}) {
     // spent_usd: what this call paid sellers (also when the agent's own payment then failed), for the day budget.
     if (req.path === BUY_ROUTE && req.method === 'POST') return { route: 'buy', via, input: { chars: String(req.body?.need || '').length, ...(res.locals.spentUsd ? { spent_usd: res.locals.spentUsd, instance } : {}) }, result: { delivered: body?.delivered, paid_usd: body?.paid_usd, service: body?.service?.url ? new URL(body.service.url).host : undefined, tried: body?.tried, error: body?.error } };
     if (req.path === '/v1/pick') return { route: 'pick', via, input: { chars: String(req.query.need || '').length }, result: { pick: body?.pick?.url ? new URL(body.pick.url).host : null, error: body?.error } };
+    // Who reads the ERC-8004 registration (agent registries and their indexers).
+    if (req.method === 'GET' && req.path === '/.well-known/agent-registration.json') return { route: 'agent registration', via: 'discovery', input: {}, result: { status: res.statusCode } };
     if (req.path === '/mcp' && req.body?.method === 'tools/call') return { route: String(req.body.params?.name || 'mcp'), via, input: {}, result: {} };
     return null;
   }));
@@ -220,6 +224,22 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null } = {}) {
   app.get('/openapi.json', (_req, res) => res.json(openApi(publicUrl)));
   app.get('/.well-known/x402', (_req, res) => res.json({ version: 1, x402Version: 2, name: 'Fizzl Buy', serviceName: 'Fizzl Buy', description: routes[`POST ${BUY_ROUTE}`].description, resources: [{ url: `${publicUrl}${BUY_ROUTE}`, method: 'POST', name: 'Buy for your agent', description: 'One call: the right paid API, bought and checked.' }], openapi: `${publicUrl}/openapi.json` }));
   app.get('/llms.txt', (_req, res) => res.type('text/plain; charset=utf-8').send(llmsTxt(publicUrl)));
+  // Agent registration (ERC-8004 format): the document the agent's entry in the ERC-8004 Identity Registry on Base
+  // points to (tokenURI), as x402 Doctor, presign-guard and Ichimoku Signal serve theirs.
+  app.get('/.well-known/agent-registration.json', (_req, res) => res.json({
+    type: 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1',
+    name: 'Fizzl Buy',
+    description: routes[`POST ${BUY_ROUTE}`].description,
+    image: 'https://fizzl.eu/logo-512.png',
+    services: [
+      { name: 'web', endpoint: `${publicUrl}/` },
+      { name: 'MCP', endpoint: `${publicUrl}/mcp`, version: '2025-06-18' },
+    ],
+    active: true,
+    x402Support: true,
+    registrations: AGENT_REGISTRATIONS,
+    supportedTrust: [],
+  }));
   app.get('/', (req, res) => {
     if (req.accepts(['html', 'json']) === 'json') return res.json({ name: 'Fizzl Buy', description: routes[`POST ${BUY_ROUTE}`].description, buy: `POST ${publicUrl}${BUY_ROUTE}`, pick: `GET ${publicUrl}/v1/pick?need=…`, mcp: `${publicUrl}/mcp`, price_usd: PRICE_USD, cap_usd: CAP_USD });
     res.type('html').send(fs.readFileSync(path.join(__dirname, 'public-buy', 'index.html'), 'utf8'));
