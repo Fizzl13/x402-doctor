@@ -404,7 +404,7 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
 function openApi(publicUrl) {
   return {
     openapi: '3.1.0',
-    info: { title: 'Fizzl Buy', version: '1.0.0', description: 'The inkoper: one call buys the right paid x402 API for your agent, picked by x402 Doctor\'s track records, and returns the answer checked by TypeSafe Jev.', contact: { name: 'Fizzl', url: 'https://fizzl.eu', email: 'Fizzl13@protonmail.com' }, 'x-guidance': `POST ${BUY_ROUTE} with {"need": "<what you need, with the details>"} and pay $${PRICE_USD} over x402. You get the answer, which service it came from and what it cost. Nothing is charged when no service delivers. To see first what would be bought, GET /v1/pick?need=… (free).` },
+    info: { title: 'Fizzl Buy', version: '1.1.0', termsOfService: 'https://fizzl.eu/terms/', description: 'The inkoper: one call buys the right paid x402 API for your agent, picked by x402 Doctor\'s track records, and returns the answer checked by TypeSafe Jev.', contact: { name: 'Fizzl', url: 'https://fizzl.eu', email: 'Fizzl13@protonmail.com' }, 'x-guidance': `POST ${BUY_ROUTE} with {"need": "<what you need, with the details>"} and pay $${PRICE_USD} over x402. You get the answer, which service it came from and what it cost. Nothing is charged when no service delivers. To see first what would be bought, GET /v1/pick?need=… (free).` },
     servers: [{ url: publicUrl }],
     paths: {
       [BUY_ROUTE]: {

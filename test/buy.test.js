@@ -167,6 +167,7 @@ test('server: free pick with its limit, the purchase, bad input, no wallet, disc
   assert.equal((await fetch(`${base}/v1/pick?need=weather%20amsterdam`)).status, 429, 'the free limit');
   const spec = await (await fetch(`${base}/openapi.json`)).json();
   assert.equal(spec.paths['/v1/buy'].post['x-payment-info'].price.amount, '0.02');
+  assert.equal(spec.info.termsOfService, 'https://fizzl.eu/terms/');
   assert.equal((await (await fetch(`${base}/.well-known/x402`)).json()).resources[0].url, 'https://buy.test/v1/buy');
   assert.match(await (await fetch(`${base}/llms.txt`)).text(), /POST https:\/\/buy\.test\/v1\/buy/);
   const skill = await fetch(`${base}/skill.md`);
@@ -186,6 +187,7 @@ test('server: free pick with its limit, the purchase, bad input, no wallet, disc
   assert.match(home, /Fizzl Buy/);
   assert.match(home, /over x402 \(USDC on Base\), for services/);
   assert.doesNotMatch(home, /\{\{networks\}\}/);
+  assert.match(home, /href="https:\/\/fizzl\.eu\/terms\/">Terms<\/a>/);
   const health = await (await fetch(`${base}/health`)).json();
   assert.equal(health.wallet, '0xBuy');
 
