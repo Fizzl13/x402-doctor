@@ -165,9 +165,12 @@ test('server: free pick with its limit, the purchase, bad input, no wallet, disc
   assert.equal(r503.status, 503);
 });
 
-test('routes: $0.02 on Base, and on Solana with a Solana payout address; five minutes to buy', () => {
+test('routes: $0.02 on Base, and on Solana with a Solana payout address; five minutes to buy; seller and Builder Code', () => {
   const r = routesFor({ AGENT_PAYOUT_WALLET: PAY_TO, AGENT_PAYOUT_WALLET_SOLANA: 'ATWJ82T8nRdQwZnaysB68N5EpaSvLRsQP4h6eWmaJBH9' })['POST /v1/buy'];
   assert.deepEqual(r.accepts.map((a) => [a.network, a.price, a.maxTimeoutSeconds]), [['eip155:8453', '$0.02', 300], ['solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp', '$0.02', 300]]);
   assert.equal(routesFor({ AGENT_PAYOUT_WALLET: PAY_TO })['POST /v1/buy'].accepts.length, 1);
   assert.equal(r.extensions.bazaar.info.input.body.need, 'weather forecast for Amsterdam tomorrow');
+  assert.equal(r.extensions['x402-merchant'].info.name, 'Fizzl');
+  assert.equal(r.extensions['builder-code'], undefined, 'no Builder Code without BUILDER_CODE');
+  assert.equal(routesFor({ AGENT_PAYOUT_WALLET: PAY_TO, BUILDER_CODE: 'fizzl_test' })['POST /v1/buy'].extensions['builder-code'].info.a, 'fizzl_test');
 });

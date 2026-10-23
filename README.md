@@ -480,6 +480,10 @@ Amsterdam tomorrow"}`, $0.02 over x402 (USDC on Base or Solana), for services up
 BTC price, web search, crypto news, EUR to USD, a token check, a translation), passing over a caution and a seller
 that didn't answer 402.
 
+Live at https://buy.fizzl.eu since 23 Oct 2026 (the first indexing payment was delivered in 15 seconds). Like the
+other fizzl.eu services, its 402 names the seller (`x402-merchant`) and, with `BUILDER_CODE` set on the Render
+service, carries the Base Builder Code.
+
 ## Agent skills
 
 Two [Agent Skills](https://agentskills.io) in [`skills/`](skills) teach a coding agent (Claude Code, Codex, Cursor and others that read `SKILL.md`) when and how to use Doctor:

@@ -29,6 +29,7 @@ const { z } = require('zod');
 const { createFacilitatorStart } = require('./lib/facilitator-start');
 const { onPublicHost } = require('./lib/public-host');
 const { mirrorChallengeIntoBody } = require('./lib/paid-api');
+const { merchantExtension, builderCodeExtension } = require('./lib/merchant');
 const { createSigner, signPaidResponses } = require('./lib/receipt');
 const { createUsageLog } = require('./lib/usage-log');
 const { createSafeFetch } = require('./lib/safe-fetch');
@@ -93,13 +94,18 @@ function routesFor(env) {
       serviceName: 'Fizzl Buy',
       tags: ['agents', 'x402', 'marketplace', 'buyer', 'trust'],
       iconUrl: 'https://x402-doctor.fizzl.eu/icon.png',
-      extensions: declareDiscoveryExtension({
-        method: 'POST',
-        bodyType: 'json',
-        input: { need: EXAMPLE_NEED },
-        inputSchema: { properties: { need: { type: 'string', description: 'What your agent needs, in a sentence: the data or result, with the details (place, symbol, query).' } }, required: ['need'] },
-        output: { example: OUTPUT_EXAMPLE },
-      }),
+      // Who sells it, and the Base Builder Code once BUILDER_CODE is set, as on the other fizzl.eu services.
+      extensions: {
+        ...declareDiscoveryExtension({
+          method: 'POST',
+          bodyType: 'json',
+          input: { need: EXAMPLE_NEED },
+          inputSchema: { properties: { need: { type: 'string', description: 'What your agent needs, in a sentence: the data or result, with the details (place, symbol, query).' } }, required: ['need'] },
+          output: { example: OUTPUT_EXAMPLE },
+        }),
+        ...merchantExtension,
+        ...builderCodeExtension(env.BUILDER_CODE),
+      },
     },
   };
 }
