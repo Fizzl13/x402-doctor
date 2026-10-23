@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fizzl Buy: one call buys the right paid API for your agent</title>
+<meta name="description" content="Say what your agent needs. Fizzl picks the paid x402 API that x402 Doctor has seen paying out day after day at a fair price, buys it and returns the checked answer. $0.02 a purchase; nothing charged when no service delivers.">
+<link rel="alternate" type="text/plain" href="/llms.txt" title="llms.txt">
+<style>
+  :root { --bg: #0b0f14; --card: #121821; --text: #e6edf3; --muted: #9aa7b4; --accent: #5eead4; --line: #223041; }
+  @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --bg: #f7f9fb; --card: #ffffff; --text: #111827; --muted: #4b5563; --accent: #0f766e; --line: #e5e7eb; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.55 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 32px 16px 56px; }
+  h1 { font-size: 30px; line-height: 1.2; margin: 0 0 12px; }
+  h2 { font-size: 19px; margin: 32px 0 10px; }
+  p, li { color: var(--muted); }
+  b, strong { color: var(--text); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; margin: 14px 0; }
+  code, pre { font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  pre { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; overflow-x: auto; color: var(--text); }
+  ol li { margin: 6px 0; }
+  a { color: var(--accent); }
+  .price { color: var(--accent); font-weight: 600; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Fizzl Buy: one call buys the right paid API for your agent</h1>
+  <p>Say what your agent needs. Fizzl picks the paid x402 API that <a href="https://x402-doctor.fizzl.eu/trust">x402 Doctor</a> has seen paying out day after day at a fair price, fills in its input, buys it and returns the answer, checked by TypeSafe Jev, with a signed receipt.</p>
+  <div class="card"><b>Price:</b> <span class="price">$0.02</span> a purchase over x402 (USDC on Base or Solana), for services up to $0.01. <b>Nothing is charged when no service delivers.</b></div>
+
+  <h2>Why</h2>
+  <p>The x402 Bazaar lists more than 36,000 paid endpoints. Many are broken, test services or bait, and an agent can't tell which. x402 Doctor checks every one of them every day; Fizzl Buy only buys from sellers with a good track record, after a fresh pre-payment check (OFAC payout screen, namesakes, bait), and checks that the answer is what was paid for.</p>
+
+  <h2>How it works</h2>
+  <ol>
+    <li><b>Pick:</b> the paid APIs that fit the need, ranked by meaning, kept to sellers payable on at least 80% of the days x402 Doctor checked.</li>
+    <li><b>Fill in:</b> the service's own input, taken from your sentence.</li>
+    <li><b>Check and buy:</b> a fresh preflight must say go; then Fizzl pays from its own wallet.</li>
+    <li><b>Check the answer:</b> TypeSafe Jev judges whether it is what was paid for. If not, Fizzl tries the next service.</li>
+  </ol>
+
+  <h2>Use it</h2>
+  <pre>POST https://buy.fizzl.eu/v1/buy
+{"need": "weather forecast for Amsterdam tomorrow"}</pre>
+  <p>Free first: <code>GET https://buy.fizzl.eu/v1/pick?need=…</code> shows which service would be bought and why (10 an hour), and the MCP server at <code>https://buy.fizzl.eu/mcp</code> has the free tool <code>x402_pick</code>.</p>
+
+  <p>Part of <a href="https://fizzl.eu">Fizzl</a>: x402 Doctor, presign-guard and the agent wallet. <a href="/openapi.json">OpenAPI</a> · <a href="/llms.txt">llms.txt</a></p>
+</main>
+</body>
+</html>

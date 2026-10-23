@@ -457,6 +457,29 @@ names payable sellers only; problems are counted. Files: `reports/<date>-<networ
 drafts), plus `reports/networks/<network>-latest.json`, the snapshot next week compares with. Locally:
 `node scripts/network-digest.js --out reports [--index trust-data/index.json] [--previous reports/networks]`.
 
+## Fizzl Buy (buy.fizzl.eu)
+
+Fizzl's fourth agent, from this repository (`buy-server.js`, `lib/buy/`), runs as its own Render service. An agent
+says what it needs and the inkoper buys the right paid API for it: `POST /v1/buy {"need": "weather forecast for
+Amsterdam tomorrow"}`, $0.02 over x402 (USDC on Base or Solana), for services up to $0.01.
+
+1. **Pick** (`lib/buy/search.js`): the wallet server's ranked search of the whole Bazaar, kept to sellers payable in
+   USDC on Base within the cap and payable on at least 80% of 3 or more days x402 Doctor checked.
+2. **Fill in** (`lib/buy/fill.js`): Claude answers the seller's input from the need (the keys of its Bazaar example,
+   path parameters into the path).
+3. **Check and buy** (`lib/buy/purchase.js`): a fresh preflight must say go (OFAC payout screen, track record,
+   namesake, bait); then the inkoper's own wallet (`BUY_WALLET_KEY`, kept small) pays, within `BUY_DAILY_USD` a day
+   (default 5) and its balance.
+4. **Check the answer**: TypeSafe Jev's answer check (`lib/jev-answer.js`). Not what was paid for, an error or an empty
+   answer moves on to the next candidate, at most three. When none delivers the answer is an error and the agent's
+   own payment is not settled.
+
+`GET /v1/pick?need=…` and the MCP tool `x402_pick` (free, 10 an hour) say what would be bought and why.
+`node scripts/buy-dry-run.js "<need>" …` shows the picks, the filled-in requests and the preflights without paying
+(needs `ANTHROPIC_API_KEY`). On 23 Oct 2026 it found a seller with a preflight go for all seven test needs (weather,
+BTC price, web search, crypto news, EUR to USD, a token check, a translation), passing over a caution and a seller
+that didn't answer 402.
+
 ## Agent skills
 
 Two [Agent Skills](https://agentskills.io) in [`skills/`](skills) teach a coding agent (Claude Code, Codex, Cursor and others that read `SKILL.md`) when and how to use Doctor:
