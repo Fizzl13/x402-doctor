@@ -1,0 +1,39 @@
+name: Jev check (one URL)
+
+# By hand: what TypeSafe's Jev says about one paid API, asked the way the paid preflight asks it (bait: brand
+# impersonation, lure, output mismatch; and the price check), with the raw scores and the preflight's reasons.
+# Read-only: it fetches the 402, nothing is paid and nobody is contacted. Needs the repository secret
+# TYPESAFE_API_KEY. The report is in the run summary.
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: "The paid endpoint to check"
+        required: true
+      method:
+        description: "GET or POST (empty: the one its 402 answers to)"
+        required: false
+        default: ""
+  push:
+    branches: [claude/jev-check]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Check
+        env:
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+          URL: ${{ inputs.url || 'https://api.lumitrades.io/v1/trust/vendors/asksurf/report' }}
+          METHOD: ${{ inputs.method }}
+        run: node scripts/jev-check.js "$URL" "$METHOD"
