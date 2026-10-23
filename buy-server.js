@@ -8,6 +8,7 @@
 //                          when no service delivers (the paywall settles only a 2xx answer).
 //   GET  /v1/pick?need=…   free (10 an hour per caller): which service the inkoper would buy, and why.
 //   POST /mcp              MCP: x402_pick (free) and x402_buy ($0.02, paid inside the call, _meta["x402/payment"]).
+//   GET  /.well-known/mcp/server-card.json   the same tools for MCP directories (Smithery and others).
 //
 // Runs as its own Render service from this repository (render.yaml, service fizzl-buy). Env: PUBLIC_URL,
 // AGENT_PAYOUT_WALLET (+ AGENT_PAYOUT_WALLET_SOLANA), CDP_API_KEY_ID/SECRET, BUY_WALLET_KEY (the inkoper's own wallet,
@@ -33,6 +34,7 @@ const { createPaymentWrapper } = require('@x402/mcp');
 const { createFacilitatorConfig } = require('@coinbase/x402');
 const { McpServer } = require('@modelcontextprotocol/sdk/server/mcp.js');
 const { StreamableHTTPServerTransport } = require('@modelcontextprotocol/sdk/server/streamableHttp.js');
+const { serverCard } = require('./lib/mcp');
 const { z } = require('zod');
 const { createFacilitatorStart } = require('./lib/facilitator-start');
 const { onPublicHost } = require('./lib/public-host');
@@ -237,6 +239,7 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
     if (req.path === '/v1/pick') return { route: 'pick', via, input: { chars: String(req.query.need || '').length }, result: { pick: body?.pick?.url ? new URL(body.pick.url).host : null, error: body?.error } };
     // Who reads the ERC-8004 registration (agent registries and their indexers).
     if (req.method === 'GET' && req.path === '/.well-known/agent-registration.json') return { route: 'agent registration', via: 'discovery', input: {}, result: { status: res.statusCode } };
+    if (req.method === 'GET' && req.path === '/.well-known/mcp/server-card.json') return { route: 'mcp server card', via: 'discovery', input: {}, result: { status: res.statusCode } };
     if (req.path === '/mcp' && req.body?.method === 'tools/call' && req.body.params?.name === 'x402_buy') {
       const r = body?.result?.structuredContent;
       return { route: 'x402_buy', via, input: { chars: String(req.body.params?.arguments?.need || '').length, ...(res.locals.spentUsd ? { spent_usd: res.locals.spentUsd, instance } : {}) }, result: { delivered: r?.delivered, paid_usd: r?.paid_usd, service: r?.service?.url ? new URL(r.service.url).host : undefined, tried: r?.tried, error: body?.result?.isError ? String(body.result.content?.[0]?.text || '').slice(0, 200) : undefined }, payment: mcpPayment(req.body, body) };
@@ -285,7 +288,8 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
     return buyWrapper;
   }
 
-  app.post('/mcp', express.json({ limit: '64kb' }), async (req, res) => {
+  // One MCP server per request (stateless): x402_pick, plus x402_buy when payments are on.
+  const mcpServer = (req, res) => {
     const server = new McpServer({ name: 'fizzl-buy', version: '1.1.0' });
     if (resourceServer && wallet) {
       server.registerTool('x402_buy', {
@@ -337,6 +341,10 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
         return { content: [{ type: 'text', text: `could not search: ${err.message}` }], isError: true };
       }
     });
+    return server;
+  };
+  app.post('/mcp', express.json({ limit: '64kb' }), async (req, res) => {
+    const server = mcpServer(req, res);
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
     res.on('close', () => { transport.close(); server.close(); });
     try {
@@ -345,6 +353,19 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
     } catch (err) {
       console.error('[mcp] error:', err);
       if (!res.headersSent) res.status(500).json({ jsonrpc: '2.0', error: { code: -32603, message: 'internal error' }, id: null });
+    }
+  });
+
+  // Static server card (SEP-1649) for MCP directories such as Smithery, as x402 Doctor serves one: the same tools as
+  // tools/list on /mcp, read once from a server built like the one per request.
+  let card = null;
+  app.get('/.well-known/mcp/server-card.json', async (_req, res) => {
+    try {
+      card = card || serverCard(mcpServer({ ip: '' }, { locals: {} })).catch((err) => { card = null; throw err; });
+      res.set('Access-Control-Allow-Origin', '*').set('Cache-Control', 'public, max-age=3600').json(await card);
+    } catch (err) {
+      console.error('[mcp] server card:', err);
+      res.status(500).json({ error: 'server card unavailable' });
     }
   });
 
