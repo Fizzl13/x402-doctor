@@ -1,0 +1,18 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Fizzl13/fizzl-buy",
+  "title": "Fizzl Buy",
+  "description": "Say what your agent needs: Fizzl buys the right paid x402 API, checks the answer. Free pick.",
+  "version": "1.0.0",
+  "repository": {
+    "url": "https://github.com/Fizzl13/x402-doctor",
+    "source": "github"
+  },
+  "websiteUrl": "https://buy.fizzl.eu",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://buy.fizzl.eu/mcp"
+    }
+  ]
+}

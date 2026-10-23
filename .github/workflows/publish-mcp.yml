@@ -1,9 +1,16 @@
 name: Publish to MCP registry
 
-# Publishes server.json (the remote /mcp endpoint) to the official MCP
-# registry. Uses GitHub OIDC for the io.github.Fizzl13/* namespace: no secrets.
+# Publishes a remote /mcp endpoint to the official MCP registry: x402 Doctor (server.json) or Fizzl Buy
+# (server.buy.json, buy-server.js in this repository). Uses GitHub OIDC for the io.github.Fizzl13/* namespace: no
+# secrets.
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      server:
+        description: "Which server to publish"
+        type: choice
+        options: [x402-doctor, fizzl-buy]
+        default: x402-doctor
 
 permissions:
   id-token: write
@@ -12,17 +19,30 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    env:
+      SERVER: ${{ inputs.server || 'x402-doctor' }}
     steps:
       - uses: actions/checkout@v5
+      - name: Pick the server
+        run: |
+          if [ "$SERVER" = "fizzl-buy" ]; then
+            cp server.buy.json server.json
+            echo "HOST=https://buy.fizzl.eu" >> "$GITHUB_ENV"
+            echo "TOOL=x402_pick" >> "$GITHUB_ENV"
+          else
+            echo "HOST=https://x402-doctor.fizzl.eu" >> "$GITHUB_ENV"
+            echo "TOOL=x402_quick_check" >> "$GITHUB_ENV"
+          fi
+          grep '"name"' server.json
       # The registry probes nothing, but a sleeping Render instance makes the
       # listing look dead to the first visitors; wake it and check /mcp.
       - name: Check the live MCP endpoint
         run: |
-          curl -s -o /dev/null --retry 5 --retry-delay 10 --max-time 90 https://x402-doctor.fizzl.eu/
-          curl -sf --max-time 60 https://x402-doctor.fizzl.eu/mcp \
+          curl -s -o /dev/null --retry 5 --retry-delay 10 --max-time 90 "$HOST/"
+          curl -sf --max-time 60 "$HOST/mcp" \
             -H 'content-type: application/json' -H 'accept: application/json, text/event-stream' \
             -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | tee tools.json
-          grep -q x402_quick_check tools.json
+          grep -q "$TOOL" tools.json
       - name: Install mcp-publisher
         run: |
           curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" | tar xz mcp-publisher
