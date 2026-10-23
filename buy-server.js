@@ -28,6 +28,7 @@ const { StreamableHTTPServerTransport } = require('@modelcontextprotocol/sdk/ser
 const { z } = require('zod');
 const { createFacilitatorStart } = require('./lib/facilitator-start');
 const { onPublicHost } = require('./lib/public-host');
+const { fizzlCors } = require('./lib/fizzl-cors');
 const { mirrorChallengeIntoBody } = require('./lib/paid-api');
 const { merchantExtension, builderCodeExtension } = require('./lib/merchant');
 const { createSigner, signPaidResponses } = require('./lib/receipt');
@@ -174,7 +175,8 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null } = {}) {
     return null;
   }));
 
-  // Free: what the inkoper would buy.
+  // Free: what the inkoper would buy (also from the live demo on fizzl.eu, in the browser).
+  app.use('/v1/pick', fizzlCors);
   app.get('/v1/pick', async (req, res) => {
     try {
       const need = needOf(req.query.need);
