@@ -159,6 +159,9 @@ test('server: free pick with its limit, the purchase, bad input, no wallet, disc
   assert.equal(spec.paths['/v1/buy'].post['x-payment-info'].price.amount, '0.02');
   assert.equal((await (await fetch(`${base}/.well-known/x402`)).json()).resources[0].url, 'https://buy.test/v1/buy');
   assert.match(await (await fetch(`${base}/llms.txt`)).text(), /POST https:\/\/buy\.test\/v1\/buy/);
+  const skill = await fetch(`${base}/skill.md`);
+  assert.match(skill.headers.get('content-type'), /text\/markdown/);
+  assert.match(await skill.text(), /^---\nname: fizzl-buy\n[\s\S]*POST https:\/\/buy\.test\/v1\/buy/);
   const agent = await (await fetch(`${base}/.well-known/agent-registration.json`)).json();
   assert.equal(agent.type, 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1');
   assert.equal(agent.name, 'Fizzl Buy');
