@@ -159,6 +159,11 @@ test('server: free pick with its limit, the purchase, bad input, no wallet, disc
   assert.equal(spec.paths['/v1/buy'].post['x-payment-info'].price.amount, '0.02');
   assert.equal((await (await fetch(`${base}/.well-known/x402`)).json()).resources[0].url, 'https://buy.test/v1/buy');
   assert.match(await (await fetch(`${base}/llms.txt`)).text(), /POST https:\/\/buy\.test\/v1\/buy/);
+  const agent = await (await fetch(`${base}/.well-known/agent-registration.json`)).json();
+  assert.equal(agent.type, 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1');
+  assert.equal(agent.name, 'Fizzl Buy');
+  assert.deepEqual(agent.services.map((x) => x.endpoint), ['https://buy.test/', 'https://buy.test/mcp']);
+  assert.equal(agent.x402Support, true);
   assert.match(await (await fetch(`${base}/`, { headers: { accept: 'text/html' } })).text(), /Fizzl Buy/);
   const health = await (await fetch(`${base}/health`)).json();
   assert.equal(health.wallet, '0xBuy');
