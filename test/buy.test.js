@@ -136,12 +136,15 @@ test('server: free pick with its limit, the purchase, bad input, no wallet, disc
   const a = await seller();
   const { d } = await deps({ results: [result(`${a}/w`)] });
   const noLog = { middleware: () => (_req, _res, next) => next() };
-  const app = createBuyApp({ env: { PUBLIC_URL: 'https://buy.test', AGENT_PAYOUT_WALLET: PAY_TO }, deps: { fetch: d.fetch, safeFetch: d.safeFetch, sanctions: null, trustIndex: null, lure: null, answerCheck: d.answerCheck, filler: { enabled: true, fill: d.fill }, wallet: { address: '0xBuy', payFetch: d.payFetch, balance: d.balance }, budget: d.budget, usageLog: noLog, signer: null, freeLimiter: (() => { let n = 0; return () => ++n <= 2; })() } });
+  const app = createBuyApp({ env: { PUBLIC_URL: 'https://buy.test', AGENT_PAYOUT_WALLET: PAY_TO }, deps: { fetch: d.fetch, safeFetch: d.safeFetch, sanctions: null, trustIndex: null, lure: null, answerCheck: d.answerCheck, filler: { enabled: true, fill: d.fill }, wallet: { address: '0xBuy', payFetch: d.payFetch, balance: d.balance }, budget: d.budget, usageLog: noLog, signer: null, freeLimiter: (() => { let n = 0; return () => ++n <= 4; })() } });
   const server = await new Promise((r) => { const s = app.listen(0, '127.0.0.1', () => r(s)); });
   servers.push(server);
   const base = `http://127.0.0.1:${server.address().port}`;
   const pick = await (await fetch(`${base}/v1/pick?need=weather%20amsterdam`)).json();
   assert.equal(pick.pick.url, `${a}/w`);
+  const fromSite = await fetch(`${base}/v1/pick?need=weather%20amsterdam`, { headers: { origin: 'https://fizzl.eu' } });
+  assert.equal(fromSite.headers.get('access-control-allow-origin'), 'https://fizzl.eu', 'the live demo on fizzl.eu');
+  assert.equal((await fetch(`${base}/v1/pick?need=weather%20amsterdam`, { headers: { origin: 'https://evil.example' } })).headers.get('access-control-allow-origin'), null);
   assert.deepEqual(pick.buy, { method: 'POST', url: 'https://buy.test/v1/buy', body: { need: 'weather amsterdam' }, price_usd: 0.02, note: pick.buy.note });
   assert.equal((await fetch(`${base}/v1/pick?need=x`)).status, 400);
   const bought = await fetch(`${base}/v1/buy`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ need: 'weather amsterdam' }) });
