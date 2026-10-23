@@ -474,7 +474,10 @@ Amsterdam tomorrow"}`, $0.02 over x402 (USDC on Base or Solana), for services up
    answer moves on to the next candidate, at most three. When none delivers the answer is an error and the agent's
    own payment is not settled.
 
-`GET /v1/pick?need=…` and the MCP tool `x402_pick` (free, 10 an hour) say what would be bought and why.
+`GET /v1/pick?need=…` and the MCP tool `x402_pick` (free, 10 an hour) say what would be bought and why. The MCP server
+(`https://buy.fizzl.eu/mcp`) is in the official MCP registry as `io.github.Fizzl13/fizzl-buy` (`server.buy.json`,
+published with the Publish to MCP registry workflow, server `fizzl-buy`). In the ERC-8004 Identity Registry on Base it
+is agent #988891.
 `node scripts/buy-dry-run.js "<need>" …` shows the picks, the filled-in requests and the preflights without paying
 (needs `ANTHROPIC_API_KEY`). On 23 Oct 2026 it found a seller with a preflight go for all seven test needs (weather,
 BTC price, web search, crypto news, EUR to USD, a token check, a translation), passing over a caution and a seller
