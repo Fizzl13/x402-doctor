@@ -636,3 +636,12 @@ test('usage reader: load and summarizeAll at the same time download each day fil
   assert.deepEqual(sums.files.map((f) => f.summary), [1, 1]);
   assert.equal(gh.calls.filter((c) => c.includes('/git/blobs/')).length, 2, 'one download per file');
 });
+
+test('whyOf: the caution and no_go reason codes of a preflight for the usage log, not the info lines', () => {
+  const { whyOf } = require('../server');
+  assert.equal(whyOf({ verdict: 'caution', reasons: [{ level: 'info', code: 'onchain_payments' }, { level: 'caution', code: 'price_high' }, { level: 'caution', code: 'lure' }] }), 'caution:price_high, caution:lure');
+  assert.equal(whyOf({ verdict: 'no_go', reasons: [{ level: 'no_go', code: 'no_402' }] }), 'no_go:no_402');
+  assert.equal(whyOf({ verdict: 'go', reasons: [{ level: 'info', code: 'not_in_bazaar' }] }), undefined);
+  assert.equal(whyOf(null), undefined);
+  assert.equal(whyOf({ error: 'x' }), undefined);
+});

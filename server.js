@@ -98,6 +98,12 @@ function protocolOf(b) {
   return b.challenge ? 'x402' : 'none';
 }
 const mppMethods = (b) => (b && Array.isArray(b.mpp) && b.mpp.length ? [...new Set(b.mpp.map((c) => c && c.method).filter(Boolean))].join(', ') : undefined);
+// Why a preflight said caution or no_go, for the usage log: its non-info reason codes ("caution:price_high"). On 22 Oct
+// a paying seller got caution on its own endpoint and the log had only the verdict, so the reason couldn't be found.
+const whyOf = (b) => {
+  const codes = b && Array.isArray(b.reasons) ? b.reasons.filter((r) => r && (r.level === 'caution' || r.level === 'no_go')).map((r) => `${r.level}:${String(r.code).slice(0, 40)}`) : [];
+  return codes.length ? [...new Set(codes)].slice(0, 8).join(', ') : undefined;
+};
 
 // What each Doctor call was about, for the usage log (null = not logged).
 const hostOf = (u) => { try { return new URL(String(u)).host; } catch { return null; } };
@@ -122,7 +128,7 @@ function describeDoctorCall(req, _res, body) {
     return { route: 'preflight batch', via: 'api', input: { urls: urls.slice(0, 10), max_usd: req.query.max_usd, network: req.query.network, client: req.query.client }, result: { counts: b.counts && Object.entries(b.counts).map(([k, v]) => `${k} ${v}`).join(', '), error: b.error } };
   }
   if (req.method === 'GET' && req.path === DEEP_ROUTE) {
-    return { route: 'preflight deep', via: 'api', input: { url: req.query.url, max_usd: req.query.max_usd, network: req.query.network, client: req.query.client }, result: { verdict: b.verdict, error: b.error } };
+    return { route: 'preflight deep', via: 'api', input: { url: req.query.url, max_usd: req.query.max_usd, network: req.query.network, client: req.query.client }, result: { verdict: b.verdict, why: whyOf(b), error: b.error } };
   }
   if (req.method === 'GET' && req.path === DELIVERY_ROUTE) {
     return { route: 'delivery check', via: 'api', input: { url: req.query.url, method: req.query.method }, result: { status: b.status, id: b.id, error: b.error } };
@@ -135,7 +141,7 @@ function describeDoctorCall(req, _res, body) {
     return { route: 'trust batch', via: 'api', input: { count: urls.length, hosts: [...new Set(urls.map(hostOf).filter(Boolean))].slice(0, 10) }, result: { status: _res.statusCode, found: b.found, error: b.error } };
   }
   if (req.method === 'GET' && req.path === PREFLIGHT_ROUTE) {
-    return { route: 'preflight', via: 'api', input: { url: req.query.url, max_usd: req.query.max_usd, network: req.query.network, client: req.query.client }, result: { verdict: b.verdict, error: b.error } };
+    return { route: 'preflight', via: 'api', input: { url: req.query.url, max_usd: req.query.max_usd, network: req.query.network, client: req.query.client }, result: { verdict: b.verdict, why: whyOf(b), error: b.error } };
   }
   if (req.method === 'POST' && (req.path === '/mcp' || req.path === '/mcp/free')) {
     const call = mcpToolCall(req.body);
@@ -151,7 +157,7 @@ function describeDoctorCall(req, _res, body) {
       route: call.tool,
       via: 'mcp',
       input: { url: a.url, method: a.method, max_usd: a.max_usd, stack: a.stack, ...(req.path === '/mcp/free' ? { endpoint: 'free' } : {}) },
-      result: { overall: parsed && parsed.overall, protocol: call.tool === 'x402_diagnose' ? protocolOf(parsed) : undefined, mpp: call.tool === 'x402_diagnose' ? mppMethods(parsed) : undefined, networks: call.tool === 'x402_diagnose' ? networksOf(parsed) : undefined, verdict: parsed && parsed.verdict, error: reply.result && reply.result.isError ? String(text).slice(0, 200) : undefined },
+      result: { overall: parsed && parsed.overall, protocol: call.tool === 'x402_diagnose' ? protocolOf(parsed) : undefined, mpp: call.tool === 'x402_diagnose' ? mppMethods(parsed) : undefined, networks: call.tool === 'x402_diagnose' ? networksOf(parsed) : undefined, verdict: parsed && parsed.verdict, why: whyOf(parsed), error: reply.result && reply.result.isError ? String(text).slice(0, 200) : undefined },
       payment: mcpPayment(req.body, body),
     };
   }
@@ -946,6 +952,7 @@ module.exports = {
   isPrivateIp,
   protocolOf,
   networksOf,
+  whyOf,
   PORT,
   decodeChallengeValue: diagnoseLib.decodeChallengeValue,
   checkEnvelope: diagnoseLib.checkEnvelope,
