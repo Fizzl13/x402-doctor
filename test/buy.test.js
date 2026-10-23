@@ -9,6 +9,8 @@ const { createFiller, requestOf } = require('../lib/buy/fill');
 const { buy, createBudget, BuyError } = require('../lib/buy/purchase');
 const { createBuyApp, routesFor } = require('../buy-server');
 const { createSafeFetch } = require('../lib/safe-fetch');
+const { paymentKey } = require('../lib/buy/once');
+const { spentByOthers } = require('../lib/buy/spent-log');
 
 const USDC = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 const PAY_TO = '0x1111111111111111111111111111111111111111';
@@ -173,4 +175,80 @@ test('routes: $0.02 on Base, and on Solana with a Solana payout address; five mi
   assert.equal(r.extensions['x402-merchant'].info.name, 'Fizzl');
   assert.equal(r.extensions['builder-code'], undefined, 'no Builder Code without BUILDER_CODE');
   assert.equal(routesFor({ AGENT_PAYOUT_WALLET: PAY_TO, BUILDER_CODE: 'fizzl_test' })['POST /v1/buy'].extensions['builder-code'].info.a, 'fizzl_test');
+});
+
+test('budget: what earlier instances spent today counts, until the day rolls over', () => {
+  let t = Date.parse('2026-10-23T10:00:00Z');
+  const b = createBudget({ dailyUsd: 5, now: () => t });
+  b.add(0.01);
+  b.restore('2026-10-23', 1.2);
+  assert.equal(b.spent(), 1.21);
+  assert.equal(b.left(), 3.79);
+  b.restore('2026-10-23', 1.5);
+  assert.equal(b.spent(), 1.51, 'a later read replaces the earlier one');
+  b.restore('2026-10-22', 4);
+  assert.equal(b.spent(), 1.51, 'another day is ignored');
+  t = Date.parse('2026-10-24T00:00:01Z');
+  assert.equal(b.spent(), 0);
+});
+
+test('spent log: the other instances\' spending in today\'s usage-log file', async () => {
+  const lines = [
+    { route: 'buy', input: { chars: 20, spent_usd: 0.002, instance: 'old' } },
+    { route: 'buy', input: { chars: 20 } },
+    { route: 'buy', status: 402, quote: true, input: { chars: 20, spent_usd: 0.01, instance: 'old' } },
+    { route: 'buy', input: { chars: 20, spent_usd: 0.005, instance: 'me' } },
+  ].map((e) => JSON.stringify(e)).join('\n') + '\nnot json\n';
+  const seen = [];
+  const fetchLog = async (url, init) => { seen.push({ url, auth: init.headers.authorization }); return new Response(lines, { status: 200 }); };
+  assert.equal(await spentByOthers({ env: { USAGE_LOG_TOKEN: 't' }, fetch: fetchLog, day: '2026-10-23', instance: 'me' }), 0.012);
+  assert.equal(seen[0].url, 'https://api.github.com/repos/Fizzl13/usage-log/contents/events/buy/2026-10-23.jsonl');
+  assert.equal(seen[0].auth, 'Bearer t');
+  assert.equal(await spentByOthers({ env: { USAGE_LOG_TOKEN: 't' }, fetch: async () => new Response('', { status: 404 }), day: '2026-10-23' }), 0);
+  assert.equal(await spentByOthers({ env: {}, fetch: fetchLog, day: '2026-10-23' }), null);
+});
+
+test('once per payment: the payer and nonce on EVM, the transaction on Solana', () => {
+  const header = (p) => Buffer.from(JSON.stringify(p)).toString('base64');
+  const evm = (nonce, extra = {}) => header({ x402Version: 2, accepted: { network: 'eip155:8453' }, payload: { signature: '0xs', authorization: { from: '0xAbC', nonce }, ...extra } });
+  assert.equal(paymentKey(evm('0x01')), 'eip155:8453:0xabc:0x01');
+  assert.equal(paymentKey(evm('0x01', { signature: '0xother' })), paymentKey(evm('0x01')), 'the same authorization, whatever else changes');
+  assert.match(paymentKey(header({ x402Version: 2, accepted: { network: 'solana:x' }, payload: { transaction: 'AAAA' } })), /^solana:x:tx:[0-9a-f]{64}$/);
+  assert.equal(paymentKey('not base64 json'), null);
+  assert.equal(paymentKey(header({ x402Version: 1, network: 'base' })), null);
+});
+
+test('server: one payment buys one answer; the day budget counts the other instances; the usage log gets the spend', async () => {
+  const a = await seller();
+  const { d } = await deps({ results: [result(`${a}/w`)] });
+  let release;
+  const gate = new Promise((r) => { release = r; });
+  let calls = 0;
+  const payFetch = async (url, init) => { calls++; if (calls === 1) await gate; return d.payFetch(url, init); };
+  const logged = [];
+  const usageLog = { middleware: (describe) => (req, res, next) => { res.on('finish', () => logged.push(describe(req, res, undefined))); next(); } };
+  const app = createBuyApp({ env: { AGENT_PAYOUT_WALLET: PAY_TO }, deps: { fetch: d.fetch, safeFetch: d.safeFetch, sanctions: null, trustIndex: null, lure: null, answerCheck: d.answerCheck, filler: { enabled: true, fill: d.fill }, wallet: { address: '0xBuy', payFetch, balance: d.balance }, budget: d.budget, usageLog, signer: null, instance: 'me', spentByOthers: async ({ day, instance }) => (instance === 'me' && /^\d{4}-\d\d-\d\d$/.test(day) ? 1.5 : 0) } });
+  const server = await new Promise((r) => { const s = app.listen(0, '127.0.0.1', () => r(s)); });
+  servers.push(server);
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const pay = Buffer.from(JSON.stringify({ x402Version: 2, accepted: { network: 'eip155:8453' }, payload: { authorization: { from: '0xa', nonce: '0x1' } } })).toString('base64');
+  const post = (header) => fetch(`${base}/v1/buy`, { method: 'POST', headers: { 'content-type': 'application/json', ...(header ? { 'payment-signature': header } : {}) }, body: JSON.stringify({ need: 'weather amsterdam' }) });
+
+  const first = post(pay);
+  while (calls === 0) await new Promise((r) => setTimeout(r, 5));
+  const second = await post(pay);
+  assert.equal(second.status, 409, 'the same payment while the first request runs');
+  assert.match((await second.json()).error, /already in use/);
+  release();
+  assert.equal((await first).status, 200);
+  const third = await post(pay);
+  assert.equal(third.status, 409, 'and after it bought');
+  assert.match((await third.json()).error, /already used/);
+  assert.equal(calls, 1, 'one seller payment');
+
+  const health = await (await fetch(`${base}/health`)).json();
+  assert.equal(health.spent_today_usd, 1.502, 'the other instances\' $1.50 plus this purchase');
+  const bought = logged.find((e) => e?.route === 'buy' && e.input.spent_usd);
+  assert.deepEqual(bought.input, { chars: 17, spent_usd: 0.002, instance: 'me' });
+  assert.equal(logged.filter((e) => e?.route === 'buy' && e.input.spent_usd).length, 1, 'the refused requests spent nothing');
 });

@@ -480,6 +480,11 @@ Amsterdam tomorrow"}`, $0.02 over x402 (USDC on Base or Solana), for services up
 BTC price, web search, crypto news, EUR to USD, a token check, a translation), passing over a caution and a seller
 that didn't answer 402.
 
+One payment buys one answer: x402 verifies a payment before the purchase and settles it after, so the same payment
+sent several times at once would otherwise run several purchases with the inkoper's money; a payment already in use is
+refused with a 409 (`lib/buy/once.js`). The day budget (`BUY_DAILY_USD`) survives a deploy: each purchase writes what
+it paid sellers into the usage log, and a new instance counts what the others spent today (`lib/buy/spent-log.js`).
+
 Live at https://buy.fizzl.eu since 23 Oct 2026 (the first indexing payment was delivered in 15 seconds). Like the
 other fizzl.eu services, its 402 names the seller (`x402-merchant`) and, with `BUILDER_CODE` set on the Render
 service, carries the Base Builder Code.
