@@ -3,12 +3,21 @@
   "name": "io.github.Fizzl13/fizzl-buy",
   "title": "Fizzl Buy",
   "description": "Say what your agent needs: Fizzl buys the right paid x402 API, checks the answer. Free pick.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "repository": {
     "url": "https://github.com/Fizzl13/x402-doctor",
     "source": "github"
   },
   "websiteUrl": "https://buy.fizzl.eu",
+  "icons": [
+    {
+      "src": "https://buy.fizzl.eu/icon.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
   "remotes": [
     {
       "type": "streamable-http",
