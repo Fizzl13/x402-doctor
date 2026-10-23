@@ -9,14 +9,14 @@
   :root {
     color-scheme: dark;
     --bg: #0d1117; --panel: #161b22; --line: #30363d; --grid: #21262d; --text: #e6edf3; --text-soft: #8b949e; --accent: #58a6ff;
-    --s-doctor: #3987e5; --s-plaintext: #d95926; --s-ichimoku: #199e70; --s-presign: #c98500;
+    --s-doctor: #3987e5; --s-buy: #d95926; --s-ichimoku: #199e70; --s-presign: #c98500;
     --ok: #3fb950; --bad: #f85149;
     --v1: #3987e5; --v2: #d95926; --v3: #199e70;
   }
   @media (prefers-color-scheme: light) {
     :root { color-scheme: light;
       --bg: #f6f8fa; --panel: #ffffff; --line: #d0d7de; --grid: #eaeef2; --text: #1f2328; --text-soft: #57606a; --accent: #0969da;
-      --s-doctor: #2a78d6; --s-plaintext: #eb6834; --s-ichimoku: #1baf7a; --s-presign: #eda100;
+      --s-doctor: #2a78d6; --s-buy: #eb6834; --s-ichimoku: #1baf7a; --s-presign: #eda100;
       --ok: #1a7f37; --bad: #cf222e;
       --v1: #2a78d6; --v2: #eb6834; --v3: #1baf7a; }
   }
@@ -156,6 +156,14 @@
     <p class="note" id="networksNote"></p>
   </div>
 
+  <h2>Fizzl Buy: what agents bought</h2>
+  <div class="panel">
+    <div class="tiles" id="buyTiles"></div>
+    <details open><summary>Recent purchases</summary><div class="scroll"><table id="buyTable"></table></div></details>
+    <details><summary>Sellers bought from</summary><div class="scroll"><table id="buySellers"></table></div></details>
+    <p class="note" id="buyNote"></p>
+  </div>
+
   <h2>Agent Wallet: how people sign in</h2>
   <div class="panel">
     <div class="legend" id="signLegend"></div>
@@ -203,7 +211,7 @@
 <script>
   const SERVICES = [
     { id: 'doctor', name: 'x402 Doctor' },
-    { id: 'plaintext', name: 'PlainText' },
+    { id: 'buy', name: 'Fizzl Buy' }, // took PlainText's place on 23 Oct 2026 (PlainText paused since 16 Oct)
     { id: 'ichimoku', name: 'Ichimoku Signal' },
     { id: 'presign', name: 'presign-guard' },
   ];
@@ -330,6 +338,7 @@
     renderPackages();
     renderCallers(events);
     renderNetworks();
+    renderBuy();
     renderSignins();
     renderDownloads();
     renderMpp();
@@ -451,7 +460,7 @@
 
   // ---- Networks: which chain the traffic is about ----
   // The network paid on (or tried, for a refused payment, logged since 7 Oct 2026), and the chain a check asks about
-  // (presign-guard and PlainText input.chain/chainId, the networks the endpoint Doctor checked offers, logged since
+  // (presign-guard (and PlainText until it paused) input.chain/chainId, the networks the endpoint Doctor checked offers, logged since
   // 7 Oct 2026). One call can touch several networks.
   const CHAIN_IDS = { 1: 'Ethereum', 8453: 'Base', 84532: 'Base Sepolia', 137: 'Polygon', 42161: 'Arbitrum', 10: 'Optimism', 43114: 'Avalanche', 4217: 'Tempo' };
   const NET_ALIASES = { base: 'Base', 'eip155:8453': 'Base', 'mpp evm': 'Base', solana: 'Solana', ethereum: 'Ethereum', eth: 'Ethereum', xrpl: 'XRP Ledger', 'xrpl:0': 'XRP Ledger', 'xrpl:1': 'XRP Ledger testnet', 'xrpl-testnet': 'XRP Ledger testnet', 'xrp ledger': 'XRP Ledger', tempo: 'Tempo', 'mpp tempo': 'Tempo', polygon: 'Polygon', arbitrum: 'Arbitrum', optimism: 'Optimism', avalanche: 'Avalanche', algorand: 'Algorand', 'algorand-testnet': 'Algorand testnet', stellar: 'Stellar', sui: 'Sui', aptos: 'Aptos' };
@@ -486,7 +495,41 @@
       tip: [['Checks about it', r.checks.toLocaleString(), NET_KEYS[0].color], ['Paid on it', `${r.paid} (${usd(r.usd)})`, NET_KEYS[1].color], ['Refused on it', r.refused.toLocaleString(), NET_KEYS[2].color], ['Visitors', r.visitors.size.toLocaleString()]],
     })), NET_KEYS, { note: (r) => (r.usd ? usd(r.usd) : '') });
     table('netTable', ['Network', 'Checks', 'Paid', 'Revenue', 'Refused', 'Visitors'], rows.map(([n, r]) => [n, r.checks, r.paid, usd(r.usd), r.refused, r.visitors.size]));
-    $('networksNote').textContent = 'Per network: checks that ask about it (presign-guard and PlainText chain, a presign-guard check of a Solana, XRPL or Algorand transaction, the networks of an endpoint Doctor checked) and payments made or refused on it. A 402 without a payment has no network yet: the caller has not chosen one. Refused payments and Doctor\'s checked networks are logged since 7 Oct 2026. Service chips and "hide monitors" apply.';
+    $('networksNote').textContent = 'Per network: checks that ask about it (presign-guard chain, a presign-guard check of a Solana, XRPL or Algorand transaction, the networks of an endpoint Doctor checked) and payments made or refused on it. A 402 without a payment has no network yet: the caller has not chosen one. Refused payments and Doctor\'s checked networks are logged since 7 Oct 2026. Service chips and "hide monitors" apply.';
+  }
+
+  // ---- Fizzl Buy (events/buy): the purchases agents made through buy.fizzl.eu, what they paid and what the inkoper
+  // paid the sellers (input.spent_usd, logged since 23 Oct 2026, also for purchases where no seller delivered) ----
+  function renderBuy() {
+    const ev = (state.data.events || []).filter((e) => e.service === 'buy' && (!state.hideBots || !isBot(e)));
+    const buys = ev.filter((e) => e.route === 'buy' && !e.quote).sort((a, b) => (a.t < b.t ? 1 : -1));
+    const delivered = buys.filter((e) => e.paid && e.status >= 200 && e.status < 300);
+    const none = buys.filter((e) => e.status === 502);
+    const picks = ev.filter((e) => (e.route === 'pick' || e.route === 'x402_pick') && !e.quote);
+    const received = delivered.reduce((t, e) => t + (Number(e.usd) || 0), 0);
+    const spent = buys.reduce((t, e) => t + (Number(e.input?.spent_usd) || 0), 0);
+    const tile = (k, v, d) => el('div', { className: 'tile' }, el('div', { className: 'k', textContent: k }), el('div', { className: 'v', textContent: v }), el('div', { className: 'd', textContent: d }));
+    $('buyTiles').replaceChildren(
+      tile('Purchases', delivered.length.toLocaleString(), `${none.length} where no seller delivered (not charged)`),
+      tile('Received', usd(received), 'from agents, settled'),
+      tile('Paid to sellers', usd(spent), 'from the buy wallet'),
+      tile('Margin', usd(received - spent), received ? `${Math.round(((received - spent) / received) * 100)}% of what came in` : '–'),
+      tile('Free picks', picks.length.toLocaleString(), 'GET /v1/pick and MCP x402_pick'),
+    );
+    const result = (e) => (e.paid && e.status >= 200 && e.status < 300 ? 'delivered' : e.status === 502 ? 'no seller delivered' : e.status === 404 ? 'nothing suitable' : e.status === 503 ? 'budget or wallet empty' : `HTTP ${e.status}`);
+    table('buyTable', ['When', 'Result', 'Seller', 'Agent paid', 'Paid to sellers', 'Tried', 'Took'], buys.slice(0, 25).map((e) => [
+      `${new Date(e.t).toLocaleString()} (${ago(e.t)})`, result(e), e.result?.service || '', e.paid ? usd(Number(e.usd) || 0) : '', e.input?.spent_usd ? usd(Number(e.input.spent_usd)) : '', e.result?.tried ?? '', Number.isFinite(e.ms) ? `${(e.ms / 1000).toFixed(1)} s` : '',
+    ]), 3);
+    const sellers = new Map();
+    for (const e of delivered) {
+      const host = e.result?.service || '?';
+      if (!sellers.has(host)) sellers.set(host, { n: 0, usd: 0 });
+      const r = sellers.get(host);
+      r.n++;
+      r.usd += Number(e.result?.paid_usd) || 0;
+    }
+    table('buySellers', ['Seller', 'Purchases', 'Paid to it'], [...sellers].sort((a, b) => b[1].n - a[1].n).map(([h, r]) => [h, r.n, usd(r.usd)]));
+    $('buyNote').textContent = 'From Fizzl Buy (buy.fizzl.eu, live since 23 Oct 2026): every purchase, with what the agent paid ($0.02) and what the inkoper paid the sellers from its own wallet (up to $0.01 each, also for sellers tried that didn\'t deliver; logged since 23 Oct 2026). When no seller delivers the agent is not charged, so those rows only cost. Our own index payments are purchases too. Not filtered by the service chips; "hide monitors" applies.';
   }
 
   // ---- Agent Wallet sign-ins (events/wallet: route signup / signin, input.chain = the way in) ----
@@ -613,7 +656,7 @@
       tile('Doctor checks of MPP endpoints', mppChecks.length.toLocaleString(), checks.length ? `of ${checks.length} checks · MPP only ${mppChecks.filter((e) => e.result.protocol === 'mpp').length}, both ${mppChecks.filter((e) => e.result.protocol === 'both').length}` : 'logged since 4 Oct 2026'),
       trustTile,
     );
-    $('mppNote').textContent = 'All four services accept MPP next to x402 since 4 Oct 2026: method evm (USDC on Base) and, since that evening, method tempo (USDC.e on Tempo). MPP payments are also in the totals above; the Paid filter and the calls table include them.';
+    $('mppNote').textContent = 'x402 Doctor, presign-guard and Ichimoku Signal accept MPP next to x402 since 4 Oct 2026: method evm (USDC on Base) and, since that evening, method tempo (USDC.e on Tempo). Fizzl Buy takes x402 only. MPP payments are also in the totals above; the Paid filter and the calls table include them.';
   }
 
   // Same visitor code within the window after a preview. An agent paying from
