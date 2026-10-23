@@ -41,6 +41,8 @@ const { createSpotWallet } = require('./lib/spot-wallet');
 const { candidatesFor } = require('./lib/buy/search');
 const { createFiller } = require('./lib/buy/fill');
 const { buy, createBudget, BuyError, MAX_TRIES } = require('./lib/buy/purchase');
+const { createOncePerPayment } = require('./lib/buy/once');
+const { spentByOthers, INSTANCE } = require('./lib/buy/spent-log');
 
 const BASE = 'eip155:8453';
 const SOLANA = 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp';
@@ -124,6 +126,23 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null } = {}) {
   const freeLimiter = deps.freeLimiter ?? createRateLimiter(FREE_PER_HOUR, 60 * 60 * 1000);
   const usageLog = deps.usageLog ?? createUsageLog({ service: 'buy', env });
   const signer = deps.signer === undefined ? createSigner(env, { label: 'fizzl-buy', service: 'fizzl-buy' }) : deps.signer;
+  const instance = deps.instance ?? INSTANCE;
+
+  // The day budget across deploys: what the other instances spent today, now and again once the old one has stopped
+  // and written its last calls.
+  const restoreBudget = async () => {
+    const day = budget.day();
+    try {
+      const usd = await (deps.spentByOthers ?? spentByOthers)({ env, day, instance });
+      if (usd !== null) budget.restore(day, usd);
+    } catch (err) {
+      console.warn(`[buy] day budget: ${err.message}`);
+    }
+  };
+  if (env.USAGE_LOG_TOKEN || deps.spentByOthers) {
+    restoreBudget();
+    for (const ms of [3 * 60 * 1000, 12 * 60 * 1000]) setTimeout(restoreBudget, ms).unref();
+  }
 
   async function pickFor(need) {
     const candidates = await candidatesFor(need, { capUsd: CAP_USD, fetch: searchFetch });
@@ -148,7 +167,8 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null } = {}) {
 
   app.use(usageLog.middleware((req, res, body) => {
     const via = req.path === '/mcp' ? 'mcp' : 'api';
-    if (req.path === BUY_ROUTE && req.method === 'POST') return { route: 'buy', via, input: { chars: String(req.body?.need || '').length }, result: { delivered: body?.delivered, paid_usd: body?.paid_usd, service: body?.service?.url ? new URL(body.service.url).host : undefined, tried: body?.tried, error: body?.error } };
+    // spent_usd: what this call paid sellers (also when the agent's own payment then failed), for the day budget.
+    if (req.path === BUY_ROUTE && req.method === 'POST') return { route: 'buy', via, input: { chars: String(req.body?.need || '').length, ...(res.locals.spentUsd ? { spent_usd: res.locals.spentUsd, instance } : {}) }, result: { delivered: body?.delivered, paid_usd: body?.paid_usd, service: body?.service?.url ? new URL(body.service.url).host : undefined, tried: body?.tried, error: body?.error } };
     if (req.path === '/v1/pick') return { route: 'pick', via, input: { chars: String(req.query.need || '').length }, result: { pick: body?.pick?.url ? new URL(body.pick.url).host : null, error: body?.error } };
     if (req.path === '/mcp' && req.body?.method === 'tools/call') return { route: String(req.body.params?.name || 'mcp'), via, input: {}, result: {} };
     return null;
@@ -205,16 +225,23 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null } = {}) {
 
   // Paid: the purchase. The paywall settles the agent's payment only for a 2xx answer; the challenge goes into the
   // 402's body too, for clients that read accepts[] there.
+  // One payment buys one answer (lib/buy/once.js), checked before the paywall verifies it.
   app.use(mirrorChallengeIntoBody);
+  app.use(deps.oncePerPayment ?? createOncePerPayment({ paths: [BUY_ROUTE] }));
   if (paywall) app.use(paywall);
   app.use(signPaidResponses(signer, [`POST ${BUY_ROUTE}`]));
   app.post(BUY_ROUTE, express.json({ limit: '16kb' }), async (req, res) => {
+    // What this call pays sellers, for the usage log.
+    let spent = 0;
+    const counted = { left: () => budget.left(), add: (usd) => { spent = Math.round((spent + usd) * 1e6) / 1e6; budget.add(usd); } };
     try {
       const need = needOf(req.body?.need);
       if (!wallet) throw new BuyError(503, 'The inkoper has no wallet on this server (BUY_WALLET_KEY). Nothing was charged.');
-      const out = await buy({ need }, { fill: filler.fill, payFetch: wallet.payFetch, balance: wallet.balance, budget, answerCheck, safeFetch, sanctions, trustIndex, lure, capUsd: CAP_USD, fetch: searchFetch });
+      const out = await buy({ need }, { fill: filler.fill, payFetch: wallet.payFetch, balance: wallet.balance, budget: counted, answerCheck, safeFetch, sanctions, trustIndex, lure, capUsd: CAP_USD, fetch: searchFetch });
+      res.locals.spentUsd = spent;
       res.set('Cache-Control', 'no-store').json(out);
     } catch (err) {
+      res.locals.spentUsd = spent;
       if (!err.status) console.error('[buy]', err);
       res.status(err.status || 500).json({ error: err.status ? err.message : 'internal error', ...(err.attempts?.length ? { attempts: err.attempts } : {}) });
     }
