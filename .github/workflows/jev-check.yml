@@ -14,8 +14,6 @@ on:
         description: "GET or POST (empty: the one its 402 answers to)"
         required: false
         default: ""
-  push:
-    branches: [claude/jev-check]
 
 permissions:
   contents: read
@@ -34,6 +32,6 @@ jobs:
       - name: Check
         env:
           TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
-          URL: ${{ inputs.url || 'https://api.lumitrades.io/v1/trust/vendors/asksurf/report' }}
+          URL: ${{ inputs.url }}
           METHOD: ${{ inputs.method }}
         run: node scripts/jev-check.js "$URL" "$METHOD"
