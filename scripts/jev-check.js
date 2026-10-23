@@ -15,13 +15,18 @@ const { createPriceCheck } = require('../lib/jev-price');
 
 // The bars the preflight uses (lureReasons, priceReason), to show how far each score is from them.
 const BARS = { impersonation: 0.85, lure: 0.85, mismatch: 0.95 };
+// How long the live preflight waits for Jev (createLure, createPriceCheck defaults): a slower answer is skipped there.
+const LIVE_MS = { bait: 2500, price: 3000 };
 
-function report(url, result, seen) {
+const timing = (ms, name) => (ms?.length ? `Jev answered in ${ms.join(' and ')} ms; the live preflight waits ${LIVE_MS[name]} ms${ms.some((m) => m > LIVE_MS[name]) ? ', so there this answer would be skipped' : ''}.` : null);
+
+function report(url, result, seen, took = {}) {
   const lines = [`## Jev check: ${url}`, '', `Preflight verdict: **${result.verdict}**`, ''];
   for (const r of result.reasons || []) lines.push(`- ${r.level} \`${r.code}\`: ${r.message}`);
   lines.push('', '### Bait check (caution from the bar, info from 0.5)', '');
   if (!seen.bait) lines.push('No answer: no description to judge, or Jev failed or timed out.');
   else for (const [name, p] of Object.entries(seen.bait)) lines.push(`- ${name}: ${p === null ? 'not asked' : `${p} (bar ${BARS[name]})`}`);
+  if (timing(took.bait, 'bait')) lines.push('', timing(took.bait, 'bait'));
   lines.push('', '### Price check (info from 5x and $0.05 above, caution from 20x and $0.25 above)', '');
   const c = seen.price;
   if (!c) lines.push('No answer: no USDC price, fewer than 5 comparable services, or Jev failed or timed out.');
@@ -29,6 +34,7 @@ function report(url, result, seen) {
     lines.push(`- $${c.price_usd}: ${c.ratio}x the median of $${c.comparable_median_usd} across ${c.comparables} comparable services (range $${c.range_usd[0]} to $${c.range_usd[1]})`);
     for (const x of c.cheaper) lines.push(`- cheaper: ${x.url} ($${x.price_usd}): ${x.description}`);
   }
+  if (timing(took.price, 'price')) lines.push('', timing(took.price, 'price'));
   return `${lines.join('\n')}\n`;
 }
 
@@ -38,9 +44,14 @@ async function main() {
   if (!process.env.TYPESAFE_API_KEY) { console.error('TYPESAFE_API_KEY is not set'); process.exit(1); }
   const trustIndex = createTrustIndex();
   await trustIndex.refresh();
-  // Longer timeouts than the live preflight's, so a slow answer is shown instead of skipped.
-  const lure = createLure({ timeoutMs: 20000 });
-  const price = createPriceCheck({ trustIndex, timeoutMs: 20000 });
+  // Longer timeouts than the live preflight's, so a slow answer is shown instead of skipped, with how long it took.
+  const took = {};
+  const timed = (name) => async (...a) => {
+    const start = Date.now();
+    try { return await fetch(...a); } finally { (took[name] ||= []).push(Date.now() - start); }
+  };
+  const lure = createLure({ timeoutMs: 20000, fetch: timed('bait') });
+  const price = createPriceCheck({ trustIndex, timeoutMs: 20000, fetch: timed('price') });
   const seen = {};
   const result = await preflight(url, {
     safeFetch: createSafeFetch(),
@@ -49,7 +60,7 @@ async function main() {
     lure: { enabled: lure.enabled, judge: async (...a) => (seen.bait = await lure.judge(...a)) },
     price: { enabled: price.enabled, compare: async (...a) => (seen.price = await price.compare(...a)) },
   });
-  const md = report(url, result, seen);
+  const md = report(url, result, seen, took);
   process.stdout.write(md);
   if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, md);
 }
