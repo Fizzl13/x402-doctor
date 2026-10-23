@@ -102,6 +102,19 @@ test('x402_buy: listed next to the free pick; unpaid it asks $0.02 and buys noth
   await c.close();
 });
 
+test('server card: the same two tools as tools/list, for MCP directories', async () => {
+  const res = await fetch(`${api}/.well-known/mcp/server-card.json`);
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get('access-control-allow-origin'), '*');
+  const card = await res.json();
+  assert.deepEqual(card.serverInfo, { name: 'fizzl-buy', version: '1.1.0' });
+  assert.deepEqual(card.transport, { type: 'streamable-http', endpoint: '/mcp' });
+  assert.deepEqual(card.tools.map((t) => t.name).sort(), ['x402_buy', 'x402_pick']);
+  assert.deepEqual(card.tools.find((t) => t.name === 'x402_pick').inputSchema.required, ['need']);
+  assert.deepEqual(logged.at(-1), { route: 'mcp server card', via: 'discovery', input: {}, result: { status: 200 } });
+  assert.deepEqual([state.verify, state.settle, paid.length], [0, 0, 0]);
+});
+
 test('x402_buy: a real signed payment buys the answer, settles once, carries a receipt and logs the spend', async () => {
   const c = wrapMCPClientWithPayment(new Client({ name: 'paying-agent', version: '1.0.0' }), payments(), { autoPayment: true });
   await c.connect(new StreamableHTTPClientTransport(new URL(`${api}/mcp`)));
