@@ -256,6 +256,13 @@ test('on-chain payments: how many wallets paid the Base payout address shows as 
   r = await run(url, { payments: { lookup: async () => ({ ...stats, payers: 2, payers_wide: 2 }) } });
   assert.match(r.reasons.find((x) => x.code === 'onchain_payments').message, /All of them paid 10 or more different sellers in the same days, as checkers and scanners do: no ordinary buyer seen yet\.$/);
   assert.equal(r.verdict, 'go', 'a signal only');
+  // Payers the payout address sent USDC back to: a closed loop says so; a refund is mentioned plainly.
+  r = await run(url, { payments: { lookup: async () => ({ ...stats, payers: 1, payers_paid_back: 1, usd_paid_back: 3.1, closed_loop: true }) } });
+  assert.match(r.reasons.find((x) => x.code === 'onchain_payments').message, /Every ordinary payer also received USDC back from this payout address \(\$3\.1 of the \$3\.12 paid in\): this looks like the seller paying its own endpoint, not outside demand\.$/);
+  assert.equal(r.verdict, 'go', 'still a signal only');
+  assert.equal(r.signals.onchain_payments.closed_loop, true);
+  r = await run(url, { payments: { lookup: async () => ({ ...stats, payers_paid_back: 2, usd_paid_back: 0.05 }) } });
+  assert.match(r.reasons.find((x) => x.code === 'onchain_payments').message, /2 of these wallets also received USDC from this payout address \(\$0\.05\), such as refunds or the seller's own wallets\.$/);
   r = await run(url, { payments: { lookup: async () => ({ ...stats, days: 1, payments: 0, payers: 0, usd: 0 }) } });
   assert.match(r.reasons.find((x) => x.code === 'onchain_payments').message, /^No signed USDC payments reached this seller's payout address on Base yesterday\. Not a problem by itself/);
   r = await run(url, { payments: { lookup: async () => null } });

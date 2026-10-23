@@ -1019,6 +1019,10 @@ test('onchain payments: an info line with the real payments to the Base payout a
   const probes = await line(payments({ ...window, days: 1, payments: 1, payers: 1, payers_wide: 1, coverage: 0.84, payers_at_least: true }));
   assert.match(probes.message, /^Real payments on Base yesterday: at least 1 wallet paid this payout address \(0x2096…287C\) 1 time, \$1\.23 in USDC in total\. That wallet paid 10 or more different sellers in the same days, as checkers and scanners do: no ordinary buyer seen yet\. The count covers 84% of the blocks in those days\.$/);
 
+  // Paid back by the payout address: a closed loop.
+  const loop = await line(payments({ ...window, payers: 1, payers_wide: 0, payers_paid_back: 1, usd_paid_back: 1.2, closed_loop: true }));
+  assert.match(loop.message, /\$1\.23 in USDC in total\. Every ordinary payer also received USDC back from this payout address \(\$1\.2 of the \$1\.23 paid in\): this looks like the seller paying its own endpoint, not outside demand\.$/);
+
   // Watched, nothing paid: new sellers start at zero.
   assert.match((await line(payments({ ...window, payments: 0, payers: 0, payers_wide: 0, usd: 0 }))).message, /^No signed USDC payments reached this payout address \(0x2096…287C\) on Base in the last 7 days\. Not a problem by itself: new sellers start at zero\.$/);
 

@@ -84,6 +84,7 @@ function paymentRows(state) {
   const rows = [];
   for (const [payTo, entry] of Object.entries(state.pay_tos || {})) {
     for (const [date, d] of Object.entries(entry.d || {})) {
+      if (!d[0]) continue; // a day with only USDC sent out (closed-loop check), no payment in
       rows.push({ date, pay_to: payTo, payments: d[0], usd: Math.round(d[1] / 1e4) / 100, payers: d[2].length, day_coverage: Math.round(((state.days?.[date]?.covered || 0) / 43200) * 1000) / 1000 });
     }
   }
