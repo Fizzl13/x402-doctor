@@ -7,6 +7,7 @@ const http = require('node:http');
 const { candidatesFor, leftOut } = require('../lib/buy/search');
 const { createFiller, requestOf } = require('../lib/buy/fill');
 const { buy, createBudget, BuyError } = require('../lib/buy/purchase');
+const { createStrikes } = require('../lib/buy/strikes');
 const { createBuyApp, routesFor } = require('../buy-server');
 const { createSafeFetch } = require('../lib/safe-fetch');
 const { paymentKey } = require('../lib/buy/once');
@@ -277,4 +278,35 @@ test('server: one payment buys one answer; the day budget counts the other insta
   const bought = logged.find((e) => e?.route === 'buy' && e.input.spent_usd);
   assert.deepEqual(bought.input, { chars: 17, spent_usd: 0.002, instance: 'me' });
   assert.equal(logged.filter((e) => e?.route === 'buy' && e.input.spent_usd).length, 1, 'the refused requests spent nothing');
+});
+
+test('search: between equally relevant sellers the cheaper one first; a seller with a strike goes last', async () => {
+  const results = [
+    result('https://dear.test/btc', { relevance: 1, usd: 0.01 }),
+    result('https://cheap.test/btc', { relevance: 0.99, usd: 0.001 }),
+    result('https://shaky.test/btc', { relevance: 1, usd: 0.0005, ratio: 0.85 }),
+    result('https://far.test/btc', { relevance: 0.9, usd: 0.0001 }),
+  ];
+  const out = await candidatesFor('btc price', { capUsd: 0.01, fetch: searchFetch(results) });
+  assert.deepEqual(out.map((c) => new URL(c.url).host), ['cheap.test', 'dear.test', 'shaky.test', 'far.test'], 'relevance and track record in steps of 0.05, then the price');
+  let t = 0;
+  const strikes = createStrikes({ holdMs: 1000, now: () => t });
+  strikes.add('cheap.test');
+  const struck = await candidatesFor('btc price', { capUsd: 0.01, fetch: searchFetch(results), strikes });
+  assert.deepEqual(struck.map((c) => new URL(c.url).host), ['dear.test', 'shaky.test', 'far.test', 'cheap.test']);
+  t = 1001;
+  assert.equal((await candidatesFor('btc price', { capUsd: 0.01, fetch: searchFetch(results), strikes }))[0].url, 'https://cheap.test/btc', 'the strike ends');
+});
+
+test('purchase: a seller that was paid and gave no usable answer gets a strike; one that fails before payment does not', async () => {
+  const a = await seller();
+  const b = await seller();
+  const c = await seller('20000');
+  const strikes = createStrikes();
+  const { d } = await deps({ results: [result(`${c}/w`, { relevance: 0.99 }), result(`${a}/w`, { relevance: 0.95 }), result(`${b}/w`, { relevance: 0.9 })], answers: [{ status: 200, body: 'demo data' }, { status: 200, body: { temp_c: 11 } }], checks: [{ delivered: { verdict: 'no', why: 'a placeholder' } }] });
+  const out = await buy({ need: 'weather amsterdam' }, { ...d, strikes });
+  assert.equal(out.service.url, `${b}/w?place=Amsterdam`);
+  assert.equal(strikes.has(new URL(a).host), true, 'paid, answer not what was paid for');
+  assert.equal(strikes.has(new URL(c).host), false, 'refused before payment (price above the cap)');
+  assert.equal(strikes.has(new URL(b).host), false);
 });

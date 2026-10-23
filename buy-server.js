@@ -44,6 +44,7 @@ const { candidatesFor } = require('./lib/buy/search');
 const { createFiller } = require('./lib/buy/fill');
 const { buy, createBudget, BuyError, MAX_TRIES } = require('./lib/buy/purchase');
 const { createOncePerPayment, createPaymentLocks, keyOf, REFUSED } = require('./lib/buy/once');
+const { createStrikes } = require('./lib/buy/strikes');
 const { spentByOthers, INSTANCE } = require('./lib/buy/spent-log');
 
 const BASE = 'eip155:8453';
@@ -150,6 +151,7 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
   const signer = deps.signer === undefined ? createSigner(env, { label: 'fizzl-buy', service: 'fizzl-buy' }) : deps.signer;
   const instance = deps.instance ?? INSTANCE;
   const locks = deps.paymentLocks ?? createPaymentLocks();
+  const strikes = deps.strikes ?? createStrikes();
 
   // One purchase, counting what it pays sellers (for the usage log: the day budget across deploys). Throws BuyError
   // with .spent set.
@@ -158,7 +160,7 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
     const counted = { left: () => budget.left(), add: (usd) => { spent = Math.round((spent + usd) * 1e6) / 1e6; budget.add(usd); } };
     if (!wallet) throw Object.assign(new BuyError(503, 'The inkoper has no wallet on this server (BUY_WALLET_KEY). Nothing was charged.'), { spent });
     try {
-      const out = await buy({ need }, { fill: filler.fill, payFetch: wallet.payFetch, balance: wallet.balance, budget: counted, answerCheck, safeFetch, sanctions, trustIndex, lure, capUsd: CAP_USD, fetch: searchFetch });
+      const out = await buy({ need }, { fill: filler.fill, payFetch: wallet.payFetch, balance: wallet.balance, budget: counted, answerCheck, safeFetch, sanctions, trustIndex, lure, capUsd: CAP_USD, fetch: searchFetch, strikes });
       return { out, spent };
     } catch (err) {
       throw Object.assign(err, { spent });
@@ -182,7 +184,7 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
   }
 
   async function pickFor(need) {
-    const candidates = await candidatesFor(need, { capUsd: CAP_USD, fetch: searchFetch });
+    const candidates = await candidatesFor(need, { capUsd: CAP_USD, fetch: searchFetch, strikes });
     return {
       need,
       pick: candidates[0] ?? null,
