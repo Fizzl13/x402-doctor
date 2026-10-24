@@ -16,6 +16,7 @@ const { createSafeFetch } = require('../lib/safe-fetch');
 const { loadCatalog, loadMppCatalog, loadGoPlausibleCatalog, loadCircleCatalog, loadSubmissions, submittedResources, scan, mergeIndex, summarize, indexLines } = require('../lib/trust-scan');
 const { mergePayTos } = require('../lib/onchain-payments');
 const { mergeSolanaPayTos } = require('../lib/onchain-payments-solana');
+const { mergeXrplPayTos } = require('../lib/onchain-payments-xrpl');
 const { createSanctions } = require('../lib/sanctions');
 
 function arg(name, fallback) {
@@ -115,6 +116,13 @@ async function main() {
   const solPayTos = mergeSolanaPayTos(previousSol, all, date);
   fs.writeFileSync(solPath, JSON.stringify(solPayTos));
   console.log(`payout addresses on Solana: ${Object.keys(solPayTos.pay_tos).length}, facilitator fee payers: ${Object.keys(solPayTos.fee_payers).length}`);
+  // And for the XRP Ledger.
+  const xrplPath = path.join(out, 'paytos-xrpl.json');
+  let previousXrpl = null;
+  try { previousXrpl = JSON.parse(fs.readFileSync(xrplPath, 'utf8')); } catch { /* first run */ }
+  const xrplPayTos = mergeXrplPayTos(previousXrpl, all, date);
+  fs.writeFileSync(xrplPath, JSON.stringify(xrplPayTos));
+  console.log(`payout addresses on the XRP Ledger: ${Object.keys(xrplPayTos.pay_tos).length}`);
   console.log(JSON.stringify(summary, null, 2));
 }
 

@@ -58,7 +58,7 @@ the medicine, the exact code that fixes each problem for your stack, in the brow
 | | `coinbase-agents` | Whether Coinbase's agent wallets can pay: Wallet MCP pays x402 in USDC on Base with `exact`, `upto` or `auth-capture` and finds services through the CDP Bazaar (the line says whether this route is listed there, from `bazaar-listing`); the Coinbase MCP also needs x402 v2 and at most $5 a call, and fetches only its own curated catalog. Info when there is no USDC on Base or only another scheme |
 | Discovery | `bazaar`, `bazaar-output` | Missing or invalid Bazaar declaration, output example not matching its schema |
 | | `market-price` | Where your price sits among comparable paid APIs of other sellers in the x402 Trust Index (median and range; comparable as judged by TypeSafe Jev, with `TYPESAFE_API_KEY`). Always `info`; the hint speaks up when agents' preflights would point at cheaper services, or when you charge far less than the rest |
-| | `onchain-payments` | Real payments to your payout address on Base in the last 7 days (or on Solana when you have no Base option): how many different wallets paid it, how often and how much, counted from the chain every hour (on Base USDC signed with EIP-3009, the way x402's exact scheme settles; on Solana USDC transfers whose fee an x402 facilitator paid; Permit2, Circle Gateway and other networks aren't counted). It says how many payers also paid 10 or more other sellers, as checkers and scanners do, and how to get counted when your endpoint isn't in the Trust Index yet. Always `info`: new sellers start at zero |
+| | `onchain-payments` | Real payments to your payout address on Base in the last 7 days (or on Solana or the XRP Ledger when you have no Base option): how many different wallets paid it, how often and how much, counted from the chain every hour (on Base USDC signed with EIP-3009, the way x402's exact scheme settles; on Solana USDC transfers whose fee an x402 facilitator paid; on the XRP Ledger RLUSD and USDC payments an x402 client marked with SourceTag 804681468 or an InvoiceID; Permit2, Circle Gateway and other networks aren't counted). It says how many payers also paid 10 or more other sellers, as checkers and scanners do, and how to get counted when your endpoint isn't in the Trust Index yet. Always `info`: new sellers start at zero |
 | | `bazaar-replay` | The declared example request not answering 402, so the Bazaar cannot index it |
 | | `payto-stable` | The payout address (payTo) changing from one 402 to the next: a buyer asked again sees a new payTo and may pay twice for one call |
 | | `bazaar-route` | A Bazaar `routeTemplate` that is not a path (e.g. `:var1`) or has a `:param` without a `pathParams` value, so the request built from it is an invalid URL |
@@ -416,6 +416,16 @@ Space waits in `hf-mcp/`. Doctor's own MCP server is `https://x402-doctor.fizzl.
   is `payments-solana.json` on `payments-data`. A seller without a Base option gets the same `onchain_payments` line
   and signal for its Solana payout address, `/api/trust/summary` adds `onchain_payments_solana`, and the preflight's
   Solana options carry `fee_payer`. `SOLANA_RPC_URL` is asked before the public node, which allows a few calls a second.
+- **Real payments on the XRP Ledger.** The same workflow reads the XRPL payout addresses the scan saw
+  (`paytos-xrpl.json`) and counts, per address, the RLUSD and USDC payments into it that an x402 client marked
+  (`lib/onchain-payments-xrpl.js`). On the XRP Ledger the buyer signs a complete Payment and pays its own fee, so no fee
+  payer tells an x402 payment apart; x402 clients mark it instead: t54's SDK signs with SourceTag 804681468, and
+  @x402/xrpl binds the invoice in InvoiceID. A payment with neither, or one in XRP (no dollar amount without a price),
+  doesn't count; RLUSD and USDC are recognised by their issuers. Each address's transactions since the last ledger read
+  are asked with `account_tx`, oldest first, and a run cut short keeps its last ledger whole for the next one. The
+  result is `payments-xrpl.json` on `payments-data`; a seller without a Base or Solana option gets the same
+  `onchain_payments` line for its XRPL payout address, and `/api/trust/summary` adds `onchain_payments_xrpl`.
+  `XRPL_RPC_URL` is asked before the public nodes (xrplcluster.com, xrpl.ws).
 - **The daily scan, when GitHub skips it.** The scan's schedule fires four times a day and the first run does the day,
   but GitHub drops scheduled runs when it is busy (on 21 Oct the 03:17 run never started). From 04:15 UTC, every half
   hour, the Doctor checks the scan it serves; while that is the day before's, it starts `trust-scan.yml` with
