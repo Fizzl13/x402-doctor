@@ -319,7 +319,7 @@ Same format as [presign-guard](https://github.com/Fizzl13/presign-guard#signed-v
 ### x402 Trust Index
 
 Once a day, [`trust-scan.yml`](.github/workflows/trust-scan.yml) runs the pre-payment check against every resource in
-the CDP Bazaar, the MPP directory, the [GoPlausible](https://facilitator.goplausible.xyz/discovery/resources) facilitator's discovery list (x402 on Algorand, about 2,500 endpoints the Bazaar doesn't list) and [Circle's Agent Marketplace](https://agents.circle.com/services) catalog (about 2,800 endpoints, many paid through Circle Gateway) (read-only: it stops at the 402 challenge, at most two requests per host at a time, one
+the CDP Bazaar, the MPP directory, the [GoPlausible](https://facilitator.goplausible.xyz/discovery/resources) facilitator's discovery list (x402 on Algorand, about 2,500 endpoints the Bazaar doesn't list) [Circle's Agent Marketplace](https://agents.circle.com/services) catalog (about 2,800 endpoints, many paid through Circle Gateway) and the [XRPL AI Hub](https://xrpl-ai.org/merchants) (the merchants paid through t54's XRPL facilitator; it has no listing API, so its merchant pages are read, about 190 pages a day) (read-only: it stops at the 402 challenge, at most two requests per host at a time, one
 `/openapi.json` per origin, a User-Agent that links to `/trust`). The results roll into a 30-day history per resource,
 one letter per day (`g` go, `c` caution, `n` no-go, `x` unreachable, `-` not scanned), published as
 `index.json` + `summary.json` on the `trust-data` branch.
@@ -416,8 +416,8 @@ Space waits in `hf-mcp/`. Doctor's own MCP server is `https://x402-doctor.fizzl.
   is `payments-solana.json` on `payments-data`. A seller without a Base option gets the same `onchain_payments` line
   and signal for its Solana payout address, `/api/trust/summary` adds `onchain_payments_solana`, and the preflight's
   Solana options carry `fee_payer`. `SOLANA_RPC_URL` is asked before the public node, which allows a few calls a second.
-- **Real payments on the XRP Ledger.** The same workflow reads the XRPL payout addresses the scan saw
-  (`paytos-xrpl.json`) and counts, per address, the RLUSD and USDC payments into it that an x402 client marked
+- **Real payments on the XRP Ledger.** The same workflow reads the XRPL payout addresses the scan saw, plus every
+  merchant the XRPL AI Hub lists, API listed or not (`paytos-xrpl.json`), and counts, per address, the RLUSD and USDC payments into it that an x402 client marked
   (`lib/onchain-payments-xrpl.js`). On the XRP Ledger the buyer signs a complete Payment and pays its own fee, so no fee
   payer tells an x402 payment apart; x402 clients mark it instead: t54's SDK signs with SourceTag 804681468, and
   @x402/xrpl binds the invoice in InvoiceID. A payment with neither, or one in XRP (no dollar amount without a price),

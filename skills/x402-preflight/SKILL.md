@@ -17,7 +17,7 @@ x402 Doctor never pays the endpoint you ask about. Its checks only read the 402 
 curl -s "https://x402-doctor.fizzl.eu/api/trust?url=<endpoint, URL-encoded>"
 ```
 
-The answer covers resources listed in the CDP Bazaar, Circle's Agent Marketplace, GoPlausible's discovery list or the MPP directory, which are scanned once a day:
+The answer covers resources listed in the CDP Bazaar, Circle's Agent Marketplace, GoPlausible's discovery list, the XRPL AI Hub or the MPP directory, which are scanned once a day:
 
 | Field | Meaning |
 | --- | --- |

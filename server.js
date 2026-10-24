@@ -249,7 +249,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   const trustTools = {
     lookup: (url) => trustIndex.lookup(url, { waitMs: 5000 }),
     submit: (url) => submitToTrust(url, { via: 'mcp' }),
-    howToList: "Not in the x402 Trust Index yet. Its daily scan checks every resource listed in the CDP Bazaar, Circle's Agent Marketplace, GoPlausible's discovery list or the MPP directory; your own endpoint can be added with x402_trust_add.",
+    howToList: "Not in the x402 Trust Index yet. Its daily scan checks every resource listed in the CDP Bazaar, Circle's Agent Marketplace, GoPlausible's discovery list, the XRPL AI Hub or the MPP directory; your own endpoint can be added with x402_trust_add.",
   };
   paidApi = createPaidApi({ safeFetch, env, trustIndex, feedback, bazaarIndex: bazaar, cdpValidate, outcomes, checkPaymentProof, creditStore, priceCheck, spotResults, onchainPayments, deliveryStore, ...(deliveryResults ? { deliveryResults } : {}), trust: trustTools });
 
@@ -423,7 +423,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
         url: parsed.href,
         error: 'not in the trust index yet',
         ...(added ? { submitted_at: added.t, message: 'Added: the next daily scan checks it.' } : {}),
-        how_to_list: "The daily scan checks every resource listed in the CDP Bazaar, Circle's Agent Marketplace, GoPlausible's discovery list or the MPP directory, and endpoints their sellers add here (POST /api/trust/submit with {\"url\": \"…\"}). The next scan picks it up.",
+        how_to_list: "The daily scan checks every resource listed in the CDP Bazaar, Circle's Agent Marketplace, GoPlausible's discovery list, the XRPL AI Hub or the MPP directory, and endpoints their sellers add here (POST /api/trust/submit with {\"url\": \"…\"}). The next scan picks it up.",
         check: `${publicUrl}/?url=${encodeURIComponent(parsed.href)}`,
         index: trustIndex.summary(),
       });
