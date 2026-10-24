@@ -182,7 +182,10 @@ test('server: free pick with its limit, the purchase, bad input, no wallet, disc
   const icon = await fetch(`${base}/icon.png`);
   assert.equal(icon.headers.get('content-type'), 'image/png');
   assert.equal((await fetch(`${base}/favicon.ico`)).headers.get('content-type'), 'image/png');
-  assert.deepEqual(agent.registrations, [{ agentId: 988891, agentRegistry: 'eip155:8453:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432' }]);
+  assert.deepEqual(agent.registrations, [
+    { agentId: '6k2dDxpNqqtDkBxZPci98wA8dipzdt6H3b7goNW22GFQ', agentRegistry: 'solana:101:metaplex' },
+    { agentId: 988891, agentRegistry: 'eip155:8453:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432' },
+  ]);
   const home = await (await fetch(`${base}/`, { headers: { accept: 'text/html' } })).text();
   assert.match(home, /Fizzl Buy/);
   assert.match(home, /over x402 \(USDC on Base\), for services/);

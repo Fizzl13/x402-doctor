@@ -63,9 +63,13 @@ const CAP_USD = 0.01;
 const FREE_PER_HOUR = 10;
 const BUY_ROUTE = '/v1/buy';
 const EXAMPLE_NEED = 'weather forecast for Amsterdam tomorrow';
-// The agent's entries in agent registries: the ERC-8004 Identity Registry on Base (registered 23 Oct 2026 from Fizzl's
-// wallet 0x2c7c…128b, like the other Fizzl agents; tokenURI = /.well-known/agent-registration.json).
-const AGENT_REGISTRATIONS = [{ agentId: 988891, agentRegistry: 'eip155:8453:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432' }];
+// The agent's entries in agent registries: Metaplex's Agent Registry on Solana (registered 24 Oct 2026 from Fizzl's
+// Solana wallet ATWJ8…aJBH9, like the other Fizzl agents) and the ERC-8004 Identity Registry on Base (registered 23 Oct
+// 2026 from Fizzl's wallet 0x2c7c…128b; tokenURI = /.well-known/agent-registration.json).
+const AGENT_REGISTRATIONS = [
+  { agentId: '6k2dDxpNqqtDkBxZPci98wA8dipzdt6H3b7goNW22GFQ', agentRegistry: 'solana:101:metaplex' },
+  { agentId: 988891, agentRegistry: 'eip155:8453:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432' },
+];
 
 const memoryOf = () => {
   const m = process.memoryUsage();
