@@ -61,6 +61,7 @@ jobs:
             git show FETCH_HEAD:index.json > trust-data/index.json || rm -f trust-data/index.json
             git show FETCH_HEAD:paytos.json > trust-data/paytos.json || rm -f trust-data/paytos.json
             git show FETCH_HEAD:paytos-solana.json > trust-data/paytos-solana.json 2>/dev/null || rm -f trust-data/paytos-solana.json
+            git show FETCH_HEAD:paytos-xrpl.json > trust-data/paytos-xrpl.json 2>/dev/null || rm -f trust-data/paytos-xrpl.json
             git show FETCH_HEAD:submitted.json > trust-data/submitted.json || rm -f trust-data/submitted.json
           fi
           ls -la trust-data
@@ -109,7 +110,8 @@ jobs:
           lib/trust-reader.js). `summary.json`: totals of the latest scan. `categories.json`: the kind of
           service per description (TypeSafe Jev, keyed by lib/services.js descKey). `paytos.json`: the payout addresses on
           Base and the day each was last seen, for the hourly on-chain payment count; `paytos-solana.json` the same for USDC
-          payout addresses on Solana, with the facilitators that pay their fees (`fee_payers`). `namesakes.json`: brand names
+          payout addresses on Solana, with the facilitators that pay their fees (`fee_payers`), and `paytos-xrpl.json` for
+          payout addresses on the XRP Ledger. `namesakes.json`: brand names
           listed by more than one seller (lib/namesakes.js); the namesakes' resources carry `ns` in the index. `submitted.json`: the same history for
           endpoints their sellers added on Doctor (POST /api/trust/submit), kept apart from the registry listings in
           `index.json`. See https://x402-doctor.fizzl.eu/trust
@@ -118,6 +120,7 @@ jobs:
           git add index.json index.ndjson summary.json categories.json paytos.json submitted.json README.md
           if [ -f namesakes.json ]; then git add namesakes.json; fi
           if [ -f paytos-solana.json ]; then git add paytos-solana.json; fi
+          if [ -f paytos-xrpl.json ]; then git add paytos-xrpl.json; fi
           if [ -f views/meta.json ]; then git add views keys; fi
           git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -qm "Trust index $(date -u +%F)"
           git push -qf "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" trust-data

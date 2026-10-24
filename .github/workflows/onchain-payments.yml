@@ -34,16 +34,19 @@ jobs:
           if git fetch --depth 1 origin payments-data 2>/dev/null; then
             git show FETCH_HEAD:payments.json > payments-data/payments.json || rm -f payments-data/payments.json
             git show FETCH_HEAD:payments-solana.json > payments-data/payments-solana.json 2>/dev/null || rm -f payments-data/payments-solana.json
+            git show FETCH_HEAD:payments-xrpl.json > payments-data/payments-xrpl.json 2>/dev/null || rm -f payments-data/payments-xrpl.json
           fi
           if git fetch --depth 1 origin trust-data 2>/dev/null; then
             git show FETCH_HEAD:paytos.json > paytos.json || rm -f paytos.json
             git show FETCH_HEAD:paytos-solana.json > paytos-solana.json 2>/dev/null || rm -f paytos-solana.json
+            git show FETCH_HEAD:paytos-xrpl.json > paytos-xrpl.json 2>/dev/null || rm -f paytos-xrpl.json
           fi
       - name: Collect
-        run: node scripts/onchain-payments.js --state payments-data/payments.json --paytos paytos.json --sol-state payments-data/payments-solana.json --sol-paytos paytos-solana.json
+        run: node scripts/onchain-payments.js --state payments-data/payments.json --paytos paytos.json --sol-state payments-data/payments-solana.json --sol-paytos paytos-solana.json --xrpl-state payments-data/payments-xrpl.json --xrpl-paytos paytos-xrpl.json
         env:
           BASE_RPC_URL: ${{ secrets.BASE_RPC_URL }}
           SOLANA_RPC_URL: ${{ secrets.SOLANA_RPC_URL }}
+          XRPL_RPC_URL: ${{ secrets.XRPL_RPC_URL }}
       - name: Publish to the payments-data branch
         run: |
           [ -f payments-data/payments.json ] || { echo "nothing to publish yet"; exit 0; }
@@ -56,11 +59,14 @@ jobs:
           (EIP-3009 transferWithAuthorization, the way x402 settles): `[count, micro-USDC, payer prefixes]`. `days`:
           how many blocks of each day were read. x402 Doctor's own test wallet is left out. `payments-solana.json`:
           the same for USDC payout addresses on Solana, counting payments whose network fee a facilitator from the
-          sellers' offers paid (the way x402 settles on Solana). See https://x402-doctor.fizzl.eu/trust
+          sellers' offers paid (the way x402 settles on Solana). `payments-xrpl.json`: the same for payout addresses on
+          the XRP Ledger, counting RLUSD and USDC payments an x402 client marked (SourceTag 804681468 or an InvoiceID).
+          See https://x402-doctor.fizzl.eu/trust
           MD
           git init -q -b payments-data
           git add payments.json README.md
           if [ -f payments-solana.json ]; then git add payments-solana.json; fi
+          if [ -f payments-xrpl.json ]; then git add payments-xrpl.json; fi
           git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -qm "Payments $(date -u +%FT%H:%M)"
           git push -qf "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" payments-data
         env:
