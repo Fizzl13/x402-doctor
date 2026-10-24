@@ -437,11 +437,11 @@ function openApi(publicUrl) {
           operationId: 'buy',
           summary: 'Buy the right paid API for a need and return its answer',
           'x-payment-info': { price: { mode: 'fixed', currency: 'USD', amount: String(PRICE_USD) }, protocols: [{ x402: {} }], networks: [BASE, SOLANA], asset: 'USDC' },
-          requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', properties: { need: { type: 'string', minLength: 3, maxLength: 500 } }, required: ['need'] }, example: { need: EXAMPLE_NEED } } } },
+          requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', properties: { need: { type: 'string', minLength: 3, maxLength: 500, description: 'What you need, in plain words with the details (place, date, ticker, currency pair)', example: EXAMPLE_NEED } }, required: ['need'] }, example: { need: EXAMPLE_NEED } } } },
           responses: { 200: { description: 'The answer, bought and checked', content: { 'application/json': { example: OUTPUT_EXAMPLE } } }, 400: { description: 'Invalid request; nothing is charged' }, 402: { description: 'Payment Required' }, 404: { description: 'No suitable service; nothing is charged' }, 502: { description: 'No service delivered; nothing is charged' }, 503: { description: 'Budget or wallet empty; nothing is charged' } },
         },
       },
-      '/v1/pick': { get: { operationId: 'pick', security: [], summary: 'Free: which paid API the inkoper would buy for a need', parameters: [{ name: 'need', in: 'query', required: true, schema: { type: 'string' } }], responses: { 200: { description: 'The pick, alternatives and how to buy' }, 429: { description: 'Free limit reached' } } } },
+      '/v1/pick': { get: { operationId: 'pick', security: [], summary: 'Fetch the paid API that would be bought for a need', description: 'Free: no payment needed.', parameters: [{ name: 'need', in: 'query', required: true, description: 'What you need, in plain words with the details', schema: { type: 'string', minLength: 3, maxLength: 500, example: EXAMPLE_NEED } }], responses: { 200: { description: 'The pick, alternatives and how to buy' }, 429: { description: 'Free limit reached' } } } },
     },
   };
 }
