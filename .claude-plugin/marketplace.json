@@ -1,6 +1,6 @@
 {
   "name": "fizzl",
-  "description": "Check before an agent pays or signs: x402 Doctor (is this x402 or MPP API safe to pay, does my paid endpoint work) and presign-guard (is this transaction, approval or token safe). Plus the Fizzl Agent Wallet (spending limits) and Ichimoku Signal (crypto trend signals).",
+  "description": "Check before an agent pays or signs: x402 Doctor (is this x402 or MPP API safe to pay, does my paid endpoint work) and presign-guard (is this transaction, approval or token safe). Plus Fizzl Buy (live data bought in one call), the Fizzl Agent Wallet (spending limits) and Ichimoku Signal (crypto trend signals).",
   "owner": {
     "name": "Fizzl",
     "email": "Fizzl13@protonmail.com",
@@ -88,6 +88,29 @@
       "license": "MIT",
       "keywords": ["crypto", "trading", "signals", "ichimoku", "x402"],
       "category": "finance"
+    },
+    {
+      "name": "fizzl-buy",
+      "displayName": "Fizzl Buy",
+      "description": "Live data your agent can't get itself (weather, prices, exchange rates, search, news) bought in one call: Fizzl picks the x402 seller x402 Doctor has seen paying out day after day at a fair price, pays it and returns the answer, checked for hidden instructions. $0.02 per purchase over x402, nothing charged when no seller delivers; a free preview of the pick. One skill plus Fizzl Buy's MCP server.",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/Fizzl13/fizzl-skills.git",
+        "path": "skills"
+      },
+      "skills": ["./buy-live-data"],
+      "mcpServers": {
+        "fizzl-buy": {
+          "type": "http",
+          "url": "https://buy.fizzl.eu/mcp"
+        }
+      },
+      "author": { "name": "Fizzl", "url": "https://fizzl.eu" },
+      "homepage": "https://buy.fizzl.eu",
+      "repository": "https://github.com/Fizzl13/fizzl-skills",
+      "license": "MIT",
+      "keywords": ["x402", "agents", "payments", "data", "weather", "prices", "search"],
+      "category": "productivity"
     }
   ]
 }
