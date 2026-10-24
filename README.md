@@ -421,7 +421,9 @@ Space waits in `hf-mcp/`. Doctor's own MCP server is `https://x402-doctor.fizzl.
   (`lib/onchain-payments-xrpl.js`). On the XRP Ledger the buyer signs a complete Payment and pays its own fee, so no fee
   payer tells an x402 payment apart; x402 clients mark it instead: t54's SDK signs with SourceTag 804681468, and
   @x402/xrpl binds the invoice in InvoiceID. A payment with neither, or one in XRP (no dollar amount without a price),
-  doesn't count; RLUSD and USDC are recognised by their issuers. Each address's transactions since the last ledger read
+  doesn't count; RLUSD and USDC are recognised by their issuers. x402's batch-settlement scheme settles on XRPL with a
+  Check (t54's "xrpl-check-session"): the buyer writes one to the seller and the seller cashes it for many calls at
+  once, so each cashed Check counts as one payment from the buyer who wrote it. Each address's transactions since the last ledger read
   are asked with `account_tx`, oldest first, and a run cut short keeps its last ledger whole for the next one. The
   result is `payments-xrpl.json` on `payments-data`; a seller without a Base or Solana option gets the same
   `onchain_payments` line for its XRPL payout address, and `/api/trust/summary` adds `onchain_payments_xrpl`.

@@ -35,6 +35,18 @@ function pay({ from, to, value, token = RLUSD, at, ledger, tag, invoice, result 
   };
 }
 
+// A CheckCash: `casher` cashes `value` from a Check that `creator` wrote to it (batch settlement). The Check's own
+// marks (SourceTag, InvoiceID) are in the deleted ledger entry, as rippled reports it.
+function cash({ creator, casher, value, token = RLUSD, at, ledger, tag = X402_SOURCE_TAG, checkTag = X402_SOURCE_TAG, checkInvoice = INVOICE, result = 'tesSUCCESS' }) {
+  const delivered = { ...token, value: String(value) };
+  const check = { Account: creator, Destination: casher, SendMax: { ...token, value: '1' }, ...(checkTag != null ? { SourceTag: checkTag } : {}), ...(checkInvoice ? { InvoiceID: checkInvoice } : {}) };
+  return {
+    tx: { TransactionType: 'CheckCash', Account: casher, Amount: delivered, CheckID: 'C'.repeat(64), date: rippleTime(at), ledger_index: ledger, ...(tag != null ? { SourceTag: tag } : {}) },
+    meta: { TransactionResult: result, delivered_amount: delivered, AffectedNodes: [{ DeletedNode: { LedgerEntryType: 'Check', FinalFields: check } }] },
+    validated: true,
+  };
+}
+
 // A rippled holding these transactions. account_tx honours ledger_index_min/max, forward, limit and a marker (the
 // index of the next one), like the real one; `ledgers.validated` is the newest validated ledger.
 function fakeNode({ txs, validated, unknown = [] }) {
@@ -46,7 +58,8 @@ function fakeNode({ txs, validated, unknown = [] }) {
     if (unknown.includes(p.account)) return reply({ status: 'error', error: 'actNotFound' });
     const max = p.ledger_index_max === -1 ? ledgers.validated : p.ledger_index_max;
     const min = p.ledger_index_min === -1 ? 0 : p.ledger_index_min;
-    const mine = txs.filter((t) => (t.tx.Account === p.account || t.tx.Destination === p.account) && t.tx.ledger_index >= min && t.tx.ledger_index <= max)
+    const touches = (t) => t.tx.Account === p.account || t.tx.Destination === p.account || (t.meta.AffectedNodes || []).some((n) => n.DeletedNode?.FinalFields?.Account === p.account);
+    const mine = txs.filter((t) => touches(t) && t.tx.ledger_index >= min && t.tx.ledger_index <= max)
       .sort((a, b) => (p.forward ? a.tx.ledger_index - b.tx.ledger_index : b.tx.ledger_index - a.tx.ledger_index));
     const start = p.marker ? p.marker.i : 0;
     const page = mine.slice(start, start + p.limit);
@@ -88,6 +101,19 @@ test('paymentOf: marked RLUSD and USDC in, in micro-dollars; unmarked, XRP, look
   assert.equal(paymentOf(pay({ from: BUYER, to: OTHER, value: '1', at, ledger: 1, tag: X402_SOURCE_TAG }), SELLER), null, 'not this payout address');
 });
 
+test('paymentOf: a cashed Check (batch settlement) is a payment from its creator, marked by the Check or the cash', () => {
+  const at = `${DAY1}T10:00:00Z`;
+  assert.deepEqual(paymentOf(cash({ creator: BUYER, casher: SELLER, value: '0.298149', at, ledger: 1 }), SELLER), { dir: 'in', x402: true, from: BUYER, micro: 298149 });
+  assert.equal(paymentOf(cash({ creator: BUYER, casher: SELLER, value: '1', at, ledger: 1, tag: null }), SELLER).x402, true, 'the Check carries the mark');
+  assert.equal(paymentOf(cash({ creator: BUYER, casher: SELLER, value: '1', at, ledger: 1, tag: null, checkTag: null, checkInvoice: null }), SELLER).x402, false, 'a plain Check');
+  assert.deepEqual(paymentOf(cash({ creator: SELLER, casher: BUYER, value: '0.5', at, ledger: 1 }), SELLER), { dir: 'out', to: BUYER, micro: 500000 }, 'a Check the payout address wrote, cashed by someone else');
+  assert.equal(paymentOf(cash({ creator: BUYER, casher: SELLER, value: '1', at, ledger: 1, result: 'tecNO_ENTRY' }), SELLER), null);
+  assert.equal(paymentOf(cash({ creator: BUYER, casher: SELLER, value: '1', token: { ...RLUSD, issuer: OTHER }, at, ledger: 1 }), SELLER), null);
+  const create = pay({ from: BUYER, to: SELLER, value: '1', at, ledger: 1, tag: X402_SOURCE_TAG, invoice: INVOICE, type: 'CheckCreate' });
+  delete create.meta.delivered_amount;
+  assert.equal(paymentOf(create, SELLER), null, 'writing a Check moves no money yet');
+});
+
 test('collectXrpl: marked payments counted per day from today on first sight; the next run reads only new ledgers', async () => {
   const txs = [
     pay({ from: BUYER, to: SELLER, value: '9', at: `${DAY1}T08:00:00Z`, ledger: 90, tag: X402_SOURCE_TAG }), // yesterday: history on first sight
@@ -122,6 +148,19 @@ test('collectXrpl: marked payments counted per day from today on first sight; th
   assert.match(paidBackNote(w), /also received RLUSD or USDC from this payout address/);
   const tot = totalsOf(s3);
   assert.deepEqual([tot.network, tot.symbol, tot.watched, tot.pay_tos_paid, tot.payments], [XRPL, 'RLUSD or USDC', 1, 1, 3]);
+});
+
+test('collectXrpl: cashed Checks count for the seller that cashes them, and as money back for the one that wrote them', async () => {
+  const txs = [
+    cash({ creator: BUYER, casher: SELLER, value: '0.25', at: `${DAY2}T01:00:00Z`, ledger: 100 }),
+    cash({ creator: BUYER2, casher: SELLER, value: '0.5', at: `${DAY2}T02:00:00Z`, ledger: 101 }),
+    cash({ creator: SELLER, casher: BUYER, value: '0.2', at: `${DAY2}T03:00:00Z`, ledger: 102, tag: null, checkTag: null, checkInvoice: null }), // back to a payer
+  ];
+  const node = fakeNode({ txs, validated: 110 });
+  const s = await collectXrpl(null, { payTos: [SELLER], fetchImpl: node.fetchImpl, now: () => Date.parse(`${DAY2}T09:00:00Z`), ...quick });
+  const d = s.pay_tos[SELLER].d[DAY2];
+  assert.deepEqual(d.slice(0, 3), [2, 750000, [BUYER.slice(0, 10), BUYER2.slice(0, 10)]]);
+  assert.deepEqual(d[3], { [BUYER.slice(0, 10)]: 200000 });
 });
 
 test('collectXrpl: a run cut short by the page limit keeps the last ledger whole for the next run', async () => {
