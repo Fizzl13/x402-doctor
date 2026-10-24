@@ -13,7 +13,7 @@
 const fs = require('fs');
 const path = require('path');
 const { createSafeFetch } = require('../lib/safe-fetch');
-const { loadCatalog, loadMppCatalog, loadGoPlausibleCatalog, loadCircleCatalog, loadSubmissions, submittedResources, scan, mergeIndex, summarize, indexLines } = require('../lib/trust-scan');
+const { loadCatalog, loadMppCatalog, loadGoPlausibleCatalog, loadCircleCatalog, loadXrplHub, loadSubmissions, submittedResources, scan, mergeIndex, summarize, indexLines } = require('../lib/trust-scan');
 const { mergePayTos } = require('../lib/onchain-payments');
 const { mergeSolanaPayTos } = require('../lib/onchain-payments-solana');
 const { mergeXrplPayTos } = require('../lib/onchain-payments-xrpl');
@@ -53,6 +53,13 @@ async function main() {
   const circleOnly = circle.filter((r) => !listed.has(r.key));
   console.log(`Circle Agent Marketplace: ${circle.length} endpoints, ${circleOnly.length} new`);
   resources = [...resources, ...circleOnly];
+  // The XRPL AI Hub (t54's XRPL facilitator): its merchants' APIs, most in no other registry; one check per endpoint.
+  // Its merchant addresses also go to the hourly XRPL payment count, listed API or not.
+  const hub = await loadXrplHub().catch((err) => (console.warn(`XRPL AI Hub: ${err.message}`), { resources: [], merchants: [] }));
+  const indexed = new Set(resources.map((r) => r.key));
+  const hubOnly = hub.resources.filter((r) => !indexed.has(r.key));
+  console.log(`XRPL AI Hub: ${hub.merchants.length} merchants, ${hub.resources.length} endpoints, ${hubOnly.length} new`);
+  resources = [...resources, ...hubOnly];
   if (limit > 0) resources = resources.slice(0, limit);
   // Added by their sellers: yesterday's plus the new submissions, without what a registry lists by now.
   const submissions = await loadSubmissions({ ...(process.env.TRUST_SUBMISSIONS_URL ? { url: process.env.TRUST_SUBMISSIONS_URL } : {}) })
@@ -120,7 +127,7 @@ async function main() {
   const xrplPath = path.join(out, 'paytos-xrpl.json');
   let previousXrpl = null;
   try { previousXrpl = JSON.parse(fs.readFileSync(xrplPath, 'utf8')); } catch { /* first run */ }
-  const xrplPayTos = mergeXrplPayTos(previousXrpl, all, date);
+  const xrplPayTos = mergeXrplPayTos(previousXrpl, [...all, { xrpl_pay_tos: hub.merchants }], date);
   fs.writeFileSync(xrplPath, JSON.stringify(xrplPayTos));
   console.log(`payout addresses on the XRP Ledger: ${Object.keys(xrplPayTos.pay_tos).length}`);
   console.log(JSON.stringify(summary, null, 2));

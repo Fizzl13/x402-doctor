@@ -4,7 +4,7 @@ Four free tools, each a call to x402 Doctor's public API (https://x402-doctor.fi
 signs or holds a key: the paid preflight ($0.001 over x402) stays on Doctor itself.
 
 - check_x402_endpoint: the full check of a paid endpoint (POST /api/diagnose), what an agent would meet before paying.
-- trust_record: the daily track record of an endpoint listed in the CDP Bazaar, Circle's Agent Marketplace, GoPlausible's discovery list or the MPP directory, or added by its seller (GET /api/trust).
+- trust_record: the daily track record of an endpoint listed in the CDP Bazaar, Circle's Agent Marketplace, GoPlausible's discovery list, the XRPL AI Hub or the MPP directory, or added by its seller (GET /api/trust).
 - add_to_trust_index: a seller adds an endpoint no registry lists yet, after Doctor checks its 402 (POST /api/trust/submit).
 - x402_market_health: totals of the latest daily scan of every listed endpoint (GET /api/trust/summary).
 """
@@ -154,7 +154,7 @@ def check_x402_endpoint(url: str, method: str = "", body: str = "") -> dict:
 
 
 def trust_record(url: str) -> dict:
-    """The daily track record of a paid endpoint listed in the CDP Bazaar, Circle's Agent Marketplace, GoPlausible's discovery list or the MPP directory, or added by its seller.
+    """The daily track record of a paid endpoint listed in the CDP Bazaar, Circle's Agent Marketplace, GoPlausible's discovery list, the XRPL AI Hub or the MPP directory, or added by its seller.
 
     x402 Doctor checks every listed endpoint once a day without paying. The record shows how many days it was
     payable, the latest verdict (go, caution or no_go) with its reasons, the price and networks, and what
@@ -183,7 +183,7 @@ def trust_record(url: str) -> dict:
 def add_to_trust_index(url: str) -> dict:
     """Add your own paid endpoint to the x402 Trust Index when no registry lists it yet.
 
-    The daily scan covers every endpoint listed in the CDP Bazaar, Circle's Agent Marketplace, GoPlausible's discovery list or the MPP directory. Not listed anywhere? x402 Doctor
+    The daily scan covers every endpoint listed in the CDP Bazaar, Circle's Agent Marketplace, GoPlausible's discovery list, the XRPL AI Hub or the MPP directory. Not listed anywhere? x402 Doctor
     first checks that the endpoint answers 402 with a payment challenge (x402, MPP or L402); the next daily scan then
     starts its track record, which buyers' agents see before they pay. At most 25 endpoints per host.
 
