@@ -58,7 +58,7 @@ the medicine, the exact code that fixes each problem for your stack, in the brow
 | | `coinbase-agents` | Whether Coinbase's agent wallets can pay: Wallet MCP pays x402 in USDC on Base with `exact`, `upto` or `auth-capture` and finds services through the CDP Bazaar (the line says whether this route is listed there, from `bazaar-listing`); the Coinbase MCP also needs x402 v2 and at most $5 a call, and fetches only its own curated catalog. Info when there is no USDC on Base or only another scheme |
 | Discovery | `bazaar`, `bazaar-output` | Missing or invalid Bazaar declaration, output example not matching its schema |
 | | `market-price` | Where your price sits among comparable paid APIs of other sellers in the x402 Trust Index (median and range; comparable as judged by TypeSafe Jev, with `TYPESAFE_API_KEY`). Always `info`; the hint speaks up when agents' preflights would point at cheaper services, or when you charge far less than the rest |
-| | `onchain-payments` | Real payments to your payout address on Base in the last 7 days: how many different wallets paid it, how often and how much, counted from the chain every hour (USDC signed with EIP-3009, the way x402's exact scheme settles; Permit2, Circle Gateway and other networks aren't counted). It says how many payers also paid 10 or more other sellers, as checkers and scanners do, and how to get counted when your endpoint isn't in the Trust Index yet. Always `info`: new sellers start at zero |
+| | `onchain-payments` | Real payments to your payout address on Base in the last 7 days (or on Solana when you have no Base option): how many different wallets paid it, how often and how much, counted from the chain every hour (on Base USDC signed with EIP-3009, the way x402's exact scheme settles; on Solana USDC transfers whose fee an x402 facilitator paid; Permit2, Circle Gateway and other networks aren't counted). It says how many payers also paid 10 or more other sellers, as checkers and scanners do, and how to get counted when your endpoint isn't in the Trust Index yet. Always `info`: new sellers start at zero |
 | | `bazaar-replay` | The declared example request not answering 402, so the Bazaar cannot index it |
 | | `payto-stable` | The payout address (payTo) changing from one 402 to the next: a buyer asked again sees a new payTo and may pay twice for one call |
 | | `bazaar-route` | A Bazaar `routeTemplate` that is not a path (e.g. `:var1`) or has a `:param` without a `pathParams` value, so the request built from it is an invalid URL |
@@ -406,6 +406,16 @@ Space waits in `hf-mcp/`. Doctor's own MCP server is `https://x402-doctor.fizzl.
   the public node `base-rpc.publicnode.com`, which serves only about the last 10,000 blocks, so a gap of more than
   ~5 hours between runs shows up as lower `coverage`. GitHub runs the hourly schedule late (every 3.5 to 6.5 hours on
   19 Oct), so the Doctor starts the workflow every hour itself, with the `DELIVERY_DISPATCH_TOKEN` it already has.
+- **Real payments on Solana.** The same workflow reads the USDC payout addresses on Solana the scan saw
+  (`paytos-solana.json`, with the facilitators that pay their fees: each offer's `extra.feePayer`) and counts, per
+  address, the USDC transfers into it whose network fee one of those facilitators paid, the way x402's exact scheme
+  settles on Solana (`lib/onchain-payments-solana.js`); a plain transfer, where the sender pays its own fee, doesn't
+  count. Solana has no log filter over many accounts, so each address's USDC accounts are asked for their new
+  signatures since the last run and each new transaction is read once; addresses not reached within the run's time
+  budget are read by the next run, so counts come later but nothing is lost. The result, in the same shape as Base's,
+  is `payments-solana.json` on `payments-data`. A seller without a Base option gets the same `onchain_payments` line
+  and signal for its Solana payout address, `/api/trust/summary` adds `onchain_payments_solana`, and the preflight's
+  Solana options carry `fee_payer`. `SOLANA_RPC_URL` is asked before the public node, which allows a few calls a second.
 - **The daily scan, when GitHub skips it.** The scan's schedule fires four times a day and the first run does the day,
   but GitHub drops scheduled runs when it is busy (on 21 Oct the 03:17 run never started). From 04:15 UTC, every half
   hour, the Doctor checks the scan it serves; while that is the day before's, it starts `trust-scan.yml` with

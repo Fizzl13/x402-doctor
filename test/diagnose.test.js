@@ -1049,6 +1049,22 @@ test('onchain payments: Gateway-only and burn payout addresses are never looked 
   assert.deepEqual(checks, []);
 });
 
+test('onchain payments on Solana: a USDC option without a Base one is looked up by its Solana payout address', async () => {
+  const { checkOnchainPayments } = require('../lib/diagnose');
+  const asked = [];
+  const found = { network: SOLANA, days: 7, payments: 12, payers: 3, usd: 0.24, coverage: 1 };
+  const payments = { lookup: async (a) => { asked.push(a); return found; }, loaded: () => true };
+  const checks = [];
+  await checkOnchainPayments([{ scheme: 'exact', network: SOLANA, asset: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', payTo: PAYOUT_WITH_ATA }], payments, checks);
+  assert.deepEqual(asked, [PAYOUT_WITH_ATA]);
+  assert.match(checks[0].message, /^Real payments on Solana in the last 7 days: 3 different wallets paid this payout address \(.+\) 12 times, \$0\.24 in USDC in total\./);
+  assert.match(checks[0].hint, /network fee an x402 facilitator paid/);
+  // Not watched yet, with the Solana counts loaded: said, naming Solana.
+  const empty = [];
+  await checkOnchainPayments([{ scheme: 'exact', network: SOLANA, asset: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', payTo: PAYOUT_WITH_ATA }], { lookup: async () => null, loaded: () => true }, empty);
+  assert.match(empty[0].message, /counts the payout addresses on Solana/);
+});
+
 test('market price: opt-in, an info line from the price comparison, asked with the lowest USDC price, verdict unchanged', async () => {
   const seen = [];
   const cmp = { price_usd: 0.02, comparable_median_usd: 0.01, comparables: 6, ratio: 2, range_usd: [0.005, 0.05], cheaper: [] };

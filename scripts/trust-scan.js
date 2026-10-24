@@ -15,6 +15,7 @@ const path = require('path');
 const { createSafeFetch } = require('../lib/safe-fetch');
 const { loadCatalog, loadMppCatalog, loadGoPlausibleCatalog, loadCircleCatalog, loadSubmissions, submittedResources, scan, mergeIndex, summarize, indexLines } = require('../lib/trust-scan');
 const { mergePayTos } = require('../lib/onchain-payments');
+const { mergeSolanaPayTos } = require('../lib/onchain-payments-solana');
 const { createSanctions } = require('../lib/sanctions');
 
 function arg(name, fallback) {
@@ -107,6 +108,13 @@ async function main() {
   const payTos = mergePayTos(previousPayTos, all, date);
   fs.writeFileSync(payTosPath, JSON.stringify(payTos));
   console.log(`payout addresses on Base: ${Object.keys(payTos.pay_tos).length}`);
+  // The same for Solana: USDC payout addresses and the facilitators that pay their fees.
+  const solPath = path.join(out, 'paytos-solana.json');
+  let previousSol = null;
+  try { previousSol = JSON.parse(fs.readFileSync(solPath, 'utf8')); } catch { /* first run */ }
+  const solPayTos = mergeSolanaPayTos(previousSol, all, date);
+  fs.writeFileSync(solPath, JSON.stringify(solPayTos));
+  console.log(`payout addresses on Solana: ${Object.keys(solPayTos.pay_tos).length}, facilitator fee payers: ${Object.keys(solPayTos.fee_payers).length}`);
   console.log(JSON.stringify(summary, null, 2));
 }
 
