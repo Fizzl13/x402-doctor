@@ -625,8 +625,11 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
       return res.status(503).json({ error: 'trust index loading, try again shortly' });
     }
     // Signed USDC payments on Base to the payout addresses in the index over the last 7 days (null until collected).
-    const onchain = await onchainPayments.totals({ waitMs: 1500 }).catch(() => null);
-    res.json({ ...summary, onchain_payments: onchain });
+    const [onchain, onchainSolana] = await Promise.all([
+      onchainPayments.totals({ waitMs: 1500 }).catch(() => null),
+      typeof onchainPayments.totalsSolana === 'function' ? onchainPayments.totalsSolana().catch(() => null) : null,
+    ]);
+    res.json({ ...summary, onchain_payments: onchain, ...(onchainSolana ? { onchain_payments_solana: onchainSolana } : {}) });
   });
 
   // The free check may also be called from the live demo on fizzl.eu (browser, CORS).

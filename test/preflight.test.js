@@ -270,6 +270,19 @@ test('on-chain payments: how many wallets paid the Base payout address shows as 
   assert.equal(r.signals.onchain_payments, undefined);
 });
 
+test('on-chain payments on Solana: a seller without a Base option is looked up by its Solana payout address; options carry the fee payer', async () => {
+  const url = await seller({ accepts: [solanaOption('15000')] });
+  const asked = [];
+  const stats = { network: SOLANA, days: 7, payments: 40, payers: 9, usd: 0.6, coverage: 1, as_of: '2026-10-24T05:00:00.000Z' };
+  let r = await run(url, { payments: { lookup: async (payTo) => { asked.push(payTo); return { ...stats, pay_to: payTo }; } } });
+  assert.deepEqual(asked, [PAY_TO_SOLANA], 'the base58 address, case kept');
+  assert.equal(r.options[0].fee_payer, FEE_PAYER);
+  const line = r.reasons.find((x) => x.code === 'onchain_payments');
+  assert.match(line.message, /^9 different wallets paid this seller's payout address on Solana in the last 7 days: 40 USDC payments, \$0\.6 in total \(their network fee paid by an x402 facilitator, the way x402 settles on Solana\)\.$/);
+  r = await run(url, { payments: { lookup: async () => ({ ...stats, days: 1, payments: 0, payers: 0, usd: 0 }) } });
+  assert.match(r.reasons.find((x) => x.code === 'onchain_payments').message, /^No USDC payments reached this seller's payout address on Solana yesterday\./);
+});
+
 test('MPP only (evm, USDC on Base): go, the MPP option is recommended, with an mpp_only note', async () => {
   const url = await mppSeller({ challenges: [{ method: 'evm', request: evmRequest('20000') }] });
   const r = await preflight(url, { safeFetch, rpcUrl, maxUsd: 0.05 });

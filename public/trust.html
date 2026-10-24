@@ -151,6 +151,7 @@
   <div class="share-legend" id="shareLegend"></div>
   <p class="note" id="sanctionsLine" hidden></p>
   <p class="note" id="onchainLine" hidden></p>
+  <p class="note" id="onchainSolLine" hidden></p>
 
   <h2>Paid and delivered?</h2>
   <p class="note" id="spotLine" aria-live="polite">Loading the latest spot-buy…</p>
@@ -344,6 +345,13 @@
       const period = oc.days === 1 ? 'yesterday' : `in the last ${oc.days} days`;
       $('onchainLine').textContent = `Real payments: ${period}, ${fmt(oc.payers)} different wallets made ${fmt(oc.payments)} signed USDC payments ($${fmt(Math.round(oc.usd))}) on Base to ${fmt(oc.pay_tos_paid)} of the ${fmt(oc.watched)} payout addresses in this index (EIP-3009, the way x402 settles; x402 Doctor's own test purchases left out).${oc.pay_tos_paid_only_wide ? ` ${fmt(oc.pay_tos_paid_only_wide)} of those ${fmt(oc.pay_tos_paid)} were paid only by wallets that pay ${oc.wide_sellers} or more of them, as checkers and scanners do, not by ordinary buyers.` : ''}${oc.pay_tos_closed_loop ? ` ${fmt(oc.pay_tos_closed_loop)} ${oc.pay_tos_closed_loop === 1 ? 'looks' : 'look'} like a closed loop: every ordinary payer received the money back from the payout address, as when a seller pays its own endpoint.` : ''}${oc.coverage < 0.95 ? ` Based on ${Math.round(oc.coverage * 100)}% of the blocks in that period.` : ''}`;
       $('onchainLine').hidden = false;
+    }
+    // The same on Solana: USDC payments whose network fee an x402 facilitator paid (lib/onchain-payments-solana.js).
+    const os = s.onchain_payments_solana;
+    if (os && os.payments) {
+      const periodSol = os.days === 1 ? 'yesterday' : `in the last ${os.days} days`;
+      $('onchainSolLine').textContent = `On Solana: ${periodSol}, ${fmt(os.payers)} different wallets made ${fmt(os.payments)} USDC payments ($${fmt(Math.round(os.usd))}) to ${fmt(os.pay_tos_paid)} of the ${fmt(os.watched)} Solana payout addresses here, each with its network fee paid by an x402 facilitator (the way x402 settles on Solana).${os.pay_tos_paid_only_wide ? ` ${fmt(os.pay_tos_paid_only_wide)} of those were paid only by wallets that pay ${os.wide_sellers} or more of them, as checkers and scanners do.` : ''}`;
+      $('onchainSolLine').hidden = false;
     }
     renderReasons(s);
     renderServices(s.services);
