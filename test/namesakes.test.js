@@ -2,7 +2,7 @@
 // address, a shared host-name word or three shared names; the best-known owner is the original; only brands count.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { casesOf, createBrandCheck, namesakeEntries, namesakeReason, lesserOf, nameOf } = require('../lib/namesakes');
+const { casesOf, createBrandCheck, namesakeEntries, namesakeReason, lesserOf, nameOf, ownSiteName } = require('../lib/namesakes');
 
 const item = (resource, serviceName, payTo, payers = 0, calls = payers * 3, description = `${serviceName} service`) => ({ resource, serviceName, description, accepts: [{ network: 'eip155:8453', payTo }], quality: { l30DaysUniquePayers: payers, l30DaysTotalCalls: calls } });
 
@@ -54,8 +54,8 @@ test('entries: only brands, only namesakes with fewer payers; the reason names t
   const entries = namesakeEntries(cases, { 'x402 doctor': 0.89, 'uuid generator': 0.81 });
   assert.deepEqual(Object.keys(entries).sort(), ['https://doctor.promoclube.online/diagnose', 'https://doctor.promoclube.online/preflight']);
   const ns = entries['https://doctor.promoclube.online/diagnose'];
-  assert.deepEqual(ns, { name: 'X402 Doctor', original: { site: 'fizzl.eu', url: 'https://x402-doctor.fizzl.eu/api/v1/preflight', payers: 6 }, payers: 4 });
-  assert.match(namesakeReason(ns).message, /"X402 Doctor" is also at fizzl\.eu/);
+  assert.deepEqual(ns, { name: 'X402 Doctor', original: { site: 'x402-doctor.fizzl.eu', url: 'https://x402-doctor.fizzl.eu/api/v1/preflight', payers: 6 }, payers: 4 });
+  assert.match(namesakeReason(ns).message, /"X402 Doctor" is also at x402-doctor\.fizzl\.eu/);
   assert.equal(namesakeReason(null), null);
   const even = { ...cases[0], namesakes: [{ ...cases[0].namesakes[0], payers: 6 }] };
   assert.deepEqual(lesserOf(even), [], 'as many payers as the original: neither is the better-known one');
@@ -88,4 +88,34 @@ test('the track-record lookup returns the namesake mark from the index', () => {
   const templates = templatesOf(index.resources);
   assert.deepEqual(lookupIn(index, templates, 'https://doctor.promoclube.online/diagnose').namesake, ns);
   assert.equal(lookupIn(index, templates, 'https://x402-doctor.fizzl.eu/api/v1/preflight').namesake, undefined);
+});
+
+test("a name that is the original's own site name is a brand whatever Jev says; a description is not", () => {
+  const cases = casesOf([
+    item('https://x402-doctor.fizzl.eu/api/v1/preflight', 'X402 Doctor', '0xAAA', 6),
+    item('https://doctor.promoclube.online/diagnose', 'X402 Doctor', '0xBBB', 4),
+    item('https://x402-gateway.ai/api/v1/ping', 'x402-gateway', '0x0A', 6),
+    item('https://x402.freeq.one/tools/markdown', 'x402-gateway', '0x0B', 4),
+    item('https://api.searchco.com/search', 'Web Search', '0x0E', 9),
+    item('https://websearcher.dev/q', 'Web Search', '0x0F', 2),
+    item('https://data.site-a.com/x', 'Data', '0x10', 5),
+    item('https://data.site-b.io/x', 'Data', '0x11', 1),
+    // a subdomain named after what the tool does, and a single coined word on a shared host
+    item('https://asn-lookup.underscoredone.com/q', 'ASN Lookup', '0x12', 5),
+    item('https://flat-rate-llm.kikoribera03.workers.dev/asn', 'ASN Lookup', '0x13', 4),
+    item('https://tablegrab.onrender.com/grab', 'TableGrab', '0x14', 3),
+    item('https://priceplain.onrender.com/grab', 'TableGrab', '0x15', 1),
+  ]);
+  const byName = Object.fromEntries(cases.map((c) => [c.name, c]));
+  assert.deepEqual(byName['x402 doctor'].original.hosts, ['x402-doctor.fizzl.eu']);
+  assert.equal(ownSiteName(byName['x402 doctor']), true, 'x402-doctor.fizzl.eu');
+  assert.equal(ownSiteName(byName['x402-gateway']), true, 'x402-gateway.ai');
+  assert.equal(ownSiteName(byName['web search']), false, "not the original's site name");
+  assert.equal(ownSiteName(byName.data), false, 'too short to tell');
+  assert.equal(ownSiteName(byName['asn lookup']), false, 'a descriptive subdomain');
+  assert.equal(ownSiteName(byName.tablegrab), true, 'the first label on a shared host');
+  // Jev's answers of 24 Oct 2026: "x402 doctor" 0.17, "x402-gateway" 0.87.
+  const entries = namesakeEntries(cases, { 'x402 doctor': 0.17, 'x402-gateway': 0.87, 'web search': 0.09, data: 0.05, 'asn lookup': 0.08, tablegrab: 0.61 });
+  assert.deepEqual(Object.keys(entries).sort(), ['https://doctor.promoclube.online/diagnose', 'https://priceplain.onrender.com/grab', 'https://x402.freeq.one/tools/markdown']);
+  assert.equal(entries['https://doctor.promoclube.online/diagnose'].original.site, 'x402-doctor.fizzl.eu');
 });
