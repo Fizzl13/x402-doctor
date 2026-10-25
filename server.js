@@ -24,6 +24,7 @@ const { createTrustSubmissions } = require('./lib/trust-submissions');
 const { createOnchainPayments } = require('./lib/onchain-payments');
 const { createSpotResults } = require('./lib/spot-results');
 const { createNohumansDelivery } = require('./lib/delivery-nohumans');
+const { canonicalHost } = require('./lib/canonical-host');
 const { createMediaCache } = require('./lib/media');
 const crypto = require('crypto');
 const { createUsageLog, mcpToolCall, mcpPayment, agentOf, visitorOf } = require('./lib/usage-log');
@@ -259,6 +260,8 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   // count back three X-Forwarded-For entries to find the caller. With 1, req.ip
   // was the Render hop, and the per-IP admin lockout and rate limits were shared.
   app.set('trust proxy', trustProxyHops(env));
+  // The Render address sends every request to x402-doctor.fizzl.eu (lib/canonical-host.js), the health check aside.
+  app.use(canonicalHost(env.PUBLIC_URL || 'https://x402-doctor.fizzl.eu'));
   app.disable('x-powered-by');
   app.use(securityHeaders);
   // Every HEAD is handled as a GET, so paid routes give their 402 instead of running for free (lib/head-guard.js).

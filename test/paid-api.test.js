@@ -124,13 +124,14 @@ test('unpaid request: 402 offering $0.01 USDC on Base and Solana, mirrored into 
   assert.equal(res.headers.get('cache-control'), 'no-store');
 });
 
-test('called on the Render address, the challenge (and so the Bazaar listing) names x402-doctor.fizzl.eu', async () => {
+test('called on the Render address, a paid route goes to the same route on x402-doctor.fizzl.eu (308), where the challenge names it', async () => {
   const { port } = new URL(api);
-  const headers = await new Promise((resolve, reject) => {
-    require('node:http').get({ host: '127.0.0.1', port, path: '/api/v1/diagnose', headers: { host: 'x402-doctor.onrender.com' } }, (res) => { res.resume(); resolve(res.headers); }).on('error', reject);
+  const res = await new Promise((resolve, reject) => {
+    require('node:http').get({ host: '127.0.0.1', port, path: '/api/v1/diagnose', headers: { host: 'x402-doctor.onrender.com' } }, (r) => { r.resume(); resolve(r); }).on('error', reject);
   });
-  const header = JSON.parse(Buffer.from(headers['payment-required'], 'base64').toString('utf8'));
-  assert.equal(header.resource.url, 'https://x402-doctor.fizzl.eu/api/v1/diagnose');
+  assert.equal(res.statusCode, 308);
+  assert.equal(res.headers.location, 'https://x402-doctor.fizzl.eu/api/v1/diagnose');
+  assert.equal(res.headers['payment-required'], undefined);
 });
 
 test('bare route (no url) answers 402 so indexers like x402scan can register it', async () => {
