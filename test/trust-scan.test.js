@@ -138,7 +138,63 @@ test('scan: go, no_go and unreachable sellers, with price and networks', async (
   assert.deepEqual(by.good.networks, [BASE]);
   assert.equal(by.free.verdict, 'no_go');
   assert.deepEqual(by.free.codes, ['no_402']);
-  assert.equal(by.down.verdict, 'no_go');
+  assert.equal(by.down.verdict, 'error');
+  assert.deepEqual(by.down.codes, ['unreachable']);
+});
+
+// From the nohumans.directory comparison (25 Oct 2026): sellers its paid calls reached that the scan called no_402.
+test('scan: a GET that times out next to a POST 404/405 is unreachable, not no_402; a POST 200 next to it still is no_402', async () => {
+  const challenge = (req) => ({ x402Version: 2, resource: { url: `http://${req.headers.host}${req.url}`, mimeType: 'application/json', description: 'x' }, accepts: [{ scheme: 'exact', network: BASE, amount: '10000', asset: USDC_BASE, payTo: '0x6B0F4651eD42893ab58139938175E4a69f175F25', maxTimeoutSeconds: 60, extra: { name: 'USD Coin', version: '2' } }] });
+  // A sleeping host (a free Render instance waking up): GET answers too late, POST at once with 405.
+  const sleepy = await listen((req, res) => {
+    if (req.url === '/openapi.json') return res.end('{}');
+    if (req.method === 'POST') { res.statusCode = 405; return res.end('{"detail":"Method Not Allowed"}'); }
+    setTimeout(() => { res.statusCode = 402; res.setHeader('PAYMENT-REQUIRED', Buffer.from(JSON.stringify(challenge(req))).toString('base64')); res.end('{}'); }, 1500).unref();
+  });
+  const freeOnPost = await listen((req, res) => {
+    if (req.url === '/openapi.json') return res.end('{}');
+    if (req.method === 'POST') return res.end('{"ok":true}');
+    setTimeout(() => res.end('{}'), 1500).unref();
+  });
+  const results = await scan([{ key: 'sleepy', url: `${sleepy}/gleif/lei` }, { key: 'free', url: `${freeOnPost}/x` }], { safeFetch: createSafeFetch({ allowPrivate: true, timeoutMs: 400 }) });
+  const by = Object.fromEntries(results.map((r) => [r.key, r]));
+  assert.equal(by.sleepy.verdict, 'error');
+  assert.deepEqual(by.sleepy.codes, ['unreachable']);
+  assert.equal(mergeIndex(null, results, { date: '2026-10-25' }).resources.sleepy.h, 'x');
+  assert.equal(by.free.verdict, 'no_go', 'POST answered without payment: no_402 as before');
+  assert.deepEqual(by.free.codes, ['no_402']);
+});
+
+test('scan: a free trial (x-free-trial) is asked again for the 402 behind it; one that stays free is not judged, the last verdict stays', async () => {
+  const challenge = (req) => ({ x402Version: 2, resource: { url: `http://${req.headers.host}${req.url}`, mimeType: 'application/json', description: 'x' }, accepts: [{ scheme: 'exact', network: BASE, amount: '1000', asset: USDC_BASE, payTo: '0x6B0F4651eD42893ab58139938175E4a69f175F25', maxTimeoutSeconds: 60, extra: { name: 'USD Coin', version: '2' } }] });
+  const calls = { trial: 0, always: 0 };
+  const trial = await listen((req, res) => {
+    if (req.url === '/openapi.json') return res.end('{}');
+    if (req.method === 'POST') { res.statusCode = 404; return res.end('Cannot POST'); }
+    // Two free answers, then the 402 (as agents.ai-rook.com does, on and off).
+    if (++calls.trial <= 2) { res.setHeader('x-free-trial', 'true'); res.setHeader('x-trial-remaining', '0'); return res.end('{"gwei":"0.01"}'); }
+    res.statusCode = 402;
+    res.setHeader('PAYMENT-REQUIRED', Buffer.from(JSON.stringify(challenge(req))).toString('base64'));
+    res.end('{}');
+  });
+  const always = await listen((req, res) => {
+    if (req.url === '/openapi.json') return res.end('{}');
+    if (req.method === 'POST') { res.statusCode = 404; return res.end('Cannot POST'); }
+    calls.always++;
+    res.setHeader('x-free-trial', 'true');
+    res.end('{"ok":true}');
+  });
+  const results = await scan([{ key: 'trial', url: `${trial}/api/gas-tracker` }, { key: 'always', url: `${always}/api/ip-lookup` }], { safeFetch: createSafeFetch({ allowPrivate: true, timeoutMs: 2000 }) });
+  const by = Object.fromEntries(results.map((r) => [r.key, r]));
+  assert.equal(by.trial.verdict, 'go');
+  assert.equal(by.trial.price_usd, 0.001);
+  assert.equal(by.always.verdict, 'not_checked');
+  assert.deepEqual(by.always.codes, ['free_trial']);
+  assert.equal(calls.always, 4, 'the first GET and three more, then no further');
+  const previous = mergeIndex(null, [{ key: 'always', url: `${always}/api/ip-lookup`, method: 'GET', verdict: 'go', codes: [], price_usd: 0.001, networks: [BASE], ms: 5 }], { date: '2026-10-24' });
+  const merged = mergeIndex(previous, results, { date: '2026-10-25' }).resources.always;
+  assert.equal(merged.h, 'g-');
+  assert.equal(merged.last.verdict, 'go', 'the last real verdict stays for lookups');
 });
 
 test('scan: a listing that declares GET but only asks for payment on POST still counts as payable', async () => {
@@ -521,8 +577,8 @@ test('scan: a seller that answers too slowly is cut short (not checked today), w
   assert.deepEqual(reported.map((r) => r.host), [new URL(slow).host]);
   assert.equal(reported[0].skipped, skipped.length);
   assert.match(reported[0].why, /requests in a row took 0 s or more/);
-  // A seller that refuses at once is down, not slow: every endpoint is checked (and comes out no_go).
-  assert.ok(results.filter((r) => r.key.startsWith('down')).every((r) => r.verdict === 'no_go'));
+  // A seller that refuses at once is down, not slow: every endpoint is checked (and comes out unreachable).
+  assert.ok(results.filter((r) => r.key.startsWith('down')).every((r) => r.verdict === 'error' && r.codes[0] === 'unreachable'));
 
   // Not checked today: a '-' in the history, and the last real verdict stays for pages and lookups.
   const previous = { days: ['2026-10-16'], resources: { slow0: { url: `${slow}/paid/0`, m: 'GET', h: 'g', last: { verdict: 'go', codes: [], price_usd: 0.02, networks: [BASE] } } } };

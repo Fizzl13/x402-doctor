@@ -150,6 +150,21 @@ test('broken options, unknown token and non-402 endpoints', async () => {
   assert.equal(notImplemented.reasons[0].code, 'no_402', '501 says the method is not implemented, not that the server is down');
 });
 
+test('no answer and free trials: unreachable (a timeout next to a 405) and free_trial (a caution), not no_402', async () => {
+  const sleepy = await listen((req, res) => {
+    if (req.method === 'POST') { res.statusCode = 405; return res.end('{}'); }
+    setTimeout(() => res.end('{}'), 1500).unref();
+  });
+  const slow = await preflight(`${sleepy}/paid`, { safeFetch: createSafeFetch({ allowPrivate: true, timeoutMs: 300 }) });
+  assert.equal(slow.verdict, 'no_go');
+  assert.equal(slow.reasons[0].code, 'unreachable');
+  assert.match(slow.reasons[0].message, /GET timed out after 0\.3s, POST 405/);
+  const trial = await listen((req, res) => { res.setHeader('x-free-trial', 'true'); res.end('{}'); });
+  const free = await run(`${trial}/paid`);
+  assert.equal(free.verdict, 'caution');
+  assert.deepEqual(free.reasons.map((r) => r.code), ['free_trial']);
+});
+
 test('not listed in the CDP Bazaar is only information', async () => {
   const r = await run(await seller({ accepts: [baseOption('20000')] }), { bazaarIndex: unlisted });
   assert.equal(r.verdict, 'go');
