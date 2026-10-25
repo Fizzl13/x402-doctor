@@ -613,6 +613,9 @@ async function showTrust(url, id) {
     line.replaceChildren();
     if (res.ok) {
       line.append(`x402 Trust Index: payable on ${data.days_payable} of ${data.days_checked} scanned days. `, link(`/trust?url=${encodeURIComponent(url)}`, 'Track record and badge →'));
+      // Bought with real USDC by nohumans.directory, with an answer back: what the read-only check can't see.
+      const de = data.delivered_elsewhere;
+      if (de) line.append(` Bought with real USDC by nohumans.directory on ${de.paid_on}, and the answer came${de.status === 'failing' ? ' (failing their checks since)' : ''}. `, ...(de.listing ? [link(de.listing, 'Their record →')] : []));
     } else if (res.status === 404 && data.submitted_at) {
       line.append(`Added to the x402 Trust Index on ${data.submitted_at.slice(0, 10)}: the next daily scan checks it.`);
     } else if (res.status === 404) {
