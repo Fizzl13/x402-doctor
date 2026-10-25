@@ -66,14 +66,14 @@ function listen(app) {
   });
 }
 
-test('usage log: appends one JSON line per call to events/<service>/<day>.jsonl, clipped', async () => {
+test('usage log: appends one JSON line per call to events/<service>/<day>/<hour>.jsonl, clipped', async () => {
   const gh = fakeGitHub();
   const log = createUsageLog({ service: 'presign', env: { USAGE_LOG_TOKEN: 't' }, fetchFn: gh.fetchFn, now: () => new Date('2026-09-24T10:00:00Z'), log: quiet });
   log.record({ route: 'check', input: { type: 'signature', typedData: { big: 'x'.repeat(1000) } }, result: { verdict: 'red' } });
   await log.flush();
   log.record({ route: 'check', input: { type: 'approval' }, result: { verdict: 'orange' } });
   await log.flush();
-  const lines = gh.files.get('events/presign/2026-09-24.jsonl').trim().split('\n').map((l) => JSON.parse(l));
+  const lines = gh.files.get('events/presign/2026-09-24/10.jsonl').trim().split('\n').map((l) => JSON.parse(l));
   assert.equal(lines.length, 2);
   assert.equal(lines[0].service, 'presign');
   assert.equal(lines[0].t, '2026-09-24T10:00:00.000Z');
@@ -134,7 +134,7 @@ test('middleware: reads a JSON body written with res.end (MCP transport)', async
   await new Promise((r) => setTimeout(r, 30));
   await usageLog.flush();
   server.close();
-  const [line] = gh.files.get('events/ichimoku/2026-09-24.jsonl').trim().split('\n').map((l) => JSON.parse(l));
+  const [line] = gh.files.get('events/ichimoku/2026-09-24/10.jsonl').trim().split('\n').map((l) => JSON.parse(l));
   assert.equal(line.paid, true);
   assert.equal(line.usd, 0.02);
   assert.equal(line.tx, '0xabc');
@@ -150,18 +150,45 @@ test('middleware: a 402 is logged as a quote with the caller type, a refused pay
   app.use(usageLog.middleware((req, _res, body) => ({ route: 'signal', input: { pair: 'BTC-USDT' }, result: { signal: body && body.signal } })));
   app.get('/signal', (req, res) => (req.query.pay ? res.json({ signal: 'bullish' }) : res.status(402).json({ x402Version: 2, accepts: [] })));
   const { server, base } = await listen(app);
-  await fetch(`${base}/signal`, { headers: { 'user-agent': 'SmitheryBot/1.0 (+https://smithery.ai)' } });
+  await fetch(`${base}/signal`, { headers: { 'user-agent': 'my-agent/1.0' } });
   await fetch(`${base}/signal`, { headers: { 'user-agent': 'python-requests/2.32.3', 'payment-signature': b64({ bad: true }) } });
   await fetch(`${base}/signal?pay=1`, { headers: { 'user-agent': 'Mozilla/5.0 (Macintosh) AppleWebKit/605.1.15 Version/18.0 Safari/605.1.15' } });
   await new Promise((r) => setTimeout(r, 30));
   await usageLog.flush();
   server.close();
-  const lines = gh.files.get('events/ichimoku/2026-09-24.jsonl').trim().split('\n').map((l) => JSON.parse(l));
+  const lines = gh.files.get('events/ichimoku/2026-09-24/10.jsonl').trim().split('\n').map((l) => JSON.parse(l));
   assert.equal(lines.length, 3);
-  assert.deepEqual([lines[0].status, lines[0].quote, lines[0].agent, lines[0].paid, lines[0].result], [402, true, 'SmitheryBot/1.0', false, undefined]);
+  assert.deepEqual([lines[0].status, lines[0].quote, lines[0].agent, lines[0].paid, lines[0].result], [402, true, 'my-agent/1.0', false, undefined]);
   assert.equal(lines[0].payment_failed, undefined, 'no payment offered: just saw the price');
   assert.deepEqual([lines[1].quote, lines[1].payment_failed, lines[1].agent], [true, true, 'python-requests/2.32.3']);
   assert.deepEqual([lines[2].status, lines[2].quote, lines[2].agent, lines[2].result.signal], [200, undefined, 'browser', 'bullish']);
+});
+
+test('usage log: a bot\'s unpaid 402s are one line per hour, route and agent, with how many and from how many callers', async () => {
+  const gh = fakeGitHub();
+  let clock = new Date('2026-10-25T10:20:00Z');
+  const usageLog = createUsageLog({ service: 'presign', env: { USAGE_LOG_TOKEN: 't' }, fetchFn: gh.fetchFn, now: () => clock, log: quiet });
+  const quote = (agent, visitor, extra = {}) => usageLog.record({ route: 'token', via: 'api', status: 402, quote: true, paid: false, agent, visitor, input: { address: '0x1' }, ...extra });
+  quote('crawler', 'v1');
+  quote('crawler', 'v2');
+  quote('crawler', 'v1');
+  quote('AgentRankProbe/0.1', 'v3');
+  quote('crawler', 'v4', { payment_failed: true, reason: 'invalid signature' }); // offered a payment: kept as it is
+  quote('node', 'v5'); // not a bot by its name: kept as it is
+  usageLog.record({ route: 'token', via: 'api', status: 200, paid: true, usd: 0.01, agent: 'crawler', visitor: 'v1' }); // paid: always kept
+  clock = new Date('2026-10-25T11:05:00Z');
+  quote('crawler', 'v1');
+  await usageLog.flush();
+  const read = (hour) => (gh.files.get(`events/presign/2026-10-25/${hour}.jsonl`) || '').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l));
+  const ten = read('10');
+  const counted = ten.filter((e) => e.count);
+  assert.deepEqual(counted.map((e) => [e.t, e.agent, e.route, e.count, e.visitors, e.quote, e.status, e.via]), [
+    ['2026-10-25T10:00:00.000Z', 'crawler', 'token', 3, 2, true, 402, 'api'],
+    ['2026-10-25T10:00:00.000Z', 'AgentRankProbe/0.1', 'token', 1, 1, true, 402, 'api'],
+  ]);
+  assert.ok(counted.every((e) => e.input === undefined && e.visitor === undefined), 'no input or caller code on a counted line');
+  assert.deepEqual(ten.filter((e) => !e.count).map((e) => [e.agent, e.payment_failed ?? null, e.paid]), [['crawler', true, false], ['node', null, false], ['crawler', null, true]]);
+  assert.deepEqual(read('11').map((e) => [e.t, e.count]), [['2026-10-25T11:00:00.000Z', 1]], 'the next hour is counted in its own file');
 });
 
 test('middleware: a refused x402 payment logs the reason from the 402, with URLs blanked', async () => {
@@ -182,7 +209,7 @@ test('middleware: a refused x402 payment logs the reason from the 402, with URLs
   await new Promise((r) => setTimeout(r, 30));
   await usageLog.flush();
   server.close();
-  const lines = gh.files.get('events/ichimoku/2026-09-24.jsonl').trim().split('\n').map((l) => JSON.parse(l));
+  const lines = gh.files.get('events/ichimoku/2026-09-24/10.jsonl').trim().split('\n').map((l) => JSON.parse(l));
   assert.deepEqual([lines[0].payment_failed, lines[0].reason], [true, 'insufficient_funds']);
   assert.deepEqual([lines[1].payment_failed, lines[1].reason], [true, 'request to <url> failed']);
   assert.equal(lines[1].protocol, undefined);
@@ -206,6 +233,22 @@ test('usage reader: reads the day files in range, newest first', async () => {
   assert.equal(out.configured, true);
   assert.deepEqual(out.events.map((e) => e.t), ['2026-09-24T11:00:00.000Z', '2026-09-24T09:00:00.000Z']);
   assert.ok(!gh.calls.some((c) => c.includes('2026-01-01')), 'old day files are not downloaded');
+});
+
+test('usage reader: day files from before 25 Oct and hourly files after, both read; summaries per file', async () => {
+  const gh = fakeGitHub();
+  const line = (t, service = 'doctor', extra = {}) => `${JSON.stringify({ t, service, ...extra })}\n`;
+  gh.setFile('events/doctor/2026-10-24.jsonl', line('2026-10-24T22:00:00.000Z'));
+  gh.setFile('events/doctor/2026-10-25/09.jsonl', line('2026-10-25T09:10:00.000Z'));
+  gh.setFile('events/doctor/2026-10-25/10.jsonl', line('2026-10-25T10:05:00.000Z') + line('2026-10-25T10:00:00.000Z', 'doctor', { count: 5 }));
+  gh.setFile('events/trust-submit/2026-10-25/10.jsonl', line('2026-10-25T10:01:00.000Z', 'trust-submit'));
+  gh.setFile('events/doctor/2026-10-25/notes.txt', 'not a log file');
+  const reader = createUsageReader({ env: { USAGE_LOG_TOKEN: 't' }, fetchFn: gh.fetchFn, now: () => Date.parse('2026-10-25T11:00:00Z') });
+  const all = await reader.load({ days: 3 });
+  assert.deepEqual(all.events.map((e) => e.t), ['2026-10-25T10:05:00.000Z', '2026-10-25T10:01:00.000Z', '2026-10-25T10:00:00.000Z', '2026-10-25T09:10:00.000Z', '2026-10-24T22:00:00.000Z']);
+  assert.deepEqual((await reader.load({ days: 3, service: 'trust-submit' })).events.map((e) => e.service), ['trust-submit']);
+  const { files } = await reader.summarizeAll((events, where) => ({ n: events.length, ...where }));
+  assert.deepEqual(files.map((f) => [f.service, f.date, f.summary.n]).sort(), [['doctor', '2026-10-24', 1], ['doctor', '2026-10-25', 1], ['doctor', '2026-10-25', 2], ['trust-submit', '2026-10-25', 1]]);
 });
 
 test('usage reader: keeps only the current version of a day file (no pile-up as today\'s file changes)', async () => {
@@ -340,7 +383,7 @@ test('doctor: a web diagnosis is logged with what was asked, static files are no
   await new Promise((r) => setTimeout(r, 30));
   await usageLog.flush();
   server.close();
-  const lines = (gh.files.get('events/doctor/2026-09-24.jsonl') || '').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l));
+  const lines = (gh.files.get('events/doctor/2026-09-24/10.jsonl') || '').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l));
   assert.equal(lines.length, 1);
   assert.equal(lines[0].route, 'diagnose');
   assert.equal(lines[0].via, 'web');
@@ -366,7 +409,7 @@ test('usage log middleware: a body written as a Uint8Array (the MCP transport) r
   await new Promise((r) => setTimeout(r, 30));
   await log.flush();
   server.close();
-  const line = JSON.parse(gh.files.get('events/doctor/2026-09-26.jsonl').trim());
+  const line = JSON.parse(gh.files.get('events/doctor/2026-09-26/10.jsonl').trim());
   assert.deepEqual(line.result, { overall: 'pass' });
 });
 
@@ -458,7 +501,7 @@ test('middleware: a refused MPP credential is payment_failed with protocol mpp; 
   await new Promise((r) => setTimeout(r, 30));
   await usageLog.flush();
   server.close();
-  const lines = gh.files.get('events/doctor/2026-10-04.jsonl').trim().split('\n').map((l) => JSON.parse(l));
+  const lines = gh.files.get('events/doctor/2026-10-04/10.jsonl').trim().split('\n').map((l) => JSON.parse(l));
   assert.deepEqual([lines[0].quote, lines[0].payment_failed, lines[0].protocol, lines[0].reason], [true, true, 'mpp', 'That challenge has expired. Ask again for a fresh 402.']);
   assert.deepEqual([lines[1].quote, lines[1].payment_failed, lines[1].protocol], [true, undefined, undefined]);
   assert.deepEqual([lines[2].paid, lines[2].usd, lines[2].protocol, lines[2].payer], [true, 0.01, 'mpp', '0xabc']);
@@ -591,9 +634,9 @@ test('XRPL: t54-format payments go to t54, accepts carry the x402 SourceTag', as
   assert.equal(x.extra.sourceTag, X402_SOURCE_TAG);
 });
 
-test('usage log: a day file over 1 MB keeps its lines (read raw), and writes are batched', async () => {
+test('usage log: a file over 1 MB keeps its lines (read raw), and writes are batched', async () => {
   const gh = fakeGitHub();
-  const path = 'events/doctor/2026-10-07.jsonl';
+  const path = 'events/doctor/2026-10-07/10.jsonl';
   const old = `${'x'.repeat(1100 * 1024)}\n`;
   gh.setFile(path, old);
   const log = createUsageLog({ service: 'doctor', env: { USAGE_LOG_TOKEN: 't' }, fetchFn: gh.fetchFn, now: () => new Date('2026-10-07T10:00:00Z'), log: quiet });
@@ -607,9 +650,9 @@ test('usage log: a day file over 1 MB keeps its lines (read raw), and writes are
   assert.deepEqual(gh.calls, [`GET /repos/Fizzl13/usage-log/contents/${path}`, `PUT /repos/Fizzl13/usage-log/contents/${path}`], 'one read and one write for both events');
 });
 
-test('usage log: the next write to the same day file skips the read; a file changed elsewhere is read again', async () => {
+test('usage log: the next write to the same file skips the read; a file changed elsewhere is read again', async () => {
   const gh = fakeGitHub();
-  const path = 'events/doctor/2026-10-14.jsonl';
+  const path = 'events/doctor/2026-10-14/10.jsonl';
   const log = createUsageLog({ service: 'doctor', env: { USAGE_LOG_TOKEN: 't' }, fetchFn: gh.fetchFn, now: () => new Date('2026-10-14T10:00:00Z'), log: quiet });
   const contents = `PUT /repos/Fizzl13/usage-log/contents/${path}`;
   const read = `GET /repos/Fizzl13/usage-log/contents/${path}`;

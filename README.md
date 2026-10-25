@@ -664,9 +664,11 @@ Without either payout wallet the paid route answers 503 and the rest of the app 
 `/admin/usage` shows every call to the Fizzl services (x402 Doctor, PlainText, Ichimoku Signal, presign-guard):
 totals, revenue, paying wallets, calls per day per service, the most asked inputs and the latest calls with what
 was filled in, the result and the payment (with a Basescan/Solscan link). Each service appends one JSON line per
-call to `events/<service>/<YYYY-MM-DD>.jsonl` in the private usage-log repo (`lib/usage-log.js`, copied into
-each service); the dashboard reads it back (`lib/usage-reader.js`). 402 challenges, health checks and static
-files are not counted, and inputs are cut to 300 characters. Logging never delays or fails a request.
+call to `events/<service>/<YYYY-MM-DD>/<HH>.jsonl` (one file per UTC hour since 25 Oct 2026; one per day,
+`events/<service>/<YYYY-MM-DD>.jsonl`, before) in the private usage-log repo (`lib/usage-log.js`, copied into each
+service); the dashboard reads both back (`lib/usage-reader.js`). A bot's unpaid 402s are one line per hour, route
+and agent, with `count` and `visitors` (how many different callers). 402 challenges, health checks and static files
+are not counted as calls, and inputs are cut to 300 characters. Logging never delays or fails a request.
 
 ## Payment security (Five Attacks on x402)
 
