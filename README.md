@@ -376,6 +376,12 @@ Space waits in `hf-mcp/`. Doctor's own MCP server is `https://x402-doctor.fizzl.
   90 seconds. Each purchase also records its answer time (`answer_s`, from the first request to the paid answer): the
   summary counts answers slower than 30 seconds (`slow_answers`, and `delivered_within_30s_pct`, what an agent that
   waits 30 seconds gets), and a slow one adds `slow_after_payment` (info) to the pre-payment check.
+- Delivery evidence from [nohumans.directory](https://nohumans.directory), which buys endpoints with real USDC (its
+  catalogue is CC BY 4.0): the scan's plan job writes the endpoints it bought and got an answer from to
+  `delivery-nohumans.json` on `trust-data` (by key: the day of that purchase, the listing's status, its id; about 3,700
+  on 25 Oct 2026, against the 26 a week the spot-buy can afford). The paid pre-payment check adds `signals.delivered_elsewhere`
+  and an `info` line (`delivered_elsewhere`) for such an endpoint, and `GET /api/trust?url=…` adds `delivered_elsewhere`
+  (`lib/delivery-nohumans.js`). It is information next to the read-only check, never the verdict.
   The same wallet makes one other kind of payment, started by hand: [`index-payment.yml`](.github/workflows/index-payment.yml)
   pays our own fizzl.eu routes (`scripts/index-payment.js`), because the CDP Bazaar lists a route only after a payment
   for it settles and drops it after 30 days without one. `stale` (the default) pays each of our 16 routes whose last

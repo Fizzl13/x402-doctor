@@ -68,11 +68,13 @@ async function plan({ out, limit }) {
   const hubOnly = hub.resources.filter((r) => !indexed.has(r.key));
   console.log(`XRPL AI Hub: ${hub.merchants.length} merchants, ${hub.resources.length} endpoints, ${hubOnly.length} new`);
   resources = [...resources, ...hubOnly];
-  // nohumans.directory's catalogue (CC BY 4.0): endpoints it probes and buys from; one check per endpoint.
-  const nohumans = await loadNohumansCatalog().catch((err) => (console.warn(`nohumans.directory: ${err.message}`), []));
+  // nohumans.directory's catalogue (CC BY 4.0): endpoints it probes and buys from; one check per endpoint. The ones it
+  // bought and got an answer from go to delivery-nohumans.json for the preflight.
+  const evidence = new Map();
+  const nohumans = await loadNohumansCatalog({ evidence }).catch((err) => (console.warn(`nohumans.directory: ${err.message}`), []));
   const covered = new Set(resources.map((r) => r.key));
   const nohumansOnly = nohumans.filter((r) => !covered.has(r.key));
-  console.log(`nohumans.directory: ${nohumans.length} endpoints, ${nohumansOnly.length} new`);
+  console.log(`nohumans.directory: ${nohumans.length} endpoints, ${nohumansOnly.length} new, ${evidence.size} bought and delivered`);
   resources = [...resources, ...nohumansOnly];
   // PayAPI Market's catalogue (sellers list their x402 APIs there for free); one check per endpoint.
   const payapi = await loadPayApiCatalog().catch((err) => (console.warn(`PayAPI Market: ${err.message}`), []));
@@ -86,7 +88,7 @@ async function plan({ out, limit }) {
     .catch((err) => (console.warn(`submissions: ${err.message}`), []));
   const added = submittedResources(previousSubmitted, submissions, new Set(resources.map((r) => r.key)));
   console.log(`added by sellers: ${submissions.length} submissions, ${added.length} to scan`);
-  return { date: new Date().toISOString().slice(0, 10), resources, added, hub_merchants: hub.merchants, hub_names: hub.names || {} };
+  return { date: new Date().toISOString().slice(0, 10), resources, added, hub_merchants: hub.merchants, hub_names: hub.names || {}, delivery_nohumans: Object.fromEntries(evidence) };
 }
 
 function printSlowHosts(rows) {
@@ -177,6 +179,12 @@ function merge(todo, done, { out }) {
   const xrplPayTos = mergeXrplPayTos(read(xrplPath), [...all, { xrpl_pay_tos: todo.hub_merchants }], todo.date, 14, todo.hub_names);
   fs.writeFileSync(xrplPath, JSON.stringify(xrplPayTos));
   console.log(`payout addresses on the XRP Ledger: ${Object.keys(xrplPayTos.pay_tos).length}, ${Object.keys(xrplPayTos.names || {}).length} with a hub name`);
+  // Delivery evidence from nohumans.directory (lib/delivery-nohumans.js). Not read today: yesterday's file stays.
+  const evidence = todo.delivery_nohumans || {};
+  if (Object.keys(evidence).length) {
+    fs.writeFileSync(path.join(out, 'delivery-nohumans.json'), JSON.stringify({ version: 1, source: 'https://nohumans.directory', license: 'CC BY 4.0', updated: todo.date, endpoints: evidence }));
+  }
+  console.log(`delivery evidence from nohumans.directory: ${Object.keys(evidence).length} endpoints${Object.keys(evidence).length ? '' : ' (kept the previous file)'}`);
   console.log(JSON.stringify(summary, null, 2));
 }
 
