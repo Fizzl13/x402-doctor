@@ -5,7 +5,8 @@
 //
 // Reads the previous 30-day index from <out> (index/, or index.json from before the parts; lib/index-files.js), scans
 // every resource in the CDP Bazaar (x402), the MPP directory (Stripe + Tempo), the GoPlausible facilitator's
-// discovery list (x402 on Algorand) and Circle's Agent Marketplace catalog, and writes the index to <out>/index/ (and
+// discovery list (x402 on Algorand), Circle's Agent Marketplace catalog, the XRPL AI Hub and nohumans.directory's
+// catalogue (CC BY 4.0), and writes the index to <out>/index/ (and
 // index.json while it fits) and <out>/summary.json. Every payout address is screened against the OFAC SDN list.
 // Endpoints their sellers added on Doctor (/api/trust/submitted) are scanned too, into <out>/submitted.json (read
 // from <out> like the index): kept apart, so the index and its numbers stay what the registries list.
@@ -21,7 +22,7 @@
 const fs = require('fs');
 const path = require('path');
 const { createSafeFetch } = require('../lib/safe-fetch');
-const { loadCatalog, loadMppCatalog, loadGoPlausibleCatalog, loadCircleCatalog, loadXrplHub, loadSubmissions, submittedResources, scan, mergeIndex, summarize, shareOf, hostOf } = require('../lib/trust-scan');
+const { loadCatalog, loadMppCatalog, loadGoPlausibleCatalog, loadCircleCatalog, loadNohumansCatalog, loadXrplHub, loadSubmissions, submittedResources, scan, mergeIndex, summarize, shareOf, hostOf } = require('../lib/trust-scan');
 const { mergePayTos } = require('../lib/onchain-payments');
 const { mergeSolanaPayTos } = require('../lib/onchain-payments-solana');
 const { mergeXrplPayTos } = require('../lib/onchain-payments-xrpl');
@@ -67,6 +68,12 @@ async function plan({ out, limit }) {
   const hubOnly = hub.resources.filter((r) => !indexed.has(r.key));
   console.log(`XRPL AI Hub: ${hub.merchants.length} merchants, ${hub.resources.length} endpoints, ${hubOnly.length} new`);
   resources = [...resources, ...hubOnly];
+  // nohumans.directory's catalogue (CC BY 4.0): endpoints it probes and buys from; one check per endpoint.
+  const nohumans = await loadNohumansCatalog().catch((err) => (console.warn(`nohumans.directory: ${err.message}`), []));
+  const covered = new Set(resources.map((r) => r.key));
+  const nohumansOnly = nohumans.filter((r) => !covered.has(r.key));
+  console.log(`nohumans.directory: ${nohumans.length} endpoints, ${nohumansOnly.length} new`);
+  resources = [...resources, ...nohumansOnly];
   if (limit > 0) resources = resources.slice(0, limit);
   // Added by their sellers: yesterday's plus the new submissions, without what a registry lists by now.
   const submissions = await loadSubmissions({ ...(process.env.TRUST_SUBMISSIONS_URL ? { url: process.env.TRUST_SUBMISSIONS_URL } : {}) })
