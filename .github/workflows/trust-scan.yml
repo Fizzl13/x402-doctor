@@ -10,6 +10,13 @@ name: Trust Index scan
 # stops early once today's scan is published. Doctor also starts it from 04:15 UTC
 # while it still serves the day before (lib/scan-watch.js), with only_if_missing,
 # which stops early the same way. A manual run without it always scans.
+#
+# Three jobs (scripts/trust-scan.js): plan reads the catalogs once; scan runs in
+# SHARES parallel jobs, each with whole sellers (by a hash of the host, so a seller
+# still gets at most two requests at a time); publish merges the shares into the
+# index and publishes it. In one job the scan took 57 minutes on 25 Oct 2026, twice
+# the day before, and a job stops at 3 hours. A share that fails or runs out of time
+# leaves its endpoints not checked that day ('-'); the rest is still published.
 on:
   schedule:
     - cron: "17 3,9,15,21 * * *" # 03:17, 09:17, 15:17, 21:17 UTC; the first that runs does the day
@@ -31,10 +38,15 @@ concurrency:
   group: trust-scan
   cancel-in-progress: false
 
+env:
+  SHARES: 4
+
 jobs:
-  scan:
+  plan:
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 60
+    outputs:
+      skip: ${{ steps.today.outputs.skip }}
     steps:
       - uses: actions/checkout@v5
       - name: Already scanned today?
@@ -53,25 +65,88 @@ jobs:
           cache: npm
       - run: npm ci
         if: steps.today.outputs.skip != 'true'
-      - name: Previous index
+      - name: Plan
         if: steps.today.outputs.skip != 'true'
         run: |
           mkdir -p trust-data
           if git fetch --depth 1 origin trust-data 2>/dev/null; then
-            git show FETCH_HEAD:index.json > trust-data/index.json || rm -f trust-data/index.json
+            git show FETCH_HEAD:submitted.json > trust-data/submitted.json || rm -f trust-data/submitted.json
+          fi
+          node scripts/trust-scan.js --plan plan/plan.json --out trust-data --limit "${{ github.event.inputs.limit || '0' }}"
+      - uses: actions/upload-artifact@v4
+        if: steps.today.outputs.skip != 'true'
+        with:
+          name: plan
+          path: plan/plan.json
+          retention-days: 3
+
+  scan:
+    needs: plan
+    if: needs.plan.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        share: [1, 2, 3, 4] # SHARES
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: plan
+          path: plan
+      - name: Scan share ${{ matrix.share }}
+        run: node scripts/trust-scan.js --shard "${{ matrix.share }}/$SHARES" --plan plan/plan.json --results "results/${{ matrix.share }}.json"
+        env:
+          SOLANA_RPC_URL: ${{ secrets.SOLANA_RPC_URL }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: results-${{ matrix.share }}
+          path: results/${{ matrix.share }}.json
+          retention-days: 3
+
+  publish:
+    needs: [plan, scan]
+    # Also when a share failed: its endpoints count as not checked today. Not when the run was cancelled.
+    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.skip != 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: plan
+          path: plan
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          pattern: results-*
+          path: results
+          merge-multiple: true
+      - name: Previous index
+        run: |
+          mkdir -p trust-data
+          if git fetch --depth 1 origin trust-data 2>/dev/null; then
+            bash scripts/trust-index-get.sh FETCH_HEAD trust-data || true
             git show FETCH_HEAD:paytos.json > trust-data/paytos.json || rm -f trust-data/paytos.json
             git show FETCH_HEAD:paytos-solana.json > trust-data/paytos-solana.json 2>/dev/null || rm -f trust-data/paytos-solana.json
             git show FETCH_HEAD:paytos-xrpl.json > trust-data/paytos-xrpl.json 2>/dev/null || rm -f trust-data/paytos-xrpl.json
             git show FETCH_HEAD:submitted.json > trust-data/submitted.json || rm -f trust-data/submitted.json
           fi
-          ls -la trust-data
-      - name: Scan
-        if: steps.today.outputs.skip != 'true'
-        run: node scripts/trust-scan.js --out trust-data --limit "${{ github.event.inputs.limit || '0' }}"
-        env:
-          SOLANA_RPC_URL: ${{ secrets.SOLANA_RPC_URL }}
+          ls -la trust-data results || true
+      - name: Merge the shares
+        run: node scripts/trust-scan.js --merge results --plan plan/plan.json --out trust-data
       - name: Categories (TypeSafe Jev)
-        if: steps.today.outputs.skip != 'true'
         run: |
           { git fetch --depth 1 origin trust-data 2>/dev/null && git show FETCH_HEAD:categories.json > prev-categories.json 2>/dev/null; } || echo "{}" > prev-categories.json
           node scripts/categorize.js --index trust-data/index.json --previous prev-categories.json --out trust-data/categories.json --max 1500 --max-bait 1000
@@ -81,7 +156,6 @@ jobs:
       # One service name listed by several sellers (lib/namesakes.js): marks the namesakes in the index before the views
       # are built. A failure here must not stop the publish.
       - name: Namesakes (TypeSafe Jev)
-        if: steps.today.outputs.skip != 'true'
         continue-on-error: true
         run: |
           { git fetch --depth 1 origin trust-data 2>/dev/null && git show FETCH_HEAD:namesakes.json > prev-namesakes.json 2>/dev/null; } || echo "{}" > prev-namesakes.json
@@ -91,43 +165,47 @@ jobs:
       # The small files the Doctor reads instead of the whole index. A failure here must not stop the publish: the
       # Doctor then keeps reading the previous views (or the full index).
       - name: Views for the Doctor
-        if: steps.today.outputs.skip != 'true'
         continue-on-error: true
         run: node scripts/trust-views.js --dir trust-data
       - name: Publish to the trust-data branch
-        if: steps.today.outputs.skip != 'true'
         run: |
           cd trust-data
           cat > README.md <<'MD'
           # x402 Trust Index data
 
-          Written daily by `.github/workflows/trust-scan.yml` on `master`. `index.json`: 30-day history per
-          resource (`days[]`, and per resource `h` with one letter per day: g go, c caution, n no-go,
-          x unreachable, - not scanned); `index.ndjson` is the same index with one resource per line (a header line,
-          then `[key, resource]`). `views/` and `keys/`: the same index as small precomputed files (the summary, the
-          atlas, path templates, seller totals, the price check's word index, one view per network, and the resources in
-          256 buckets by key), which the Doctor reads instead of the whole index (lib/trust-views.js,
-          lib/trust-reader.js). `summary.json`: totals of the latest scan. `categories.json`: the kind of
-          service per description (TypeSafe Jev, keyed by lib/services.js descKey). `paytos.json`: the payout addresses on
-          Base and the day each was last seen, for the hourly on-chain payment count; `paytos-solana.json` the same for USDC
-          payout addresses on Solana, with the facilitators that pay their fees (`fee_payers`), and `paytos-xrpl.json` for
-          payout addresses on the XRP Ledger. `namesakes.json`: brand names
-          listed by more than one seller (lib/namesakes.js); the namesakes' resources carry `ns` in the index. `submitted.json`: the same history for
-          endpoints their sellers added on Doctor (POST /api/trust/submit), kept apart from the registry listings in
-          `index.json`. See https://x402-doctor.fizzl.eu/trust
+          Written daily by `.github/workflows/trust-scan.yml` on `master`. `index/`: the 30-day history per resource,
+          in parts that each stay far below GitHub's file size limit (`index/meta.json` has `days[]`, the count and the
+          parts; each part `index/<nn>.ndjson` has one `[key, resource]` per line, and per resource `h` has one letter
+          per day: g go, c caution, n no-go, x unreachable, - not scanned; lib/index-files.js). `index.json` (the whole
+          index as one JSON) and `index.ndjson` (a header line, then the same lines) are published as well while they
+          stay under 90 MB, and left out after that. `views/` and `keys/`: the same index as small precomputed files (the
+          summary, the atlas, path templates, seller totals, the price check's word index, one view per network, a large
+          one in parts as listed in `views/meta.json` `network_parts`, and the resources in 256 buckets by key), which
+          the Doctor reads instead of the whole index (lib/trust-views.js, lib/trust-reader.js). `summary.json`: totals
+          of the latest scan. `categories.json`: the kind of service per description (TypeSafe Jev, keyed by
+          lib/services.js descKey). `paytos.json`: the payout addresses on Base and the day each was last seen, for the
+          hourly on-chain payment count; `paytos-solana.json` the same for USDC payout addresses on Solana, with the
+          facilitators that pay their fees (`fee_payers`), and `paytos-xrpl.json` for payout addresses on the XRP
+          Ledger. `namesakes.json`: brand names listed by more than one seller (lib/namesakes.js); the namesakes'
+          resources carry `ns` in the index. `submitted.json`: the same history for endpoints their sellers added on
+          Doctor (POST /api/trust/submit), kept apart from the registry listings in the index. See
+          https://x402-doctor.fizzl.eu/trust
           MD
+          # GitHub refuses a file over 100 MB in a push (and warns from 50 MB): say which, before the push fails.
+          find . -type f -size +50M | while read -r f; do echo "::warning::$f is $(( $(stat -c %s "$f") / 1048576 )) MB (GitHub refuses files over 100 MB)"; done
+          big=$(find . -type f -size +95M)
+          if [ -n "$big" ]; then echo "::error::too large to publish: $big"; exit 1; fi
           git init -q -b trust-data
-          git add index.json index.ndjson summary.json categories.json paytos.json submitted.json README.md
-          if [ -f namesakes.json ]; then git add namesakes.json; fi
-          if [ -f paytos-solana.json ]; then git add paytos-solana.json; fi
-          if [ -f paytos-xrpl.json ]; then git add paytos-xrpl.json; fi
+          git add index summary.json categories.json paytos.json submitted.json README.md
+          for f in index.json index.ndjson namesakes.json paytos-solana.json paytos-xrpl.json; do
+            if [ -f "$f" ]; then git add "$f"; fi
+          done
           if [ -f views/meta.json ]; then git add views keys; fi
           git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -qm "Trust index $(date -u +%F)"
           git push -qf "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" trust-data
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Summary
-        if: steps.today.outputs.skip != 'true'
         run: |
           echo '```json' >> "$GITHUB_STEP_SUMMARY"
           cat trust-data/summary.json >> "$GITHUB_STEP_SUMMARY"

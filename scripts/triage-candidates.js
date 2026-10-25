@@ -19,13 +19,14 @@
 const fs = require('fs');
 const { createSafeFetch } = require('../lib/safe-fetch');
 const { preflight } = require('../lib/preflight');
+const { readIndexFile } = require('../lib/index-files');
 const { createTriage } = require('../lib/jev-triage');
 const { findContact } = require('../lib/contact');
 
 const WANT = new Set(['resource_mismatch', 'invalid_challenge', 'no_payable_option', 'price_above_advertised', 'price_far_above_advertised', 'unknown_asset', 'testnet_only', 'network_not_offered']);
 const arg = (name, fallback) => { const i = process.argv.indexOf(`--${name}`); return i > 0 ? process.argv[i + 1] : fallback; };
 async function main() {
-  const index = JSON.parse(fs.readFileSync(arg('index', 'trust-data/index.json'), 'utf8'));
+  const index = readIndexFile(arg('index', 'trust-data/index.json'));
   const limit = Number(arg('limit', 0));
   const perHost = new Map();
   for (const r of Object.values(index.resources || {})) {

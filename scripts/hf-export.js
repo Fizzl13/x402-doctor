@@ -15,10 +15,12 @@ const fs = require('fs');
 const path = require('path');
 const { groupServices, categoryOf, guessCategory, CATEGORIES } = require('../lib/services');
 const { trackRecord } = require('../lib/trust-scan');
+const { readIndexFile } = require('../lib/index-files');
 const { viewOf } = require('../lib/spot-results');
 
 const arg = (name, fallback) => { const i = process.argv.indexOf(`--${name}`); return i > 0 ? process.argv[i + 1] : fallback; };
 const readJson = (file) => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; } };
+const readIndex = (file) => { try { return readIndexFile(file); } catch { return null; } };
 const hostOf = (url) => { try { return new URL(url).hostname; } catch { return null; } };
 
 // One row per endpoint that was in today's scan (its history's last day isn't '-').
@@ -177,7 +179,7 @@ CC BY 4.0: free to use, share and adapt with credit to "x402 Trust Index by x402
 }
 
 function main() {
-  const index = readJson(arg('index', 'trust-data/index.json'));
+  const index = readIndex(arg('index', 'trust-data/index.json'));
   if (!index || !index.resources) { console.error('hf-export: no index.json'); process.exit(1); }
   const categories = readJson(arg('categories', 'trust-data/categories.json'))?.categories || {};
   const out = arg('out', 'hf');

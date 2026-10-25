@@ -322,11 +322,17 @@ Once a day, [`trust-scan.yml`](.github/workflows/trust-scan.yml) runs the pre-pa
 the CDP Bazaar, the MPP directory, the [GoPlausible](https://facilitator.goplausible.xyz/discovery/resources) facilitator's discovery list (x402 on Algorand, about 2,500 endpoints the Bazaar doesn't list) [Circle's Agent Marketplace](https://agents.circle.com/services) catalog (about 2,800 endpoints, many paid through Circle Gateway) and the [XRPL AI Hub](https://xrpl-ai.org/merchants) (the merchants paid through t54's XRPL facilitator; it has no listing API, so its merchant pages are read, about 190 pages a day) (read-only: it stops at the 402 challenge, at most two requests per host at a time, one
 `/openapi.json` per origin, a User-Agent that links to `/trust`). The results roll into a 30-day history per resource,
 one letter per day (`g` go, `c` caution, `n` no-go, `x` unreachable, `-` not scanned), published as
-`index.json` + `summary.json` on the `trust-data` branch.
-The server doesn't load that index (32 MB, ~70,000 resources): after the scan, `scripts/trust-views.js`
+`index/` + `summary.json` on the `trust-data` branch. The index is written in parts of at most 24 MB
+(`index/meta.json`, then `index/<nn>.ndjson` with one `[key, resource]` per line; `lib/index-files.js`), so no file
+nears GitHub's 100 MB limit as the index grows; `index.json` and `index.ndjson`, the whole index as one file, are
+published as well while they stay under 90 MB. The scan runs in parallel jobs, each with whole sellers (a plan job
+reads the catalogs, four scan jobs, a publish job merges them): a share that fails leaves its endpoints not checked
+that day, never marked down.
+The server doesn't load that index (42 MB, ~88,000 resources on 25 Oct 2026): after the scan, `scripts/trust-views.js`
 (`lib/trust-views.js`) writes it as small precomputed files on the same branch, from the same code (`views/meta.json`
 with the summary, `views/atlas.json`, `views/templates.json`, `views/sellers.json`, the price check's word index under
-`views/similar/`, one `views/networks/<key>.json` per network, and the resources in 256 buckets by key under `keys/`).
+`views/similar/`, one `views/networks/<key>.json` per network (one over 16 MB as a head and parts, listed in
+`views/meta.json` `network_parts`), and the resources in 256 buckets by key under `keys/`).
 `lib/trust-reader.js` reads only what a request needs (one ~130 kB bucket per lookup, at most 32 kept) with the same
 answers as the full index, and falls back to the full index while the views aren't published. Measured on the 20 Oct
 index: 116 MB peak instead of 285 MB, 37 MB of heap instead of ~100 MB.
@@ -440,7 +446,7 @@ Space waits in `hf-mcp/`. Doctor's own MCP server is `https://x402-doctor.fizzl.
   `POST /api/trust/submit` with `{"url": "https://…"}` (free, 10 an hour per IP): a seller adds an endpoint no registry
   lists yet. Doctor checks that it answers 402 with a payment challenge (x402, MPP or L402) and keeps the submission in
   the usage log repo (`events/trust-submit/`); the next scan reads `GET /api/trust/submitted` and scans it into
-  `submitted.json`, apart from `index.json`, so lookups and badges find it (marked `submitted: true`) while the totals,
+  `submitted.json`, apart from the index, so lookups and badges find it (marked `submitted: true`) while the totals,
   pages and datasets keep counting registry listings only. At most 25 per host; one that a registry lists later moves to
   the index, and one not payable on any of its last 14 scanned days drops out.
   `GET /api/trust/summary`: totals of the latest scan. `/trust`: the public page, with lookup and the scan's rules.
@@ -702,7 +708,8 @@ lib/preflight-plus.js  Batch (up to 10 endpoints) and deep pre-payment checks
 lib/bazaar-index.js    Cached CDP Bazaar index (listing signal for preflight)
 lib/trust-scan.js      Trust Index scan: catalog, polite fetch, 30-day history
 lib/trust-index.js     Reads the published index for preflight and /api/trust
-scripts/trust-scan.js  Daily scan entry point (trust-scan.yml)
+lib/index-files.js     The index in parts (index/meta.json, index/<nn>.ndjson): written, read, loaded over HTTP
+scripts/trust-scan.js  Daily scan entry point (trust-scan.yml): plan, one share of the sellers, merge
 public/trust.html      /trust page
 lib/media.js           Serves the explainer and paid-fix videos from their branches (/media/explainer.mp4, /media/fix.mp4)
 media/explainer/       Explainer video pipeline (script, voice, recording, encoding)

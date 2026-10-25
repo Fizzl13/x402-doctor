@@ -14,6 +14,7 @@ const { createSanctions } = require('../lib/sanctions');
 const { checkSettlement } = require('../lib/settlement');
 const { createSpotWallet } = require('../lib/spot-wallet');
 const { selectCandidates, runSpotBuy, DEFAULTS, LIMITS, OUTCOMES, BASE } = require('../lib/spot-buy');
+const { readIndexFile } = require('../lib/index-files');
 const { createAnswerCheck } = require('../lib/jev-answer');
 
 function arg(name, fallback) {
@@ -32,7 +33,7 @@ async function main() {
   const key = process.env.SPOT_BUY_KEY;
   const dry = process.argv.includes('--dry') || !key;
 
-  const index = JSON.parse(fs.readFileSync(indexPath, 'utf8'));
+  const index = readIndexFile(indexPath);
   const { pool, picks } = selectCandidates(index, { n, capUsd, seed });
   console.log(`index ${index.days?.at(-1)}: ${pool.resources} candidates on ${pool.hosts} hosts; sample ${picks.length} (seed ${seed}), cap $${capUsd}, budget $${budgetUsd}, ${dry ? 'DRY RUN' : 'LIVE'}`);
 
