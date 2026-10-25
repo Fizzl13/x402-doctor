@@ -539,6 +539,21 @@
       spot.textContent = `Bought in the spot-buy of ${spotDate(sb.date)}: ${SPOT[sb.result] || sb.result}${sb.charged_usd ? `, $${sb.charged_usd} charged` : ''}${sb.reason ? ` (${sb.reason})` : ''}.`;
       box.append(spot);
     }
+    // Bought with real USDC by nohumans.directory, with an answer back (lib/delivery-nohumans.js).
+    if (data.delivered_elsewhere) {
+      const de = data.delivered_elsewhere, paid = document.createElement('div');
+      paid.className = 'legend';
+      paid.style.marginTop = '12px';
+      paid.append(`Bought with real USDC by nohumans.directory on ${de.paid_on}, and the answer came${de.status === 'failing' ? '; it has failed their checks since' : ''}. `);
+      if (de.listing) {
+        const a = document.createElement('a');
+        a.href = de.listing;
+        a.rel = 'noopener';
+        a.textContent = 'Their record →';
+        paid.append(a);
+      }
+      box.append(paid);
+    }
     if (data.last_scan && data.last_scan.codes && data.last_scan.codes.length) {
       const codes = document.createElement('div');
       codes.className = 'legend';
