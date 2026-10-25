@@ -73,7 +73,7 @@ async function plan({ out, limit }) {
     .catch((err) => (console.warn(`submissions: ${err.message}`), []));
   const added = submittedResources(previousSubmitted, submissions, new Set(resources.map((r) => r.key)));
   console.log(`added by sellers: ${submissions.length} submissions, ${added.length} to scan`);
-  return { date: new Date().toISOString().slice(0, 10), resources, added, hub_merchants: hub.merchants };
+  return { date: new Date().toISOString().slice(0, 10), resources, added, hub_merchants: hub.merchants, hub_names: hub.names || {} };
 }
 
 function printSlowHosts(rows) {
@@ -161,9 +161,9 @@ function merge(todo, done, { out }) {
   console.log(`payout addresses on Solana: ${Object.keys(solPayTos.pay_tos).length}, facilitator fee payers: ${Object.keys(solPayTos.fee_payers).length}`);
   // And for the XRP Ledger.
   const xrplPath = path.join(out, 'paytos-xrpl.json');
-  const xrplPayTos = mergeXrplPayTos(read(xrplPath), [...all, { xrpl_pay_tos: todo.hub_merchants }], todo.date);
+  const xrplPayTos = mergeXrplPayTos(read(xrplPath), [...all, { xrpl_pay_tos: todo.hub_merchants }], todo.date, 14, todo.hub_names);
   fs.writeFileSync(xrplPath, JSON.stringify(xrplPayTos));
-  console.log(`payout addresses on the XRP Ledger: ${Object.keys(xrplPayTos.pay_tos).length}`);
+  console.log(`payout addresses on the XRP Ledger: ${Object.keys(xrplPayTos.pay_tos).length}, ${Object.keys(xrplPayTos.names || {}).length} with a hub name`);
   console.log(JSON.stringify(summary, null, 2));
 }
 

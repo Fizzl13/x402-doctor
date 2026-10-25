@@ -637,6 +637,17 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     ]);
     res.json({ ...summary, onchain_payments: onchain, ...(onchainSolana ? { onchain_payments_solana: onchainSolana } : {}), ...(onchainXrpl ? { onchain_payments_xrpl: onchainXrpl } : {}) });
   });
+  // Who gets paid on the XRP Ledger (free, public data): every watched XRPL payout address that received x402
+  // payments in the last 7 complete days, most money first, with its XRPL AI Hub name or its endpoints' hosts, and how
+  // many of its payers pay ten or more sellers (fleets, checkers). The /xrpl page reads it.
+  app.get('/api/trust/payments', trustLimit, async (req, res) => {
+    const network = String(req.query.network || '').trim().toLowerCase();
+    if (network !== 'xrpl') return res.status(400).json({ error: 'network is required; supported: xrpl (/api/trust/payments?network=xrpl)' });
+    res.set('Cache-Control', 'public, max-age=600').set('Access-Control-Allow-Origin', '*');
+    const list = typeof onchainPayments.sellersXrpl === 'function' ? await onchainPayments.sellersXrpl({ waitMs: 3000 }).catch(() => null) : null;
+    if (!list) return res.status(503).json({ error: 'no complete day of XRP Ledger payments yet (counting started on 25 Oct 2026); try again later' });
+    res.json(list);
+  });
 
   // The free check may also be called from the live demo on fizzl.eu (browser, CORS).
   app.use('/api/diagnose', fizzlCors);
