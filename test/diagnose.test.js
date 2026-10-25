@@ -1541,3 +1541,41 @@ test('checkAccepts: amount "0" is a warning that the price depends on the reques
   assert.match(zero.message, /depends on the request/);
   assert.equal(checks.some((c) => c.id === 'accepts[0]-amount' && c.status === 'fail'), false);
 });
+
+test('Solana payout account: an empty answer is asked once more and never cached, so one bad node answer is no fail', async () => {
+  const { checkSolana } = require('../lib/diagnose');
+  const payTo = 'ATWJ82T8nRdQwZnaysB68N5EpaSvLRsQP4h6eWmaJBH9';
+  const option = { scheme: 'exact', network: SOLANA, asset: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', payTo, amount: '10000', extra: { feePayer: PAYAI_FEE_PAYER } };
+  let answers = [];
+  let asked = 0;
+  const node = await listen(async (req, res) => {
+    const body = JSON.parse(await readBody(req));
+    asked++;
+    const value = answers.shift() ? [{ pubkey: 'HDp3B6rtQV5X9FmMgCLabGkkk4LfzmlncraeLFoQEV4a', account: {} }] : [];
+    res.setHeader('content-type', 'application/json');
+    res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, result: { context: { slot: 1 }, value } }));
+  });
+  const run = async () => {
+    const checks = [];
+    await checkSolana([option], checks, { rpcUrl: node, walletCompat: false, emptyRetryMs: 1 });
+    return checks.find((c) => c.id === 'solana-payout-account').status;
+  };
+  answers = [false, true];
+  assert.equal(await run(), 'pass', 'empty once, then the account');
+  assert.equal(asked, 2);
+  assert.equal(await run(), 'pass', 'the account is kept');
+  assert.equal(asked, 2);
+
+  const other = `${node}/other`; // another node: its own cache entries
+  answers = [false, false];
+  asked = 0;
+  const checks = [];
+  await checkSolana([option], checks, { rpcUrl: other, walletCompat: false, emptyRetryMs: 1 });
+  assert.equal(checks[0].status, 'fail', 'empty twice: really no token account');
+  assert.equal(asked, 2);
+  answers = [true];
+  const again = [];
+  await checkSolana([option], again, { rpcUrl: other, walletCompat: false, emptyRetryMs: 1 });
+  assert.equal(again[0].status, 'pass', 'the empty answer was not kept for 10 minutes');
+  assert.equal(asked, 3);
+});
