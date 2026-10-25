@@ -235,18 +235,27 @@ test('budget: what earlier instances spent today counts, until the day rolls ove
   assert.equal(b.spent(), 0);
 });
 
-test('spent log: the other instances\' spending in today\'s usage-log file', async () => {
-  const lines = [
-    { route: 'buy', input: { chars: 20, spent_usd: 0.002, instance: 'old' } },
-    { route: 'buy', input: { chars: 20 } },
-    { route: 'buy', status: 402, quote: true, input: { chars: 20, spent_usd: 0.01, instance: 'old' } },
-    { route: 'buy', input: { chars: 20, spent_usd: 0.005, instance: 'me' } },
-  ].map((e) => JSON.stringify(e)).join('\n') + '\nnot json\n';
+test('spent log: the other instances\' spending in today\'s usage-log files (the day file from before, and each hour\'s)', async () => {
+  const text = (list) => list.map((e) => JSON.stringify(e)).join('\n') + '\nnot json\n';
+  const base = 'https://api.github.com/repos/Fizzl13/usage-log/contents/events/buy/2026-10-23';
+  const files = {
+    [`${base}.jsonl`]: text([
+      { route: 'buy', input: { chars: 20, spent_usd: 0.002, instance: 'old' } },
+      { route: 'buy', input: { chars: 20 } },
+    ]),
+    [`${base}/09.jsonl`]: text([{ route: 'buy', status: 402, quote: true, input: { chars: 20, spent_usd: 0.01, instance: 'old' } }]),
+    [`${base}/10.jsonl`]: text([{ route: 'buy', input: { chars: 20, spent_usd: 0.005, instance: 'me' } }, { route: 'buy', input: { spent_usd: 0.001, instance: 'other' } }]),
+  };
+  const listing = Response.json([{ name: '09.jsonl', type: 'file' }, { name: '10.jsonl', type: 'file' }, { name: 'notes.txt', type: 'file' }]);
   const seen = [];
-  const fetchLog = async (url, init) => { seen.push({ url, auth: init.headers.authorization }); return new Response(lines, { status: 200 }); };
-  assert.equal(await spentByOthers({ env: { USAGE_LOG_TOKEN: 't' }, fetch: fetchLog, day: '2026-10-23', instance: 'me' }), 0.012);
-  assert.equal(seen[0].url, 'https://api.github.com/repos/Fizzl13/usage-log/contents/events/buy/2026-10-23.jsonl');
-  assert.equal(seen[0].auth, 'Bearer t');
+  const fetchLog = async (url, init) => {
+    seen.push({ url, auth: init.headers.authorization });
+    if (url === base) return listing.clone();
+    return files[url] ? new Response(files[url]) : new Response('', { status: 404 });
+  };
+  assert.equal(await spentByOthers({ env: { USAGE_LOG_TOKEN: 't' }, fetch: fetchLog, day: '2026-10-23', instance: 'me' }), 0.013);
+  assert.deepEqual(seen.map((s) => s.url.replace(base, '')).sort(), ['', '.jsonl', '/09.jsonl', '/10.jsonl']);
+  assert.ok(seen.every((s) => s.auth === 'Bearer t'));
   assert.equal(await spentByOthers({ env: { USAGE_LOG_TOKEN: 't' }, fetch: async () => new Response('', { status: 404 }), day: '2026-10-23' }), 0);
   assert.equal(await spentByOthers({ env: {}, fetch: fetchLog, day: '2026-10-23' }), null);
 });

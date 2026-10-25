@@ -225,3 +225,18 @@ test('all time: PlainText\'s calls still count after it left the charts', () => 
   const s = daySummary([{ t: '2026-09-25T10:00:00Z', via: 'api' }]);
   assert.strictEqual(allTime([{ service: 'plaintext', date: '2026-09-25', summary: s }, { service: 'doctor', date: '2026-09-25', summary: s }, { service: 'wallet', date: '2026-09-25', summary: s }]).calls, 2);
 });
+
+test('public stats: a counted line (a bot\'s unpaid 402s for an hour) counts as that many calls', () => {
+  const { summarize, daySummary, charts } = require('../lib/public-stats');
+  const now = Date.parse('2026-10-25T12:00:00Z');
+  const events = [
+    { t: '2026-10-25T10:00:00.000Z', service: 'presign', route: 'token', via: 'api', status: 402, quote: true, agent: 'crawler', count: 40, visitors: 12 },
+    { t: '2026-10-25T10:12:00.000Z', service: 'presign', route: 'token', via: 'api', status: 200, paid: true },
+  ];
+  assert.deepEqual([summarize(events, now).requests, summarize(events, now).services.presign], [41, 41]);
+  const day = daySummary(events, { service: 'presign' });
+  assert.deepEqual([day.calls, day.hours[10], day.routes.token], [41, 41, 41]);
+  const c = charts(events, now);
+  assert.equal(c.outcomes_24h.quote, 40);
+  assert.equal(c.hourly.find((h) => h.hour === '2026-10-25T10:00:00.000Z').presign, 41);
+});

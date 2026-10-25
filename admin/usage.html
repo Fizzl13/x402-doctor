@@ -359,7 +359,8 @@
       tile('Paid calls', paid.length.toLocaleString(), events.length ? `${Math.round((paid.length / events.length) * 100)}% of calls` : '–'),
       tile('Revenue', usd(revenue), 'USDC, settled'),
       tile('Paying wallets', payers.size.toLocaleString(), 'unique payers'),
-      tile('Price shown', quotes().length.toLocaleString(), `402s · ${quotes().filter((e) => e.payment_failed).length} refused payments`),
+      // A bot's unpaid 402s are one line per hour with a count (usage-log.js, since 25 Oct 2026).
+      tile('Price shown', quotes().reduce((n, e) => n + (e.count || 1), 0).toLocaleString(), `402s · ${quotes().filter((e) => e.payment_failed).length} refused payments`),
     );
   }
 
