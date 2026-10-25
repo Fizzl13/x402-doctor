@@ -452,7 +452,11 @@ Space waits in `hf-mcp/`. Doctor's own MCP server is `https://x402-doctor.fizzl.
   `GET /api/trust/summary`: totals of the latest scan. `/trust`: the public page, with lookup and the scan's rules.
 - `GET /api/trust/network?network=xrpl` (or an id like `xrpl:0`, free): every scanned x402 endpoint that offers a network,
   payable there today or not and why (the scan records `unpayable` networks with their first problem), grouped per
-  seller site. `/xrpl`: the public status page of x402 on the XRP Ledger, with the ledger checks of each payout account. `/algorand`: the same for x402 on Algorand, with the USDC opt-in of each payout account. `/stellar`: the same for x402 on Stellar, with the USDC trustline of each payout account.
+  seller site. `/xrpl`: the public status page of x402 on the XRP Ledger, with the ledger checks of each payout account
+  and who gets paid there: `GET /api/trust/payments?network=xrpl` (free) lists every watched XRPL payout address paid in
+  the last 7 complete days, most money first, with its XRPL AI Hub merchant name or its endpoints' hosts, payments,
+  dollars, wallets and how many of them pay ten or more sellers (the names come from the daily scan, in
+  `paytos-xrpl.json`). `/algorand`: the same for x402 on Algorand, with the USDC opt-in of each payout account. `/stellar`: the same for x402 on Stellar, with the USDC trustline of each payout account.
 - **Distinct services and their kind.** Sellers often list the same API many times (once per coin, city or ticker),
   so endpoint counts overstate the market. Payable endpoints of one seller whose descriptions share most of their
   words (Jaccard ≥ 0.5, `lib/services.js`) count as one service; on 9 Oct 2026 the 40,451 payable endpoints were
