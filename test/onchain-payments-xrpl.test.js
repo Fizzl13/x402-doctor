@@ -208,6 +208,28 @@ test('createXrplRpc: waits and retries when a node is busy, hands over to the ne
   assert.deepEqual(seen, ['a'], 'the same answer on every node: not asked again');
 });
 
+test('createXrplRpc: a spent units quota is waited out for the pause it names, unless that ends after the deadline', async () => {
+  // As the public cluster answered on 25 Oct: HTTP 200, the refusal in the result.
+  const quota = { ok: true, status: 200, json: async () => ({ result: { status: 'error', error: 'rate limit: units quota (10000 per 60s) exhausted, retry in ~79207ms' } }) };
+  let n = 0;
+  const waits = [];
+  const fetchImpl = async () => (++n === 1 ? quota : { ok: true, status: 200, json: async () => ({ result: { status: 'success', n } }) });
+  const rpc = createXrplRpc(['a', 'b'], { fetchImpl, minGapMs: 0, wait: async (ms) => { waits.push(ms); } });
+  assert.equal((await rpc('account_tx', {})).n, 2);
+  assert.deepEqual(waits, [79207], 'the node\'s own pause, then the same node again');
+  // A plain 429 with Retry-After in seconds.
+  n = 0; waits.length = 0;
+  const retryAfter = { ok: false, status: 429, headers: new Headers({ 'retry-after': '12' }), json: async () => null };
+  const rpc429 = createXrplRpc(['a'], { fetchImpl: async () => (++n === 1 ? retryAfter : { ok: true, status: 200, json: async () => ({ result: { status: 'success', n } }) }), minGapMs: 0, wait: async (ms) => { waits.push(ms); } });
+  assert.equal((await rpc429('account_tx', {})).n, 2);
+  assert.deepEqual(waits, [12000]);
+  // The same refusal a minute before the run's budget ends: not waited, so the run stops where it is.
+  n = 0; waits.length = 0;
+  const late = createXrplRpc(['a'], { fetchImpl, minGapMs: 0, deadline: Date.now() + 60_000, wait: async (ms) => { waits.push(ms); } });
+  await assert.rejects(late('account_tx', {}), /units quota/);
+  assert.deepEqual(waits, []);
+});
+
 test('createOnchainPayments: XRPL addresses are looked up in the XRPL file; the totals come apart', async () => {
   const xrpl = { version: 1, network: XRPL, symbol: 'RLUSD or USDC', per_day: 1, updated: `${DAY2}T09:00:00Z`, days: { [DAY1]: { covered: 1 } }, pay_tos: { [SELLER]: { since: DAY1, d: { [DAY1]: [4, 40000, ['a', 'b']] }, ledger: 5 } } };
   const base = { version: 1, network: 'eip155:8453', updated: `${DAY2}T09:00:00Z`, days: { [DAY1]: { covered: 43200 } }, pay_tos: {} };
