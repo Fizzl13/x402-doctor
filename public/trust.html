@@ -141,7 +141,7 @@
 <body>
 <div class="wrap">
   <h1>x402 Trust Index</h1>
-  <p class="sub">Once a day, x402 Doctor checks every resource listed in the CDP Bazaar, Circle's Agent Marketplace, GoPlausible's discovery list, the XRPL AI Hub and <a href="https://nohumans.directory">nohumans.directory</a>'s catalogue (CC BY 4.0) (x402) and in the MPP directory (Stripe + Tempo) the way a paying agent would, and stops at the 402 challenge. Would a payment settle today, and how often did it over the last 30 days?</p>
+  <p class="sub">Once a day, x402 Doctor checks every resource listed in the CDP Bazaar, Circle's Agent Marketplace, GoPlausible's discovery list, the XRPL AI Hub and <a href="https://nohumans.directory">nohumans.directory</a>'s catalogue (CC BY 4.0) and <a href="https://payapi.market">PayAPI Market</a> (x402) and in the MPP directory (Stripe + Tempo) the way a paying agent would, and stops at the 402 challenge. Would a payment settle today, and how often did it over the last 30 days?</p>
   <p class="note">What the numbers show: <a href="https://fizzl.eu/research/x402-health-october-2026/">x402 health report, October 2026</a> (payable share, seller concentration, networks, prices and the most common seller mistakes). Other ways to check an endpoint: <a href="https://fizzl.eu/guides/x402-endpoint-checkers/">x402 endpoint checkers compared</a>. The whole index as an open dataset: <a href="https://huggingface.co/datasets/x402Fizzl/x402-trust-index">x402 Trust Index on Hugging Face</a> (CC BY 4.0, updated daily).</p>
 
   <h2>Can an AI agent pay?</h2>
@@ -463,7 +463,7 @@
         box.append(p);
         return;
       }
-      p.textContent = "Not in the Trust Index yet. The daily scan checks every resource listed in the CDP Bazaar, Circle's Agent Marketplace, GoPlausible's discovery list, the XRPL AI Hub, nohumans.directory or the MPP directory. Your own endpoint? Add it here; Doctor first checks that it answers 402 with a payment challenge. Or ";
+      p.textContent = "Not in the Trust Index yet. The daily scan checks every resource listed in the CDP Bazaar, Circle's Agent Marketplace, GoPlausible's discovery list, the XRPL AI Hub, nohumans.directory, PayAPI Market or the MPP directory. Your own endpoint? Add it here; Doctor first checks that it answers 402 with a payment challenge. Or ";
       p.append(a, '.');
       // Sellers add their own endpoint (POST /api/trust/submit); the next scan picks it up.
       const add = document.createElement('button');

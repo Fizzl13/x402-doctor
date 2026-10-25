@@ -570,6 +570,33 @@ test('nohumans.directory catalogue: endpoint_url, https only, one per origin + p
   await assert.rejects(loadNohumansCatalog({ sleep: async () => {}, retryDelays: [], fetchImpl: async () => new Response('no', { status: 404 }) }), /nohumans.directory HTTP 404/);
 });
 
+test('PayAPI Market catalogue: the paid route and the paid-once routes with their method, no homepage or MCP endpoint, pages of 500', async () => {
+  const { loadPayApiCatalog } = require('../lib/trust-scan');
+  const page = (offset) => offset === 0
+    ? { total: 501, results: [
+      { base_url: 'https://lint.example/lint/one', description: 'Lint', verified_routes: [{ route: '/lint/one', method: 'POST' }, { route: '/lint/batch', method: 'POST' }] },
+      { base_url: 'https://home.example', mcp_endpoint: 'https://home.example/mcp', description: 'a homepage', verified_routes: [{ route: '/v1/price', method: 'GET' }, { route: '/mcp', method: 'POST' }] },
+      { base_url: 'http://plain.example/pay', description: 'plain http', verified_routes: [] },
+      { base_url: 'https://tmpl.example/v1/items/{id}', description: 'template', verified_routes: null },
+      ...Array.from({ length: 496 }, (_, i) => ({ base_url: `https://many.example/r/${i}`, verified_routes: [{ route: `/r/${i}`, method: 'DELETE' }] })),
+    ] }
+    : { total: 501, results: [{ base_url: 'https://last.example/x', verified_routes: [{ route: 'https://last.example/x', method: 'GET' }] }] };
+  const urls = [];
+  const list = await loadPayApiCatalog({ sleep: async () => {}, fetchImpl: async (u, opts) => { urls.push([u, opts.headers['user-agent']]); return Response.json(page(Number(new URL(u).searchParams.get('offset')))); } });
+  assert.deepEqual(urls.map(([u]) => new URL(u).search), ['?verified_only=false&limit=500&offset=0', '?verified_only=false&limit=500&offset=500']);
+  assert.ok(urls.every(([, ua]) => ua === USER_AGENT));
+  const by = Object.fromEntries(list.map((r) => [r.url, r]));
+  assert.equal(by['https://lint.example/lint/one'].method, 'POST', 'the paid route takes the method of its paid-once route');
+  assert.equal(by['https://lint.example/lint/batch'].method, 'POST');
+  assert.equal(by['https://home.example/v1/price'].method, 'GET');
+  assert.ok(!by['https://home.example/'] && !by['https://home.example/mcp'], 'no homepage, no MCP endpoint');
+  assert.ok(!list.some((r) => r.url.startsWith('http://')));
+  assert.equal(list.find((r) => r.url.includes('tmpl.example')).template, true);
+  assert.equal(by['https://many.example/r/0'].method, undefined, 'a method other than GET or POST: both are tried');
+  assert.equal(by['https://last.example/x'].method, 'GET');
+  assert.equal(list.length, 2 + 1 + 1 + 496 + 1);
+});
+
 test('interleave: one item per host in turn, each host keeping its own order', () => {
   const items = ['a1', 'a2', 'a3', 'b1', 'c1', 'c2'];
   assert.deepEqual(interleave(items, (x) => x[0]), ['a1', 'b1', 'c1', 'a2', 'c2', 'a3']);
