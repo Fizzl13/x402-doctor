@@ -543,6 +543,33 @@ test('GoPlausible catalog: resourceUrl and method, https only, one per origin + 
   assert.ok(!list.some((r) => r.url.startsWith('http://')));
 });
 
+test('nohumans.directory catalogue: endpoint_url, https only, one per origin + path, no /mcp, templates marked, pages until next_offset is null', async () => {
+  const { loadNohumansCatalog } = require('../lib/trust-scan');
+  const page = (offset) => offset === 0
+    ? { total: 203, count: 200, limit: 200, offset: 0, next_offset: 200, results: [
+      { endpoint_url: 'https://a.example/v1/fees?x=1', description: 'Fees', status: 'verified' },
+      { endpoint_url: 'https://a.example/v1/fees?x=2', description: 'dup', status: 'verified' },
+      { endpoint_url: 'http://b.example/pay', description: 'plain http', status: 'verified' },
+      { endpoint_url: 'https://c.example/mcp', description: 'an MCP server, listed free', status: 'verified' },
+      { endpoint_url: 'https://d.example/v1/outcome/:mint', description: 'template', status: 'verified' },
+      ...Array.from({ length: 195 }, (_, i) => ({ endpoint_url: `https://e.example/r/${i}`, status: 'failing' })),
+    ] }
+    : { total: 203, count: 3, limit: 200, offset: 200, next_offset: null, results: [{ endpoint_url: 'https://f.example/last' }, { endpoint_url: 'not a url' }, {}] };
+  const urls = [];
+  const list = await loadNohumansCatalog({ sleep: async () => {}, fetchImpl: async (u, opts) => { urls.push([u, opts.headers['user-agent']]); return Response.json(page(Number(new URL(u).searchParams.get('offset')))); } });
+  assert.deepEqual(urls.map(([u]) => new URL(u).search), ['?limit=200&offset=0', '?limit=200&offset=200']);
+  assert.ok(urls.every(([, ua]) => ua === USER_AGENT));
+  assert.equal(list.length, 1 + 1 + 195 + 1);
+  assert.equal(list[0].description, 'Fees');
+  assert.equal(list[0].method, undefined, 'no method named: both are tried');
+  assert.ok(!list.some((r) => r.url.startsWith('http://') || r.url.endsWith('/mcp')));
+  assert.equal(list.find((r) => r.url.includes(':mint')).template, true);
+  // A next_offset that doesn't move on ends the paging instead of looping.
+  const stuck = await loadNohumansCatalog({ sleep: async () => {}, fetchImpl: async () => Response.json({ next_offset: 0, results: [{ endpoint_url: 'https://g.example/x' }] }) });
+  assert.equal(stuck.length, 1);
+  await assert.rejects(loadNohumansCatalog({ sleep: async () => {}, retryDelays: [], fetchImpl: async () => new Response('no', { status: 404 }) }), /nohumans.directory HTTP 404/);
+});
+
 test('interleave: one item per host in turn, each host keeping its own order', () => {
   const items = ['a1', 'a2', 'a3', 'b1', 'c1', 'c2'];
   assert.deepEqual(interleave(items, (x) => x[0]), ['a1', 'b1', 'c1', 'a2', 'c2', 'a3']);

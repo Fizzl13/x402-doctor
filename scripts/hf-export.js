@@ -155,7 +155,7 @@ ${spot.length ? `- \`data/spot_buys.jsonl\`: what came back when x402 Doctor act
 ` : ''}
 ## How it is collected
 
-- **Sources:** the CDP Bazaar, Circle's Agent Marketplace, the MPP directory, GoPlausible and other public x402 indexes.
+- **Sources:** the CDP Bazaar, Circle's Agent Marketplace, the MPP directory, GoPlausible, the XRPL AI Hub, [nohumans.directory](https://nohumans.directory)'s catalogue (CC BY 4.0) and other public x402 indexes.
 - **The check:** each endpoint is called once a day without paying. Its 402 challenge is parsed and checked the way a paying agent would: a valid challenge, the price against the listing, the network and token, whether the payout address can receive (Solana token accounts, Algorand opt-in, XRP Ledger and Stellar trustlines), testnet-only offers, and OFAC screening of the payout address (${sanctions?.list || 'OFAC SDN'} list${sanctions?.published ? `, published ${sanctions.published}` : ''}). Nothing is paid.
 - **Caveat:** a sudden jump usually means one large seller went down or changed, since one seller can list tens of thousands of endpoints.
 
