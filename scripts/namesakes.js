@@ -6,7 +6,8 @@
 //
 // Reads the CDP Bazaar listings, finds the cases, asks TypeSafe's Jev whether each name is a brand (names answered
 // before are carried over from --previous, so a run only asks the new ones), and marks the namesakes' resources in
-// <dir>/index.json and index.ndjson (field ns), which the preflight's track-record lookup returns. Writes
+// the index in <dir> (index/, and index.json while it fits; lib/index-files.js; field ns), which the preflight's
+// track-record lookup returns. Writes
 // <dir>/namesakes.json: { updated, brand: { name: probability }, cases: [...] } with the brand cases (own_site_name
 // when the name is the original's own site name, which counts whatever Jev said). Without
 // TYPESAFE_API_KEY only the carried-over answers count. Read-only towards the sellers.
@@ -14,7 +15,8 @@
 
 const fs = require('fs');
 const path = require('path');
-const { loadCatalogItems, indexLines } = require('../lib/trust-scan');
+const { loadCatalogItems } = require('../lib/trust-scan');
+const { readIndexDir, writeIndexDir } = require('../lib/index-files');
 const { casesOf, createBrandCheck, namesakeEntries, lesserOf, ownSiteName, isBrand, BRAND_SURE } = require('../lib/namesakes');
 
 const arg = (name, fallback) => { const i = process.argv.indexOf(`--${name}`); return i > 0 ? process.argv[i + 1] : fallback; };
@@ -22,8 +24,7 @@ const readJson = (p) => { try { return JSON.parse(fs.readFileSync(p, 'utf8')); }
 
 async function main() {
   const dir = arg('dir', 'trust-data');
-  const indexPath = path.join(dir, 'index.json');
-  const index = readJson(indexPath);
+  const index = readIndexDir(dir);
   if (!index?.resources) throw new Error('no index');
   const previous = readJson(arg('previous', '')) || {};
 
@@ -41,8 +42,7 @@ async function main() {
   for (const [key, entry] of Object.entries(index.resources)) {
     if (entries[key]) { entry.ns = entries[key]; marked++; } else delete entry.ns;
   }
-  fs.writeFileSync(indexPath, JSON.stringify(index));
-  fs.writeFileSync(path.join(dir, 'index.ndjson'), `${[...indexLines(index)].join('\n')}\n`);
+  writeIndexDir(dir, index);
 
   const flagged = cases.filter((c) => isBrand(c, brand) && lesserOf(c).length).map((c) => ({
     name: c.label,

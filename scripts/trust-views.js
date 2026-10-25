@@ -7,6 +7,7 @@
 const fs = require('fs');
 const path = require('path');
 const { buildViews } = require('../lib/trust-views');
+const { readIndexDir } = require('../lib/index-files');
 
 function arg(name, fallback) {
   const i = process.argv.indexOf(`--${name}`);
@@ -18,8 +19,8 @@ const read = (file) => {
 
 async function main() {
   const dir = arg('dir', 'trust-data');
-  const index = read(path.join(dir, 'index.json'));
-  if (!index?.resources) throw new Error(`no index in ${dir}/index.json`);
+  const index = readIndexDir(dir);
+  if (!index?.resources) throw new Error(`no index in ${dir}`);
   const files = await buildViews({ index, categories: read(path.join(dir, 'categories.json')), submitted: read(path.join(dir, 'submitted.json')) });
   let bytes = 0;
   for (const [rel, value] of files) {
@@ -30,7 +31,8 @@ async function main() {
     bytes += text.length;
   }
   const meta = files.get('views/meta.json');
-  console.log(`views: ${files.size} files, ${Math.round(bytes / 1e6)} MB; ${meta.networks.length} network views; summary of ${meta.summary.resources} resources`);
+  const parted = Object.entries(meta.network_parts || {}).map(([key, n]) => `${key} in ${n}`).join(', ');
+  console.log(`views: ${files.size} files, ${Math.round(bytes / 1e6)} MB; ${meta.networks.length} network views${parted ? ` (parts: ${parted})` : ''}; summary of ${meta.summary.resources} resources`);
 }
 
 main().catch((err) => {

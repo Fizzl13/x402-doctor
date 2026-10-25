@@ -558,7 +558,7 @@ test('index.ndjson: written line by line and read back the same, also from chunk
   assert.deepEqual(await readIndex({ json: async () => index }), index, 'no body stream: res.json()');
 });
 
-test('trust index: falls back to index.json while index.ndjson is not published yet', async () => {
+test('trust index: falls back to index.ndjson, then index.json, while the parts are not published', async () => {
   const { createTrustIndex } = require('../lib/trust-index');
   const index = { version: 1, updated: 'now', days: ['2026-10-20'], resources: { 'https://a.example/paid': { url: 'https://a.example/paid', m: 'GET', h: 'g', last: { verdict: 'go' } } } };
   const asked = [];
@@ -570,7 +570,7 @@ test('trust index: falls back to index.json while index.ndjson is not published 
   const ti = createTrustIndex({ categoriesUrl: 'http://cat.test/categories.json', submittedUrl: 'http://sub.test/submitted.json', fetchImpl });
   await ti.refresh();
   assert.equal((await ti.lookup('https://a.example/paid')).days_payable, 1);
-  assert.deepEqual(asked.slice(0, 2), ['index.ndjson', 'index.json']);
+  assert.deepEqual(asked.slice(0, 3), ['meta.json', 'index.ndjson', 'index.json']);
   asked.length = 0;
   await ti.refresh();
   assert.equal(asked[0], 'index.json', 'within 6 hours: straight to index.json');

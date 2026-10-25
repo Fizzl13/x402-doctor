@@ -525,12 +525,17 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     const network = String(req.query.network || '').trim().toLowerCase();
     if (!/^[a-z0-9-]{2,32}(:[a-z0-9-]{1,64})?$/i.test(network)) return res.status(400).json({ error: 'network is required, e.g. /api/trust/network?network=xrpl (a family) or xrpl:0' });
     res.set('Cache-Control', 'public, max-age=600').set('Access-Control-Allow-Origin', '*');
-    // The precomputed view file is passed through as it is (Base's is ~11 MB): never parsed in Doctor's memory.
+    // The precomputed view file is passed through as it is (Base's was ~22 MB on 25 Oct 2026, in parts): never parsed
+    // in Doctor's memory.
     const opened = trustIndex.openNetwork ? await trustIndex.openNetwork(network).catch(() => null) : null;
     if (opened?.empty) return res.json(opened.empty);
     if (opened?.res?.body) {
       res.type('application/json');
       return Readable.fromWeb(opened.res.body).on('error', () => res.destroy()).pipe(res);
+    }
+    if (opened?.stream) {
+      res.type('application/json');
+      return Readable.from(opened.stream).on('error', () => res.destroy()).pipe(res);
     }
     const view = await trustIndex.byNetwork(network, { waitMs: 8000 });
     if (!view) return res.status(503).json({ error: 'trust index loading, try again shortly' });

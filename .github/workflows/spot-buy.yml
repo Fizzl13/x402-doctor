@@ -75,7 +75,7 @@ jobs:
         run: |
           mkdir -p trust-data
           git fetch --depth 1 origin trust-data
-          git show FETCH_HEAD:index.json > trust-data/index.json
+          bash scripts/trust-index-get.sh FETCH_HEAD trust-data
       - name: Buy the sample
         run: |
           if [ -z "$SPOT_BUY_KEY" ]; then echo "No SPOT_BUY_KEY secret: dry run." >> "$GITHUB_STEP_SUMMARY"; fi

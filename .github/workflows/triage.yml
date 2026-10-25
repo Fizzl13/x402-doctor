@@ -42,7 +42,7 @@ jobs:
         run: |
           mkdir -p trust-data
           git fetch --depth 1 origin trust-data
-          git show FETCH_HEAD:index.json > trust-data/index.json
+          bash scripts/trust-index-get.sh FETCH_HEAD trust-data
       - name: Triage
         run: node scripts/triage-candidates.js --index trust-data/index.json --limit "${{ github.event.inputs.limit || '0' }}" ${{ github.event.inputs.draft != 'false' && '--draft' || '' }}
         env:

@@ -13,6 +13,7 @@
 
 const fs = require('fs');
 const { groupServices, descKey } = require('../lib/services');
+const { readIndexFile } = require('../lib/index-files');
 const { createCategorizer } = require('../lib/jev-category');
 const { createLure, carryBait, BAIT_VERSION } = require('../lib/jev-lure');
 
@@ -26,9 +27,10 @@ async function pool(items, limit, fn) {
 
 const arg = (name, fallback) => { const i = process.argv.indexOf(`--${name}`); return i > 0 ? process.argv[i + 1] : fallback; };
 const readJson = (path) => { try { return JSON.parse(fs.readFileSync(path, 'utf8')); } catch { return null; } };
+const readIndex = (path) => { try { return readIndexFile(path); } catch { return null; } };
 
 async function main() {
-  const index = readJson(arg('index', 'trust-data/index.json'));
+  const index = readIndex(arg('index', 'trust-data/index.json'));
   if (!index?.resources) throw new Error('no index');
   const previous = readJson(arg('previous', '')) || {};
   const cache = { ...(previous.categories || {}) };

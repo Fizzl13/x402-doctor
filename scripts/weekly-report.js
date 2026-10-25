@@ -10,8 +10,8 @@
 const fs = require('fs');
 const path = require('path');
 const { weeklyReport } = require('../lib/weekly-report');
+const { loadIndex } = require('../lib/index-files');
 
-const INDEX_URL = 'https://raw.githubusercontent.com/Fizzl13/x402-doctor/trust-data/index.json';
 const SPOT_URL = 'https://raw.githubusercontent.com/Fizzl13/x402-doctor/spot-data/latest.json';
 
 function arg(name, fallback) {
@@ -19,12 +19,6 @@ function arg(name, fallback) {
   return i > 0 ? process.argv[i + 1] : fallback;
 }
 
-async function loadIndex(source) {
-  if (source && !/^https?:/.test(source)) return JSON.parse(fs.readFileSync(source, 'utf8'));
-  const res = await fetch(source || INDEX_URL, { signal: AbortSignal.timeout(60000) });
-  if (!res.ok) throw new Error(`trust index HTTP ${res.status}`);
-  return res.json();
-}
 
 // The spot-buy section is optional: without the file the report is written without it.
 async function loadSpot(source) {

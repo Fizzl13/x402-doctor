@@ -59,7 +59,7 @@ jobs:
           echo "dataset=$dataset" >> "$GITHUB_OUTPUT"
           mkdir -p trust-data
           git fetch --depth 1 origin trust-data
-          git show FETCH_HEAD:index.json > trust-data/index.json
+          bash scripts/trust-index-get.sh FETCH_HEAD trust-data
           git show FETCH_HEAD:categories.json > trust-data/categories.json || echo "{}" > trust-data/categories.json
           date=$(git show FETCH_HEAD:summary.json | jq -r '.date')
           mkdir -p spot-data
