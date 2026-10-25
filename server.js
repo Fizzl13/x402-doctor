@@ -23,6 +23,7 @@ const { Readable } = require('node:stream');
 const { createTrustSubmissions } = require('./lib/trust-submissions');
 const { createOnchainPayments } = require('./lib/onchain-payments');
 const { createSpotResults } = require('./lib/spot-results');
+const { createNohumansDelivery } = require('./lib/delivery-nohumans');
 const { createMediaCache } = require('./lib/media');
 const crypto = require('crypto');
 const { createUsageLog, mcpToolCall, mcpPayment, agentOf, visitorOf } = require('./lib/usage-log');
@@ -214,7 +215,7 @@ function trustProxyHops(env) {
   return Number.isInteger(n) && n >= 0 && n <= 10 && String(env.TRUST_PROXY_HOPS).trim() !== '' ? n : 3;
 }
 
-function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, cdpValidate = env.CDP_VALIDATE === 'off' ? null : createCdpValidator(), trustIndex = createTrustReader(), spotResults = createSpotResults(), onchainPayments = createOnchainPayments(), media = createMediaCache(), usageLog = createUsageLog({ service: 'doctor', env }), usageReader = createUsageReader({ env }), publicStats = createPublicStats({ usageReader }), settlementFetch = globalThis.fetch, status = null, outreachHook: outreachHookOverride = null, describe = createDescribe({ apiKey: env.TYPESAFE_API_KEY }), poison = createPoisonCheck({ apiKey: env.TYPESAFE_API_KEY }), creditStore, agentKinds = createAgentKinds({ apiKey: env.TYPESAFE_API_KEY }), downloads = createDownloads(), priceCheck = createPriceCheck({ apiKey: env.TYPESAFE_API_KEY, trustIndex }), deliveryStore, deliveryResults, trustSubmissions: trustSubmissionsOverride = null } = {}) {
+function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, cdpValidate = env.CDP_VALIDATE === 'off' ? null : createCdpValidator(), trustIndex = createTrustReader(), spotResults = createSpotResults(), nohumansDelivery = createNohumansDelivery(), onchainPayments = createOnchainPayments(), media = createMediaCache(), usageLog = createUsageLog({ service: 'doctor', env }), usageReader = createUsageReader({ env }), publicStats = createPublicStats({ usageReader }), settlementFetch = globalThis.fetch, status = null, outreachHook: outreachHookOverride = null, describe = createDescribe({ apiKey: env.TYPESAFE_API_KEY }), poison = createPoisonCheck({ apiKey: env.TYPESAFE_API_KEY }), creditStore, agentKinds = createAgentKinds({ apiKey: env.TYPESAFE_API_KEY }), downloads = createDownloads(), priceCheck = createPriceCheck({ apiKey: env.TYPESAFE_API_KEY, trustIndex }), deliveryStore, deliveryResults, trustSubmissions: trustSubmissionsOverride = null } = {}) {
   const app = express();
   const safeFetch = createSafeFetch({ allowPrivate });
   // Outreach drafts for the owner (lib/outreach-hook.js); off without OUTREACH_URL and OUTREACH_KEY.
@@ -251,7 +252,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     submit: (url) => submitToTrust(url, { via: 'mcp' }),
     howToList: "Not in the x402 Trust Index yet. Its daily scan checks every resource listed in the CDP Bazaar, Circle's Agent Marketplace, GoPlausible's discovery list, the XRPL AI Hub, nohumans.directory, PayAPI Market or the MPP directory; your own endpoint can be added with x402_trust_add.",
   };
-  paidApi = createPaidApi({ safeFetch, env, trustIndex, feedback, bazaarIndex: bazaar, cdpValidate, outcomes, checkPaymentProof, creditStore, priceCheck, spotResults, onchainPayments, deliveryStore, ...(deliveryResults ? { deliveryResults } : {}), trust: trustTools });
+  paidApi = createPaidApi({ safeFetch, env, trustIndex, feedback, bazaarIndex: bazaar, cdpValidate, outcomes, checkPaymentProof, creditStore, priceCheck, spotResults, nohumansDelivery, onchainPayments, deliveryStore, ...(deliveryResults ? { deliveryResults } : {}), trust: trustTools });
 
   // Doctor's requests reach the app through three proxies (the caller, then two
   // hops, the last a private Render address: measured 26 Sep), so Express has to
@@ -428,9 +429,12 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
         index: trustIndex.summary(),
       });
     }
-    // Bought in the latest weekly spot-buy sample: what actually happened after paying.
-    const spot = await spotResults.forUrl(parsed.href, { waitMs: 2000 }).catch(() => null);
-    res.json({ url: parsed.href, ...record, ...(spot ? { spot_buy: spot } : {}) });
+    // Bought in the latest weekly spot-buy sample, or by nohumans.directory: what actually happened after paying.
+    const [spot, elsewhere] = await Promise.all([
+      spotResults.forUrl(parsed.href, { waitMs: 2000 }).catch(() => null),
+      nohumansDelivery.forUrl(parsed.href, { waitMs: 2000 }).catch(() => null),
+    ]);
+    res.json({ url: parsed.href, ...record, ...(spot ? { spot_buy: spot } : {}), ...(elsewhere ? { delivered_elsewhere: elsewhere } : {}) });
   });
   // Sellers add their own endpoint (free): Doctor checks that it answers 402 with a payment challenge, and the next
   // daily scan picks it up from /api/trust/submitted (lib/trust-submissions.js). Each one costs a live check of the
@@ -466,8 +470,11 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
       const { days: d, updated: u, ...rest } = record;
       days = days || d;
       updated = updated || u;
-      const spot = await spotResults.forUrl(href, { waitMs: 2000 }).catch(() => null);
-      return { url: href, found: true, ...rest, ...(spot ? { spot_buy: spot } : {}) };
+      const [spot, elsewhere] = await Promise.all([
+        spotResults.forUrl(href, { waitMs: 2000 }).catch(() => null),
+        nohumansDelivery.forUrl(href, { waitMs: 2000 }).catch(() => null),
+      ]);
+      return { url: href, found: true, ...rest, ...(spot ? { spot_buy: spot } : {}), ...(elsewhere ? { delivered_elsewhere: elsewhere } : {}) };
     }));
     res.json({ updated, days, found: results.filter((r) => r.found).length, results });
   });

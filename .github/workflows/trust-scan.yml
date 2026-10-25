@@ -142,6 +142,7 @@ jobs:
             git show FETCH_HEAD:paytos-solana.json > trust-data/paytos-solana.json 2>/dev/null || rm -f trust-data/paytos-solana.json
             git show FETCH_HEAD:paytos-xrpl.json > trust-data/paytos-xrpl.json 2>/dev/null || rm -f trust-data/paytos-xrpl.json
             git show FETCH_HEAD:submitted.json > trust-data/submitted.json || rm -f trust-data/submitted.json
+            git show FETCH_HEAD:delivery-nohumans.json > trust-data/delivery-nohumans.json 2>/dev/null || rm -f trust-data/delivery-nohumans.json
           fi
           ls -la trust-data results || true
       - name: Merge the shares
@@ -188,7 +189,9 @@ jobs:
           facilitators that pay their fees (`fee_payers`), and `paytos-xrpl.json` for payout addresses on the XRP
           Ledger. `namesakes.json`: brand names listed by more than one seller (lib/namesakes.js); the namesakes'
           resources carry `ns` in the index. `submitted.json`: the same history for endpoints their sellers added on
-          Doctor (POST /api/trust/submit), kept apart from the registry listings in the index. See
+          Doctor (POST /api/trust/submit), kept apart from the registry listings in the index. `delivery-nohumans.json`:
+          the endpoints nohumans.directory bought with real USDC and got an answer from, by key, as [day of that
+          purchase, the listing's status, its id] (from its CC BY 4.0 catalogue). See
           https://x402-doctor.fizzl.eu/trust
           MD
           # GitHub refuses a file over 100 MB in a push (and warns from 50 MB): say which, before the push fails.
@@ -197,7 +200,7 @@ jobs:
           if [ -n "$big" ]; then echo "::error::too large to publish: $big"; exit 1; fi
           git init -q -b trust-data
           git add index summary.json categories.json paytos.json submitted.json README.md
-          for f in index.json index.ndjson namesakes.json paytos-solana.json paytos-xrpl.json; do
+          for f in index.json index.ndjson namesakes.json paytos-solana.json paytos-xrpl.json delivery-nohumans.json; do
             if [ -f "$f" ]; then git add "$f"; fi
           done
           if [ -f views/meta.json ]; then git add views keys; fi
