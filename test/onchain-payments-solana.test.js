@@ -153,6 +153,36 @@ test('createRpc: waits and retries on a rate limit, then hands over to the next 
   assert.deepEqual(seen, ['a', 'a', 'b']);
 });
 
+test('createRpc: a 429 is waited out for its Retry-After, not retried sooner', async () => {
+  const waits = [];
+  let n = 0;
+  const fetchImpl = async () => {
+    n++;
+    if (n === 1) return { ok: false, status: 429, headers: new Headers({ 'retry-after': '10' }), json: async () => ({ error: { code: 429, message: 'Too many requests for a specific RPC call' } }) };
+    return { ok: true, status: 200, json: async () => ({ result: 'ok' }) };
+  };
+  const rpc = createRpc(['a'], { fetchImpl, minGapMs: 0, wait: async (ms) => { waits.push(ms); } });
+  assert.equal(await rpc('getTransaction', []), 'ok');
+  assert.deepEqual(waits, [10000], 'the ten seconds the node asked for, not the 1 s backoff');
+});
+
+test('createRpc: calls of one method keep methodGapMs apart; other methods only minGapMs', async () => {
+  let t = 1_000_000;
+  const realNow = Date.now;
+  Date.now = () => t;
+  try {
+    const waits = [];
+    const fetchImpl = async () => ({ ok: true, status: 200, json: async () => ({ result: 1 }) });
+    const rpc = createRpc(['a'], { fetchImpl, minGapMs: 350, methodGapMs: 1100, wait: async (ms) => { waits.push(ms); t += ms; } });
+    await rpc('getTransaction', []);
+    await rpc('getSignaturesForAddress', []);
+    await rpc('getTransaction', []);
+    assert.deepEqual(waits, [350, 750], 'a new method waits the global gap; the same method again waits out its own 1.1 s');
+  } finally {
+    Date.now = realNow;
+  }
+});
+
 test('createOnchainPayments: Solana addresses are looked up in the Solana file, Base addresses in the Base file', async () => {
   const solana = { version: 1, network: SOLANA, per_day: 1, updated: `${DAY2}T09:00:00Z`, days: { [DAY1]: { covered: 1 } }, pay_tos: { [SELLER]: { since: DAY1, d: { [DAY1]: [3, 30000, ['a', 'b']] } } } };
   const base = { version: 1, network: 'eip155:8453', updated: `${DAY2}T09:00:00Z`, days: { [DAY1]: { covered: 43200 } }, pay_tos: { '0x1111111111111111111111111111111111111111': { since: DAY1, d: { [DAY1]: [1, 10000, ['c']] } } } };
