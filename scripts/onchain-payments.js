@@ -11,7 +11,7 @@
 //
 // BASE_RPC_URL (optional) is asked first; the public node serves only the last ~10,000 blocks, so with it alone a
 // gap of more than ~5 hours between runs shows up as lower coverage. SOLANA_RPC_URL (optional) is asked before
-// Solana's public node, which allows only a few calls a second. XRPL_RPC_URL (optional) is asked before the public
+// Solana's public node, which allows one call a second per method. XRPL_RPC_URL (optional) is asked before the public
 // XRPL nodes.
 
 const fs = require('node:fs');
@@ -50,8 +50,9 @@ async function solana() {
   }
   const keyed = Boolean(process.env.SOLANA_RPC_URL?.trim());
   const nodes = [process.env.SOLANA_RPC_URL?.trim(), SOLANA_PUBLIC_RPC].filter(Boolean);
-  // A keyed node can go faster than the public one.
-  const state = await collectSolana(read(statePath), { payTos, feePayers: Object.keys(list.fee_payers || {}), nodes, minGapMs: keyed ? 120 : 350, log: (line) => console.log(`Solana: ${line}`) });
+  // A keyed node can go faster than the public one, which allows 10 calls of one method per 10 seconds.
+  const pace = keyed ? { minGapMs: 120 } : { minGapMs: 350, methodGapMs: 1100 };
+  const state = await collectSolana(read(statePath), { payTos, feePayers: Object.keys(list.fee_payers || {}), nodes, ...pace, log: (line) => console.log(`Solana: ${line}`) });
   fs.writeFileSync(statePath, JSON.stringify(state));
   console.log(`Solana: ${payTos.length} payout addresses watched; last 7 days: ${JSON.stringify(totalsOf(state))}`);
 }
