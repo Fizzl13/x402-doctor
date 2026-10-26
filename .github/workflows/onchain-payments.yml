@@ -2,7 +2,8 @@ name: On-chain payments
 
 # Hourly, read-only: counts the signed USDC payments (EIP-3009, the way x402 settles) on Base to every payout address
 # in the Trust Index, from the blocks since the last run (scripts/onchain-payments.js), and on Solana the USDC
-# payments whose fee a facilitator paid (the way x402 settles there), from each payout address's new transactions. The result, 8 days per payout
+# payments whose fee a facilitator paid (the way x402 settles there), from each payout address's new transactions; likewise on
+# the XRP Ledger and Stellar. The result, 8 days per payout
 # address, is published as a single commit on the payments-data branch (rewritten each run, so the repo does not grow).
 # The Doctor reads it for the preflight's onchain_payments signal and /trust. Never pays, holds no key.
 # GitHub runs this schedule late (every 3.5 to 6.5 hours on 19 Oct), so the Doctor also starts it every hour itself
@@ -35,18 +36,21 @@ jobs:
             git show FETCH_HEAD:payments.json > payments-data/payments.json || rm -f payments-data/payments.json
             git show FETCH_HEAD:payments-solana.json > payments-data/payments-solana.json 2>/dev/null || rm -f payments-data/payments-solana.json
             git show FETCH_HEAD:payments-xrpl.json > payments-data/payments-xrpl.json 2>/dev/null || rm -f payments-data/payments-xrpl.json
+            git show FETCH_HEAD:payments-stellar.json > payments-data/payments-stellar.json 2>/dev/null || rm -f payments-data/payments-stellar.json
           fi
           if git fetch --depth 1 origin trust-data 2>/dev/null; then
             git show FETCH_HEAD:paytos.json > paytos.json || rm -f paytos.json
             git show FETCH_HEAD:paytos-solana.json > paytos-solana.json 2>/dev/null || rm -f paytos-solana.json
             git show FETCH_HEAD:paytos-xrpl.json > paytos-xrpl.json 2>/dev/null || rm -f paytos-xrpl.json
+            git show FETCH_HEAD:paytos-stellar.json > paytos-stellar.json 2>/dev/null || rm -f paytos-stellar.json
           fi
       - name: Collect
-        run: node scripts/onchain-payments.js --state payments-data/payments.json --paytos paytos.json --sol-state payments-data/payments-solana.json --sol-paytos paytos-solana.json --xrpl-state payments-data/payments-xrpl.json --xrpl-paytos paytos-xrpl.json
+        run: node scripts/onchain-payments.js --state payments-data/payments.json --paytos paytos.json --sol-state payments-data/payments-solana.json --sol-paytos paytos-solana.json --xrpl-state payments-data/payments-xrpl.json --xrpl-paytos paytos-xrpl.json --stellar-state payments-data/payments-stellar.json --stellar-paytos paytos-stellar.json
         env:
           BASE_RPC_URL: ${{ secrets.BASE_RPC_URL }}
           SOLANA_RPC_URL: ${{ secrets.SOLANA_RPC_URL }}
           XRPL_RPC_URL: ${{ secrets.XRPL_RPC_URL }}
+          STELLAR_HORIZON_URL: ${{ secrets.STELLAR_HORIZON_URL }}
       - name: Publish to the payments-data branch
         run: |
           [ -f payments-data/payments.json ] || { echo "nothing to publish yet"; exit 0; }
@@ -61,12 +65,15 @@ jobs:
           the same for USDC payout addresses on Solana, counting payments whose network fee a facilitator from the
           sellers' offers paid (the way x402 settles on Solana). `payments-xrpl.json`: the same for payout addresses on
           the XRP Ledger, counting RLUSD and USDC payments an x402 client marked (SourceTag 804681468 or an InvoiceID).
+          `payments-stellar.json`: the same for USDC payout accounts on Stellar, counting USDC transfers (Soroban) that
+          another account than the payer sent, as an x402 facilitator does.
           See https://x402-doctor.fizzl.eu/trust
           MD
           git init -q -b payments-data
           git add payments.json README.md
           if [ -f payments-solana.json ]; then git add payments-solana.json; fi
           if [ -f payments-xrpl.json ]; then git add payments-xrpl.json; fi
+          if [ -f payments-stellar.json ]; then git add payments-stellar.json; fi
           git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -qm "Payments $(date -u +%FT%H:%M)"
           git push -qf "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" payments-data
         env:

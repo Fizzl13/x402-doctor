@@ -3,21 +3,24 @@
 // address the daily Trust Index scan saw (paytos.json on the trust-data branch). Writes payments.json; the workflow
 // publishes it on the payments-data branch. With --sol-paytos it also reads the Solana payout addresses' new
 // transactions (paytos-solana.json) and writes payments-solana.json, and with --xrpl-paytos the same for the XRP
-// Ledger (paytos-xrpl.json, payments-xrpl.json). Read-only: it never pays and holds no key.
+// Ledger (paytos-xrpl.json, payments-xrpl.json), and with --stellar-paytos for Stellar (paytos-stellar.json,
+// payments-stellar.json). Read-only: it never pays and holds no key.
 //
 //   node scripts/onchain-payments.js --state payments-data/payments.json --paytos paytos.json \
 //     --sol-state payments-data/payments-solana.json --sol-paytos paytos-solana.json \
-//     --xrpl-state payments-data/payments-xrpl.json --xrpl-paytos paytos-xrpl.json
+//     --xrpl-state payments-data/payments-xrpl.json --xrpl-paytos paytos-xrpl.json \
+//     --stellar-state payments-data/payments-stellar.json --stellar-paytos paytos-stellar.json
 //
 // BASE_RPC_URL (optional) is asked first; the public node serves only the last ~10,000 blocks, so with it alone a
 // gap of more than ~5 hours between runs shows up as lower coverage. SOLANA_RPC_URL (optional) is asked before
 // Solana's public node, which allows one call a second per method. XRPL_RPC_URL (optional) is asked before the public
-// XRPL nodes.
+// XRPL nodes, STELLAR_HORIZON_URL (optional) before horizon.stellar.org.
 
 const fs = require('node:fs');
 const { collect, totalsOf, PUBLIC_RPC } = require('../lib/onchain-payments');
 const { collectSolana, PUBLIC_RPC: SOLANA_PUBLIC_RPC } = require('../lib/onchain-payments-solana');
 const { collectXrpl, PUBLIC_NODES: XRPL_PUBLIC_NODES } = require('../lib/onchain-payments-xrpl');
+const { collectStellar, PUBLIC_HORIZON } = require('../lib/onchain-payments-stellar');
 
 function arg(name, fallback) {
   const i = process.argv.indexOf(`--${name}`);
@@ -72,11 +75,27 @@ async function xrpl() {
   console.log(`XRPL: ${payTos.length} payout addresses watched; last 7 days: ${JSON.stringify(totalsOf(state))}`);
 }
 
+async function stellar() {
+  const listPath = arg('stellar-paytos', null);
+  if (!listPath) return;
+  const statePath = arg('stellar-state', 'payments-data/payments-stellar.json');
+  const payTos = Object.keys(read(listPath)?.pay_tos || {});
+  if (!payTos.length) {
+    console.log('no payout accounts on Stellar yet (paytos-stellar.json comes with the next Trust Index scan); nothing to do');
+    return;
+  }
+  const nodes = [process.env.STELLAR_HORIZON_URL?.trim(), PUBLIC_HORIZON].filter(Boolean);
+  const state = await collectStellar(read(statePath), { payTos, nodes, log: (line) => console.log(`Stellar: ${line}`) });
+  fs.writeFileSync(statePath, JSON.stringify(state));
+  console.log(`Stellar: ${payTos.length} payout accounts watched; last 7 days: ${JSON.stringify(totalsOf(state))}`);
+}
+
 async function main() {
-  // Base first: it is the established count, and a Solana or XRPL problem must not hold it up.
+  // Base first: it is the established count, and a Solana, XRPL or Stellar problem must not hold it up.
   await base();
   await solana().catch((err) => console.error('Solana:', err));
   await xrpl().catch((err) => console.error('XRPL:', err));
+  await stellar().catch((err) => console.error('Stellar:', err));
 }
 
 main().catch((err) => {
