@@ -390,6 +390,20 @@ test('x402scan readiness: contact e-mail, ownership proof against the payTo, inp
   assert.equal(c['openapi-ownership'].status, 'info', 'no EVM payTo to check against');
 });
 
+test("Vercel's own 402 for a switched-off deployment: the seller is told to turn it back on, not to fix a challenge", async () => {
+  const url = await listen((req, res) => {
+    res.statusCode = 402;
+    res.setHeader('content-type', 'text/plain; charset=utf-8');
+    res.setHeader('x-vercel-error', 'DEPLOYMENT_DISABLED');
+    res.end('Payment required\n\nDEPLOYMENT_DISABLED\n');
+  });
+  const report = await diagnose(`${url}/paid`, { safeFetch, rpcUrl });
+  const [check] = byId(report)['protocol-version'];
+  assert.equal(check.status, 'fail');
+  assert.match(check.message, /^The 402 comes from Vercel, not from your app: Vercel has switched this deployment off \(x-vercel-error: DEPLOYMENT_DISABLED\)/);
+  assert.match(check.hint, /plan limits and billing/);
+});
+
 test('POST-only endpoint: falls back to POST, or uses --method', async () => {
   const url = await listen((req, res) => {
     res.statusCode = req.method === 'POST' ? 402 : 405;
