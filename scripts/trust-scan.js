@@ -122,7 +122,8 @@ async function scanShare(todo, { share = 0, shares = 1 } = {}) {
     onSlowHosts: (rows) => { slowHosts = rows; },
     onStatuses: (rows) => { statuses = rows; },
   });
-  // Sellers cut short because they stopped answering in time: not checked today, never marked down.
+  // Sellers cut short because they stopped answering in time or their firewall turned the scan away: not checked
+  // today, never marked down.
   printSlowHosts(slowHosts);
   return { share, shares, seconds: Math.round((Date.now() - started) / 1000), sanctions: list ? { list: 'OFAC SDN', published: list.published, addresses: list.count } : null, statuses, slow_hosts: slowHosts, results };
 }

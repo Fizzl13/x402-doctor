@@ -213,6 +213,40 @@ test('scan: a listing that declares GET but only asks for payment on POST still 
 
 const postChallenge = (host, url) => ({ x402Version: 2, resource: { url: `http://${host}${url}`, mimeType: 'application/json', description: 'x' }, accepts: [{ scheme: 'exact', network: BASE, amount: '10000', asset: USDC_BASE, payTo: '0x6B0F4651eD42893ab58139938175E4a69f175F25', maxTimeoutSeconds: 60, extra: { name: 'USD Coin', version: '2' } }] });
 
+test("scan: a seller's Vercel firewall that denies the scanner: not checked, never down, and the rest of that seller is left alone", async () => {
+  let walled = 0;
+  const firewall = await listen((req, res) => {
+    if (req.url === '/openapi.json') return res.end('{}');
+    walled++;
+    res.statusCode = 403;
+    res.setHeader('x-vercel-mitigated', 'deny');
+    res.end('{"error":{"code":"403","message":"Forbidden"}}');
+  });
+  const open = await listen((req, res) => {
+    if (req.url === '/openapi.json') return res.end('{}');
+    const challenge = postChallenge(req.headers.host, req.url);
+    res.statusCode = 402;
+    res.setHeader('PAYMENT-REQUIRED', Buffer.from(JSON.stringify(challenge)).toString('base64'));
+    res.end(JSON.stringify(challenge));
+  });
+  const resources = [
+    ...Array.from({ length: 10 }, (_, i) => ({ key: `wall${i}`, url: `${firewall}/api/v1/route${i}` })),
+    { key: 'open', url: `${open}/paid` },
+  ];
+  let reported = null;
+  const results = await scan(resources, { safeFetch: createSafeFetch({ allowPrivate: true, timeoutMs: 2000 }), concurrency: 1, sleep: async () => {}, onSlowHosts: (rows) => { reported = rows; } });
+  const by = Object.fromEntries(results.map((r) => [r.key, r]));
+  assert.equal(by.open.verdict, 'go');
+  const walls = results.filter((r) => r.key.startsWith('wall'));
+  assert.ok(walls.every((r) => r.verdict === 'rate_limited' || (r.verdict === 'not_checked' && r.codes[0] === 'scan_blocked')), JSON.stringify(walls.map((r) => [r.verdict, r.codes])));
+  assert.ok(walls.filter((r) => r.codes[0] === 'scan_blocked').length >= 8, 'after three refusals in a row the seller is not asked again');
+  assert.ok(walled <= 4, `the firewall was asked ${walled} times, not twice per endpoint`);
+  const index = mergeIndex(null, results, { date: '2026-10-26' });
+  assert.ok(walls.every((r) => index.resources[r.key].h === '-'), 'never marked down');
+  assert.deepEqual(reported.map((r) => r.host), [new URL(firewall).host]);
+  assert.match(reported[0].why, /its firewall turned the scan away \d+ times in a row \(Vercel firewall: deny\)/);
+});
+
 test('scan: a bot challenge (Cloudflare cf-mitigated) is not checked today, never down; a plain 403 still is no_go', async () => {
   let hits = 0;
   const challenged = await listen((req, res) => {
