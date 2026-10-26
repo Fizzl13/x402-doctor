@@ -213,6 +213,24 @@ test('scan: a listing that declares GET but only asks for payment on POST still 
 
 const postChallenge = (host, url) => ({ x402Version: 2, resource: { url: `http://${host}${url}`, mimeType: 'application/json', description: 'x' }, accepts: [{ scheme: 'exact', network: BASE, amount: '10000', asset: USDC_BASE, payTo: '0x6B0F4651eD42893ab58139938175E4a69f175F25', maxTimeoutSeconds: 60, extra: { name: 'USD Coin', version: '2' } }] });
 
+test('scan: a server that misses the first timeout while it wakes up is asked once more, and comes out go', async () => {
+  let hits = 0;
+  const sleepy = await listen((req, res) => {
+    if (req.url === '/openapi.json') return res.end('{}');
+    hits++;
+    const answer = () => {
+      const challenge = postChallenge(req.headers.host, req.url);
+      res.statusCode = 402;
+      res.setHeader('PAYMENT-REQUIRED', Buffer.from(JSON.stringify(challenge)).toString('base64'));
+      res.end(JSON.stringify(challenge));
+    };
+    if (hits === 1) setTimeout(answer, 1500).unref(); else answer();
+  });
+  const [result] = await scan([{ key: 'cold', url: `${sleepy}/paid`, method: 'GET' }], { safeFetch: createSafeFetch({ allowPrivate: true, timeoutMs: 300 }), sleep: async () => {} });
+  assert.equal(result.verdict, 'go');
+  assert.equal(hits, 2, 'one timeout, then one more try');
+});
+
 test("scan: a seller's Vercel firewall that denies the scanner: not checked, never down, and the rest of that seller is left alone", async () => {
   let walled = 0;
   const firewall = await listen((req, res) => {
