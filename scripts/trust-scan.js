@@ -26,6 +26,7 @@ const { loadCatalog, loadMppCatalog, loadGoPlausibleCatalog, loadCircleCatalog, 
 const { mergePayTos } = require('../lib/onchain-payments');
 const { mergeSolanaPayTos } = require('../lib/onchain-payments-solana');
 const { mergeXrplPayTos } = require('../lib/onchain-payments-xrpl');
+const { mergeStellarPayTos } = require('../lib/onchain-payments-stellar');
 const { createSanctions } = require('../lib/sanctions');
 const { readIndexDir, writeIndexDir } = require('../lib/index-files');
 
@@ -182,6 +183,11 @@ function merge(todo, done, { out }) {
   const xrplPayTos = mergeXrplPayTos(read(xrplPath), [...all, { xrpl_pay_tos: todo.hub_merchants }], todo.date, 14, todo.hub_names);
   fs.writeFileSync(xrplPath, JSON.stringify(xrplPayTos));
   console.log(`payout addresses on the XRP Ledger: ${Object.keys(xrplPayTos.pay_tos).length}, ${Object.keys(xrplPayTos.names || {}).length} with a hub name`);
+  // And for Stellar: USDC payout accounts.
+  const stellarPath = path.join(out, 'paytos-stellar.json');
+  const stellarPayTos = mergeStellarPayTos(read(stellarPath), all, todo.date);
+  fs.writeFileSync(stellarPath, JSON.stringify(stellarPayTos));
+  console.log(`payout accounts on Stellar: ${Object.keys(stellarPayTos.pay_tos).length}`);
   // Delivery evidence from nohumans.directory and PayAPI Market (lib/delivery-elsewhere.js). A source not read today
   // keeps yesterday's file.
   for (const [file, source, evidence, extra] of [

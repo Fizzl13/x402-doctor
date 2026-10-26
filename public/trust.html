@@ -153,6 +153,7 @@
   <p class="note" id="onchainLine" hidden></p>
   <p class="note" id="onchainSolLine" hidden></p>
   <p class="note" id="onchainXrplLine" hidden></p>
+  <p class="note" id="onchainStellarLine" hidden></p>
 
   <h2>Paid and delivered?</h2>
   <p class="note" id="spotLine" aria-live="polite">Loading the latest spot-buy…</p>
@@ -363,6 +364,14 @@
       const usdX = ox.usd < 10 ? ox.usd.toFixed(2) : fmt(Math.round(ox.usd));
       $('onchainXrplLine').textContent = `On the XRP Ledger: ${periodX}, ${fmt(ox.payers)} different wallets made ${fmt(ox.payments)} x402 payments in RLUSD or USDC ($${usdX}) to ${fmt(ox.pay_tos_paid)} of the ${fmt(ox.watched)} XRPL payout addresses here, each marked by the x402 client that signed it (SourceTag 804681468 or an InvoiceID).${ox.pay_tos_paid_only_wide ? ` ${fmt(ox.pay_tos_paid_only_wide)} of those were paid only by wallets that pay ${ox.wide_sellers} or more of them, as checkers and scanners do.` : ''}${ox.pay_tos_closed_loop ? ` ${fmt(ox.pay_tos_closed_loop)} ${ox.pay_tos_closed_loop === 1 ? 'looks' : 'look'} like a closed loop: every ordinary payer received the money back from the payout address.` : ''}`;
       $('onchainXrplLine').hidden = false;
+    }
+    // And on Stellar: USDC transfers the payer authorized and a facilitator sent (lib/onchain-payments-stellar.js).
+    const ot = s.onchain_payments_stellar;
+    if (ot && ot.payments) {
+      const periodT = ot.days === 1 ? 'yesterday' : `in the last ${ot.days} days`;
+      const usdT = ot.usd < 10 ? ot.usd.toFixed(2) : fmt(Math.round(ot.usd));
+      $('onchainStellarLine').textContent = `On Stellar: ${periodT}, ${fmt(ot.payers)} different wallets made ${fmt(ot.payments)} USDC payments ($${usdT}) to ${fmt(ot.pay_tos_paid)} of the ${fmt(ot.watched)} Stellar payout accounts here, each a transfer the payer authorized and an x402 facilitator sent.${ot.pay_tos_paid_only_wide ? ` ${fmt(ot.pay_tos_paid_only_wide)} of those were paid only by wallets that pay ${ot.wide_sellers} or more of them, as checkers and scanners do.` : ''}${ot.pay_tos_closed_loop ? ` ${fmt(ot.pay_tos_closed_loop)} ${ot.pay_tos_closed_loop === 1 ? 'looks' : 'look'} like a closed loop: every ordinary payer received the money back from the payout account.` : ''}`;
+      $('onchainStellarLine').hidden = false;
     }
     renderReasons(s);
     renderServices(s.services);
