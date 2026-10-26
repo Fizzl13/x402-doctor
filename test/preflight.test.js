@@ -165,6 +165,24 @@ test('no answer and free trials: unreachable (a timeout next to a 405) and free_
   assert.deepEqual(free.reasons.map((r) => r.code), ['free_trial']);
 });
 
+test("Vercel's own 402 for a switched-off deployment is host_disabled, not a broken challenge", async () => {
+  const off = await listen((req, res) => {
+    res.statusCode = 402;
+    res.setHeader('content-type', 'text/plain; charset=utf-8');
+    res.setHeader('x-vercel-error', 'DEPLOYMENT_DISABLED');
+    res.end('Payment required\n\nDEPLOYMENT_DISABLED\n\niad1::abc-123\n');
+  });
+  const disabled = await run(`${off}/x402/v1/email-validation`);
+  assert.equal(disabled.verdict, 'no_go');
+  assert.deepEqual(disabled.reasons.filter((r) => r.level !== 'info').map((r) => r.code), ['host_disabled']);
+  assert.match(disabled.reasons.find((r) => r.code === 'host_disabled').message, /Vercel has switched this deployment off \(DEPLOYMENT_DISABLED\)/);
+  // The same page without Vercel's header stays a broken challenge.
+  const plain = await listen((req, res) => { res.statusCode = 402; res.setHeader('content-type', 'text/plain'); res.end('Payment required'); });
+  const broken = await run(`${plain}/paid`);
+  assert.equal(broken.verdict, 'no_go');
+  assert.ok(broken.reasons.some((r) => r.code === 'invalid_challenge') && !broken.reasons.some((r) => r.code === 'host_disabled'));
+});
+
 test('not listed in the CDP Bazaar is only information', async () => {
   const r = await run(await seller({ accepts: [baseOption('20000')] }), { bazaarIndex: unlisted });
   assert.equal(r.verdict, 'go');
