@@ -73,6 +73,9 @@ test('paymentsOf: a transfer the payer authorized and another account sent is x4
   assert.deepEqual(paymentsOf(transfer({ from: BUYER, to: SELLER, amount: '0.0100000', at }), SELLER), [{ dir: 'in', x402: true, from: BUYER, micro: 10000 }]);
   assert.deepEqual(paymentsOf(transfer({ from: BUYER, to: SELLER, amount: '0.0100000', sender: BUYER, at }), SELLER), [{ dir: 'in', x402: false, from: BUYER, micro: 10000 }]);
   assert.deepEqual(paymentsOf(transfer({ from: BUYER, to: SELLER, amount: '1', issuer: FAKE_ISSUER, at }), SELLER), []);
+  // USDC the seller pulls in itself, from a swap or another contract: not a payment to it.
+  const SWAP = 'CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75';
+  assert.deepEqual(paymentsOf(transfer({ from: SWAP, to: SELLER, amount: '0.5', sender: SELLER, at }), SELLER), [{ dir: 'in', x402: false, from: SWAP, micro: 500000 }]);
   assert.deepEqual(paymentsOf(transfer({ from: BUYER, to: SELLER, amount: '1', ok: false, at }), SELLER), []);
   assert.deepEqual(paymentsOf(classic({ from: BUYER, to: SELLER, amount: '2.5', at }), SELLER), [{ dir: 'in', x402: false, from: BUYER, micro: 2500000 }]);
   assert.deepEqual(paymentsOf(classic({ from: SELLER, to: BUYER, amount: '2.5', at }), SELLER), [{ dir: 'out', to: BUYER, micro: 2500000 }]);
