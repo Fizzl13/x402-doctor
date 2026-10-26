@@ -168,7 +168,9 @@ endpoints = load_dataset("${process.env.HF_DATASET || 'fizzl/x402-trust-index'}"
 
 - One endpoint's live record: \`GET https://x402-doctor.fizzl.eu/api/trust?url=<endpoint>\` (free)
 - Before paying an endpoint: \`GET https://x402-doctor.fizzl.eu/api/v1/preflight?url=<endpoint>\` ($0.001, go / caution / no_go)
-- What the data shows: [x402 health report, October 2026](https://fizzl.eu/research/x402-health-october-2026/) · [The seven most common x402 seller mistakes](https://fizzl.eu/research/x402-seller-mistakes-october-2026/) · [x402 on Stellar](https://fizzl.eu/research/x402-stellar-october-2026/)
+- What the data shows: [x402 health report, October 2026](https://fizzl.eu/research/x402-health-october-2026/) · [The seven most common x402 seller mistakes](https://fizzl.eu/research/x402-seller-mistakes-october-2026/) · [x402 on Stellar](https://fizzl.eu/research/x402-stellar-october-2026/) · [Circle's Agent Marketplace](https://fizzl.eu/research/circle-agent-marketplace-october-2026/)
+- What the on-chain payments show: [Half the x402 sellers paid on Base were paid only by scanners](https://fizzl.eu/research/x402-real-buyers-october-2026/) · [x402 runs on cents, but the money comes from a few big payments](https://fizzl.eu/research/x402-where-the-money-goes-october-2026/) · [x402 on the XRP Ledger](https://fizzl.eu/research/x402-xrpl-october-2026/) · [x402 on Stellar: 398 payments, $3.93](https://fizzl.eu/research/x402-stellar-payments-october-2026/)
+- Who gets paid, live: [XRP Ledger](https://x402-doctor.fizzl.eu/xrpl) · [Stellar](https://x402-doctor.fizzl.eu/stellar) · all of our open x402 data: [the x402 agent payments collection](https://huggingface.co/collections/x402Fizzl/x402-agent-payments-6ad62101ba3cdbcf5f990a0e)
 - How AI agents handle payment traps: [x402 Agent Safety Bench](https://fizzl.eu/bench/)
 - The same files on GitHub: [Fizzl13/x402-doctor, trust-data branch](https://github.com/Fizzl13/x402-doctor/tree/trust-data)
 
