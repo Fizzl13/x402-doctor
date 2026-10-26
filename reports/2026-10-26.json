@@ -1,0 +1,573 @@
+{
+  "window": {
+    "from": "2026-10-20",
+    "to": "2026-10-26",
+    "days": 7
+  },
+  "resources": 70654,
+  "hosts": 3622,
+  "payable": 69326,
+  "payable_pct": 98.1,
+  "clean": 66674,
+  "clean_pct": 94.4,
+  "caution_pct": 3.8,
+  "payable_pct_week_start": 95.3,
+  "no_go": 1328,
+  "no_go_pct": 1.9,
+  "caution": 2652,
+  "hosts_with_payable": 3277,
+  "reasons": [
+    {
+      "code": "gateway_only",
+      "count": 1693,
+      "why": "offer only Circle Gateway options, paid from a Gateway balance that standard x402 clients don't have",
+      "short": "are Circle Gateway only",
+      "fix": "add a plain \"exact\" option next to Gateway if standard x402 agents should pay too"
+    },
+    {
+      "code": "no_402",
+      "count": 809,
+      "why": "don't answer 402 at all, so there is nothing to pay",
+      "short": "don't answer 402",
+      "fix": "make the listed route answer 402 (a moved or renamed endpoint stays listed under its old URL until a payment goes through the new one)"
+    },
+    {
+      "code": "resource_mismatch",
+      "count": 448,
+      "why": "name another URL in their 402 than the one requested",
+      "short": "name the wrong URL in their 402",
+      "fix": "build resource.url from your public origin (behind a TLS proxy: trust proxy, so it stays https)"
+    },
+    {
+      "code": "unreachable",
+      "count": 281,
+      "why": "timed out or could not be reached",
+      "short": "are unreachable",
+      "fix": "check that the host is up and answers within 10 seconds"
+    },
+    {
+      "code": "unknown_asset",
+      "count": 195,
+      "why": "ask to be paid in a token that isn't a known USDC contract",
+      "short": "ask for a non-USDC token",
+      "fix": "use the network's USDC contract as the asset"
+    },
+    {
+      "code": "testnet_only",
+      "count": 128,
+      "why": "offer only testnet payment options",
+      "short": "are testnet only",
+      "fix": "add a mainnet option (for example Base, eip155:8453) or delist the test endpoint"
+    },
+    {
+      "code": "server_error",
+      "count": 117,
+      "why": "answered with a server error (5xx): down or failing",
+      "short": "answer with a server error",
+      "fix": "check the server and its hosting (behind Cloudflare, a 52x or 530 means Cloudflare could not reach your origin)"
+    },
+    {
+      "code": "mpp_realm_mismatch",
+      "count": 102,
+      "why": "name another host as the MPP realm than the one they're served on",
+      "short": "name the wrong MPP realm",
+      "fix": "set realm to the public host name of the endpoint"
+    },
+    {
+      "code": "invalid_challenge",
+      "count": 100,
+      "why": "answer 402 without a valid x402 challenge",
+      "short": "send a broken 402",
+      "fix": "send the PaymentRequired object (base64 JSON in the PAYMENT-REQUIRED header, mirrored in the body)"
+    },
+    {
+      "code": "price_above_advertised",
+      "count": 60,
+      "why": "charge more than their OpenAPI advertises",
+      "short": "charge more than advertised",
+      "fix": "keep the price in openapi.json in step with the 402"
+    },
+    {
+      "code": "price_depends_on_request",
+      "count": 30,
+      "why": "price depends on request",
+      "fix": ""
+    },
+    {
+      "code": "price_far_above_advertised",
+      "count": 14,
+      "why": "charge 10 times what their OpenAPI advertises or more",
+      "short": "charge 10x what they advertise",
+      "fix": "check the amount in atomic units, and keep the price in openapi.json in step with the 402"
+    },
+    {
+      "code": "suspicious_amount",
+      "count": 10,
+      "why": "write the amount as dollars (\"0.01\") instead of atomic units",
+      "short": "write dollars instead of atomic units",
+      "fix": "use atomic units: \"10000\" is $0.01 USDC"
+    },
+    {
+      "code": "mpp_no_expires",
+      "count": 8,
+      "why": "send an MPP challenge without an expiry",
+      "short": "send MPP challenges without an expiry",
+      "fix": "set expires on each challenge (a few minutes ahead), so a captured challenge cannot be replayed later"
+    },
+    {
+      "code": "no_payable_option",
+      "count": 5,
+      "why": "list payment options that would all fail",
+      "short": "offer no working payment option",
+      "fix": "fix the blocking problem per option (network name, payTo, amount in atomic units)"
+    },
+    {
+      "code": "payto_burn",
+      "count": 2,
+      "why": "pay out to the zero address or another burn address, a placeholder left in the config",
+      "short": "pay out to a burn address",
+      "fix": "set payTo to the wallet you want to be paid in"
+    }
+  ],
+  "networks": [
+    {
+      "network": "eip155:8453",
+      "count": 68327,
+      "pct": 98.6
+    },
+    {
+      "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+      "count": 12915,
+      "pct": 18.6
+    },
+    {
+      "network": "eip155:137",
+      "count": 10360,
+      "pct": 14.9
+    },
+    {
+      "network": "eip155:42161",
+      "count": 8673,
+      "pct": 12.5
+    },
+    {
+      "network": "eip155:5042",
+      "count": 4515,
+      "pct": 6.5
+    },
+    {
+      "network": "eip155:480",
+      "count": 4020,
+      "pct": 5.8
+    },
+    {
+      "network": "eip155:10",
+      "count": 3988,
+      "pct": 5.8
+    },
+    {
+      "network": "tempo",
+      "count": 3738,
+      "pct": 5.4
+    },
+    {
+      "network": "xrpl:0",
+      "count": 3333,
+      "pct": 4.8
+    },
+    {
+      "network": "eip155:143",
+      "count": 3186,
+      "pct": 4.6
+    },
+    {
+      "network": "eip155:43114",
+      "count": 2469,
+      "pct": 3.6
+    },
+    {
+      "network": "eip155:999",
+      "count": 2316,
+      "pct": 3.3
+    },
+    {
+      "network": "eip155:1329",
+      "count": 2139,
+      "pct": 3.1
+    },
+    {
+      "network": "eip155:42220",
+      "count": 1907,
+      "pct": 2.8
+    },
+    {
+      "network": "stellar:pubnet",
+      "count": 1828,
+      "pct": 2.6
+    },
+    {
+      "network": "eip155:1",
+      "count": 1611,
+      "pct": 2.3
+    },
+    {
+      "network": "eip155:84532",
+      "count": 1609,
+      "pct": 2.3
+    },
+    {
+      "network": "eip155:130",
+      "count": 1504,
+      "pct": 2.2
+    },
+    {
+      "network": "eip155:146",
+      "count": 1504,
+      "pct": 2.2
+    },
+    {
+      "network": "eip155:56",
+      "count": 1178,
+      "pct": 1.7
+    },
+    {
+      "network": "eip155:196",
+      "count": 1062,
+      "pct": 1.5
+    },
+    {
+      "network": "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=",
+      "count": 1015,
+      "pct": 1.5
+    },
+    {
+      "network": "eip155:4663",
+      "count": 916,
+      "pct": 1.3
+    },
+    {
+      "network": "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k",
+      "count": 846,
+      "pct": 1.2
+    },
+    {
+      "network": "null",
+      "count": 754,
+      "pct": 1.1
+    },
+    {
+      "network": "mpp:tempo",
+      "count": 374,
+      "pct": 0.5
+    },
+    {
+      "network": "lightning:bitcoin",
+      "count": 142,
+      "pct": 0.2
+    },
+    {
+      "network": "eip155:5042002",
+      "count": 140,
+      "pct": 0.2
+    },
+    {
+      "network": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+      "count": 136,
+      "pct": 0.2
+    },
+    {
+      "network": "eip155:80002",
+      "count": 133,
+      "pct": 0.2
+    },
+    {
+      "network": "eip155:1952",
+      "count": 132,
+      "pct": 0.2
+    },
+    {
+      "network": "eip155:4326",
+      "count": 114,
+      "pct": 0.2
+    },
+    {
+      "network": "stacks:1",
+      "count": 82,
+      "pct": 0.1
+    },
+    {
+      "network": "stripe",
+      "count": 78,
+      "pct": 0.1
+    },
+    {
+      "network": "nano:mainnet",
+      "count": 25,
+      "pct": 0
+    },
+    {
+      "network": "eip155:1187947933",
+      "count": 21,
+      "pct": 0
+    },
+    {
+      "network": "xrpl:1",
+      "count": 14,
+      "pct": 0
+    },
+    {
+      "network": "hyperliquid:mainnet",
+      "count": 10,
+      "pct": 0
+    },
+    {
+      "network": "hedera:mainnet",
+      "count": 7,
+      "pct": 0
+    },
+    {
+      "network": "eip155:8217",
+      "count": 7,
+      "pct": 0
+    },
+    {
+      "network": "lnbtc:000000000019d6689c085ae165831e93",
+      "count": 7,
+      "pct": 0
+    },
+    {
+      "network": "mpp:evm:8453",
+      "count": 5,
+      "pct": 0
+    },
+    {
+      "network": "mpp:stripe",
+      "count": 5,
+      "pct": 0
+    },
+    {
+      "network": "eip155:2099",
+      "count": 5,
+      "pct": 0
+    },
+    {
+      "network": "eip155:50",
+      "count": 3,
+      "pct": 0
+    },
+    {
+      "network": "sui:mainnet",
+      "count": 2,
+      "pct": 0
+    },
+    {
+      "network": "eip155:42793",
+      "count": 2,
+      "pct": 0
+    },
+    {
+      "network": "mpp:solana",
+      "count": 1,
+      "pct": 0
+    },
+    {
+      "network": "algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=",
+      "count": 1,
+      "pct": 0
+    },
+    {
+      "network": "eip155:59144",
+      "count": 1,
+      "pct": 0
+    },
+    {
+      "network": "eip155:324",
+      "count": 1,
+      "pct": 0
+    },
+    {
+      "network": "eip155:534352",
+      "count": 1,
+      "pct": 0
+    },
+    {
+      "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147wwSaGf",
+      "count": 1,
+      "pct": 0
+    },
+    {
+      "network": "eip155:11142220",
+      "count": 1,
+      "pct": 0
+    }
+  ],
+  "median_price_usd": 0.01,
+  "this_week": {
+    "broke": 216,
+    "fixed": 522,
+    "added": 20212,
+    "flaky": 267
+  },
+  "left_out_test": {
+    "resources": 138,
+    "hosts": 96
+  },
+  "not_judged_needs_input": 1576,
+  "protocols": [
+    {
+      "protocol": "x402",
+      "resources": 70243,
+      "clean_pct": 94.5,
+      "payable_pct": 98.2
+    },
+    {
+      "protocol": "mpp",
+      "resources": 411,
+      "clean_pct": 64.7,
+      "payable_pct": 91.5
+    }
+  ],
+  "largest_host": {
+    "resources": 36659,
+    "share_pct": 51.9,
+    "payable_pct": 100,
+    "down": false,
+    "reason": {
+      "code": "no_402",
+      "why": "don't answer 402 at all, so there is nothing to pay",
+      "short": "don't answer 402",
+      "fix": "make the listed route answer 402 (a moved or renamed endpoint stays listed under its old URL until a payment goes through the new one)"
+    },
+    "broke": 4,
+    "without": {
+      "resources": 33995,
+      "clean_pct": 88.3,
+      "caution_pct": 7.8,
+      "no_go_pct": 3.9,
+      "broke": 212,
+      "fixed": 281,
+      "reasons": [
+        {
+          "code": "gateway_only",
+          "count": 1693,
+          "why": "offer only Circle Gateway options, paid from a Gateway balance that standard x402 clients don't have",
+          "short": "are Circle Gateway only",
+          "fix": "add a plain \"exact\" option next to Gateway if standard x402 agents should pay too"
+        },
+        {
+          "code": "no_402",
+          "count": 800,
+          "why": "don't answer 402 at all, so there is nothing to pay",
+          "short": "don't answer 402",
+          "fix": "make the listed route answer 402 (a moved or renamed endpoint stays listed under its old URL until a payment goes through the new one)"
+        },
+        {
+          "code": "resource_mismatch",
+          "count": 448,
+          "why": "name another URL in their 402 than the one requested",
+          "short": "name the wrong URL in their 402",
+          "fix": "build resource.url from your public origin (behind a TLS proxy: trust proxy, so it stays https)"
+        },
+        {
+          "code": "unreachable",
+          "count": 279,
+          "why": "timed out or could not be reached",
+          "short": "are unreachable",
+          "fix": "check that the host is up and answers within 10 seconds"
+        },
+        {
+          "code": "unknown_asset",
+          "count": 195,
+          "why": "ask to be paid in a token that isn't a known USDC contract",
+          "short": "ask for a non-USDC token",
+          "fix": "use the network's USDC contract as the asset"
+        },
+        {
+          "code": "testnet_only",
+          "count": 128,
+          "why": "offer only testnet payment options",
+          "short": "are testnet only",
+          "fix": "add a mainnet option (for example Base, eip155:8453) or delist the test endpoint"
+        },
+        {
+          "code": "server_error",
+          "count": 117,
+          "why": "answered with a server error (5xx): down or failing",
+          "short": "answer with a server error",
+          "fix": "check the server and its hosting (behind Cloudflare, a 52x or 530 means Cloudflare could not reach your origin)"
+        },
+        {
+          "code": "mpp_realm_mismatch",
+          "count": 102,
+          "why": "name another host as the MPP realm than the one they're served on",
+          "short": "name the wrong MPP realm",
+          "fix": "set realm to the public host name of the endpoint"
+        },
+        {
+          "code": "invalid_challenge",
+          "count": 100,
+          "why": "answer 402 without a valid x402 challenge",
+          "short": "send a broken 402",
+          "fix": "send the PaymentRequired object (base64 JSON in the PAYMENT-REQUIRED header, mirrored in the body)"
+        },
+        {
+          "code": "price_above_advertised",
+          "count": 60,
+          "why": "charge more than their OpenAPI advertises",
+          "short": "charge more than advertised",
+          "fix": "keep the price in openapi.json in step with the 402"
+        },
+        {
+          "code": "price_depends_on_request",
+          "count": 30,
+          "why": "price depends on request",
+          "fix": ""
+        },
+        {
+          "code": "price_far_above_advertised",
+          "count": 14,
+          "why": "charge 10 times what their OpenAPI advertises or more",
+          "short": "charge 10x what they advertise",
+          "fix": "check the amount in atomic units, and keep the price in openapi.json in step with the 402"
+        },
+        {
+          "code": "suspicious_amount",
+          "count": 10,
+          "why": "write the amount as dollars (\"0.01\") instead of atomic units",
+          "short": "write dollars instead of atomic units",
+          "fix": "use atomic units: \"10000\" is $0.01 USDC"
+        },
+        {
+          "code": "mpp_no_expires",
+          "count": 8,
+          "why": "send an MPP challenge without an expiry",
+          "short": "send MPP challenges without an expiry",
+          "fix": "set expires on each challenge (a few minutes ahead), so a captured challenge cannot be replayed later"
+        },
+        {
+          "code": "no_payable_option",
+          "count": 5,
+          "why": "list payment options that would all fail",
+          "short": "offer no working payment option",
+          "fix": "fix the blocking problem per option (network name, payTo, amount in atomic units)"
+        },
+        {
+          "code": "payto_burn",
+          "count": 2,
+          "why": "pay out to the zero address or another burn address, a placeholder left in the config",
+          "short": "pay out to a burn address",
+          "fix": "set payTo to the wallet you want to be paid in"
+        }
+      ]
+    }
+  },
+  "spot": {
+    "date": "2026-10-25",
+    "bought": 26,
+    "delivered": 23,
+    "pct": 88.5,
+    "lost": 1,
+    "lost_usd": 0.001,
+    "errors": 2
+  }
+}
