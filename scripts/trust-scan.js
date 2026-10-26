@@ -76,11 +76,13 @@ async function plan({ out, limit }) {
   const nohumansOnly = nohumans.filter((r) => !covered.has(r.key));
   console.log(`nohumans.directory: ${nohumans.length} endpoints, ${nohumansOnly.length} new, ${evidence.size} bought and delivered`);
   resources = [...resources, ...nohumansOnly];
-  // PayAPI Market's catalogue (sellers list their x402 APIs there for free); one check per endpoint.
-  const payapi = await loadPayApiCatalog().catch((err) => (console.warn(`PayAPI Market: ${err.message}`), []));
+  // PayAPI Market's catalogue (sellers list their x402 APIs there for free); one check per endpoint. The routes it paid
+  // and got product from go to delivery-payapi.json for the preflight.
+  const paidOnce = new Map();
+  const payapi = await loadPayApiCatalog({ evidence: paidOnce }).catch((err) => (console.warn(`PayAPI Market: ${err.message}`), []));
   const sofar = new Set(resources.map((r) => r.key));
   const payapiOnly = payapi.filter((r) => !sofar.has(r.key));
-  console.log(`PayAPI Market: ${payapi.length} endpoints, ${payapiOnly.length} new`);
+  console.log(`PayAPI Market: ${payapi.length} endpoints, ${payapiOnly.length} new, ${paidOnce.size} paid and delivered`);
   resources = [...resources, ...payapiOnly];
   if (limit > 0) resources = resources.slice(0, limit);
   // Added by their sellers: yesterday's plus the new submissions, without what a registry lists by now.
@@ -88,7 +90,7 @@ async function plan({ out, limit }) {
     .catch((err) => (console.warn(`submissions: ${err.message}`), []));
   const added = submittedResources(previousSubmitted, submissions, new Set(resources.map((r) => r.key)));
   console.log(`added by sellers: ${submissions.length} submissions, ${added.length} to scan`);
-  return { date: new Date().toISOString().slice(0, 10), resources, added, hub_merchants: hub.merchants, hub_names: hub.names || {}, delivery_nohumans: Object.fromEntries(evidence) };
+  return { date: new Date().toISOString().slice(0, 10), resources, added, hub_merchants: hub.merchants, hub_names: hub.names || {}, delivery_nohumans: Object.fromEntries(evidence), delivery_payapi: Object.fromEntries(paidOnce) };
 }
 
 function printSlowHosts(rows) {
@@ -179,12 +181,16 @@ function merge(todo, done, { out }) {
   const xrplPayTos = mergeXrplPayTos(read(xrplPath), [...all, { xrpl_pay_tos: todo.hub_merchants }], todo.date, 14, todo.hub_names);
   fs.writeFileSync(xrplPath, JSON.stringify(xrplPayTos));
   console.log(`payout addresses on the XRP Ledger: ${Object.keys(xrplPayTos.pay_tos).length}, ${Object.keys(xrplPayTos.names || {}).length} with a hub name`);
-  // Delivery evidence from nohumans.directory (lib/delivery-nohumans.js). Not read today: yesterday's file stays.
-  const evidence = todo.delivery_nohumans || {};
-  if (Object.keys(evidence).length) {
-    fs.writeFileSync(path.join(out, 'delivery-nohumans.json'), JSON.stringify({ version: 1, source: 'https://nohumans.directory', license: 'CC BY 4.0', updated: todo.date, endpoints: evidence }));
+  // Delivery evidence from nohumans.directory and PayAPI Market (lib/delivery-elsewhere.js). A source not read today
+  // keeps yesterday's file.
+  for (const [file, source, evidence, extra] of [
+    ['delivery-nohumans.json', 'https://nohumans.directory', todo.delivery_nohumans || {}, { license: 'CC BY 4.0' }],
+    ['delivery-payapi.json', 'https://payapi.market', todo.delivery_payapi || {}, {}],
+  ]) {
+    const n = Object.keys(evidence).length;
+    if (n) fs.writeFileSync(path.join(out, file), JSON.stringify({ version: 1, source, ...extra, updated: todo.date, endpoints: evidence }));
+    console.log(`delivery evidence from ${source.replace('https://', '')}: ${n} endpoints${n ? '' : ' (kept the previous file)'}`);
   }
-  console.log(`delivery evidence from nohumans.directory: ${Object.keys(evidence).length} endpoints${Object.keys(evidence).length ? '' : ' (kept the previous file)'}`);
   console.log(JSON.stringify(summary, null, 2));
 }
 
