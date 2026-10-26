@@ -2,7 +2,7 @@
 // findings; off or failing means drafts as before.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createTriage, testByAddress, ruleOf } = require('../lib/jev-triage');
+const { createTriage, testByAddress, ruleOf, deliberateOf } = require('../lib/jev-triage');
 const { createOutreachHook } = require('../lib/outreach-hook');
 
 const quiet = { warn() {}, log() {} };
@@ -101,4 +101,18 @@ test('triage: Claude is Haiku 5.5 with thinking off and effort low; another mode
   const plain = h45.calls.find((c) => c.url.startsWith('https://api.anthropic.com/')).body;
   assert.equal(plain.thinking, undefined);
   assert.equal(plain.output_config, undefined, 'effort would be a 400 on Haiku 4.5');
+});
+
+test('deliberate setups are decided by code: no mail for a payment proxy or XRP pricing', async () => {
+  const proxy = { id: 'resource_mismatch', message: 'resource.url https://api.paysponge.com/v0/domains differs from the requested URL https://x402.api.agentmail.to/v0/domains.' };
+  const xrp = { id: 'priced_in_xrp', message: 'Priced in XRP (0.001 XRP) on the XRP Ledger, not in a dollar stablecoin.' };
+  assert.match(deliberateOf([proxy]), /payment proxy api\.paysponge\.com/);
+  assert.match(deliberateOf([xrp]), /XRP on purpose/);
+  // A real problem next to it still counts: not deliberate as a whole.
+  assert.equal(deliberateOf([proxy, { id: 'no_payable_option', message: 'No payment option would settle.' }]), null);
+  assert.equal(deliberateOf([{ id: 'resource_mismatch', message: 'resource.url https://other.test/x differs from the requested URL https://a.test/x.' }]), null);
+  const j = jevFetch({ test_service: 0, real_problem: 1 });
+  const r = await createTriage({ apiKey: 'k', fetch: j.fetch, log: quiet }).judge({ url: 'https://x402.api.agentmail.to/v0/domains', findings: [proxy] });
+  assert.deepEqual([r.worth, r.decidedBy], [false, 'rule']);
+  assert.equal(j.calls.length, 0, 'Jev is not asked');
 });
