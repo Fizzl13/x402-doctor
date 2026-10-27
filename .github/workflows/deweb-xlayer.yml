@@ -1,0 +1,64 @@
+name: DeWEB site on X Layer
+
+# Builds Fizzl's on-chain site (scripts/deweb-site.mjs: every x402 endpoint in the Trust Index that takes payment on
+# X Layer, with its price and verdict) and writes it to X Layer through TapeOut DeWEB (scripts/deweb-xlayer.mjs):
+# our processor, circuit #1, its container, the files in SiteRegistry and the on-chain name. Started by hand; a dry
+# run (the default) simulates every transaction and sends nothing. The deploy wallet's key is the XLAYER_DEPLOY_KEY
+# secret: a dedicated wallet that holds only the OKB for these steps (about 0.09 OKB the first time, then only gas
+# for changed files). What it set up is kept in deweb-state.json on the deweb-data branch, with the published files.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Only simulate (send nothing)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: deweb-xlayer
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - run: npm ci --omit=dev
+      - name: Previous state
+        run: |
+          if git fetch --depth 1 origin deweb-data 2>/dev/null; then
+            git show FETCH_HEAD:deweb-state.json > deweb-state.json 2>/dev/null || rm -f deweb-state.json
+          fi
+          cat deweb-state.json 2>/dev/null || echo "no state yet: first publish"
+      - name: Build the site
+        run: node scripts/deweb-site.mjs --out deweb/out
+      - name: Publish on X Layer
+        run: node scripts/deweb-xlayer.mjs --dir deweb/out --state deweb-state.json ${{ inputs.dry_run && '--dry-run' || '' }}
+        env:
+          XLAYER_DEPLOY_KEY: ${{ secrets.XLAYER_DEPLOY_KEY }}
+      - name: Keep the state on the deweb-data branch
+        if: ${{ !inputs.dry_run && always() }}
+        run: |
+          [ -f deweb-state.json ] || { echo "nothing set up yet"; exit 0; }
+          mkdir -p deweb-data && cp deweb-state.json deweb/out/index.html deweb-data/
+          cd deweb-data
+          cat > README.md <<'MD'
+          # Fizzl's DeWEB site on X Layer
+
+          Written by `.github/workflows/deweb-xlayer.yml` on `master`. `deweb-state.json`: the TapeOut processor,
+          circuit, container and on-chain name of the site, and when it was last written. `index.html`: the page as
+          last published; browsers read it from X Layer's SiteRegistry and check it against its SHA-256.
+          MD
+          git init -q -b deweb-data
+          git add .
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -qm "DeWEB $(date -u +%FT%H:%M)"
+          git push -qf "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" deweb-data
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
