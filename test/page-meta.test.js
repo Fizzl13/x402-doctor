@@ -39,7 +39,7 @@ test('GET /trust and the other pages carry link previews', async (t) => {
   const html = await trust.text();
   assert.match(html, /og:description" content="100 payable x402 endpoints, but only 40 distinct services from 7 sellers/);
   assert.match(html, /og:url" content="https:\/\/x402-doctor.fizzl.eu\/trust"/);
-  for (const p of ['/xrpl', '/algorand', '/stellar', '/settlement', '/status', '/sellers']) assert.match(await (await fetch(base + p)).text(), /property="og:title"/, p);
+  for (const p of ['/xrpl', '/algorand', '/stellar', '/xlayer', '/settlement', '/status', '/sellers']) assert.match(await (await fetch(base + p)).text(), /property="og:title"/, p);
 });
 
 test('today\'s numbers in the HTML of /trust and the network pages, for crawlers that don\'t run scripts', async (t) => {
@@ -62,7 +62,7 @@ test('today\'s numbers in the HTML of /trust and the network pages, for crawlers
 
   const view = { endpoints: 1631, payable_now: 1584, sellers: [{}, {}, {}], services: 599, days: ['2026-10-18'] };
   let networkCalls = 0;
-  const trustIndex = { lookup: async () => null, seller: async () => ({ resources: 0 }), summary: () => summary, refresh: async () => {}, updated: () => '2026-10-18T03:40:00Z', byNetwork: async (network) => { networkCalls++; return network === 'stellar' ? view : null; } };
+  const trustIndex = { lookup: async () => null, seller: async () => ({ resources: 0 }), summary: () => summary, refresh: async () => {}, updated: () => '2026-10-18T03:40:00Z', byNetwork: async (network) => { networkCalls++; return network === 'stellar' || network === 'eip155:196' ? view : null; } };
   const app = createApp({ env: {}, trustIndex, status: { snapshot: async () => ({}) } });
   const server = await new Promise((resolve) => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
   t.after(() => server.close());
@@ -85,6 +85,8 @@ test('today\'s numbers in the HTML of /trust and the network pages, for crawlers
   assert.match(stellar, /<p class="note" id="updated">From the daily scan of 2026-10-18\.<\/p>/);
   await fetch(`${base}/stellar`);
   assert.equal(networkCalls, 1, 'once per index update');
+  // X Layer is one EVM chain, so its page asks for the chain id rather than a family.
+  assert.match(await (await fetch(`${base}/xlayer`)).text(), /Payable on X Layer now<\/div><div class="v">1,584<\/div>/);
   const xrpl = await (await fetch(`${base}/xrpl`)).text();
   assert.match(xrpl, /<div class="v">…<\/div>/, 'no numbers yet: the placeholders stay');
 });

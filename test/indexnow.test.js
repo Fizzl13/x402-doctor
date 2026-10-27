@@ -15,6 +15,7 @@ test('sitemapUrls reads every <loc>', () => {
   const urls = sitemapUrls(xml);
   assert.ok(urls.includes('https://x402-doctor.fizzl.eu/'));
   assert.ok(urls.includes('https://x402-doctor.fizzl.eu/stellar'));
+  assert.ok(urls.includes('https://x402-doctor.fizzl.eu/xlayer'));
   assert.ok(urls.every((u) => u.startsWith('https://x402-doctor.fizzl.eu/')));
 });
 

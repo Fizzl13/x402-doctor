@@ -530,7 +530,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   };
   app.get('/trust', page('trust.html', '/trust', liveTrust, onceper('trust', () => trustFill(trustIndex.summary()))));
   // Per-network view of the Trust Index (free): every scanned x402 endpoint that offers a network, payable today
-  // or not and why. The /xrpl, /algorand and /stellar pages read it.
+  // or not and why. The /xrpl, /algorand, /stellar and /xlayer pages read it.
   app.get('/api/trust/network', trustLimit, async (req, res) => {
     const network = String(req.query.network || '').trim().toLowerCase();
     if (!/^[a-z0-9-]{2,32}(:[a-z0-9-]{1,64})?$/i.test(network)) return res.status(400).json({ error: 'network is required, e.g. /api/trust/network?network=xrpl (a family) or xrpl:0' });
@@ -555,6 +555,8 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   app.get('/xrpl', networkPage('xrpl'));
   app.get('/algorand', networkPage('algorand'));
   app.get('/stellar', networkPage('stellar'));
+  // X Layer has no family name of its own (it is one EVM chain), so its page reads the chain id.
+  app.get('/xlayer', page('xlayer.html', '/xlayer', undefined, onceper('xlayer', async () => networkFill(await trustIndex.byNetwork('eip155:196')))));
   app.get('/settlement', page('settlement.html', '/settlement'));
   // Public status of the Fizzl services (lib/status.js); also the home page of status.fizzl.eu when that domain points here.
   const statusBoard = status || createStatus({ trustIndex });

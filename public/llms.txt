@@ -22,7 +22,7 @@ Backed by a daily Trust Index of ~50,000 paid x402 and MPP endpoints across Base
 ## Free
 - [Web check](https://x402-doctor.fizzl.eu/): paste an endpoint for the full report
 - [Trust Index](https://x402-doctor.fizzl.eu/trust): which paid endpoints are payable today, their history, and the weekly spot-buy results
-- [x402 on Stellar](https://x402-doctor.fizzl.eu/stellar), [on Algorand](https://x402-doctor.fizzl.eu/algorand) and [on the XRP Ledger](https://x402-doctor.fizzl.eu/xrpl): every endpoint on that network, payable or not and why
+- [x402 on Stellar](https://x402-doctor.fizzl.eu/stellar), [on Algorand](https://x402-doctor.fizzl.eu/algorand), [on the XRP Ledger](https://x402-doctor.fizzl.eu/xrpl) and [on X Layer](https://x402-doctor.fizzl.eu/xlayer): every endpoint on that network, payable or not and why
 - [For sellers](https://x402-doctor.fizzl.eu/sellers): the most common x402 seller mistakes and how to fix them
 - [Payment proof check](https://x402-doctor.fizzl.eu/settlement): the on-chain transaction behind a PAYMENT-RESPONSE header
 - `GET /api/trust?url=<resource>`: one resource's 30-day track record
