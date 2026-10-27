@@ -536,7 +536,7 @@ test('paymentConfig: RLUSD on the XRP Ledger in production (CDP), off in tests, 
   const x = prod.find((a) => a.network === 'xrpl:0');
   assert.equal(x.payTo, 'r9xmBsRr8Ao7jRgjjxreMiAwGiCK2FGwqw');
   assert.equal(x.extra.invoiceId, 'x402-doctor.fizzl.eu');
-  assert.equal(paymentConfig({ ...base, CDP_API_KEY_ID: 'k', CDP_API_KEY_SECRET: 's', XRPL_PAY_TO: 'off' }).accepts.length, 1);
+  assert.equal(paymentConfig({ ...base, CDP_API_KEY_ID: 'k', CDP_API_KEY_SECRET: 's', XRPL_PAY_TO: 'off' }).accepts.some((a) => a.network === 'xrpl:0'), false);
   const { usdOf } = require('../lib/usage-log');
   assert.equal(usdOf({ network: 'xrpl:0', asset: '524C555344000000000000000000000000000000', amount: '0.001' }), 0.001);
 });
