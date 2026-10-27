@@ -105,6 +105,8 @@
   #overallText { min-width: 0; overflow-wrap: anywhere; }
   .watch-line { margin: -8px 0 20px; font-size: 14px; color: var(--text-soft); }
   .watch-line a { font-weight: 600; white-space: nowrap; }
+  .badge-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+  .badge-line button { padding: 4px 12px; font-size: 12px; background: var(--ink-3); color: var(--text); box-shadow: none; }
   .checks { display: flex; flex-direction: column; gap: 8px; }
   .wallets { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 18px; overflow: hidden; background: var(--ink-2); }
   .wallet-row { display: flex; gap: 12px; padding: 10px 16px; border-top: 1px solid var(--line); align-items: baseline; flex-wrap: wrap; }
@@ -613,6 +615,20 @@ async function showTrust(url, id) {
     line.replaceChildren();
     if (res.ok) {
       line.append(`x402 Trust Index: payable on ${data.days_payable} of ${data.days_checked} scanned days. `, link(`/trust?url=${encodeURIComponent(url)}`, 'Track record and badge →'));
+      // Payable on at least one scanned day: the seller's badge right here, with its Markdown one tap away.
+      if (data.days_payable > 0) {
+        const badgeUrl = `${location.origin}/badge.svg?url=${encodeURIComponent(url)}`, pageUrl = `${location.origin}/trust?url=${encodeURIComponent(url)}`;
+        const markdown = `[![x402 payable](${badgeUrl})](${pageUrl})`;
+        const img = Object.assign(document.createElement('img'), { src: badgeUrl, alt: 'x402 payable badge', height: 20 });
+        const copy = el('button', null, 'Copy badge for your README');
+        copy.type = 'button';
+        copy.addEventListener('click', async () => {
+          try { await navigator.clipboard.writeText(markdown); copy.textContent = 'Copied: paste it in your README'; } catch { copy.textContent = markdown; }
+        });
+        const row = el('span', 'badge-line');
+        row.append(img, copy);
+        line.append(row);
+      }
       // Bought with real USDC by nohumans.directory or PayAPI Market, with an answer back: what the read-only check can't see.
       for (const h of (data.delivered_elsewhere ? data.delivered_elsewhere.sources || [data.delivered_elsewhere] : [])) {
         line.append(` Bought with real USDC by ${h.source} on ${h.paid_on}, and the answer came${h.status === 'failing' ? ' (failing their checks since)' : ''}. `, ...(h.listing ? [link(h.listing, 'Their record →')] : []));
