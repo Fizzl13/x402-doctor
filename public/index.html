@@ -188,7 +188,7 @@
   },
   {
    "@type": "Offer",
-   "name": "Preflight API call, paid per call over x402 in USDC (Base, Solana, the XRP Ledger, Algorand or Stellar) or MPP",
+   "name": "Preflight API call, paid per call over x402 in USDC (Base, Solana, the XRP Ledger, Algorand or Stellar), USD₮0 on X Layer, or MPP",
    "price": "0.001",
    "priceCurrency": "USD"
   }
@@ -263,7 +263,7 @@
    "name": "Does x402 Doctor check Solana, the XRP Ledger, Algorand and Stellar?",
    "acceptedAnswer": {
     "@type": "Answer",
-    "text": "Yes. It checks offers on Base and other EVM chains, Solana, the XRP Ledger, Algorand, Stellar and Circle's Arc, and MPP challenges. Its own paid calls accept USDC on Base, Solana, Algorand or Stellar, RLUSD on the XRP Ledger, or MPP."
+    "text": "Yes. It checks offers on Base and other EVM chains, Solana, the XRP Ledger, Algorand, Stellar and Circle's Arc, and MPP challenges. Its own paid calls accept USDC on Base, Solana, Algorand or Stellar, RLUSD on the XRP Ledger, USD₮0 on X Layer, or MPP."
    }
   },
   {
@@ -384,7 +384,7 @@
         <pre>GET /api/v1/credits/1000</pre>
       </div>
     </div>
-    <p class="buyer-note">Paid per call in USDC via x402 or MPP on Base, Solana, the XRP Ledger, Algorand or Stellar (RLUSD on the XRP Ledger), with a signed receipt. They never pay the endpoint. Also as MCP tools at <code>/mcp</code>; details in the <a href="/openapi.json">OpenAPI</a>.</p>
+    <p class="buyer-note">Paid per call in USDC via x402 or MPP on Base, Solana, the XRP Ledger, Algorand or Stellar (RLUSD on the XRP Ledger, USD₮0 on X Layer), with a signed receipt. They never pay the endpoint. Also as MCP tools at <code>/mcp</code>; details in the <a href="/openapi.json">OpenAPI</a>.</p>
   </section>
 
   <h2><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>Questions</h2>
@@ -393,7 +393,7 @@
     <details><summary>Why can't agents pay my x402 endpoint?</summary><p>Most often the 402 names another URL than the one called (the resource field), the listed URL doesn't answer 402 on the listed method, only a testnet is offered, or the 402 asks more than the listing says. Paste your endpoint above for a free diagnosis with the fix for each problem, or run npx github:Fizzl13/x402-doctor &lt;url&gt; in CI.</p></details>
     <details><summary>Is there a free x402 endpoint validator?</summary><p>Yes. The web check on this page is free: paste a URL and it decodes the 402 challenge and runs every check without paying. In CI, use npx github:Fizzl13/x402-doctor &lt;url&gt; or the GitHub Action Fizzl13/x402-doctor-action. Agents can use the free MCP tool x402_quick_check (10 calls an hour).</p></details>
     <details><summary>Which x402 endpoints actually settle and deliver?</summary><p>The x402 Trust Index at https://x402-doctor.fizzl.eu/trust checks about 50,000 paid x402 and MPP endpoints every day and keeps a 30-day record per endpoint; GET https://x402-doctor.fizzl.eu/api/trust?url=&lt;endpoint&gt; returns it for free. Every week x402 Doctor also buys about 30 random payable endpoints and publishes what came back.</p></details>
-    <details><summary>Does x402 Doctor check Solana, the XRP Ledger, Algorand and Stellar?</summary><p>Yes. It checks offers on Base and other EVM chains, Solana, the XRP Ledger, Algorand, Stellar and Circle's Arc, and MPP challenges. Its own paid calls accept USDC on Base, Solana, Algorand or Stellar, RLUSD on the XRP Ledger, or MPP.</p></details>
+    <details><summary>Does x402 Doctor check Solana, the XRP Ledger, Algorand and Stellar?</summary><p>Yes. It checks offers on Base and other EVM chains, Solana, the XRP Ledger, Algorand, Stellar and Circle's Arc, and MPP challenges. Its own paid calls accept USDC on Base, Solana, Algorand or Stellar, RLUSD on the XRP Ledger, USD₮0 on X Layer, or MPP.</p></details>
     <details><summary>How do I add x402 Doctor to Claude or Cursor?</summary><p>Add the remote MCP server https://x402-doctor.fizzl.eu/mcp. In Claude Code: claude mcp add --transport http x402-doctor https://x402-doctor.fizzl.eu/mcp. Agent skills: npx skills add Fizzl13/x402-doctor, or in Claude Code /plugin marketplace add Fizzl13/x402-doctor and then /plugin install x402-doctor@fizzl.</p></details>
   </div>
 
@@ -422,7 +422,7 @@
     <br><br>
     <a href="/settlement">Payment proof check</a>: paste the <code>PAYMENT-RESPONSE</code> header of a payment and see the on-chain transaction behind it.
     <br><br>
-    For agents: <code>GET /api/v1/diagnose?url=&lt;endpoint&gt;</code>, $0.01 per call via x402 or MPP on Base, Solana, the XRP Ledger, Algorand or Stellar, no rate limit
+    For agents: <code>GET /api/v1/diagnose?url=&lt;endpoint&gt;</code>, $0.01 per call via x402 or MPP on Base, Solana, the XRP Ledger, Algorand, Stellar or X Layer, no rate limit
     (<a href="/openapi.json">OpenAPI</a>).
     <br><br>
     As an MCP server: <code>https://x402-doctor.fizzl.eu/mcp</code>, with a free quick check. Also on

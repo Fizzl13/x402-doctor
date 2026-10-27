@@ -1,6 +1,6 @@
 ---
 name: x402-doctor
-description: Check x402 and MPP endpoints the way a paying agent would: is it safe to pay, what's broken, and how to fix it. Free quick check; paid preflight, diagnosis and fixes via x402 (Base, Solana, the XRP Ledger, Algorand or Stellar) or MPP (Base).
+description: Check x402 and MPP endpoints the way a paying agent would: is it safe to pay, what's broken, and how to fix it. Free quick check; paid preflight, diagnosis and fixes via x402 (Base, Solana, the XRP Ledger, Algorand, Stellar or X Layer) or MPP (Base).
 ---
 
 # x402 Doctor

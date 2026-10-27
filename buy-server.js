@@ -39,7 +39,7 @@ const { z } = require('zod');
 const { createFacilitatorStart } = require('./lib/facilitator-start');
 const { onPublicHost } = require('./lib/public-host');
 const { fizzlCors } = require('./lib/fizzl-cors');
-const { mirrorChallengeIntoBody, onlyNetworks, xrplPayTo, algorandPayTo, stellarPayTo, stellarFacilitator, ALGORAND, STELLAR, DEFAULT_ALGORAND_FACILITATOR } = require('./lib/paid-api');
+const { mirrorChallengeIntoBody, onlyNetworks, xrplPayTo, algorandPayTo, stellarPayTo, xlayerPayTo, usdt0Amount, stellarFacilitator, ALGORAND, STELLAR, XLAYER, XLAYER_USDT0, DEFAULT_ALGORAND_FACILITATOR } = require('./lib/paid-api');
 const { merchantExtension, builderCodeExtension } = require('./lib/merchant');
 const { createSigner, signPaidResponses, paymentOf } = require('./lib/receipt');
 const { createUsageLog, mcpPayment } = require('./lib/usage-log');
@@ -106,7 +106,8 @@ function networksText(accepts) {
   const names = { [BASE]: 'Base', [SOLANA]: 'Solana', [ALGORAND]: 'Algorand', [STELLAR]: 'Stellar' };
   const usdc = accepts.map((a) => names[a.network]).filter(Boolean);
   const list = usdc.length > 1 ? `${usdc.slice(0, -1).join(', ')} or ${usdc.at(-1)}` : usdc[0];
-  return `USDC on ${list}${accepts.some((a) => a.network === XRPL) ? ', or RLUSD on the XRP Ledger' : ''}`;
+  const other = [accepts.some((a) => a.network === XRPL) && 'RLUSD on the XRP Ledger', accepts.some((a) => a.network === XLAYER) && 'USD₮0 on X Layer'].filter(Boolean);
+  return `USDC on ${list}${other.map((o) => `, or ${o}`).join('')}`;
 }
 
 // The paywall's route: $0.02 on Base, and on the other networks the other Fizzl services take (each when its payout
@@ -117,6 +118,7 @@ function routesFor(env) {
   const xrpl = xrplPayTo(env);
   const algorand = algorandPayTo(env);
   const stellar = stellarPayTo(env);
+  const xlayer = xlayerPayTo(env);
   const accepts = [
     { scheme: 'exact', price, network: BASE, payTo: env.AGENT_PAYOUT_WALLET, maxTimeoutSeconds: 300 },
     ...(env.AGENT_PAYOUT_WALLET_SOLANA ? [{ scheme: 'exact', price, network: SOLANA, payTo: env.AGENT_PAYOUT_WALLET_SOLANA, maxTimeoutSeconds: 300 }] : []),
@@ -124,6 +126,8 @@ function routesFor(env) {
     ...(xrpl ? [{ scheme: 'exact', price, network: XRPL, payTo: xrpl, maxTimeoutSeconds: 300, extra: { invoiceId: 'buy.fizzl.eu', sourceTag: X402_SOURCE_TAG } }] : []),
     ...(algorand ? [{ scheme: 'exact', price, network: ALGORAND, payTo: algorand, maxTimeoutSeconds: 300 }] : []),
     ...(stellar ? [{ scheme: 'exact', price, network: STELLAR, payTo: stellar, maxTimeoutSeconds: 300 }] : []),
+    // USD₮0 on X Layer (lib/paid-api.js), settled by PayAI.
+    ...(xlayer ? [{ scheme: 'exact', price: { amount: usdt0Amount(price), asset: XLAYER_USDT0, extra: { name: 'USD₮0', version: '1' } }, network: XLAYER, payTo: xlayer, maxTimeoutSeconds: 300 }] : []),
   ];
   return {
     [`POST ${BUY_ROUTE}`]: {
@@ -513,7 +517,8 @@ if (require.main === module) {
     .register(SOLANA, new ExactSvmScheme())
     .register(XRPL, new ExactXrplScheme())
     .register(ALGORAND, new ExactAvmScheme())
-    .register(STELLAR, new ExactStellarScheme());
+    .register(STELLAR, new ExactStellarScheme())
+    .register(XLAYER, new ExactEvmScheme());
   const routes = routesFor(env);
   start.attach(resourceServer, [...new Set(routes[`POST ${BUY_ROUTE}`].accepts.map((a) => a.network))]);
   // The challenge names buy.fizzl.eu also when called on the Render address.
