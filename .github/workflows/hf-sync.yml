@@ -2,7 +2,7 @@ name: Trust Index to Hugging Face
 
 # After the Trust Index scan, and by hand: publishes the day's Trust Index as an open dataset on Hugging Face
 # (data/endpoints.jsonl, data/daily.csv, the weekly spot-buy purchases data/spot_buys.jsonl, the on-chain payments
-# data/onchain_payments.csv (Base, Solana, the XRP Ledger and Stellar) and the dataset card, from scripts/hf-export.js). Reads only the published trust-data,
+# data/onchain_payments.csv (Base, Solana, the XRP Ledger, Stellar and Algorand) and the dataset card, from scripts/hf-export.js). Reads only the published trust-data,
 # spot-data and payments-data branches; nothing is scanned, fetched from sellers or paid. It also keeps the dataset in
 # a Hugging Face collection, "x402 agent payments" (skipped when the token may not write collections).
 #
@@ -65,7 +65,7 @@ jobs:
           mkdir -p spot-data
           if git fetch --depth 1 origin spot-data 2>/dev/null; then git archive FETCH_HEAD results | tar -x -C spot-data || true; fi
           if git fetch --depth 1 origin payments-data 2>/dev/null; then
-            for f in payments payments-solana payments-xrpl payments-stellar; do git show FETCH_HEAD:$f.json > $f.json 2>/dev/null || rm -f $f.json; done
+            for f in payments payments-solana payments-xrpl payments-stellar payments-algorand; do git show FETCH_HEAD:$f.json > $f.json 2>/dev/null || rm -f $f.json; done
           fi
           echo "date=$date" >> "$GITHUB_OUTPUT"
           if [ "${{ github.event_name }}" != "workflow_dispatch" ] && curl -sfL -H "Authorization: Bearer $HF_TOKEN" "https://huggingface.co/datasets/$dataset/raw/main/README.md" | grep -qF "Scan of **$date**"; then
