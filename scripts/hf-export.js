@@ -7,7 +7,8 @@
 //   hf/data/endpoints.jsonl  every endpoint in today's scan: verdict, reasons, price, networks, category, 30-day record
 //   hf/data/daily.csv        go / caution / no_go per day over the history in index.json
 //   hf/data/spot_buys.jsonl  every purchase of the weekly spot-buy (--spot: the spot-data branch's results/ folder)
-//   hf/data/onchain_payments.csv  signed USDC payments on Base per payout address per day (--payments: payments.json)
+//   hf/data/onchain_payments.csv  x402 payments per payout address per day on Base, Solana, the XRP Ledger and Stellar
+//                            (--payments: payments.json, and the other networks' files, comma-separated)
 //   hf/README.md             the dataset card, with today's counts
 'use strict';
 
@@ -80,17 +81,23 @@ function spotRows(dir) {
   return rows;
 }
 
-// Signed USDC payments on Base per payout address and day (lib/onchain-payments.js), with how much of the day was read.
-function paymentRows(state) {
-  if (state?.version !== 1) return [];
+// x402 payments per payout address and day (lib/onchain-payments.js and its Solana, XRP Ledger and Stellar
+// counterparts, all the same shape), with how much of the day was read: Base counts blocks (43,200 a day), the others
+// mark a day read (per_day 1). Base's file names no network.
+function paymentRows(...states) {
   const rows = [];
-  for (const [payTo, entry] of Object.entries(state.pay_tos || {})) {
-    for (const [date, d] of Object.entries(entry.d || {})) {
-      if (!d[0]) continue; // a day with only USDC sent out (closed-loop check), no payment in
-      rows.push({ date, pay_to: payTo, payments: d[0], usd: Math.round(d[1] / 1e4) / 100, payers: d[2].length, day_coverage: Math.round(((state.days?.[date]?.covered || 0) / 43200) * 1000) / 1000 });
+  for (const state of states) {
+    if (state?.version !== 1) continue;
+    const network = state.network || 'eip155:8453';
+    const perDay = state.per_day || 43200;
+    for (const [payTo, entry] of Object.entries(state.pay_tos || {})) {
+      for (const [date, d] of Object.entries(entry.d || {})) {
+        if (!d[0]) continue; // a day with only USDC sent out (closed-loop check), no payment in
+        rows.push({ date, pay_to: payTo, payments: d[0], usd: Math.round(d[1] / 1e4) / 100, payers: d[2].length, day_coverage: Math.min(1, Math.round(((state.days?.[date]?.covered || 0) / perDay) * 1000) / 1000), network });
+      }
     }
   }
-  return rows.sort((a, b) => a.date.localeCompare(b.date) || b.payments - a.payments || a.pay_to.localeCompare(b.pay_to));
+  return rows.sort((a, b) => a.date.localeCompare(b.date) || a.network.localeCompare(b.network) || b.payments - a.payments || a.pay_to.localeCompare(b.pay_to));
 }
 
 function card({ date, rows, daily, sanctions, spot = [], payments = [] }) {
@@ -151,7 +158,11 @@ ${spot.length ? `- \`data/spot_buys.jsonl\`: what came back when x402 Doctor act
   - \`date\`, \`run\`, \`url\`, \`host\`, \`price_usd\`, \`charged_usd\` (measured on chain)
   - \`result\`: \`delivered\`, \`off_schema\` (an answer that doesn't match the declared schema), \`empty\`, \`charged_not_delivered\`, \`payment_rejected\` (asked to pay again, not charged), \`error_not_charged\` or \`payment_failed\`
   - \`status\`, \`reason\`, \`answer_s\` (seconds from the first request to the paid answer), \`timed_out\`, \`request\` (\`example\`: the listing's own example input)
-` : ''}${payments.length ? `- \`data/onchain_payments.csv\`: real payments. Per payout address in this index and per UTC day (the last 8), the USDC payments on Base that the payer signed with EIP-3009 (\`transferWithAuthorization\`, the way x402 settles USDC): \`date, pay_to, payments, usd, payers\` (different paying wallets), and \`day_coverage\` (the share of that day's blocks that were read). Plain transfers, Permit2 and Circle Gateway batches don't count; x402 Doctor's own test wallet is left out.
+` : ''}${payments.length ? `- \`data/onchain_payments.csv\`: real payments. Per payout address and per UTC day (the last 8): \`date, pay_to, payments, usd, payers\` (different paying wallets), \`day_coverage\` (the share of that day that was read) and \`network\` (CAIP-2). Only payments settled the way x402 settles count:
+  - Base (\`eip155:8453\`): USDC that the payer signed with EIP-3009 (\`transferWithAuthorization\`), to the payout addresses in this index. Plain transfers, Permit2 and Circle Gateway batches don't count; x402 Doctor's own test wallet is left out.
+  - Solana (USDC): transfers whose network fee a facilitator named in the sellers' offers paid (\`extra.feePayer\`), to the payout addresses in this index.
+  - The XRP Ledger (\`xrpl:0\`, RLUSD or USDC): payments marked by an x402 client (t54's SourceTag 804681468, or @x402/xrpl's InvoiceID); a cashed Check of x402's batch settlement counts once. To the payout addresses in this index.
+  - Stellar (\`stellar:pubnet\`, Circle's USDC): Soroban transfers that the payer authorized and a facilitator sent, to the payout addresses in this index and to the accounts the x402 facilitators (OpenZeppelin, agent402.tools) delivered USDC to.
 ` : ''}
 ## How it is collected
 
@@ -193,8 +204,8 @@ function main() {
   const date = (index.days || []).slice(-1)[0] || String(index.updated || '').slice(0, 10);
   const spot = spotRows(arg('spot', null));
   if (spot.length) fs.writeFileSync(path.join(out, 'data', 'spot_buys.jsonl'), spot.map((r) => JSON.stringify(r)).join('\n') + '\n');
-  const payments = paymentRows(readJson(arg('payments', '')));
-  if (payments.length) fs.writeFileSync(path.join(out, 'data', 'onchain_payments.csv'), ['date,pay_to,payments,usd,payers,day_coverage', ...payments.map((p) => `${p.date},${p.pay_to},${p.payments},${p.usd},${p.payers},${p.day_coverage}`)].join('\n') + '\n');
+  const payments = paymentRows(...String(arg('payments', '')).split(',').filter(Boolean).map(readJson));
+  if (payments.length) fs.writeFileSync(path.join(out, 'data', 'onchain_payments.csv'), ['date,pay_to,payments,usd,payers,day_coverage,network', ...payments.map((p) => `${p.date},${p.pay_to},${p.payments},${p.usd},${p.payers},${p.day_coverage},${p.network}`)].join('\n') + '\n');
   fs.writeFileSync(path.join(out, 'README.md'), card({ date, rows, daily, sanctions: index.sanctions, spot, payments }));
   console.log(`hf-export: ${rows.length} endpoints, ${daily.length} days, ${spot.length} spot-buy purchases, ${payments.length} payment rows → ${out}`);
 }

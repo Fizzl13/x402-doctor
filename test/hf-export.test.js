@@ -90,10 +90,16 @@ test('spot-buy purchases and on-chain payments become their own files and config
 
   const state = { version: 1, days: { '2026-10-18': { covered: 43200 }, '2026-10-19': { covered: 4320 } }, pay_tos: { '0x11': { since: '2026-10-18', d: { '2026-10-18': [3, 30000, ['aa', 'bb']], '2026-10-19': [1, 10000, ['aa']] } } } };
   assert.deepEqual(paymentRows(state), [
-    { date: '2026-10-18', pay_to: '0x11', payments: 3, usd: 0.03, payers: 2, day_coverage: 1 },
-    { date: '2026-10-19', pay_to: '0x11', payments: 1, usd: 0.01, payers: 1, day_coverage: 0.1 },
+    { date: '2026-10-18', pay_to: '0x11', payments: 3, usd: 0.03, payers: 2, day_coverage: 1, network: 'eip155:8453' },
+    { date: '2026-10-19', pay_to: '0x11', payments: 1, usd: 0.01, payers: 1, day_coverage: 0.1, network: 'eip155:8453' },
   ]);
   assert.deepEqual(paymentRows(null), []);
+  // The other networks' files: a day marked read (per_day 1) is fully covered; their network comes from the file.
+  const stellar = { version: 1, network: 'stellar:pubnet', per_day: 1, days: { '2026-10-18': { covered: 1 } }, pay_tos: { GABC: { since: '2026-10-18', d: { '2026-10-18': [2, 7000, ['GX']], '2026-10-19': [0, 0, [], { GY: 5 }] } } } };
+  assert.deepEqual(paymentRows(state, null, stellar).filter((r) => r.date === '2026-10-18').map((r) => [r.network, r.pay_to, r.payments, r.usd, r.day_coverage]), [
+    ['eip155:8453', '0x11', 3, 0.03, 1], ['stellar:pubnet', 'GABC', 2, 0.01, 1],
+  ]);
+  assert.equal(paymentRows(stellar).length, 1, 'a day with only USDC sent out is no row');
 
   const rows = endpointRows(index, categories);
   const md = card({ date: '2026-10-18', rows, daily: dailyRows(index), sanctions: index.sanctions, spot, payments: paymentRows(state) });
