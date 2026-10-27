@@ -142,6 +142,7 @@ jobs:
             git show FETCH_HEAD:paytos-solana.json > trust-data/paytos-solana.json 2>/dev/null || rm -f trust-data/paytos-solana.json
             git show FETCH_HEAD:paytos-xrpl.json > trust-data/paytos-xrpl.json 2>/dev/null || rm -f trust-data/paytos-xrpl.json
             git show FETCH_HEAD:paytos-stellar.json > trust-data/paytos-stellar.json 2>/dev/null || rm -f trust-data/paytos-stellar.json
+            git show FETCH_HEAD:paytos-algorand.json > trust-data/paytos-algorand.json 2>/dev/null || rm -f trust-data/paytos-algorand.json
             git show FETCH_HEAD:submitted.json > trust-data/submitted.json || rm -f trust-data/submitted.json
             git show FETCH_HEAD:delivery-nohumans.json > trust-data/delivery-nohumans.json 2>/dev/null || rm -f trust-data/delivery-nohumans.json
             git show FETCH_HEAD:delivery-payapi.json > trust-data/delivery-payapi.json 2>/dev/null || rm -f trust-data/delivery-payapi.json
@@ -189,7 +190,7 @@ jobs:
           lib/services.js descKey). `paytos.json`: the payout addresses on Base and the day each was last seen, for the
           hourly on-chain payment count; `paytos-solana.json` the same for USDC payout addresses on Solana, with the
           facilitators that pay their fees (`fee_payers`), and `paytos-xrpl.json` for payout addresses on the XRP
-          Ledger, `paytos-stellar.json` for USDC payout accounts on Stellar. `namesakes.json`: brand names listed by more than one seller (lib/namesakes.js); the namesakes'
+          Ledger, `paytos-stellar.json` for USDC payout accounts on Stellar, `paytos-algorand.json` for USDC payout addresses on Algorand. `namesakes.json`: brand names listed by more than one seller (lib/namesakes.js); the namesakes'
           resources carry `ns` in the index. `submitted.json`: the same history for endpoints their sellers added on
           Doctor (POST /api/trust/submit), kept apart from the registry listings in the index. `delivery-nohumans.json`:
           the endpoints nohumans.directory bought with real USDC and got an answer from, by key, as [day of that
@@ -203,7 +204,7 @@ jobs:
           if [ -n "$big" ]; then echo "::error::too large to publish: $big"; exit 1; fi
           git init -q -b trust-data
           git add index summary.json categories.json paytos.json submitted.json README.md
-          for f in index.json index.ndjson namesakes.json paytos-solana.json paytos-xrpl.json paytos-stellar.json delivery-nohumans.json delivery-payapi.json; do
+          for f in index.json index.ndjson namesakes.json paytos-solana.json paytos-xrpl.json paytos-stellar.json paytos-algorand.json delivery-nohumans.json delivery-payapi.json; do
             if [ -f "$f" ]; then git add "$f"; fi
           done
           if [ -f views/meta.json ]; then git add views keys; fi
