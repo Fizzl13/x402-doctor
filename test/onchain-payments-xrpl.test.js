@@ -165,19 +165,19 @@ test('collectXrpl: cashed Checks count for the seller that cashes them, and as m
 
 test('collectXrpl: a run cut short by the page limit keeps the last ledger whole for the next run', async () => {
   const txs = [];
-  // 1,200 marked payments over ledgers 201..: more than one run's pages (5 x 200), two per ledger.
-  for (let i = 0; i < 1200; i++) txs.push(pay({ from: i % 2 ? BUYER : BUYER2, to: SELLER, value: '0.001', at: `${DAY2}T05:00:00Z`, ledger: 201 + Math.floor(i / 2), tag: X402_SOURCE_TAG }));
-  const node = fakeNode({ txs, validated: 900 });
+  // 4,200 marked payments over ledgers 201..: more than one run's pages (20 x 200), two per ledger.
+  for (let i = 0; i < 4200; i++) txs.push(pay({ from: i % 2 ? BUYER : BUYER2, to: SELLER, value: '0.001', at: `${DAY2}T05:00:00Z`, ledger: 201 + Math.floor(i / 2), tag: X402_SOURCE_TAG }));
+  const node = fakeNode({ txs, validated: 2400 });
   const state = { version: 1, network: XRPL, per_day: 1, updated: null, cursor: 0, days: {}, pay_tos: { [SELLER]: { since: DAY2, d: {}, ledger: 200 } } };
   const s = await collectXrpl(state, { payTos: [SELLER], fetchImpl: node.fetchImpl, now: () => Date.parse(`${DAY2}T09:00:00Z`), ...quick });
-  assert.equal(node.calls.length, 5);
-  assert.ok(node.calls.slice(1).every((c) => c.ledger_index_max === 900), 'later pages keep the first page\'s newest ledger');
+  assert.equal(node.calls.length, 20);
+  assert.ok(node.calls.slice(1).every((c) => c.ledger_index_max === 2400), 'later pages keep the first page\'s newest ledger');
   const first = s.pay_tos[SELLER].d[DAY2][0];
-  assert.ok(first < 1000 && first % 2 === 0, `only whole ledgers counted (${first})`);
+  assert.ok(first < 4000 && first % 2 === 0, `only whole ledgers counted (${first})`);
   assert.equal(s.pay_tos[SELLER].ledger, 200 + first / 2);
   const s2 = await collectXrpl(s, { payTos: [SELLER], fetchImpl: node.fetchImpl, now: () => Date.parse(`${DAY2}T10:00:00Z`), ...quick });
-  assert.equal(s2.pay_tos[SELLER].d[DAY2][0], 1200, 'every payment counted once over the two runs');
-  assert.equal(s2.pay_tos[SELLER].ledger, 900);
+  assert.equal(s2.pay_tos[SELLER].d[DAY2][0], 4200, 'every payment counted once over the two runs');
+  assert.equal(s2.pay_tos[SELLER].ledger, 2400);
 });
 
 test('collectXrpl: an account that does not exist yet is skipped without error; a time budget stops the run', async () => {
