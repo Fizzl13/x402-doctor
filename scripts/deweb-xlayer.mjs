@@ -132,12 +132,22 @@ async function run(pub, wallet, from, files, state, save) {
   const send = async (label, address, functionName, args, value = 0n) => {
     const { request } = await pub.simulateContract({ account: wallet.account, address, abi: ABI, functionName, args, value });
     const hash = await wallet.writeContract(request);
-    const receipt = await pub.waitForTransactionReceipt({ hash, timeout: 180_000, pollingInterval: 2_000, retryCount: 10 });
+    // Two confirmations: a node behind the one that answered the receipt can still miss the block, and the next step
+    // reads what this one wrote (ownerOf reverted right after the tapeout on 27 Oct 2026).
+    const receipt = await pub.waitForTransactionReceipt({ hash, confirmations: 2, timeout: 180_000, pollingInterval: 2_000, retryCount: 10 });
     if (receipt.status !== 'success') throw new Error(`${label}: transaction ${hash} failed`);
     console.log(`${label}: ${hash} (${receipt.gasUsed} gas)`);
     return receipt;
   };
-  const read = (address, functionName, args = []) => pub.readContract({ address, abi: ABI, functionName, args });
+  // A read right after a write can reach a node that hasn't seen it yet: asked again up to three times.
+  const read = async (address, functionName, args = []) => {
+    for (let attempt = 0; ; attempt++) {
+      try { return await pub.readContract({ address, abi: ABI, functionName, args }); } catch (err) {
+        if (attempt >= 3) throw err;
+        await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
+      }
+    }
+  };
   const { deployFee, openFee, monthlyFee } = await fees(pub);
 
   // No state file (a run that stopped before saving it): our processor is one of the newest, made by this wallet.
