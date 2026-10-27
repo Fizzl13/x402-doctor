@@ -111,7 +111,7 @@
   <p class="note">A seller often lists the same API many times (once per coin, city or ticker). Endpoints of one seller with nearly the same description count as one service here; the kind of service is judged by TypeSafe Jev (a keyword guess until Jev has seen it).</p>
 
   <h2>Who gets paid on Stellar</h2>
-  <p class="note">Real x402 payments on Stellar in the last 7 complete days, to the USDC payout accounts of every endpoint above: Circle's USDC moved by a Soroban transfer that the payer authorized and another account sent, the way an x402 facilitator settles. A payment the payer sent itself doesn't count. "Fleet wallets" paid ten or more sellers in the same days, as checkers and agent fleets do: payments, not proof of a buyer.</p>
+  <p class="note">Real x402 payments on Stellar in the last 7 complete days, to the USDC payout accounts of every endpoint above and to the accounts the x402 facilitators on Stellar delivered USDC to (many sellers are in no registry): Circle's USDC moved by a Soroban transfer that the payer authorized and another account sent, the way an x402 facilitator settles. A payment the payer sent itself doesn't count. "Fleet wallets" paid ten or more sellers in the same days, as checkers and agent fleets do: payments, not proof of a buyer.</p>
   <table id="paid"><thead><tr><th>Seller</th><th class="num">Payments</th><th class="num">Paid</th><th class="num">Wallets</th><th class="num">Fleet wallets</th></tr></thead><tbody></tbody></table>
   <p class="note" id="paid-note"></p>
 
@@ -222,6 +222,7 @@
       const link = el('a', 'addr', s.hosts.length ? short(s.pay_to) : 'on Stellar');
       link.href = `https://stellar.expert/explorer/public/account/${encodeURIComponent(s.pay_to)}`; link.rel = 'noopener';
       who.append(link);
+      if (s.found_via) who.append(el('span', 'addr', `in no registry; found through ${s.found_via}'s facilitator`));
       if (s.closed_loop) who.append(el('span', 'addr', 'its payers were paid back: the seller paying itself?'));
       tr.append(who, el('td', 'num', fmt(s.payments)), el('td', 'num', usd(s.usd)), el('td', 'num', `${s.payers_at_least ? '≥' : ''}${fmt(s.payers)}`), el('td', 'num', fmt(s.payers_wide)));
       tb.append(tr);
