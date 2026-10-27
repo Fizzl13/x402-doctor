@@ -154,6 +154,7 @@
   <p class="note" id="onchainSolLine" hidden></p>
   <p class="note" id="onchainXrplLine" hidden></p>
   <p class="note" id="onchainStellarLine" hidden></p>
+  <p class="note" id="onchainAlgorandLine" hidden></p>
 
   <h2>Paid and delivered?</h2>
   <p class="note" id="spotLine" aria-live="polite">Loading the latest spot-buy…</p>
@@ -373,6 +374,14 @@
       const usdT = ot.usd < 10 ? ot.usd.toFixed(2) : fmt(Math.round(ot.usd));
       $('onchainStellarLine').textContent = `On Stellar: ${periodT}, ${fmt(ot.payers)} different wallets made ${fmt(ot.payments)} USDC payments ($${usdT}) to ${fmt(ot.pay_tos_paid)} of the ${fmt(ot.watched)} Stellar payout accounts here, each a transfer the payer authorized and an x402 facilitator sent.${ot.pay_tos_paid_only_wide ? ` ${fmt(ot.pay_tos_paid_only_wide)} of those were paid only by wallets that pay ${ot.wide_sellers} or more of them, as checkers and scanners do.` : ''}${ot.pay_tos_closed_loop ? ` ${fmt(ot.pay_tos_closed_loop)} ${ot.pay_tos_closed_loop === 1 ? 'looks' : 'look'} like a closed loop: every ordinary payer received the money back from the payout account.` : ''}`;
       $('onchainStellarLine').hidden = false;
+    }
+    // And on Algorand: grouped USDC transfers whose fee the facilitator paid (lib/onchain-payments-algorand.js).
+    const oa = s.onchain_payments_algorand;
+    if (oa && oa.payments) {
+      const periodA = oa.days === 1 ? 'yesterday' : `in the last ${oa.days} days`;
+      const usdA = oa.usd < 10 ? oa.usd.toFixed(2) : fmt(Math.round(oa.usd));
+      $('onchainAlgorandLine').textContent = `On Algorand: ${periodA}, ${fmt(oa.payers)} different wallets made ${fmt(oa.payments)} USDC payments ($${usdA}) to ${fmt(oa.pay_tos_paid)} of the ${fmt(oa.watched)} Algorand payout addresses watched, each a transfer whose fee an x402 facilitator paid in the same group.${oa.pay_tos_paid_only_wide ? ` ${fmt(oa.pay_tos_paid_only_wide)} of those were paid only by wallets that pay ${oa.wide_sellers} or more of them, as checkers and scanners do.` : ''}${oa.pay_tos_closed_loop ? ` ${fmt(oa.pay_tos_closed_loop)} ${oa.pay_tos_closed_loop === 1 ? 'looks' : 'look'} like a closed loop: every ordinary payer received the money back from the payout address.` : ''}`;
+      $('onchainAlgorandLine').hidden = false;
     }
     renderReasons(s);
     renderServices(s.services);

@@ -27,6 +27,7 @@ const { mergePayTos } = require('../lib/onchain-payments');
 const { mergeSolanaPayTos } = require('../lib/onchain-payments-solana');
 const { mergeXrplPayTos } = require('../lib/onchain-payments-xrpl');
 const { mergeStellarPayTos } = require('../lib/onchain-payments-stellar');
+const { mergeAlgorandPayTos } = require('../lib/onchain-payments-algorand');
 const { createSanctions } = require('../lib/sanctions');
 const { readIndexDir, writeIndexDir } = require('../lib/index-files');
 
@@ -198,6 +199,11 @@ function merge(todo, done, { out }) {
   const stellarPayTos = mergeStellarPayTos(read(stellarPath), all, todo.date);
   fs.writeFileSync(stellarPath, JSON.stringify(stellarPayTos));
   console.log(`payout accounts on Stellar: ${Object.keys(stellarPayTos.pay_tos).length}`);
+  // And for Algorand: USDC payout addresses.
+  const algorandPath = path.join(out, 'paytos-algorand.json');
+  const algorandPayTos = mergeAlgorandPayTos(read(algorandPath), all, todo.date);
+  fs.writeFileSync(algorandPath, JSON.stringify(algorandPayTos));
+  console.log(`payout addresses on Algorand: ${Object.keys(algorandPayTos.pay_tos).length}`);
   // Delivery evidence from nohumans.directory and PayAPI Market (lib/delivery-elsewhere.js). A source not read today
   // keeps yesterday's file.
   for (const [file, source, evidence, extra] of [

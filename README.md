@@ -445,6 +445,16 @@ Space waits in `hf-mcp/`. Doctor's own MCP server is `https://x402-doctor.fizzl.
   result is `payments-xrpl.json` on `payments-data`; a seller without a Base or Solana option gets the same
   `onchain_payments` line for its XRPL payout address, and `/api/trust/summary` adds `onchain_payments_xrpl`.
   `XRPL_RPC_URL` is asked before the public nodes (xrplcluster.com, xrpl.ws).
+- **Real payments on Stellar and Algorand.** The same workflow counts the USDC payments into the Stellar payout
+  accounts (`paytos-stellar.json`; a Soroban transfer the payer authorized and a facilitator sent,
+  `lib/onchain-payments-stellar.js`) and the Algorand payout addresses (`paytos-algorand.json`; a USDC transfer in an
+  atomic group whose fee another transaction paid, the facilitator's fee pooling, `lib/onchain-payments-algorand.js`).
+  On both, the addresses the x402 facilitators paid for are watched too, registry listed or not: each run reads what is
+  new at their fee accounts (OpenZeppelin and agent402.tools on Stellar, GoPlausible's fee payer on Algorand) and keeps
+  an address found that way for 14 days after its last such payment (`found` in the file). The results are
+  `payments-stellar.json` and `payments-algorand.json` on `payments-data`; `/api/trust/summary` adds
+  `onchain_payments_stellar` and `onchain_payments_algorand`. `STELLAR_HORIZON_URL` and `ALGORAND_INDEXER_URL` are asked
+  before horizon.stellar.org and AlgoNode's public indexer.
 - **The daily scan, when GitHub skips it.** The scan's schedule fires four times a day and the first run does the day,
   but GitHub drops scheduled runs when it is busy (on 21 Oct the 03:17 run never started). From 04:15 UTC, every half
   hour, the Doctor checks the scan it serves; while that is the day before's, it starts `trust-scan.yml` with
@@ -467,7 +477,7 @@ Space waits in `hf-mcp/`. Doctor's own MCP server is `https://x402-doctor.fizzl.
   and who gets paid there: `GET /api/trust/payments?network=xrpl` (free) lists every watched XRPL payout address paid in
   the last 7 complete days, most money first, with its XRPL AI Hub merchant name or its endpoints' hosts, payments,
   dollars, wallets and how many of them pay ten or more sellers (the names come from the daily scan, in
-  `paytos-xrpl.json`). `/algorand`: the same for x402 on Algorand, with the USDC opt-in of each payout account. `/stellar`: the same for x402 on Stellar, with the USDC trustline of each payout account.
+  `paytos-xrpl.json`). `/algorand`: the same for x402 on Algorand, with the USDC opt-in of each payout account. `/stellar`: the same for x402 on Stellar, with the USDC trustline of each payout account. Both list who gets paid there too (`?network=algorand`, `?network=stellar`), naming the facilitator for an address no registry lists.
 - **Distinct services and their kind.** Sellers often list the same API many times (once per coin, city or ticker),
   so endpoint counts overstate the market. Payable endpoints of one seller whose descriptions share most of their
   words (Jaccard ≥ 0.5, `lib/services.js`) count as one service; on 9 Oct 2026 the 40,451 payable endpoints were
