@@ -463,8 +463,8 @@
   // The network paid on (or tried, for a refused payment, logged since 7 Oct 2026), and the chain a check asks about
   // (presign-guard (and PlainText until it paused) input.chain/chainId, the networks the endpoint Doctor checked offers, logged since
   // 7 Oct 2026). One call can touch several networks.
-  const CHAIN_IDS = { 1: 'Ethereum', 8453: 'Base', 84532: 'Base Sepolia', 137: 'Polygon', 42161: 'Arbitrum', 10: 'Optimism', 43114: 'Avalanche', 4217: 'Tempo' };
-  const NET_ALIASES = { base: 'Base', 'eip155:8453': 'Base', 'mpp evm': 'Base', solana: 'Solana', ethereum: 'Ethereum', eth: 'Ethereum', xrpl: 'XRP Ledger', 'xrpl:0': 'XRP Ledger', 'xrpl:1': 'XRP Ledger testnet', 'xrpl-testnet': 'XRP Ledger testnet', 'xrp ledger': 'XRP Ledger', tempo: 'Tempo', 'mpp tempo': 'Tempo', polygon: 'Polygon', arbitrum: 'Arbitrum', optimism: 'Optimism', avalanche: 'Avalanche', algorand: 'Algorand', 'algorand-testnet': 'Algorand testnet', stellar: 'Stellar', sui: 'Sui', aptos: 'Aptos' };
+  const CHAIN_IDS = { 1: 'Ethereum', 8453: 'Base', 84532: 'Base Sepolia', 137: 'Polygon', 42161: 'Arbitrum', 10: 'Optimism', 43114: 'Avalanche', 4217: 'Tempo', 196: 'X Layer' };
+  const NET_ALIASES = { base: 'Base', 'eip155:8453': 'Base', 'mpp evm': 'Base', solana: 'Solana', ethereum: 'Ethereum', eth: 'Ethereum', xrpl: 'XRP Ledger', 'xrpl:0': 'XRP Ledger', 'xrpl:1': 'XRP Ledger testnet', 'xrpl-testnet': 'XRP Ledger testnet', 'xrp ledger': 'XRP Ledger', tempo: 'Tempo', 'mpp tempo': 'Tempo', polygon: 'Polygon', arbitrum: 'Arbitrum', optimism: 'Optimism', avalanche: 'Avalanche', algorand: 'Algorand', 'algorand-testnet': 'Algorand testnet', stellar: 'Stellar', xlayer: 'X Layer', sui: 'Sui', aptos: 'Aptos' };
   // Algorand's x402 ids (algorand:<genesis hash>), as logged when a service has no short name for them.
   const ALGORAND_IDS = { 'algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=': 'Algorand', 'algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=': 'Algorand testnet' };
   const netName = (v) => { const k = String(v).trim(); return NET_ALIASES[k.toLowerCase()] || ALGORAND_IDS[k] || CHAIN_IDS[k] || CHAIN_IDS[k.replace(/^eip155:/, '')] || k; };
