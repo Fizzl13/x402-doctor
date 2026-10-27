@@ -31,11 +31,25 @@ function transfer({ from, to, amount, sender = CHANNEL, at, issuer = USDC_ISSUER
 const classic = ({ from, to, amount, at }) => ({ paging_token: String(token++), type: 'payment', created_at: at, transaction_successful: true, asset_type: 'credit_alphanum4', asset_code: 'USDC', asset_issuer: USDC_ISSUER, from, to, amount, transaction: { source_account: from } });
 
 // A Horizon holding operations per account, oldest first. It honours order, limit and cursor like the real one.
-function fakeHorizon(ops, { unknown = [] } = {}) {
+// `txs` holds transactions per fee account (each with its operations under `ops`), for the facilitator discovery.
+function fakeHorizon(ops, { unknown = [], txs = {} } = {}) {
   const calls = [];
+  const page = (list, u) => {
+    const asc = u.searchParams.get('order') !== 'desc';
+    const limit = Number(u.searchParams.get('limit')) || 10;
+    const cursor = u.searchParams.get('cursor');
+    let out = list.slice();
+    if (!asc) out.reverse();
+    if (cursor) out = out.filter((x) => (asc ? Number(x.paging_token) > Number(cursor) : Number(x.paging_token) < Number(cursor)));
+    return { ok: true, status: 200, json: async () => ({ _embedded: { records: out.slice(0, limit) } }) };
+  };
   const fetchImpl = async (url) => {
     const u = new URL(url);
     calls.push(u.pathname + u.search);
+    const fee = u.pathname.match(/^\/accounts\/(G[A-Z2-7]{55})\/transactions$/);
+    if (fee) return txs[fee[1]] ? page(txs[fee[1]].map(({ ops: _, ...t }) => t), u) : { ok: false, status: 404, json: async () => ({}) };
+    const one = u.pathname.match(/^\/transactions\/([0-9a-f]+)\/operations$/);
+    if (one) return page(Object.values(txs).flat().find((t) => t.hash === one[1])?.ops || [], u);
     const m = u.pathname.match(/^\/accounts\/(G[A-Z2-7]{55})\/operations$/);
     if (!m || unknown.includes(m[1])) return { ok: false, status: 404, json: async () => ({}) };
     const asc = u.searchParams.get('order') !== 'desc';
@@ -93,17 +107,67 @@ test('collectStellar: x402 payments counted per day from today on first sight; t
   const logs = [];
   let s = await collectStellar(null, { payTos: [SELLER], fetchImpl: horizon.fetchImpl, now: () => Date.parse(`${DAY1}T12:00:00Z`), minGapMs: 0, log: (l) => logs.push(l) });
   assert.deepEqual(s.pay_tos[SELLER].d[DAY1], [2, 30000, [BUYER.slice(0, 10), BUYER2.slice(0, 10)]]);
-  assert.match(horizon.calls[0], /order=desc/);
+  assert.match(horizon.calls.find((c) => c.includes('/operations')), /order=desc/);
   assert.match(logs.at(-1), /2 x402 payments .*1 payments sent by the payer itself left out/);
   // The next day: a new payment and USDC sent back to a payer; only operations after the cursor are read.
   ops[SELLER].push(transfer({ from: BUYER, to: SELLER, amount: '0.0300000', at: `${DAY2}T01:00:00Z` }));
   ops[SELLER].push(classic({ from: SELLER, to: BUYER, amount: '0.0400000', at: `${DAY2}T02:00:00Z` }));
   horizon.calls.length = 0;
   s = await collectStellar(s, { payTos: [SELLER], fetchImpl: horizon.fetchImpl, now: () => Date.parse(`${DAY2}T03:00:00Z`), minGapMs: 0 });
-  assert.match(horizon.calls[0], /order=asc.*cursor=/);
+  assert.match(horizon.calls.find((c) => c.includes('/operations')), /order=asc.*cursor=/);
   assert.deepEqual(s.pay_tos[SELLER].d[DAY2], [1, 30000, [BUYER.slice(0, 10)], { [BUYER.slice(0, 10)]: 40000 }]);
   assert.deepEqual(s.pay_tos[SELLER].d[DAY1][0], 2, 'nothing counted twice');
   assert.deepEqual(Object.keys(s.days), [DAY1, DAY2]);
+});
+
+test('collectStellar: accounts a facilitator delivered USDC to are found, watched and counted in the same run, with whose facilitator', async () => {
+  const { FACILITATORS } = require('../lib/onchain-payments-stellar');
+  const OZ = Object.keys(FACILITATORS).find((a) => FACILITATORS[a] === 'OpenZeppelin');
+  const UNLISTED = 'GDNJXCKW7ZM7GEEVP674TWPU26YJNBQ2FI4ZIPRKTPTNUEJMDHFJWWRL';
+  const at = `${DAY1}T08:00:00Z`;
+  const paid = transfer({ from: BUYER, to: UNLISTED, amount: '0.0050000', at });
+  let n = 0;
+  const tx = (op, extra = {}) => ({ hash: (++n).toString(16).padStart(64, '0'), paging_token: String(token++), created_at: op.created_at, successful: true, operation_count: 1, source_account: CHANNEL, fee_account: OZ, ops: [op], ...extra });
+  const txs = { [OZ]: [
+    tx(transfer({ from: BUYER, to: SELLER, amount: '0.0100000', at: '2026-10-01T22:00:00Z' })), // over 14 days ago: not read on first sight
+    tx(transfer({ from: BUYER, to: BUYER2, amount: '0.0100000', at: '2026-10-20T22:00:00Z' })), // two days ago: found, not counted
+    tx(paid),
+    tx(transfer({ from: BUYER2, to: BUYER2, amount: '1', sender: CHANNEL, at })), // to itself
+    tx(transfer({ from: BUYER, to: BUYER2, amount: '1', sender: BUYER, at })), // the payer sent it itself: not x402
+    tx(transfer({ from: BUYER, to: BUYER2, amount: '1', at }), { successful: false }),
+    tx(transfer({ from: BUYER, to: BUYER2, amount: '1', at, issuer: FAKE_ISSUER })), // look-alike USDC
+  ] };
+  const ops = { [UNLISTED]: [paid], [SELLER]: [] };
+  const horizon = fakeHorizon(ops, { txs });
+  const logs = [];
+  const now = () => Date.parse(`${DAY1}T12:00:00Z`);
+  let s = await collectStellar(null, { payTos: [SELLER], fetchImpl: horizon.fetchImpl, now, minGapMs: 0, log: (l) => logs.push(l) });
+  assert.deepEqual(Object.keys(s.found).sort(), [BUYER2, UNLISTED].sort());
+  assert.deepEqual(s.found[UNLISTED], { via: 'OpenZeppelin', first: DAY1, seen: DAY1 });
+  assert.deepEqual(s.found[BUYER2].first, '2026-10-20');
+  assert.deepEqual(s.pay_tos[BUYER2].since, DAY1, 'counted from the day it was found');
+  assert.deepEqual(s.pay_tos[UNLISTED].d[DAY1], [1, 5000, [BUYER.slice(0, 10)]], 'counted in the run that found it');
+  assert.ok(s.pay_tos[SELLER], 'the listed accounts stay watched');
+  assert.match(logs.find((l) => /facilitator transactions/.test(l)), /6 facilitator transactions read, 2 new payout accounts found/);
+  assert.ok(!horizon.calls.some((c) => c.includes(txs[OZ][5].hash)), 'a failed transaction is not opened');
+  // The next run reads only the fee account's transactions after the cursor.
+  horizon.calls.length = 0;
+  s = await collectStellar(s, { payTos: [SELLER], fetchImpl: horizon.fetchImpl, now, minGapMs: 0 });
+  assert.match(horizon.calls.find((c) => c.includes(`/accounts/${OZ}/transactions`)), /order=asc.*cursor=/);
+  assert.ok(!horizon.calls.some((c) => c.startsWith('/transactions/')), 'nothing new to open');
+
+  // The reader: totals say how many were found that way, the list names the facilitator for an account no scan lists.
+  s.updated = `${DAY2}T01:00:00Z`;
+  const { totalsOf, sellersOf } = require('../lib/onchain-payments');
+  assert.equal(totalsOf(s).watched_found, 2);
+  const list = sellersOf(s, { hosts: {} });
+  assert.deepEqual(list.sellers.map((x) => [x.pay_to, x.found_via]), [[UNLISTED, 'OpenZeppelin']]);
+  assert.equal(sellersOf(s, { hosts: { [UNLISTED]: ['agent402.tools'] } }).sellers[0].found_via, undefined, 'a listed host wins');
+
+  // An account not paid through a facilitator for 14 days is no longer watched once its days are gone.
+  const later = await collectStellar(s, { payTos: [SELLER], fetchImpl: fakeHorizon({}, { txs: {} }).fetchImpl, now: () => Date.parse('2026-11-07T12:00:00Z'), minGapMs: 0 });
+  assert.equal(later.found[UNLISTED], undefined);
+  assert.equal(later.pay_tos[UNLISTED], undefined);
 });
 
 test('collectStellar: an account Horizon does not know is read without error; a time budget stops the run', async () => {
