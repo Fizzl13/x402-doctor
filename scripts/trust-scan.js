@@ -94,6 +94,12 @@ async function plan({ out, limit }) {
   return { date: new Date().toISOString().slice(0, 10), resources, added, hub_merchants: hub.merchants, hub_names: hub.names || {}, delivery_nohumans: Object.fromEntries(evidence), delivery_payapi: Object.fromEntries(paidOnce) };
 }
 
+function printSampled(rows) {
+  if (!rows.length) return;
+  console.log('hosts sampled (a share of their endpoints each day):');
+  for (const r of rows) console.log(`  ${r.host}: ${r.checked} of ${r.of} endpoints today (each one every ${r.turns} days)`);
+}
+
 function printSlowHosts(rows) {
   if (!rows.length) return;
   console.log('hosts cut short (not checked today):');
@@ -113,6 +119,7 @@ async function scanShare(todo, { share = 0, shares = 1 } = {}) {
   const started = Date.now();
   let statuses = [];
   let slowHosts = [];
+  let sampled = [];
   const results = await scan(mine, {
     sanctions: list ? sanctions : null,
     safeFetch: createSafeFetch({ allowPrivate: false, timeoutMs: 10000 }),
@@ -121,12 +128,14 @@ async function scanShare(todo, { share = 0, shares = 1 } = {}) {
     statusTop: Infinity,
     onProgress: (done, total) => console.log(`scanned ${done}/${total} (${Math.round((Date.now() - started) / 1000)} s)`),
     onSlowHosts: (rows) => { slowHosts = rows; },
+    onSampled: (rows) => { sampled = rows; },
     onStatuses: (rows) => { statuses = rows; },
   });
   // Sellers cut short because they stopped answering in time or their firewall turned the scan away: not checked
   // today, never marked down.
+  printSampled(sampled);
   printSlowHosts(slowHosts);
-  return { share, shares, seconds: Math.round((Date.now() - started) / 1000), sanctions: list ? { list: 'OFAC SDN', published: list.published, addresses: list.count } : null, statuses, slow_hosts: slowHosts, results };
+  return { share, shares, seconds: Math.round((Date.now() - started) / 1000), sanctions: list ? { list: 'OFAC SDN', published: list.published, addresses: list.count } : null, statuses, sampled, slow_hosts: slowHosts, results };
 }
 
 // The index, summary, submitted list and payout addresses from today's shares and yesterday's files in <out>.
@@ -138,6 +147,7 @@ function merge(todo, done, { out }) {
   const statuses = done.flatMap((d) => d.statuses).sort((a, b) => b.total - a.total).slice(0, 10);
   console.log('non-402 answers by host (top 10):');
   for (const r of statuses) console.log(`  ${r.host}: ${r.total} (${Object.entries(r.statuses).map(([k, v]) => `${k} x${v}`).join(', ')})`);
+  if (shares > 1) printSampled(done.flatMap((d) => d.sampled || []));
   if (shares > 1) printSlowHosts(done.flatMap((d) => d.slow_hosts));
 
   const all = done.flatMap((d) => d.results);

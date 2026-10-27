@@ -695,6 +695,56 @@ test('scan: a seller that answers too slowly is cut short (not checked today), w
   assert.equal(merged.resources[cutKey].last.verdict, 'go');
 });
 
+test('sampleOf: a large seller gets a share each day, every endpoint within the week; small sellers are all checked', () => {
+  const { sampleOf } = require('../lib/trust-scan');
+  const resources = [
+    ...Array.from({ length: 700 }, (_, i) => ({ key: `big${i}`, url: `https://big.example/x/${i}` })),
+    ...Array.from({ length: 50 }, (_, i) => ({ key: `small${i}`, url: `https://small.example/x/${i}` })),
+  ];
+  const seen = new Map();
+  for (let d = 0; d < 7; d++) {
+    const day = new Date(Date.UTC(2026, 9, 27 + d)).toISOString().slice(0, 10);
+    const { skip, hosts } = sampleOf(resources, { day, above: 100, days: 7 });
+    assert.deepEqual(hosts.map((h) => [h.host, h.of, h.turns]), [['big.example', 700, 7]]);
+    assert.equal(hosts[0].checked, 700 - skip.size);
+    assert.ok(hosts[0].checked > 60 && hosts[0].checked < 140, `about a seventh each day (${hosts[0].checked})`);
+    assert.ok([...skip].every((i) => resources[i].key.startsWith('big')), 'small sellers are never sampled');
+    resources.forEach((r, i) => { if (!skip.has(i)) seen.set(r.key, (seen.get(r.key) || 0) + 1); });
+  }
+  assert.equal(seen.size, 750, 'every endpoint had its turn within the week');
+  assert.ok(resources.filter((r) => r.key.startsWith('big')).every((r) => seen.get(r.key) === 1), 'each one of the big seller once');
+  // The same day gives the same sample; a seller just above the limit is checked every other day, at least `above` a day.
+  assert.deepEqual([...sampleOf(resources, { day: '2026-10-27', above: 100 }).skip], [...sampleOf(resources, { day: '2026-10-27', above: 100 }).skip]);
+  const two = sampleOf(resources.slice(0, 150), { day: '2026-10-27', above: 100, days: 7 });
+  assert.equal(two.hosts[0].turns, 2);
+  assert.equal(sampleOf(resources, { day: '2026-10-27', above: 1000 }).skip.size, 0);
+});
+
+test('scan: endpoints outside today\'s sample are not checked (code sampled) and keep their last verdict', async () => {
+  let hits = 0;
+  const seller = await listen((req, res) => {
+    hits++;
+    if (req.url === '/openapi.json') return res.end('{}');
+    const challenge = { x402Version: 2, resource: { url: `http://${req.headers.host}${req.url}`, mimeType: 'application/json', description: 'x' }, accepts: [{ scheme: 'exact', network: BASE, amount: '20000', asset: USDC_BASE, payTo: '0x6B0F4651eD42893ab58139938175E4a69f175F25', maxTimeoutSeconds: 60, extra: { name: 'USD Coin', version: '2' } }] };
+    res.statusCode = 402;
+    res.setHeader('PAYMENT-REQUIRED', Buffer.from(JSON.stringify(challenge)).toString('base64'));
+    res.end(JSON.stringify(challenge));
+  });
+  const resources = Array.from({ length: 30 }, (_, i) => ({ key: `r${i}`, url: `${seller}/paid/${i}`, method: 'GET' }));
+  let sampled = null;
+  const results = await scan(resources, { safeFetch: createSafeFetch({ allowPrivate: true, timeoutMs: 2000 }), concurrency: 4, day: '2026-10-27', sampleAbove: 10, sampleDays: 3, onSampled: (rows) => { sampled = rows; } });
+  const skipped = results.filter((r) => r.verdict === 'not_checked');
+  assert.equal(sampled[0].turns, 3);
+  assert.equal(sampled[0].checked, 30 - skipped.length);
+  assert.ok(skipped.length > 0 && skipped.every((r) => r.codes[0] === 'sampled' && r.ms === 0));
+  assert.ok(results.filter((r) => r.verdict !== 'not_checked').every((r) => r.verdict === 'go'));
+  assert.ok(hits <= sampled[0].checked + 1, `only today's sample is asked (${hits} requests)`);
+  const previous = { days: ['2026-10-26'], resources: { [skipped[0].key]: { url: skipped[0].url, m: 'GET', h: 'g', last: { verdict: 'go', codes: [], price_usd: 0.02, networks: [BASE] } } } };
+  const merged = mergeIndex(previous, results, { date: '2026-10-27' });
+  assert.equal(merged.resources[skipped[0].key].h, 'g-');
+  assert.equal(merged.resources[skipped[0].key].last.verdict, 'go');
+});
+
 test('index.ndjson: written line by line and read back the same, also from chunks that split lines and characters', async () => {
   const { indexLines } = require('../lib/trust-scan');
   const { readIndex } = require('../lib/trust-index');

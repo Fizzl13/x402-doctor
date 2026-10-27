@@ -327,7 +327,9 @@ one letter per day (`g` go, `c` caution, `n` no-go, `x` unreachable, `-` not sca
 nears GitHub's 100 MB limit as the index grows; `index.json` and `index.ndjson`, the whole index as one file, are
 published as well while they stay under 90 MB. The scan runs in parallel jobs, each with whole sellers (a plan job
 reads the catalogs, four scan jobs, a publish job merges them): a share that fails leaves its endpoints not checked
-that day, never marked down.
+that day, never marked down. A seller with more than 5,000 endpoints gets a share of them checked each day, so that
+each one has its turn within a week (the rest are `-` that day and keep their last verdict; one seller listed 62,924
+on 27 Oct 2026).
 The server doesn't load that index (42 MB, ~88,000 resources on 25 Oct 2026): after the scan, `scripts/trust-views.js`
 (`lib/trust-views.js`) writes it as small precomputed files on the same branch, from the same code (`views/meta.json`
 with the summary, `views/atlas.json`, `views/templates.json`, `views/sellers.json`, the price check's word index under
