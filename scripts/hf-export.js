@@ -7,7 +7,7 @@
 //   hf/data/endpoints.jsonl  every endpoint in today's scan: verdict, reasons, price, networks, category, 30-day record
 //   hf/data/daily.csv        go / caution / no_go per day over the history in index.json
 //   hf/data/spot_buys.jsonl  every purchase of the weekly spot-buy (--spot: the spot-data branch's results/ folder)
-//   hf/data/onchain_payments.csv  x402 payments per payout address per day on Base, Solana, the XRP Ledger and Stellar
+//   hf/data/onchain_payments.csv  x402 payments per payout address per day on Base, Solana, the XRP Ledger, Stellar and Algorand
 //                            (--payments: payments.json, and the other networks' files, comma-separated)
 //   hf/README.md             the dataset card, with today's counts
 'use strict';
@@ -81,7 +81,7 @@ function spotRows(dir) {
   return rows;
 }
 
-// x402 payments per payout address and day (lib/onchain-payments.js and its Solana, XRP Ledger and Stellar
+// x402 payments per payout address and day (lib/onchain-payments.js and its Solana, XRP Ledger, Stellar and Algorand
 // counterparts, all the same shape), with how much of the day was read: Base counts blocks (43,200 a day), the others
 // mark a day read (per_day 1). Base's file names no network.
 function paymentRows(...states) {
@@ -163,6 +163,7 @@ ${spot.length ? `- \`data/spot_buys.jsonl\`: what came back when x402 Doctor act
   - Solana (USDC): transfers whose network fee a facilitator named in the sellers' offers paid (\`extra.feePayer\`), to the payout addresses in this index.
   - The XRP Ledger (\`xrpl:0\`, RLUSD or USDC): payments marked by an x402 client (t54's SourceTag 804681468, or @x402/xrpl's InvoiceID); a cashed Check of x402's batch settlement counts once. To the payout addresses in this index.
   - Stellar (\`stellar:pubnet\`, Circle's USDC): Soroban transfers that the payer authorized and a facilitator sent, to the payout addresses in this index and to the accounts the x402 facilitators (OpenZeppelin, agent402.tools) delivered USDC to.
+  - Algorand (\`algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=\`, USDC ASA 31566704): transfers in an atomic group whose fee another transaction paid (the facilitator's fee pooling), to the payout addresses in this index and to the addresses GoPlausible's facilitator settled payments for.
 ` : ''}
 ## How it is collected
 
