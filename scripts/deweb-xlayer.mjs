@@ -18,13 +18,17 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { createPublicClient, createWalletClient, decodeEventLog, encodeFunctionData, getContractAddress, http, parseAbi, toHex } from 'viem';
+import { createPublicClient, createWalletClient, decodeEventLog, encodeFunctionData, fallback, getContractAddress, http, parseAbi, toHex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { xLayer } from 'viem/chains';
 
 const arg = (name, fallback) => { const i = process.argv.indexOf(`--${name}`); return i > 0 ? process.argv[i + 1] : fallback; };
 const DRY = process.argv.includes('--dry-run');
-const RPC = process.env.XLAYER_RPC_URL || 'https://xlayer.drpc.org'; // dRPC also runs eth_simulateV1 (OKX's nodes don't)
+// OKX's own node first for reads, sends and receipts (dRPC's free plan failed a receipt lookup on 27 Oct 2026), dRPC
+// second; the dry run needs dRPC, the only public X Layer node that runs eth_simulateV1.
+const RPCS = (process.env.XLAYER_RPC_URL ? [process.env.XLAYER_RPC_URL] : []).concat(['https://rpc.xlayer.tech', 'https://xlayer.drpc.org']);
+const SIM_RPC = 'https://xlayer.drpc.org';
+const transport = () => fallback(RPCS.map((url) => http(url, { retryCount: 4, retryDelay: 1500 })));
 
 export const TAPEOUT = {
   factory: '0x1f09daefa827f02cbb40967cc91b259763760761',
@@ -51,6 +55,10 @@ const ABI = parseAbi([
   'function tapeout(bytes nl, uint32 nIn, uint32 nOut) payable returns (uint256)',
   'event TapedOut(uint256 indexed circuitId, address indexed author, uint32 gateCount, uint32 nState)',
   'function ownerOf(uint256) view returns (address)',
+  'function transistors() view returns (address)',
+  'function creator() view returns (address)',
+  'function nextId() view returns (uint256)',
+  'function name() view returns (string)',
   'function FEE() view returns (uint256)',
   'function open(address circuits, uint256 tokenId) payable',
   'function accountOf(address circuits, uint256 tokenId) view returns (address)',
@@ -124,7 +132,7 @@ async function run(pub, wallet, from, files, state, save) {
   const send = async (label, address, functionName, args, value = 0n) => {
     const { request } = await pub.simulateContract({ account: wallet.account, address, abi: ABI, functionName, args, value });
     const hash = await wallet.writeContract(request);
-    const receipt = await pub.waitForTransactionReceipt({ hash });
+    const receipt = await pub.waitForTransactionReceipt({ hash, timeout: 180_000, pollingInterval: 2_000, retryCount: 10 });
     if (receipt.status !== 'success') throw new Error(`${label}: transaction ${hash} failed`);
     console.log(`${label}: ${hash} (${receipt.gasUsed} gas)`);
     return receipt;
@@ -132,6 +140,21 @@ async function run(pub, wallet, from, files, state, save) {
   const read = (address, functionName, args = []) => pub.readContract({ address, abi: ABI, functionName, args });
   const { deployFee, openFee, monthlyFee } = await fees(pub);
 
+  // No state file (a run that stopped before saving it): our processor is one of the newest, made by this wallet.
+  if (!state.processor) {
+    const count = Number(await read(TAPEOUT.factory, 'cpuCount'));
+    for (let i = count - 1; i >= Math.max(0, count - 50); i--) {
+      const circuits = await read(TAPEOUT.factory, 'cpuAt', [BigInt(i)]);
+      const transistors = await read(circuits, 'transistors');
+      if ((await read(transistors, 'creator')).toLowerCase() === from.toLowerCase() && (await read(circuits, 'name')) === 'Fizzl') {
+        Object.assign(state, { processor: circuits.toLowerCase(), transistors: transistors.toLowerCase(), processorNumber: i });
+        console.log(`found our processor #${i} ${circuits}`);
+        if (!state.circuitId && (await read(circuits, 'nextId')) > 0n && (await read(circuits, 'ownerOf', [1n])).toLowerCase() === from.toLowerCase()) state.circuitId = 1;
+        save();
+        break;
+      }
+    }
+  }
   if (!state.processor) {
     const receipt = await send('createCPU', TAPEOUT.factory, 'createCPU', ['Fizzl', 'FIZZL', STORY, 1000n, 0n], deployFee);
     const ev = receipt.logs.map((l) => { try { return decodeEventLog({ abi: ABI, ...l }); } catch { return null; } }).find((e) => e?.eventName === 'CPUCreated');
@@ -180,7 +203,7 @@ async function main() {
   const statePath = arg('state', 'deweb-state.json');
   const files = siteFiles(dir);
   if (!files.length) throw new Error(`no files in ${dir}`);
-  const pub = createPublicClient({ chain: xLayer, transport: http(RPC) });
+  const pub = createPublicClient({ chain: xLayer, transport: DRY ? http(SIM_RPC) : transport() });
   const key = process.env.XLAYER_DEPLOY_KEY;
   const account = key ? privateKeyToAccount(key.startsWith('0x') ? key : `0x${key}`) : null;
   const from = account?.address || arg('address', null);
@@ -199,7 +222,7 @@ async function main() {
   if (!account) throw new Error('XLAYER_DEPLOY_KEY is required to publish');
   const state = fs.existsSync(statePath) ? JSON.parse(fs.readFileSync(statePath, 'utf8')) : {};
   const save = () => fs.writeFileSync(statePath, `${JSON.stringify(state, null, 2)}\n`);
-  const wallet = createWalletClient({ account, chain: xLayer, transport: http(RPC) });
+  const wallet = createWalletClient({ account, chain: xLayer, transport: transport() });
   const done = await run(pub, wallet, from, files, state, save);
   console.log(`live: ${done.name} at ${done.url} (container ${done.container})`);
 }
