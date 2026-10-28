@@ -207,7 +207,7 @@ test('routes: $0.02 on Base, and on Solana with a Solana payout address; five mi
   assert.equal(routesFor({ AGENT_PAYOUT_WALLET: PAY_TO })['POST /v1/buy'].accepts.length, 1);
   // The other networks the Fizzl services take, each with its payout address (as on x402 Doctor).
   const all = routesFor({ AGENT_PAYOUT_WALLET: PAY_TO, AGENT_PAYOUT_WALLET_SOLANA: 'ATWJ82T8nRdQwZnaysB68N5EpaSvLRsQP4h6eWmaJBH9', XRPL_PAY_TO: 'r9xmBsRr8Ao7jRgjjxreMiAwGiCK2FGwqw', ALGORAND_PAY_TO: 'LOYVFSQ6ZTS2YWUW4GQ5L6VPP2TPIOXWYDACK53CPOHQQHLDMEMKJDXAX4', STELLAR_FACILITATOR_URL: 'https://stellar.example' })['POST /v1/buy'].accepts;
-  assert.deepEqual(all.map((a) => a.network), ['eip155:8453', 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp', 'xrpl:0', 'algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=', 'stellar:pubnet']);
+  assert.deepEqual(all.map((a) => a.network), ['eip155:8453', 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp', 'xrpl:0', 'algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k', 'stellar:pubnet']);
   assert.equal(all[2].extra.invoiceId, 'buy.fizzl.eu');
   assert.ok(all.every((a) => a.price === '$0.02' && a.maxTimeoutSeconds === 300));
   assert.equal(networksText(all), 'USDC on Base, Solana, Algorand or Stellar, or RLUSD on the XRP Ledger');
