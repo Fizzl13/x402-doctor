@@ -3,7 +3,7 @@ name: On-chain payments
 # Hourly, read-only: counts the signed USDC payments (EIP-3009, the way x402 settles) on Base to every payout address
 # in the Trust Index, from the blocks since the last run (scripts/onchain-payments.js), and on Solana the USDC
 # payments whose fee a facilitator paid (the way x402 settles there), from each payout address's new transactions; likewise on
-# the XRP Ledger, Stellar and Algorand. The result, 8 days per payout
+# the XRP Ledger, Stellar, Algorand and X Layer. The result, 8 days per payout
 # address, is published as a single commit on the payments-data branch (rewritten each run, so the repo does not grow).
 # The Doctor reads it for the preflight's onchain_payments signal and /trust. Never pays, holds no key.
 # GitHub runs this schedule late (every 3.5 to 6.5 hours on 19 Oct), so the Doctor also starts it every hour itself
@@ -38,6 +38,7 @@ jobs:
             git show FETCH_HEAD:payments-xrpl.json > payments-data/payments-xrpl.json 2>/dev/null || rm -f payments-data/payments-xrpl.json
             git show FETCH_HEAD:payments-stellar.json > payments-data/payments-stellar.json 2>/dev/null || rm -f payments-data/payments-stellar.json
             git show FETCH_HEAD:payments-algorand.json > payments-data/payments-algorand.json 2>/dev/null || rm -f payments-data/payments-algorand.json
+            git show FETCH_HEAD:payments-xlayer.json > payments-data/payments-xlayer.json 2>/dev/null || rm -f payments-data/payments-xlayer.json
           fi
           if git fetch --depth 1 origin trust-data 2>/dev/null; then
             git show FETCH_HEAD:paytos.json > paytos.json || rm -f paytos.json
@@ -45,15 +46,17 @@ jobs:
             git show FETCH_HEAD:paytos-xrpl.json > paytos-xrpl.json 2>/dev/null || rm -f paytos-xrpl.json
             git show FETCH_HEAD:paytos-stellar.json > paytos-stellar.json 2>/dev/null || rm -f paytos-stellar.json
             git show FETCH_HEAD:paytos-algorand.json > paytos-algorand.json 2>/dev/null || rm -f paytos-algorand.json
+            git show FETCH_HEAD:paytos-xlayer.json > paytos-xlayer.json 2>/dev/null || rm -f paytos-xlayer.json
           fi
       - name: Collect
-        run: node scripts/onchain-payments.js --state payments-data/payments.json --paytos paytos.json --sol-state payments-data/payments-solana.json --sol-paytos paytos-solana.json --xrpl-state payments-data/payments-xrpl.json --xrpl-paytos paytos-xrpl.json --stellar-state payments-data/payments-stellar.json --stellar-paytos paytos-stellar.json --algorand-state payments-data/payments-algorand.json --algorand-paytos paytos-algorand.json
+        run: node scripts/onchain-payments.js --state payments-data/payments.json --paytos paytos.json --sol-state payments-data/payments-solana.json --sol-paytos paytos-solana.json --xrpl-state payments-data/payments-xrpl.json --xrpl-paytos paytos-xrpl.json --stellar-state payments-data/payments-stellar.json --stellar-paytos paytos-stellar.json --algorand-state payments-data/payments-algorand.json --algorand-paytos paytos-algorand.json --xlayer-state payments-data/payments-xlayer.json --xlayer-paytos paytos-xlayer.json
         env:
           BASE_RPC_URL: ${{ secrets.BASE_RPC_URL }}
           SOLANA_RPC_URL: ${{ secrets.SOLANA_RPC_URL }}
           XRPL_RPC_URL: ${{ secrets.XRPL_RPC_URL }}
           STELLAR_HORIZON_URL: ${{ secrets.STELLAR_HORIZON_URL }}
           ALGORAND_INDEXER_URL: ${{ secrets.ALGORAND_INDEXER_URL }}
+          XLAYER_RPC_URL: ${{ secrets.XLAYER_RPC_URL }}
       - name: Publish to the payments-data branch
         run: |
           [ -f payments-data/payments.json ] || { echo "nothing to publish yet"; exit 0; }
@@ -71,7 +74,8 @@ jobs:
           `payments-stellar.json`: the same for USDC payout accounts on Stellar, counting USDC transfers (Soroban) that
           another account than the payer sent, as an x402 facilitator does. `payments-algorand.json`: the same for USDC
           payout addresses on Algorand, counting grouped USDC transfers whose fee another transaction paid (fee pooling,
-          as GoPlausible's facilitator settles), also to the addresses that facilitator paid for.
+          as GoPlausible's facilitator settles), also to the addresses that facilitator paid for. `payments-xlayer.json`:
+          the same as on Base for payout addresses on X Layer, counting signed (EIP-3009) USD₮0 and USDC payments.
           See https://x402-doctor.fizzl.eu/trust
           MD
           git init -q -b payments-data
@@ -80,6 +84,7 @@ jobs:
           if [ -f payments-xrpl.json ]; then git add payments-xrpl.json; fi
           if [ -f payments-stellar.json ]; then git add payments-stellar.json; fi
           if [ -f payments-algorand.json ]; then git add payments-algorand.json; fi
+          if [ -f payments-xlayer.json ]; then git add payments-xlayer.json; fi
           git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -qm "Payments $(date -u +%FT%H:%M)"
           git push -qf "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" payments-data
         env:

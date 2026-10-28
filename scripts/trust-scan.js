@@ -28,6 +28,7 @@ const { mergeSolanaPayTos } = require('../lib/onchain-payments-solana');
 const { mergeXrplPayTos } = require('../lib/onchain-payments-xrpl');
 const { mergeStellarPayTos } = require('../lib/onchain-payments-stellar');
 const { mergeAlgorandPayTos } = require('../lib/onchain-payments-algorand');
+const { mergeXlayerPayTos } = require('../lib/onchain-payments-xlayer');
 const { createSanctions } = require('../lib/sanctions');
 const { readIndexDir, writeIndexDir } = require('../lib/index-files');
 
@@ -204,6 +205,11 @@ function merge(todo, done, { out }) {
   const algorandPayTos = mergeAlgorandPayTos(read(algorandPath), all, todo.date);
   fs.writeFileSync(algorandPath, JSON.stringify(algorandPayTos));
   console.log(`payout addresses on Algorand: ${Object.keys(algorandPayTos.pay_tos).length}`);
+  // And for X Layer: USD₮0 or USDC payout addresses.
+  const xlayerPath = path.join(out, 'paytos-xlayer.json');
+  const xlayerPayTos = mergeXlayerPayTos(read(xlayerPath), all, todo.date);
+  fs.writeFileSync(xlayerPath, JSON.stringify(xlayerPayTos));
+  console.log(`payout addresses on X Layer: ${Object.keys(xlayerPayTos.pay_tos).length}`);
   // Delivery evidence from nohumans.directory and PayAPI Market (lib/delivery-elsewhere.js). A source not read today
   // keeps yesterday's file.
   for (const [file, source, evidence, extra] of [
