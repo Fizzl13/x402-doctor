@@ -110,6 +110,11 @@
   <ul class="cats" id="cats"></ul>
   <p class="note">A seller often lists the same API many times (once per coin, city or ticker). Endpoints of one seller with nearly the same description count as one service here; the kind of service is judged by TypeSafe Jev (a keyword guess until Jev has seen it).</p>
 
+  <h2>Who gets paid on X Layer</h2>
+  <p class="note">Real x402 payments on X Layer in the last 7 complete days, to the payout addresses of every endpoint above that takes USD₮0 or USDC: transfers the payer signed with EIP-3009 (transferWithAuthorization) and a facilitator sent, the way x402 settles. A plain transfer doesn't count. "Fleet wallets" paid ten or more sellers in the same days, as checkers and agent fleets do: payments, not proof of a buyer.</p>
+  <table id="paid"><thead><tr><th>Seller</th><th class="num">Payments</th><th class="num">Paid</th><th class="num">Wallets</th><th class="num">Fleet wallets</th></tr></thead><tbody></tbody></table>
+  <p class="note" id="paid-note"></p>
+
   <h2>Sellers</h2>
   <table id="sellers"><thead><tr><th>Seller</th><th class="num">Endpoints</th><th class="num">Services</th><th class="num">Payable</th></tr></thead><tbody></tbody></table>
 
@@ -206,6 +211,24 @@
     for (const s of d.sellers.slice(0, 25)) { const tr = el('tr'); tr.append(el('td', null, s.host), el('td', 'num', fmt(s.endpoints)), el('td', 'num', s.services == null ? '' : fmt(s.services)), el('td', 'num', fmt(s.payable))); tb.append(tr); }
     render();
   }).catch((e) => { $('list').textContent = `Could not load the scan (${e.message}). Try again in a minute.`; });
+  // Who gets paid: /api/trust/payments?network=xlayer (the hourly count of payments-xlayer.json, hosts from the scan).
+  fetch('/api/trust/payments?network=xlayer').then((r) => r.json()).then((p) => {
+    if (!p.sellers) throw new Error(p.error || 'no data');
+    const tb = $('paid').tBodies[0];
+    const short = (a) => `${a.slice(0, 6)}…${a.slice(-4)}`;
+    for (const s of p.sellers.slice(0, 30)) {
+      const tr = el('tr'), who = el('td', null, s.hosts[0] || short(s.pay_to));
+      const link = el('a', 'addr', s.hosts.length ? short(s.pay_to) : 'on X Layer');
+      link.href = `https://www.oklink.com/x-layer/address/${encodeURIComponent(s.pay_to)}`; link.rel = 'noopener';
+      who.append(link);
+      if (s.closed_loop) who.append(el('span', 'addr', 'its payers were paid back: the seller paying itself?'));
+      tr.append(who, el('td', 'num', fmt(s.payments)), el('td', 'num', usd(s.usd)), el('td', 'num', `${s.payers_at_least ? '≥' : ''}${fmt(s.payers)}`), el('td', 'num', fmt(s.payers_wide)));
+      tb.append(tr);
+    }
+    const total = p.sellers.reduce((n, s) => n + s.usd, 0);
+    $('paid-note').textContent = `${fmt(p.paid)} of ${fmt(p.watched)} watched payout addresses were paid, ${usd(total)} in all, over ${p.days.length === 1 ? '1 day' : `${p.days.length} days`} (${p.days[0]}${p.days.length > 1 ? ` to ${p.days[p.days.length - 1]}` : ''}, UTC). Counted every hour. Data: GET /api/trust/payments?network=xlayer (free, JSON).`;
+    if (!p.sellers.length) $('paid').hidden = true;
+  }).catch((e) => { $('paid').hidden = true; $('paid-note').textContent = `The payment count isn't available yet (${e.message}).`; });
   $('q').addEventListener('input', () => { shown = PAGE; render(); });
   $('broken').addEventListener('change', () => { shown = PAGE; render(); });
 </script>

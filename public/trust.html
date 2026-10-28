@@ -155,6 +155,7 @@
   <p class="note" id="onchainXrplLine" hidden></p>
   <p class="note" id="onchainStellarLine" hidden></p>
   <p class="note" id="onchainAlgorandLine" hidden></p>
+  <p class="note" id="onchainXlayerLine" hidden></p>
 
   <h2>Paid and delivered?</h2>
   <p class="note" id="spotLine" aria-live="polite">Loading the latest spot-buy…</p>
@@ -382,6 +383,14 @@
       const usdA = oa.usd < 10 ? oa.usd.toFixed(2) : fmt(Math.round(oa.usd));
       $('onchainAlgorandLine').textContent = `On Algorand: ${periodA}, ${fmt(oa.payers)} different wallets made ${fmt(oa.payments)} USDC payments ($${usdA}) to ${fmt(oa.pay_tos_paid)} of the ${fmt(oa.watched)} Algorand payout addresses watched, each a transfer whose fee an x402 facilitator paid in the same group.${oa.pay_tos_paid_only_wide ? ` ${fmt(oa.pay_tos_paid_only_wide)} of those were paid only by wallets that pay ${oa.wide_sellers} or more of them, as checkers and scanners do.` : ''}${oa.pay_tos_closed_loop ? ` ${fmt(oa.pay_tos_closed_loop)} ${oa.pay_tos_closed_loop === 1 ? 'looks' : 'look'} like a closed loop: every ordinary payer received the money back from the payout address.` : ''}`;
       $('onchainAlgorandLine').hidden = false;
+    }
+    // And on X Layer: USD₮0 and USDC payments the payer signed with EIP-3009, as on Base (lib/onchain-payments-xlayer.js).
+    const ol = s.onchain_payments_xlayer;
+    if (ol && ol.payments) {
+      const periodL = ol.days === 1 ? 'yesterday' : `in the last ${ol.days} days`;
+      const usdL = ol.usd < 10 ? ol.usd.toFixed(2) : fmt(Math.round(ol.usd));
+      $('onchainXlayerLine').textContent = `On X Layer: ${periodL}, ${fmt(ol.payers)} different wallets made ${fmt(ol.payments)} signed USD₮0 or USDC payments ($${usdL}) to ${fmt(ol.pay_tos_paid)} of the ${fmt(ol.watched)} X Layer payout addresses here.${ol.pay_tos_paid_only_wide ? ` ${fmt(ol.pay_tos_paid_only_wide)} of those were paid only by wallets that pay ${ol.wide_sellers} or more of them, as checkers and scanners do.` : ''}${ol.pay_tos_closed_loop ? ` ${fmt(ol.pay_tos_closed_loop)} ${ol.pay_tos_closed_loop === 1 ? 'looks' : 'look'} like a closed loop: every ordinary payer received the money back from the payout address.` : ''}`;
+      $('onchainXlayerLine').hidden = false;
     }
     renderReasons(s);
     renderServices(s.services);

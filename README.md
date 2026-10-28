@@ -455,6 +455,11 @@ Space waits in `hf-mcp/`. Doctor's own MCP server is `https://x402-doctor.fizzl.
   `payments-stellar.json` and `payments-algorand.json` on `payments-data`; `/api/trust/summary` adds
   `onchain_payments_stellar` and `onchain_payments_algorand`. `STELLAR_HORIZON_URL` and `ALGORAND_INDEXER_URL` are asked
   before horizon.stellar.org and AlgoNode's public indexer.
+- **Real payments on X Layer.** The same workflow counts the signed (EIP-3009) USD₮0 and USDC payments into the X Layer
+  payout addresses (`paytos-xlayer.json`), exactly as on Base, 100 blocks per call (the most rpc.xlayer.tech serves;
+  `lib/onchain-payments-xlayer.js`). The result is `payments-xlayer.json` on `payments-data`; `/api/trust/summary` adds
+  `onchain_payments_xlayer`, `GET /api/trust/payments?network=xlayer` lists who got paid, and `/xlayer` shows it.
+  `XLAYER_RPC_URL` is asked before rpc.xlayer.tech.
 - **The daily scan, when GitHub skips it.** The scan's schedule fires four times a day and the first run does the day,
   but GitHub drops scheduled runs when it is busy (on 21 Oct the 03:17 run never started). From 04:15 UTC, every half
   hour, the Doctor checks the scan it serves; while that is the day before's, it starts `trust-scan.yml` with
