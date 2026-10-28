@@ -49,7 +49,46 @@
       "transaction": "0x5abc0c6169aa4cc5d4267422ca80a3bdcc1a2d13ab143634fc854c4d75adbdf9",
       "explorer": "https://basescan.org/tx/0x5abc0c6169aa4cc5d4267422ca80a3bdcc1a2d13ab143634fc854c4d75adbdf9",
       "cap_usd": 0.1
+    },
+    "dfickdlxb2": {
+      "id": "dfickdlxb2",
+      "url": "https://rest.coincap.io/v3/agentFriendly/full_assets_by_slug",
+      "queued_at": "2026-10-28T08:08:20.629Z",
+      "date": "2026-10-28T08:09:14.273Z",
+      "result": "delivered",
+      "step": "paid",
+      "paid_and_delivered": true,
+      "status": 200,
+      "price_usd": 0.002,
+      "charged_usd": 0.002,
+      "request": {
+        "method": "GET",
+        "source": "example"
+      },
+      "answer": {
+        "delivered": {
+          "verdict": "yes",
+          "p": 0.93,
+          "decidedBy": "jev"
+        },
+        "injection": {
+          "flagged": false,
+          "p": 0.01,
+          "decidedBy": "jev"
+        }
+      },
+      "cache": {
+        "cache_control": "public, max-age=30",
+        "shared_cache": "yes"
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "transaction": "0xdf81a99b1d6405cddc89a462ed3986fd77ae713f479ada34019ef0ac31971c7c",
+      "explorer": "https://basescan.org/tx/0xdf81a99b1d6405cddc89a462ed3986fd77ae713f479ada34019ef0ac31971c7c",
+      "cap_usd": 0.1
     }
   },
-  "updated": "2026-10-15T05:01:31.675Z"
+  "updated": "2026-10-28T08:09:14.274Z"
 }
