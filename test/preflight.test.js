@@ -303,6 +303,16 @@ test('on-chain payments: how many wallets paid the Base payout address shows as 
   assert.equal(r.signals.onchain_payments, undefined);
 });
 
+test('on-chain payments on X Layer: a USD₮0 option is looked up with its network, so the X Layer count answers, not Base\'s', async () => {
+  const xlayerOption = { scheme: 'exact', network: 'eip155:196', amount: '20000', asset: '0x779Ded0c9e1022225f8E0630b35a9b54bE713736', payTo: PAY_TO_BASE, maxTimeoutSeconds: 60, extra: { name: 'USD₮0', version: '1' } };
+  const url = await seller({ accepts: [xlayerOption] });
+  const asked = [];
+  const stats = { network: 'eip155:196', symbol: 'USD₮0 or USDC', days: 7, payments: 12, payers: 3, usd: 0.12, coverage: 1, as_of: '2026-10-29T05:00:00.000Z' };
+  const r = await run(url, { payments: { lookup: async (payTo, o) => { asked.push([payTo, o.network]); return { ...stats, pay_to: payTo.toLowerCase() }; } } });
+  assert.deepEqual(asked, [[PAY_TO_BASE, 'eip155:196']]);
+  assert.match(r.reasons.find((x) => x.code === 'onchain_payments').message, /^3 different wallets paid this seller's payout address on X Layer in the last 7 days: 12 signed USD₮0 or USDC payments, \$0\.12 in total/);
+});
+
 test('on-chain payments on Solana: a seller without a Base option is looked up by its Solana payout address; options carry the fee payer', async () => {
   const url = await seller({ accepts: [solanaOption('15000')] });
   const asked = [];

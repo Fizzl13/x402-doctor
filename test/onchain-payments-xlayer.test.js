@@ -7,6 +7,7 @@ const assert = require('node:assert/strict');
 const { mergeXlayerPayTos, collectXlayer, XLAYER, TOKENS } = require('../lib/onchain-payments-xlayer');
 const { createOnchainPayments, TRANSFER, AUTH_USED, USDC } = require('../lib/onchain-payments');
 const { payTosOf } = require('../lib/trust-scan');
+const { checkOnchainPayments } = require('../lib/diagnose');
 const { createApp } = require('../server');
 
 const USDT0 = '0x779ded0c9e1022225f8e0630b35a9b54be713736';
@@ -116,7 +117,24 @@ test('createOnchainPayments: X Layer totals and who gets paid, with the hosts fr
   assert.deepEqual([t.network, t.symbol, t.days, t.watched, t.pay_tos_paid, t.payments, t.payers, t.usd, t.coverage], [XLAYER, 'USD₮0 or USDC', 1, 2, 1, 3, 2, 0.03, 1]);
   const list = await payments.sellersXlayer();
   assert.deepEqual(list.sellers, [{ pay_to: P1, name: null, hosts: ['a.example'], payments: 3, usd: 0.03, payers: 2, payers_wide: 0 }]);
-  assert.equal(await payments.lookup(P1), null, 'an EVM address is looked up on Base');
+  assert.equal(await payments.lookup(P1), null, 'without a network an EVM address is looked up on Base');
+  const w = await payments.lookup(P1.toUpperCase().replace('0X', '0x'), { network: XLAYER });
+  assert.deepEqual([w.network, w.symbol, w.payments, w.usd, w.payers], [XLAYER, 'USD₮0 or USDC', 3, 0.03, 2]);
+  assert.equal(payments.loaded(P1, XLAYER), true);
+});
+
+test('web check: an X Layer USD₮0 option without a Base one is looked up on X Layer and named so', async () => {
+  const asked = [];
+  const checks = [];
+  const found = { network: XLAYER, symbol: 'USD₮0 or USDC', days: 7, payments: 4, payers: 2, usd: 0.04, coverage: 1 };
+  await checkOnchainPayments([{ scheme: 'exact', network: XLAYER, asset: USDT0, payTo: P1 }], { lookup: async (a, o) => { asked.push([a, o.network]); return found; }, loaded: () => true }, checks);
+  assert.deepEqual(asked, [[P1, XLAYER]]);
+  assert.match(checks[0].message, /^Real payments on X Layer in the last 7 days: 2 different wallets paid this payout address \(.+\) 4 times, \$0\.04 in USD₮0 or USDC in total\./);
+  assert.match(checks[0].hint, /USD₮0 and USDC payments the buyer signed with EIP-3009/);
+  // An offer in another token on X Layer isn't counted: nothing said.
+  const none = [];
+  await checkOnchainPayments([{ scheme: 'exact', network: XLAYER, asset: '0x4ae46a509f6b1d9056937ba4500cb143933d2dc8', payTo: P1 }], { lookup: async () => found, loaded: () => true }, none);
+  assert.deepEqual(none, []);
 });
 
 test('GET /api/trust/payments?network=xlayer: the list as JSON, 503 before a complete day', async () => {
