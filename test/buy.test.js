@@ -4,7 +4,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
-const { candidatesFor, leftOut } = require('../lib/buy/search');
+const { candidatesFor, searchQuery, leftOut } = require('../lib/buy/search');
 const { createFiller, requestOf } = require('../lib/buy/fill');
 const { buy, createBudget, BuyError } = require('../lib/buy/purchase');
 const { createStrikes } = require('../lib/buy/strikes');
@@ -34,6 +34,18 @@ function seller(amount = '2000') {
 
 const result = (url, { usd = 0.002, relevance = 0.95, days = 30, ratio = 1, method = 'GET', example = { place: 'London', days: 3 } } = {}) => ({ url, host: new URL(url).host, description: `weather at ${url}`, method, example, prices: [{ network: 'Base', usd }], relevance, record: { days, payableDays: Math.round(days * ratio), ratio } });
 const searchFetch = (results, calls = []) => async (url) => { calls.push(String(url)); return Response.json({ query: 'x', results }); };
+
+test('search: a web or e-mail address in the need is searched as the kind of thing it is', async () => {
+  assert.equal(searchQuery('is google.com up'), 'is the website up');
+  assert.equal(searchQuery('check https://fizzl.eu/tools?x=1 for broken links'), 'check the website for broken links');
+  assert.equal(searchQuery('is www.example.org down right now'), 'is the website down right now');
+  assert.equal(searchQuery('validate frits@example.com'), 'validate an e-mail address');
+  assert.equal(searchQuery('BTC price in USD'), 'BTC price in USD', 'no address: unchanged');
+  assert.equal(searchQuery('weather in St. Louis tomorrow'), 'weather in St. Louis tomorrow', 'a dot in a name is not an address');
+  const calls = [];
+  await candidatesFor('is google.com up', { capUsd: 0.01, fetch: searchFetch([], calls) });
+  assert.match(calls[0], /q=is\+the\+website\+up&/);
+});
 
 test('search: only what may be bought, best first; the search URL carries the need and the cap', async () => {
   const calls = [];
