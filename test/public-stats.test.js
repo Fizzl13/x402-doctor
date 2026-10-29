@@ -235,7 +235,18 @@ test('x402 Doctor fix: sold over 7 days and in total, quotes and improvements; o
     day('2026-09-10', [{ route: 'fix', status: 200, paid: true, result: { improvements: 4 } }]),
   ];
   const f = fixWeek(files, NOW);
-  assert.deepStrictEqual(f, { days: 7, paid: 3, quotes: 40, improvements: 6, paid_total: 4 });
+  assert.deepStrictEqual(f, { days: 7, paid: 3, quotes: 40, improvements: 6, paid_total: 0, since: '2026-10-29' }, 'before 29 Oct only in the 7 days');
+  const later = Date.parse('2026-10-31T08:00:00Z');
+  const oct = [
+    day('2026-10-28', [{ route: 'fix', status: 200, paid: true, agent: 'someone/1' }]),
+    day('2026-10-30', [
+      { route: 'fix', status: 200, paid: true, agent: 'buyer/1', result: { improvements: 5 } },
+      { route: 'fix', status: 200, paid: true, agent: 'vet402-observatory-l1/1.0' },
+      { route: 'fix', status: 200, paid: true, agent: 'lumiere-paycheck-prober/1.0' },
+      { route: 'fix', status: 200, paid: true, agent: 'cog-x402-audit/2' },
+    ]),
+  ];
+  assert.deepStrictEqual(fixWeek(oct, later), { days: 7, paid: 2, quotes: 0, improvements: 5, paid_total: 1, since: '2026-10-29' }, 'test bots left out; the total counts from 29 Oct');
   assert.doesNotMatch(JSON.stringify(f), /example|0xabc|payer/);
 });
 
