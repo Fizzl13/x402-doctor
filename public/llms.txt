@@ -16,7 +16,7 @@ Backed by a daily Trust Index of ~50,000 paid x402 and MPP endpoints across Base
 - `GET /api/v1/preflight/batch?url=<a>&url=<b>` ($0.005): the same for up to 10 endpoints
 - `GET /api/v1/preflight/deep?url=<endpoint>` ($0.01): preflight plus the full diagnosis, history and seller checks, for expensive calls
 - `GET /api/v1/diagnose?url=<endpoint>` ($0.01): the full diagnosis of an x402 endpoint, check by check
-- `GET /api/v1/fix?url=<endpoint>` ($0.05): the fixes as code for the seller's stack
+- `GET /api/v1/fix?url=<endpoint>` ($0.05): the fixes as code for the seller's stack, plus improvements for a working endpoint (ERC-8004 identity, Base Builder Code, x402scan ownership proof, skill.md, browser paywall)
 - `GET /api/v1/delivery-check?url=<endpoint>` ($0.25): one real purchase of the endpoint; the public result says whether it was charged and delivered
 
 ## Free
