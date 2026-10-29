@@ -107,7 +107,7 @@ test('server card: the same two tools as tools/list, for MCP directories', async
   assert.equal(res.status, 200);
   assert.equal(res.headers.get('access-control-allow-origin'), '*');
   const card = await res.json();
-  assert.deepEqual(card.serverInfo, { name: 'fizzl-buy', version: '1.1.0' });
+  assert.deepEqual(card.serverInfo, { name: 'fizzl-buy', version: '1.1.0', title: 'Fizzl Buy', websiteUrl: 'https://buy.fizzl.eu', icons: [{ src: 'https://buy.fizzl.eu/icon.png', mimeType: 'image/png', sizes: ['512x512'] }] });
   assert.deepEqual(card.transport, { type: 'streamable-http', endpoint: '/mcp' });
   assert.deepEqual(card.tools.map((t) => t.name).sort(), ['x402_buy', 'x402_pick']);
   assert.deepEqual(card.tools.find((t) => t.name === 'x402_pick').inputSchema.required, ['need']);

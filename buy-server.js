@@ -299,7 +299,7 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
 
   // One MCP server per request (stateless): x402_pick, plus x402_buy when payments are on.
   const mcpServer = (req, res) => {
-    const server = new McpServer({ name: 'fizzl-buy', version: '1.1.0' });
+    const server = new McpServer({ name: 'fizzl-buy', version: '1.1.0', title: 'Fizzl Buy', websiteUrl: 'https://buy.fizzl.eu', icons: [{ src: 'https://buy.fizzl.eu/icon.png', mimeType: 'image/png', sizes: ['512x512'] }] });
     if (resourceServer && wallet) {
       server.registerTool('x402_buy', {
         title: 'Buy what your agent needs ($0.02)',
