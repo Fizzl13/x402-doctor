@@ -38,6 +38,7 @@ const { serverCard } = require('./lib/mcp');
 const { z } = require('zod');
 const { createFacilitatorStart } = require('./lib/facilitator-start');
 const { onPublicHost } = require('./lib/public-host');
+const { postOnlyTerms } = require('./lib/post-only');
 const { fizzlCors } = require('./lib/fizzl-cors');
 const { mirrorChallengeIntoBody, onlyNetworks, xrplPayTo, algorandPayTo, stellarPayTo, xlayerPayTo, usdt0Amount, stellarFacilitator, ALGORAND, STELLAR, XLAYER, XLAYER_USDT0, DEFAULT_ALGORAND_FACILITATOR } = require('./lib/paid-api');
 const { merchantExtension, builderCodeExtension } = require('./lib/merchant');
@@ -413,6 +414,8 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
   // 402's body too, for clients that read accepts[] there.
   // One payment buys one answer (lib/buy/once.js), checked before the paywall verifies it.
   app.use(mirrorChallengeIntoBody);
+  // An unpaid GET or HEAD on the purchase gets its 402 instead of a 404 (lib/post-only.js).
+  if (paywall) app.use(postOnlyTerms({ paths: [BUY_ROUTE], paywall }));
   app.use(deps.oncePerPayment ?? createOncePerPayment({ paths: [BUY_ROUTE], locks }));
   if (paywall) app.use(paywall);
   app.use(signPaidResponses(signer, [`POST ${BUY_ROUTE}`]));
