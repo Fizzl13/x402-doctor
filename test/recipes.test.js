@@ -232,3 +232,21 @@ test('BNB Chain: amounts scale to the token\'s 18 decimals, and an unknown token
   assert.equal(fix(asset, 'asset').title, 'Use a dollar stablecoin on BNB Chain');
   assert.match(code(fix(asset, 'asset')), new RegExp(USD1.toLowerCase()));
 });
+
+test('get-probe: a POST route whose GET answers 404 gets the GET/HEAD 402 middleware for its own path', () => {
+  const out = buildFixes(report({
+    url: 'https://api.example.com/v1/check', method: 'POST',
+    checks: [{ id: 'get-probe', status: 'warn', message: 'An unpaid GET answers 404, while POST gets the 402.', get_status: 404 }],
+    probes: [{ method: 'GET', status: 404, headers: { 'x-powered-by': 'Express' } }, { method: 'POST', status: 402, headers: { 'x-powered-by': 'Express' } }],
+  }));
+  const f = fix(out, 'get-probe');
+  assert.match(f.title, /same 402 as POST/);
+  assert.match(f.why, /GET on \/v1\/check answers 404/);
+  assert.match(code(f), /new Set\(\["\/v1\/check"\]\)/);
+  assert.match(code(f), /res\.set\("Allow", "POST"\)/);
+  assert.match(code(f), /if \(paying\) return refuse\(\)/);
+  assert.match(code(f), /Allow: POST\n/);
+  assert.match(code(f), /405 Method Not Allowed/);
+  assert.deepEqual(out.unfixed, []);
+});
+
