@@ -23,7 +23,8 @@ test('paywall: a raw </script> in the URL or description reaches the page only a
   const url = `https://x402-doctor.fizzl.eu/api/v1/diagnose?url=https://example.com/${ATTACK}$'`;
   const pr = { x402Version: 2, error: 'Payment required', resource: { url, description: `Diagnose ${ATTACK}`, mimeType: 'application/json' }, accepts };
   const config = { currentUrl: url, appName: 'x402 Doctor', testnet: false };
-  assert.ok(paywallOf().generateHtml(pr, config).includes('<script>window.__injected'), 'the paywall alone lets it through');
+  // @x402/paywall 2.29.0 escapes "<" itself (#3855); the wrapper stays as a second guard.
+  assert.ok(!paywallOf().generateHtml(pr, config).includes('<script>window.__injected'), 'the paywall alone escapes it too');
 
   const html = scriptSafePaywall(paywallOf()).generateHtml(pr, config);
   assert.ok(!html.includes('<script>window.__injected'), 'no injected script element');
