@@ -184,6 +184,7 @@ endpoints = load_dataset("${process.env.HF_DATASET || 'fizzl/x402-trust-index'}"
 - What the on-chain payments show: [Half the x402 sellers paid on Base were paid only by scanners](https://fizzl.eu/research/x402-real-buyers-october-2026/) · [x402 runs on cents, but the money comes from a few big payments](https://fizzl.eu/research/x402-where-the-money-goes-october-2026/) · [x402 on the XRP Ledger](https://fizzl.eu/research/x402-xrpl-october-2026/) · [x402 on Stellar: 398 payments, $3.93](https://fizzl.eu/research/x402-stellar-payments-october-2026/)
 - Who gets paid, live: [XRP Ledger](https://x402-doctor.fizzl.eu/xrpl) · [Stellar](https://x402-doctor.fizzl.eu/stellar) · all of our open x402 data: [the x402 agent payments collection](https://huggingface.co/collections/x402Fizzl/x402-agent-payments-6ad62101ba3cdbcf5f990a0e)
 - How AI agents handle payment traps: [x402 Agent Safety Bench](https://fizzl.eu/bench/)
+- Security, from the price column: [x402's critical SDK flaws (V12, Oct 2026)](https://fizzl.eu/research/x402-sdk-flaws-v12-october-2026/): how many endpoints ask more than the new $1 default cap, and what a check outside the agent stops · [The zod advisory in every x402 project](https://fizzl.eu/research/x402-zod-advisory-october-2026/)
 - The same files on GitHub: [Fizzl13/x402-doctor, trust-data branch](https://github.com/Fizzl13/x402-doctor/tree/trust-data)
 
 ## License and citation
