@@ -6,8 +6,7 @@ Diagnoses why an x402-payable endpoint's payment flow is broken, without needing
 
 Paste a URL (web app) or run `x402-doctor <url>` (CLI, CI) and get back exactly which check failed, why, and how
 to fix it. Every check traces back to a real bug hit while shipping
-[PlainText](https://plaintext.fizzl.eu) and
-[Ichimoku Signal](https://ichimoku-signal.fizzl.eu).
+[Ichimoku Signal](https://ichimoku-signal.fizzl.eu) and [presign-guard](https://presign-guard.fizzl.eu).
 
 [![x402 Doctor in 70 seconds](https://raw.githubusercontent.com/Fizzl13/x402-doctor/explainer-video/poster.jpg)](https://x402-doctor.fizzl.eu/media/explainer.mp4)
 
@@ -691,7 +690,7 @@ Without either payout wallet the paid route answers 503 and the rest of the app 
 
 ### Usage dashboard
 
-`/admin/usage` shows every call to the Fizzl services (x402 Doctor, PlainText, Ichimoku Signal, presign-guard):
+`/admin/usage` shows every call to the Fizzl services (x402 Doctor, Ichimoku Signal, presign-guard, Fizzl Buy):
 totals, revenue, paying wallets, calls per day per service, the most asked inputs and the latest calls with what
 was filled in, the result and the payment (with a Basescan/Solscan link). Each service appends one JSON line per
 call to `events/<service>/<YYYY-MM-DD>/<HH>.jsonl` (one file per UTC hour since 25 Oct 2026; one per day,
