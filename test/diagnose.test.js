@@ -1531,6 +1531,33 @@ test('X Layer, Celo and Robinhood Chain: their dollar tokens, decimals and EIP-7
   assert.match(get('accepts[6]-asset').message, /\(USDG\) on Robinhood Chain/);
 });
 
+test('Base: RLUSD (Permit2) and EURC (EIP-3009) next to USDC are known stablecoins, not unknown assets', () => {
+  const checks = [];
+  const payTo = '0x408C4610F6879a75c25722cfCd18A2Eff99dc20F';
+  const option = (asset, amount, extra) => ({ scheme: 'exact', network: 'eip155:8453', amount, asset, payTo, maxTimeoutSeconds: 120, extra });
+  checkAccepts([
+    option('0x60a3E35Cc302bFA44Cb288Bc5a4F316Fdb1adb42', '9259', { name: 'EURC', version: '2' }), // EURC, as toll402.io offers it
+    option('0x8d58c0c60b8d6b88fa98b291a646db34d0f98258', '10000000000000000', { name: 'RLUSD', version: '1', assetTransferMethod: 'permit2' }), // RLUSD
+    option('0x8d58c0c60b8d6b88fa98b291a646db34d0f98258', '10000000000000000', { name: 'RLUSD', version: '1' }), // RLUSD without Permit2
+    option('0x60a3E35Cc302bFA44Cb288Bc5a4F316Fdb1adb42', '10000', { name: 'Euro Coin', version: '2' }), // wrong EURC domain
+    option('0x1111111111111111111111111111111111111111', '10000', { name: 'X', version: '1' }), // unknown token
+  ], checks);
+  const get = (id) => checks.find((c) => c.id === id);
+  assert.equal(get('accepts[0]-asset'), undefined);
+  assert.match(get('accepts[0]-amount').message, /€0\.009259 EURC/);
+  assert.equal(get('accepts[0]-extra').status, 'pass');
+  assert.equal(get('accepts[1]-asset'), undefined);
+  assert.match(get('accepts[1]-amount').message, /\$0\.01 RLUSD/);
+  assert.equal(get('accepts[1]-extra').status, 'pass');
+  assert.equal(get('accepts[2]-extra').status, 'fail');
+  assert.match(get('accepts[2]-extra').message, /RLUSD on Base has no transferWithAuthorization/);
+  assert.match(get('accepts[2]-extra').hint, /"permit2", or price in USDC, which support EIP-3009/);
+  assert.equal(get('accepts[3]-extra').status, 'fail');
+  assert.match(get('accepts[3]-extra').message, /EURC on Base signs as "EURC" v2/);
+  assert.equal(get('accepts[4]-asset').status, 'warn');
+  assert.match(get('accepts[4]-asset').message, /not a dollar stablecoin x402 Doctor knows \(USDC, RLUSD\) on Base/);
+});
+
 test('checkAccepts: a non-CAIP-2 network the doctor does not know is unpayable for that reason, not as a bad EVM address', () => {
   const checks = [];
   checkAccepts([
