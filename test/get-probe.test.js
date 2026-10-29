@@ -4,6 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
 const { diagnose } = require('../lib/diagnose');
+const { buildFixes } = require('../lib/recipes');
 const { createSafeFetch } = require('../lib/safe-fetch');
 
 const servers = [];
@@ -47,4 +48,11 @@ test('GET with the 402 passes, 405 is a note, and a GET route is not asked about
   assert.equal(getProbe(await diagnose(`${await postRoute(402)}/v1/check`, { safeFetch, method: 'POST' })).status, 'pass');
   assert.equal(getProbe(await diagnose(`${await postRoute(405)}/v1/check`, { safeFetch })).status, 'info');
   assert.equal(getProbe(await diagnose(`${await postRoute(402)}/v1/check`, { safeFetch })), undefined, 'GET got the 402 first: a GET route');
+});
+
+test('the paid fix turns the warning into the GET/HEAD middleware for this path', async () => {
+  const report = await diagnose(`${await postRoute(404)}/v1/check`, { safeFetch, method: 'POST' });
+  const f = buildFixes(report, { stack: 'express' }).fixes.find((x) => x.recipe === 'get-probe');
+  assert.ok(f, 'a get-probe fix');
+  assert.match(f.code.map((c) => c.snippet).join('\n'), /new Set\(\["\/v1\/check"\]\)/);
 });
