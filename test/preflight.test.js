@@ -95,6 +95,18 @@ test('network preference picks the option on that network, or no_go when it is n
   assert.equal(r.reasons[0].code, 'network_not_offered');
 });
 
+test('price: above $100 a call is a caution without max_usd; with max_usd the budget decides', async () => {
+  const pricey = await seller({ accepts: [baseOption(String(1_000_000 * 1e6))], advertised: '1000000' });
+  const r = await run(pricey);
+  assert.equal(r.verdict, 'caution', JSON.stringify(r.reasons));
+  assert.ok(r.reasons.some((x) => x.code === 'price_very_high'));
+  const within = await run(pricey, { maxUsd: 2_000_000 });
+  assert.ok(!within.reasons.some((x) => x.code === 'price_very_high'), 'a budget the user set decides instead');
+  assert.ok((await run(pricey, { maxUsd: 1 })).reasons.some((x) => x.code === 'over_budget'));
+  const normal = await run(await seller({ accepts: [baseOption('20000')] }));
+  assert.ok(!normal.reasons.some((x) => x.code === 'price_very_high'));
+});
+
 test('budget: above max_usd is no_go', async () => {
   const r = await run(await seller({ accepts: [baseOption('20000')] }), { maxUsd: 0.01 });
   assert.equal(r.verdict, 'no_go');
