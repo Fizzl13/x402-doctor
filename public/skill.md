@@ -20,7 +20,7 @@ Add the remote MCP server `https://x402-doctor.fizzl.eu/mcp` (Streamable HTTP) t
 | `x402_preflight_batch` | $0.005 | The preflight for up to 10 endpoints |
 | `x402_preflight_deep` | $0.01 | The preflight plus diagnosis, history, seller and domain checks |
 | `x402_diagnose` | $0.01 | Every check with a fix hint |
-| `x402_fix` | $0.05 | The code changes for your stack |
+| `x402_fix` | $0.05 | The code changes for your stack, plus improvements for a working endpoint |
 | `x402_delivery_check` | $0.25 | One real purchase of the endpoint (at most $0.10); follow it with `x402_delivery_status` (free) |
 | `verify_receipt` | free | Check the signed receipt of a paid answer: valid, and for exactly your request? |
 
@@ -34,7 +34,7 @@ The free tools work right away. The paid tools ask for an x402 payment inside th
 | `GET /api/v1/preflight/batch?url=<a>&url=<b>&max_usd=0.05` | $0.005 | The same for up to 10 endpoints |
 | `GET /api/v1/preflight/deep?url=<endpoint>&max_usd=0.5` | $0.01 | Preflight plus diagnosis, history and seller checks |
 | `GET /api/v1/diagnose?url=<endpoint>&method=GET` | $0.01 | The full diagnosis |
-| `GET /api/v1/fix?url=<endpoint>&method=GET` | $0.05 | The fixes, as code |
+| `GET /api/v1/fix?url=<endpoint>&method=GET` | $0.05 | The fixes as code, plus improvements (ERC-8004 identity, Builder Code, x402scan ownership, skill.md) |
 | `GET /api/v1/delivery-check?url=<endpoint>` | $0.25 | One real purchase of the endpoint (at most $0.10, USDC on Base) with its declared example input; a job id now, the public result (paid and delivered?) usually within 30 minutes at `GET /api/v1/delivery-check/<id>` |
 
 Examples:
