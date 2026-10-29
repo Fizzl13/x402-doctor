@@ -123,7 +123,7 @@ function describeDoctorCall(req, _res, body) {
     return { route: 'diagnose', via: 'api', input: { url: req.query.url, method: req.query.method }, result: { overall: b.overall, protocol: protocolOf(b), mpp: mppMethods(b), networks: networksOf(b), error: b.error } };
   }
   if (req.method === 'GET' && req.path === FIX_ROUTE) {
-    return { route: 'fix', via: 'api', input: { url: req.query.url, method: req.query.method, stack: req.query.stack }, result: { stack: b.stack && b.stack.id, fixes: Array.isArray(b.fixes) ? b.fixes.map((f) => f.recipe).join(', ') || 'none' : undefined, error: b.error } };
+    return { route: 'fix', via: 'api', input: { url: req.query.url, method: req.query.method, stack: req.query.stack }, result: { stack: b.stack && b.stack.id, fixes: Array.isArray(b.fixes) ? b.fixes.map((f) => f.recipe).join(', ') || 'none' : undefined, improvements: Array.isArray(b.improvements) ? b.improvements.length : undefined, error: b.error } };
   }
   if (req.method === 'GET' && req.path === BATCH_ROUTE) {
     const urls = req.query.url === undefined ? [] : [].concat(req.query.url);

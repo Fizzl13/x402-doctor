@@ -157,7 +157,7 @@
   .fix .snippet pre { margin: 0; white-space: pre; padding-right: 76px; }
   .fix .copy { position: absolute; top: 24px; right: 8px; padding: 5px 12px; font-size: 12px; background: var(--ink-3); color: var(--text); box-shadow: none; }
   .sev { font-size: 11px; padding: 1px 8px; border-radius: 999px; border: 1px solid currentColor; font-weight: 700; }
-  .sev.fail { color: var(--fail); } .sev.warn { color: var(--warn); }
+  .sev.fail { color: var(--fail); } .sev.warn { color: var(--warn); } .sev.info { color: var(--ink-2); }
   [hidden] { display: none !important; }
   .prices { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 22px; }
   .prices .pill { background: var(--ink-2); border: 1px solid var(--line); border-radius: 14px; padding: 9px 13px; font-size: 14px; color: var(--soft); text-decoration: none; }
@@ -685,10 +685,12 @@ function paymentError(err, price) {
 function renderFixes(out) {
   const box = $('fixes');
   box.replaceChildren(el('p', 'fix-note', `${out.summary} Detected from ${out.stack.detected_from}; wrong? Pick your stack above and get it again.`));
-  for (const f of out.fixes) {
+  const improvements = out.improvements || [];
+  for (const f of [...out.fixes, ...improvements]) {
+    if (f === improvements[0]) box.append(el('p', 'fix-note', `${improvements.length} improvement${improvements.length === 1 ? '' : 's'}: not wrong, but they make the service easier to find, trust or pay.`));
     const card = el('div', 'fix');
     const h = el('h4');
-    h.append(el('span', `sev ${f.severity}`, f.severity === 'fail' ? 'blocking' : 'warning'), el('span', null, f.title));
+    h.append(el('span', `sev ${f.severity}`, f.severity === 'fail' ? 'blocking' : f.severity === 'info' ? 'improvement' : 'warning'), el('span', null, f.title));
     card.append(h, el('p', 'why', f.why));
     const ol = el('ol');
     for (const step of f.steps) ol.append(el('li', null, step));
@@ -704,7 +706,7 @@ function renderFixes(out) {
       wrap.append(el('div', 'snippet-label', c.label), pre, copy);
       card.append(wrap);
     }
-    card.append(el('p', 'fix-note', f.verify));
+    if (f.verify) card.append(el('p', 'fix-note', f.verify));
     box.append(card);
   }
   for (const u of out.unfixed || []) box.append(el('p', 'fix-note', `No recipe yet for ${u.id}: ${u.hint || u.message}`));
