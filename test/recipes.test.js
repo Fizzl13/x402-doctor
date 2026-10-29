@@ -329,3 +329,27 @@ test('mpp-challenge and stellar-option: a complete MPP challenge, and the USDC c
   assert.match(code(fix(st, 'stellar-option')), /CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75/);
   assert.match(code(fix(st, 'stellar-option')), /"areFeesSponsored": true/);
 });
+
+test('payment-identifier: the missing extension is an improvement with code; required: true and a bad shape are fixes', () => {
+  const { checkPaymentIdentifier } = require('../lib/diagnose');
+  const { declarePaymentIdentifierExtension } = require('@x402/extensions/payment-identifier');
+  const run = (extensions, x402Version = 2) => { const checks = []; checkPaymentIdentifier({ x402Version, accepts: [], ...(extensions ? { extensions } : {}) }, checks); return checks[0]; };
+  assert.equal(run(undefined).status, 'info');
+  assert.match(run(undefined).message, /^No payment-identifier extension/);
+  assert.equal(run(undefined, 1), undefined, 'x402 v1 has no extensions');
+  assert.equal(run({ 'payment-identifier': declarePaymentIdentifierExtension() }).status, 'pass');
+  assert.equal(run({ 'payment-identifier': declarePaymentIdentifierExtension(true) }).status, 'warn');
+  assert.match(run({ 'payment-identifier': declarePaymentIdentifierExtension(true) }).message, /gets 400/);
+  assert.equal(run({ 'payment-identifier': { required: false } }).status, 'warn', 'required at the top, not under info');
+
+  const missing = buildFixes(report({ checks: [run(undefined)] }));
+  const imp = missing.improvements.find((f) => f.recipe === 'payment-identifier');
+  assert.equal(imp.title, 'Let buyers retry a purchase without paying twice');
+  assert.match(code(imp), /declarePaymentIdentifierExtension\(\)/);
+  assert.match(code(imp), /extractPaymentIdentifier\(payment\)/);
+  assert.match(code(imp), /app\.use\(paymentMiddleware/);
+  const strict = buildFixes(report({ checks: [run({ 'payment-identifier': declarePaymentIdentifierExtension(true) })] }));
+  assert.equal(fix(strict, 'payment-identifier').title, 'Make the payment id optional');
+  const shape = buildFixes(report({ checks: [run({ 'payment-identifier': { required: false } })] }));
+  assert.equal(fix(shape, 'payment-identifier').title, 'Fix the payment-identifier declaration');
+});
