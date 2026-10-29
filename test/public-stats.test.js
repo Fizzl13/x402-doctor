@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 const express = require('express');
-const { createPublicStats, summarize, charts, weekCharts, daySummary, buyWeek, allTime, statsCors, SERVICES } = require('../lib/public-stats');
+const { createPublicStats, summarize, charts, weekCharts, daySummary, buyWeek, fixWeek, allTime, statsCors, SERVICES } = require('../lib/public-stats');
 
 const NOW = Date.parse('2026-09-30T08:00:00Z');
 const events = [
@@ -219,6 +219,24 @@ test('Fizzl Buy: purchases over 7 days from the day summaries, counts and totals
   assert.deepStrictEqual(b, { days: 7, purchases: 3, not_delivered: 1, picks: 2, paid_to_sellers_usd: 0.01, sellers: 2, median_ms: 10000 });
   assert.doesNotMatch(JSON.stringify(b), /example|0xabc|payer|instance/);
   assert.deepStrictEqual(SERVICES, ['doctor', 'presign', 'ichimoku', 'buy']);
+});
+
+test('x402 Doctor fix: sold over 7 days and in total, quotes and improvements; our own payments left out', () => {
+  const day = (date, list) => ({ service: 'doctor', date, summary: daySummary(list.map((e) => ({ t: `${date}T10:00:00Z`, via: 'api', ...e })), { service: 'doctor' }) });
+  const files = [
+    day('2026-09-30', [
+      { route: 'fix', status: 200, paid: true, payer: '0xabc', input: { url: 'https://seller.example/x' }, result: { fixes: 'amount', improvements: 3 } },
+      { route: 'x402_fix', status: 200, paid: true, via: 'mcp', result: { improvements: 2 } },
+      { route: 'fix', status: 200, via: 'credits', result: { improvements: 1 } },
+      { route: 'fix', status: 402, count: 40 },
+      { route: 'fix', status: 200, paid: true, agent: 'x402-doctor-index-payment/1.0', result: { improvements: 5 } },
+      { route: 'diagnose', status: 200, paid: true },
+    ]),
+    day('2026-09-10', [{ route: 'fix', status: 200, paid: true, result: { improvements: 4 } }]),
+  ];
+  const f = fixWeek(files, NOW);
+  assert.deepStrictEqual(f, { days: 7, paid: 3, quotes: 40, improvements: 6, paid_total: 4 });
+  assert.doesNotMatch(JSON.stringify(f), /example|0xabc|payer/);
 });
 
 test('all time: PlainText\'s calls still count after it left the charts', () => {
