@@ -287,3 +287,45 @@ test('payto-stable: one fixed payout address per network', () => {
   const f = fix(buildFixes(report({ checks: [{ id: 'payto-stable', status: 'warn', message: 'The payout address changes from one 402 to the next.' }] })), 'payto-stable');
   assert.match(code(f), /process\.env\.PAY_TO/);
 });
+
+test('improvements: info checks get their own list after the fixes, with code; warnings stay fixes', () => {
+  const out = buildFixes(report({ url: 'https://api.example.com/v1/data', checks: [
+    { id: 'agent-identity', status: 'info', message: 'No ERC-8004 registration file (/.well-known/agent-registration.json). Optional: it gives your service an on-chain identity.' },
+    { id: 'builder-code', status: 'info', message: 'No Base Builder Code: Base cannot attribute payments on this route to your app.' },
+    { id: 'openapi-ownership', status: 'info', message: 'No ownership proof in openapi.json.' },
+    { id: 'well-known', status: 'info', message: 'No /.well-known/x402 (HTTP 404). Optional: crawlers such as x402scan read it.' },
+    { id: 'well-known-names', status: 'info', message: '2 of 2 resource(s) in /.well-known/x402 have no name and description.' },
+    { id: 'bazaar-output', status: 'info', message: 'Output example declared without an output schema.' },
+    { id: 'paywall', status: 'info', message: 'No browser paywall: people opening the URL in a browser see the raw 402.' },
+    { id: 'openapi-contact', status: 'info', message: 'No info.contact.email in openapi.json.' },
+    { id: 'agent-instructions', status: 'info', message: 'No /skill.md or /llms.txt. Optional: a short Markdown file.' },
+    { id: 'openapi-free-routes', status: 'info', message: 'Operations with neither x-payment-info nor "security": []: POST /verify.' },
+    { id: 'wallets', status: 'info', message: 'Who can pay: MetaMask ✓ Base' },
+  ] }));
+  assert.deepEqual(out.fixes, []);
+  assert.deepEqual(out.improvements.map((f) => f.recipe), ['agent-identity', 'builder-code', 'openapi-ownership', 'well-known', 'well-known-names', 'bazaar-output', 'paywall', 'openapi-contact', 'agent-instructions', 'openapi-free-routes']);
+  assert.ok(out.improvements.every((f) => f.severity === 'info' && f.title && f.steps.length && f.code.length));
+  const byKey = Object.fromEntries(out.improvements.map((f) => [f.recipe, f]));
+  assert.match(code(byKey['agent-identity']), /eip-8004#registration-v1[\s\S]*"register\(string\)" "https:\/\/api\.example\.com\/\.well-known\/agent-registration\.json"/);
+  assert.equal(byKey['builder-code'].title, 'Add a Base Builder Code');
+  assert.match(code(byKey['agent-instructions']), /# api\.example\.com/);
+  assert.match(code(byKey.paywall), /testnet: false/);
+  assert.match(out.summary, /10 improvements/);
+  assert.deepEqual(out.unfixed, [], 'info checks never land in unfixed');
+});
+
+test('mpp-challenge and stellar-option: a complete MPP challenge, and the USDC contract with sponsored fees', () => {
+  const out = buildFixes(report({ url: 'https://pay.example.com/x', checks: [
+    { id: 'mpp-id', status: 'fail', message: 'An MPP challenge has no id; clients send it back with the credential so the server can match the payment.' },
+    { id: 'mpp-expires', status: 'warn', message: 'An MPP challenge has no expires; without it an old challenge can be paid again later (replay).' },
+  ] }));
+  const m = fix(out, 'mpp-challenge');
+  assert.deepEqual(m.checks, ['mpp-id', 'mpp-expires'], 'one fix for both');
+  assert.match(code(m), /realm="pay\.example\.com"/);
+  assert.match(code(m), /"chainId": 8453/);
+  const st = buildFixes(report({ url: 'https://pay.example.com/x', accepts: [{ scheme: 'exact', network: 'stellar:pubnet', amount: '100000', asset: 'USDC', payTo: 'GABC' }], checks: [
+    { id: 'accepts[0]-asset', status: 'fail', message: 'accepts[0]: asset "USDC" is not a Soroban token contract (C…); x402 Stellar clients refuse it ("Invalid Stellar asset address").' },
+  ] }));
+  assert.match(code(fix(st, 'stellar-option')), /CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75/);
+  assert.match(code(fix(st, 'stellar-option')), /"areFeesSponsored": true/);
+});
