@@ -250,3 +250,40 @@ test('get-probe: a POST route whose GET answers 404 gets the GET/HEAD 402 middle
   assert.deepEqual(out.unfixed, []);
 });
 
+
+test('mpp-bad-credential: 400 gets the fresh-402 middleware; 2xx is the free-resource variant; 500 the crash one', () => {
+  const run = (message, status = 'warn') => fix(buildFixes(report({ url: 'https://api.example.com/v1/data', checks: [{ id: 'mpp-bad-credential', status, message }] })), 'mpp-bad-credential');
+  const f = run('A malformed Payment credential gets HTTP 400; clients expect 402 with a fresh challenge.');
+  assert.match(f.title, /402 and a fresh challenge/);
+  assert.match(code(f), /app\.use\("\/v1\/data"/);
+  assert.match(code(f), /res\.status\(402\)\.set\("WWW-Authenticate", challengeFor\(req\)\)/);
+  assert.match(code(f), /realm="api\.example\.com"/);
+  assert.match(run('A made-up Payment credential got HTTP 200: the resource is served without a valid payment.', 'fail').title, /verify before serving/);
+  assert.match(run('A malformed Payment credential crashes the endpoint (HTTP 500).', 'fail').title, /crashes/);
+});
+
+test('mpp-realm and mpp-stripe: the host as realm, and the missing Stripe details', () => {
+  const out = buildFixes(report({ url: 'https://api.neynar.com/v2/x', checks: [
+    { id: 'mpp-realm', status: 'warn', message: 'realm="neynar api" isn\'t this host (api.neynar.com).' },
+    { id: 'mpp-stripe', status: 'fail', message: '[stripe] methodDetails.networkId is missing (your Stripe profile id).' },
+  ] }));
+  assert.match(fix(out, 'mpp-realm').title, /api\.neynar\.com/);
+  assert.match(code(fix(out, 'mpp-realm')), /realm="api\.neynar\.com"/);
+  assert.match(code(fix(out, 'mpp-stripe')), /"networkId"/);
+});
+
+test('agent-identity: a template for a wrong file, register for an unknown id, setAgentURI for one that points elsewhere', () => {
+  const run = (message) => fix(buildFixes(report({ url: 'https://agent.example.com/v1/x', checks: [{ id: 'agent-identity', status: 'warn', message }] })), 'agent-identity');
+  const file = run('/.well-known/agent-registration.json is not an ERC-8004 registration file (it needs "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1" and a name).');
+  assert.match(code(file), /eip-8004#registration-v1/);
+  assert.match(code(file), /"endpoint": "https:\/\/agent\.example\.com\/"/);
+  assert.match(code(run('The registration file says agent #123 in the ERC-8004 Identity Registry on Base, but that agent id doesn\'t exist there.')), /"register\(string\)" "https:\/\/agent\.example\.com\/\.well-known\/agent-registration\.json"/);
+  const back = run('Agent #97522 in the ERC-8004 Identity Registry on Base points to https://old.example/x.json, not to agent.example.com. Anyone can claim a registration in their file; only one whose tokenURI points back here proves it.');
+  assert.match(back.title, /#97522/);
+  assert.match(code(back), /"setAgentURI\(uint256,string\)" 97522 "https:\/\/agent\.example\.com\/\.well-known\/agent-registration\.json"/);
+});
+
+test('payto-stable: one fixed payout address per network', () => {
+  const f = fix(buildFixes(report({ checks: [{ id: 'payto-stable', status: 'warn', message: 'The payout address changes from one 402 to the next.' }] })), 'payto-stable');
+  assert.match(code(f), /process\.env\.PAY_TO/);
+});
