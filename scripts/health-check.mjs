@@ -22,7 +22,6 @@ const SOLANA = 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp';
 const ICHI = 'https://ichimoku-signal.fizzl.eu';
 const DOCTOR = 'https://x402-doctor.fizzl.eu';
 const GUARD = 'https://presign-guard.fizzl.eu';
-const PLAIN = 'https://plaintext.fizzl.eu';
 const PG1_HEALTH = 'https://pg1-ai-agent.vercel.app/api/health';
 const USDC_BASE = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 const PERMIT2 = '0x000000000022D473030F116dDEE9F6B43aC78BA3';
@@ -60,8 +59,6 @@ const PAID = [
   { service: 'presign-guard', name: 'GET /v1/token', url: `${GUARD}/v1/token?chain=base&address=${USDC_BASE}`, amount: '10000', networks: [BASE, SOLANA] },
   { service: 'presign-guard', name: 'GET /v1/approvals', url: `${GUARD}/v1/approvals?chain=base&address=${PERMIT2}`, amount: '20000', networks: [BASE, SOLANA] },
   { service: 'presign-guard', name: 'GET /v1/screen', url: `${GUARD}/v1/screen?address=${PERMIT2}`, amount: '10000', networks: [BASE, SOLANA] },
-  { service: 'PlainText', name: 'POST /api/check-wallet', url: `${PLAIN}/api/check-wallet`, amount: '40000', networks: [BASE, SOLANA], body: { address: PERMIT2, chain: 'base', kind: 'token' } },
-  { service: 'PlainText', name: 'POST /api/explain', url: `${PLAIN}/api/explain`, amount: '30000', networks: [BASE, SOLANA], body: { data: { spender: PERMIT2, amount: '1000000' } } },
 ];
 
 async function request(url, { method = 'GET', body, headers = {} } = {}) {
@@ -92,8 +89,9 @@ async function wake(origin) {
 }
 
 // Render suspends free services once the workspace's free hours run out, until the 1st of the next month.
-// PlainText stays on the free plan (Frits, 14 Oct 2026): its checks still run and show, but don't fail the run.
-const PAUSED_UNTIL = { PlainText: '2026-11-01T00:00:00Z' };
+// A service paused until a date ({ name: ISO date }): its checks still run and show, but don't fail the run.
+// (PlainText was paused this way from 14 Oct 2026 and retired for good on 29 Oct.)
+const PAUSED_UNTIL = {};
 const paused = (service) => Date.now() < Date.parse(PAUSED_UNTIL[service] ?? 0);
 
 const results = [];
@@ -154,7 +152,7 @@ async function checkFree(service, name, fn) {
 }
 
 async function main() {
-  const origins = [[ICHI, 'Ichimoku Signal'], [DOCTOR, 'x402 Doctor'], [GUARD, 'presign-guard'], [PLAIN, 'PlainText']];
+  const origins = [[ICHI, 'Ichimoku Signal'], [DOCTOR, 'x402 Doctor'], [GUARD, 'presign-guard']];
   const awake = await Promise.all(origins.map(([o]) => wake(o)));
   origins.forEach(([o, service], i) => record(service, 'site answers', awake[i], awake[i] ? o : `${o} did not answer within ~2 minutes`));
 
@@ -213,7 +211,7 @@ async function main() {
       const items = (await res.json()).items || [];
       for (const it of items) {
         const r = String(it.resource || '');
-        if ([ICHI, DOCTOR, GUARD, PLAIN].some((o) => r.startsWith(o))) listed.push(r.replace(/^https:\/\//, ''));
+        if ([ICHI, DOCTOR, GUARD].some((o) => r.startsWith(o))) listed.push(r.replace(/^https:\/\//, ''));
       }
       if (items.length < 500) break;
     }
@@ -244,7 +242,7 @@ async function main() {
     '',
     '| | Service | Check | Result |',
     '|---|---|---|---|',
-    ...results.map((r) => `| ${r.ok ? '✅' : r.paused ? '⏸️' : '❌'} | ${r.service} | ${r.name} | ${String(r.detail).replace(/\|/g, '/')}${r.paused ? ` (paused until ${PAUSED_UNTIL[r.service].slice(0, 10)}: Render's free hours)` : ''} |`),
+    ...results.map((r) => `| ${r.ok ? '✅' : r.paused ? '⏸️' : '❌'} | ${r.service} | ${r.name} | ${String(r.detail).replace(/\|/g, '/')}${r.paused ? ` (paused until ${PAUSED_UNTIL[r.service].slice(0, 10)})` : ''} |`),
     '',
     `PG1 (presign-guard's sanctions source): ${pg1.up ? '✅ up' : '⚠️ down'}, ${pg1.detail}. Status page: https://stats.uptimerobot.com/Du0BQ84Hg3`,
     '',
