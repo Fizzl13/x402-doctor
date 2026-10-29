@@ -86,6 +86,13 @@ test('cdp-validate check: pass with advice, warn on a Base endpoint CDP rejects,
   assert.equal((await run(v1(), { accepts: [{ network: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp' }] })).check.status, 'warn');
   assert.equal((await run(v1(), { accepts: [{ network: 'algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=' }] })).check.status, 'info');
 
+  // A POST route probed with GET (a web check without a method) is asked about with the method its 402 declares.
+  const declared = [];
+  const cdpDeclared = { validate: async (u, m) => { declared.push(m); return ok(); } };
+  await checkCdpValidate('https://api.example.com/paid', 'GET', { accepts: [{ network: BASE }], extensions: { bazaar: { info: { input: { type: 'http', method: 'POST' } } } } }, cdpDeclared, []);
+  await checkCdpValidate('https://api.example.com/paid', 'GET', { accepts: [{ network: BASE }], extensions: { bazaar: { info: { input: { type: 'http', method: 'PUT' } } } } }, cdpDeclared, []);
+  assert.deepEqual(declared, ['POST', 'GET'], 'POST from the 402; a method CDP does not check (PUT) leaves the probe\'s');
+
   const http = await run(ok(), { url: 'http://api.example.com/paid' });
   assert.deepEqual([http.check, http.asked], [undefined, []], 'CDP takes HTTPS only: not asked');
   assert.equal((await run(new Error('timeout'))).check, undefined, 'no answer from CDP: say nothing');
