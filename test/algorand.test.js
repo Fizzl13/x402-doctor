@@ -96,6 +96,9 @@ test('preflight: an Algorand USDC seller is go with its dollar price; no_go when
     assert.equal(go.options[0].network_name, 'Algorand');
     assert.equal(go.options[0].payable, true);
     assert.notEqual(go.verdict, 'no_go', JSON.stringify(go.reasons));
+    const hash = go.reasons.find((r) => r.code === 'algorand_whole_hash');
+    assert.equal(hash.level, 'info', 'the whole genesis hash is info, not a verdict');
+    assert.match(hash.message, /Every payable option names Algorand by the whole genesis hash.*@x402\/avm 2\.29.*CAIP-2 id algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k/);
     const nogo = await preflight(`${origin}/signal`, { safeFetch, algodFetch: algod(404) });
     assert.equal(nogo.verdict, 'no_go');
     assert.equal(nogo.options[0].payable, false);
