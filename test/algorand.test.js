@@ -8,9 +8,11 @@ const { checkAccepts, checkAlgorand } = require('../lib/diagnose');
 const { preflight } = require('../lib/preflight');
 const { isAlgorandAddress, familyOf } = require('../lib/networks');
 const { walletCompatibility } = require('../lib/wallets');
+const { buildFixes } = require('../lib/recipes');
 
 const ALGO = 'algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=';
 const ALGO_TEST = 'algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=';
+const ALGO_CAIP2 = 'algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k';
 const PAY_TO = 'SGLTUPAC7TKGKNNXKNPQ2QZCC7NJSLAKYZ7O7NOGGAPXWBFZTOLTPMSPPI'; // a real payout address from the GoPlausible listing
 const option = (extra = {}) => ({ scheme: 'exact', network: ALGO, asset: '31566704', amount: '100000', payTo: PAY_TO, maxTimeoutSeconds: 300, extra: { decimals: 6 }, ...extra });
 const algod = (status) => async (url) => { algod.last = url; return new Response('{}', { status }); };
@@ -25,7 +27,7 @@ test('addresses: checksum verified, family from the network id', () => {
 
 test('checkAccepts: a valid USDC option passes; bad payTo, asset, amount and fee payer are caught', () => {
   const ok = [];
-  checkAccepts([option()], ok);
+  checkAccepts([option({ network: ALGO_CAIP2 })], ok);
   assert.deepEqual(ok.filter((c) => c.status !== 'pass').map((c) => c.id), []);
   assert.match(ok.find((c) => c.id === 'accepts[0]-amount').message, /\$0\.1 USDC/);
   const bad = [];
@@ -36,6 +38,22 @@ test('checkAccepts: a valid USDC option passes; bad payTo, asset, amount and fee
   assert.equal(by['accepts[0]-amount'], 'fail');
   assert.equal(by['accepts[0]-feepayer'], 'fail');
   assert.equal(by['accepts[1]-asset'], 'fail', 'mainnet USDC on the testnet is a mismatch');
+});
+
+test('the whole genesis hash as network: a warning that @x402/avm 2.29 refuses it, and a fix to the CAIP-2 id', () => {
+  const checks = [];
+  checkAccepts([option(), option({ network: ALGO_CAIP2 }), option({ network: ALGO_TEST, asset: '10458941' })], checks);
+  const get = (id) => checks.find((c) => c.id === id);
+  assert.equal(get('accepts[0]-network-id').status, 'warn');
+  assert.match(get('accepts[0]-network-id').message, /@x402\/avm 2\.29 take only the CAIP-2 id "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k"/);
+  assert.equal(get('accepts[1]-network-id'), undefined);
+  assert.match(get('accepts[2]-network-id').message, /"algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDe"/);
+  const { fixes } = buildFixes({ url: 'https://api.example.com/paid', checks, challenge: { x402Version: 2, accepts: [option()] } });
+  const fix = fixes.find((f) => f.recipe === 'algorand-id');
+  assert.ok(fix, 'algorand-id recipe');
+  const code = fix.code.map((c) => c.snippet).join('\n');
+  assert.match(code, /"network": "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k"/);
+  assert.match(code, /resourceServer\.register\("algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k", new ExactAvmScheme\(\)\)/);
 });
 
 test('checkAlgorand: opted in passes, not opted in fails, algod trouble is info', async () => {
