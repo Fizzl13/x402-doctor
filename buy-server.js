@@ -42,6 +42,7 @@ const { postOnlyTerms } = require('./lib/post-only');
 const { fizzlCors } = require('./lib/fizzl-cors');
 const { mirrorChallengeIntoBody, onlyNetworks, xrplPayTo, algorandPayTo, stellarPayTo, xlayerPayTo, usdt0Amount, stellarFacilitator, ALGORAND, STELLAR, XLAYER, XLAYER_USDT0, DEFAULT_ALGORAND_FACILITATOR } = require('./lib/paid-api');
 const { merchantExtension, builderCodeExtension } = require('./lib/merchant');
+const { createPaymentRetry, paymentIdentifierExtension } = require('./lib/payment-retry');
 const { createSigner, signPaidResponses, paymentOf } = require('./lib/receipt');
 const { createUsageLog, mcpPayment } = require('./lib/usage-log');
 const { createSafeFetch } = require('./lib/safe-fetch');
@@ -149,6 +150,7 @@ function routesFor(env) {
         }),
         ...merchantExtension,
         ...builderCodeExtension(env.BUILDER_CODE),
+        ...paymentIdentifierExtension,
       },
     },
   };
@@ -416,6 +418,9 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
   app.use(mirrorChallengeIntoBody);
   // An unpaid GET or HEAD on the purchase gets its 402 instead of a 404 (lib/post-only.js).
   if (paywall) app.use(postOnlyTerms({ paths: [BUY_ROUTE], paywall }));
+  // A retry with an x402 payment id this purchase already answered gets that answer again, without buying or charging
+  // again. The body is read first, so the same id with another need is a new purchase.
+  app.use(BUY_ROUTE, express.json({ limit: '16kb' }), (deps.paymentRetry ?? createPaymentRetry()).middleware);
   app.use(deps.oncePerPayment ?? createOncePerPayment({ paths: [BUY_ROUTE], locks }));
   if (paywall) app.use(paywall);
   app.use(signPaidResponses(signer, [`POST ${BUY_ROUTE}`]));
