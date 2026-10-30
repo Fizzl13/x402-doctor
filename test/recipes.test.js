@@ -283,6 +283,14 @@ test('agent-identity: a template for a wrong file, register for an unknown id, s
   assert.match(code(back), /"setAgentURI\(uint256,string\)" 97522 "https:\/\/agent\.example\.com\/\.well-known\/agent-registration\.json"/);
 });
 
+test('payee-identity: setAgentWallet with the payTo, signed by the payTo wallet, then getAgentWallet to check', () => {
+  const f = fix(buildFixes(report({ url: 'https://agent.example.com/v1/x', checks: [{ id: 'payee-identity', status: 'warn', message: 'payTo 0x6B0F…5F25 is not the agent wallet registered for agent #97519 on Base (0x2c7c…128b). An agent that verifies payees can\'t tell this payment goes to this agent and may refuse it.', hint: 'Make the payTo the agent wallet: in the Identity Registry (0x8004A169FB4a3325136EB29fA0ceB6D2e539a432), the agent\'s owner calls setAgentWallet(agentId, 0x6B0F4651eD42893ab58139938175E4a69f175F25, deadline, signature) with an EIP-712 signature from 0x6B0F…5F25 that proves it controls that address. Or pay out to 0x2c7c…128b.' }] })), 'payee-identity');
+  assert.match(f.title, /#97519/);
+  assert.match(code(f), /"setAgentWallet\(uint256,address,uint256,bytes\)" 97519 0x6B0F4651eD42893ab58139938175E4a69f175F25 \$DEADLINE \$SIGNATURE_FROM_PAYTO/);
+  assert.match(code(f), /"getAgentWallet\(uint256\)\(address\)" 97519/);
+  assert.equal(buildFixes(report({ checks: [{ id: 'payee-identity', status: 'pass', message: 'The payTo is the agent wallet registered for agent #1 on Base.' }] })).fixes?.length ?? 0, 0, 'a pass needs no fix');
+});
+
 test('payto-stable: one fixed payout address per network', () => {
   const f = fix(buildFixes(report({ checks: [{ id: 'payto-stable', status: 'warn', message: 'The payout address changes from one 402 to the next.' }] })), 'payto-stable');
   assert.match(code(f), /process\.env\.PAY_TO/);
