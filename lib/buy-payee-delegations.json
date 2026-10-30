@@ -1,0 +1,122 @@
+[
+ {
+  "network": "eip155:8453",
+  "payTo": "0x4998D0F55E97598E1711faC4EB196EC318d8e08c",
+  "delegation": {
+   "message": {
+    "chainId": "8453",
+    "registry": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+    "agentId": "988891",
+    "agentWallet": "0x2c7c52d15339e8b46e0e09245bb247cd7e6b128b",
+    "network": "eip155:8453",
+    "payTo": "0x4998D0F55E97598E1711faC4EB196EC318d8e08c",
+    "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    "origin": "https://buy.fizzl.eu",
+    "validAfter": "1793397259",
+    "validUntil": "1824933199",
+    "nonce": "0x4259da5fcab1e15748bb719f18cfa42ee4c57ce5e5c08fb7e8f77f0f9b787d0e"
+   },
+   "signature": "0xcee70bba52b5414a26a6b02c9e647aa27c5fa446ae6551488cd1bc1e9095515f1bf87567fc917120dcf1a25199df057553443d65955819479126f9115c5856ec1c"
+  }
+ },
+ {
+  "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+  "payTo": "ATWJ82T8nRdQwZnaysB68N5EpaSvLRsQP4h6eWmaJBH9",
+  "delegation": {
+   "message": {
+    "chainId": "8453",
+    "registry": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+    "agentId": "988891",
+    "agentWallet": "0x2c7c52d15339e8b46e0e09245bb247cd7e6b128b",
+    "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+    "payTo": "ATWJ82T8nRdQwZnaysB68N5EpaSvLRsQP4h6eWmaJBH9",
+    "asset": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    "origin": "https://buy.fizzl.eu",
+    "validAfter": "1793397259",
+    "validUntil": "1824933199",
+    "nonce": "0xef6e69882c2d7c2253e2184362821763f7a1ed983ccfcec3fb1da18c540e9ba5"
+   },
+   "signature": "0x331b850ab4d42efb24a339692ed80c9cd126418f300ded4662d04f6e3950187b7489d6d479232172b3a8c2ba883e078523810962e34ed649cbdf1f4800c56e281c"
+  }
+ },
+ {
+  "network": "xrpl:0",
+  "payTo": "r9xmBsRr8Ao7jRgjjxreMiAwGiCK2FGwqw",
+  "delegation": {
+   "message": {
+    "chainId": "8453",
+    "registry": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+    "agentId": "988891",
+    "agentWallet": "0x2c7c52d15339e8b46e0e09245bb247cd7e6b128b",
+    "network": "xrpl:0",
+    "payTo": "r9xmBsRr8Ao7jRgjjxreMiAwGiCK2FGwqw",
+    "asset": "524C555344000000000000000000000000000000",
+    "origin": "https://buy.fizzl.eu",
+    "validAfter": "1793397259",
+    "validUntil": "1824933199",
+    "nonce": "0xb038e77cf2fcf3e6563eb20a80b25c91cc3ac030919fd9e156f3a2ebe621fbf4"
+   },
+   "signature": "0xabc4cc1e8e43cb188d27ef25e9542723fb191c1ef96758a48bef63270ff363123a18832c40e6bc3655a2bb9cbebcfd75fcb3fb3e71c3b6d54a86981f914ee98c1b"
+  }
+ },
+ {
+  "network": "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k",
+  "payTo": "LOYVFSQ6ZTS2YWUW4GQ5L6VPP2TPIOXWYDACK53CPOHQQHLDMEMKJDXAX4",
+  "delegation": {
+   "message": {
+    "chainId": "8453",
+    "registry": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+    "agentId": "988891",
+    "agentWallet": "0x2c7c52d15339e8b46e0e09245bb247cd7e6b128b",
+    "network": "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k",
+    "payTo": "LOYVFSQ6ZTS2YWUW4GQ5L6VPP2TPIOXWYDACK53CPOHQQHLDMEMKJDXAX4",
+    "asset": "31566704",
+    "origin": "https://buy.fizzl.eu",
+    "validAfter": "1793397259",
+    "validUntil": "1824933199",
+    "nonce": "0x6330e3d21d96ba201ff3220433edbea11d0bf3705008fecdc34932d3bb7595a1"
+   },
+   "signature": "0xc8fbbfb19ee477066a28e20c87bb9ea67f0bd945262b6384cb8e137cebafcd49784ac0bf1f83d78288c3a13da163991b633952de01479d9a70e94613d9b075de1b"
+  }
+ },
+ {
+  "network": "stellar:pubnet",
+  "payTo": "GCH2J5UAY24YNKA65MPAATVKWRCZZRZNF3JZKYYS5MIBZPG6U7WJ6CDQ",
+  "delegation": {
+   "message": {
+    "chainId": "8453",
+    "registry": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+    "agentId": "988891",
+    "agentWallet": "0x2c7c52d15339e8b46e0e09245bb247cd7e6b128b",
+    "network": "stellar:pubnet",
+    "payTo": "GCH2J5UAY24YNKA65MPAATVKWRCZZRZNF3JZKYYS5MIBZPG6U7WJ6CDQ",
+    "asset": "CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75",
+    "origin": "https://buy.fizzl.eu",
+    "validAfter": "1793397259",
+    "validUntil": "1824933199",
+    "nonce": "0x91a5ca726dfc6c7a373569e27bb7ed010cd019db619894f6993c6a8fe8377868"
+   },
+   "signature": "0x14e4abafd0903c4d0f9700acc791b3505160f42f1de0f938175f709c246bb6a81a663951919d5769e66ce801336beff98989754738b879a4ffffd7d43238049c1b"
+  }
+ },
+ {
+  "network": "eip155:196",
+  "payTo": "0x4998D0F55E97598E1711faC4EB196EC318d8e08c",
+  "delegation": {
+   "message": {
+    "chainId": "8453",
+    "registry": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+    "agentId": "988891",
+    "agentWallet": "0x2c7c52d15339e8b46e0e09245bb247cd7e6b128b",
+    "network": "eip155:196",
+    "payTo": "0x4998D0F55E97598E1711faC4EB196EC318d8e08c",
+    "asset": "0x779ded0c9e1022225f8e0630b35a9b54be713736",
+    "origin": "https://buy.fizzl.eu",
+    "validAfter": "1793397259",
+    "validUntil": "1824933199",
+    "nonce": "0x7f725fd2c3970a9a7b73a05d4f6a74e91410294f3258254f9ff35c04f90f802d"
+   },
+   "signature": "0x3930ed0f089b8eb758cfee0083fbc446a90a9e34ea03c116d8556337cda17b4034c0fa298cdb1c3b3be1196031d0b99af0e7ce8fdeaebf9b05a5af83a8f278321b"
+  }
+ }
+]
