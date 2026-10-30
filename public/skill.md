@@ -16,6 +16,7 @@ Add the remote MCP server `https://x402-doctor.fizzl.eu/mcp` (Streamable HTTP) t
 | Tool | Price | What it does |
 |---|---|---|
 | `x402_quick_check` | free, 10/hour | pass/warn/fail, the number of problems and the top three |
+| `x402_payee_check` | free, same limit | Per payment option: is the payTo really the seller's ERC-8004 agent (its agent wallet, or a payee delegation it signed)? |
 | `x402_preflight` | $0.001 | go/caution/no_go before paying an endpoint |
 | `x402_preflight_batch` | $0.005 | The preflight for up to 10 endpoints |
 | `x402_preflight_deep` | $0.01 | The preflight plus diagnosis, history, seller and domain checks |
