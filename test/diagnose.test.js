@@ -799,7 +799,13 @@ test('ERC-8004 identity: verified when the registered agent points back to this 
     res.setHeader('content-type', 'application/json');
     if (id === 7) res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, result: abiString(`${site}/.well-known/agent-registration.json`) }));
     else if (id === 8) res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, result: abiString('https://someone-else.example/agent.json') }));
+    else if (id === 11 || id === 12) res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, result: abiString(`${elsewhere.replace('127.0.0.1', 'localhost')}/${id}.json`) }));
     else res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, error: { code: 3, message: 'execution reverted: ERC721NonexistentToken' } }));
+  });
+  // A registration kept on another host (as on IPFS): agent 11's lists this site as an endpoint, agent 12's doesn't.
+  const elsewhere = await listen((req, res) => {
+    res.setHeader('content-type', 'application/json');
+    res.end(JSON.stringify({ type: 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1', name: 'Kept elsewhere', services: [{ name: 'web', endpoint: req.url === '/11.json' ? `${site}/` : 'https://other.example/' }] }));
   });
   let doc = null;
   site = await listen((req, res) => {
@@ -827,6 +833,12 @@ test('ERC-8004 identity: verified when the registered agent points back to this 
   const other = await run();
   assert.equal(other.status, 'warn');
   assert.match(other.message, /points to https:\/\/someone-else\.example/);
+  doc = { ...base, registrations: [{ agentId: 11, agentRegistry: REG }] };
+  const listed = await run();
+  assert.equal(listed.status, 'pass', 'a registration kept elsewhere that lists this domain proves it');
+  assert.match(listed.message, /agent #11 on Base \(its registration at http:\/\/localhost:\d+\/11\.json lists/);
+  doc = { ...base, registrations: [{ agentId: 12, agentRegistry: REG }] };
+  assert.equal((await run()).status, 'warn', 'one that lists another domain does not');
   doc = { ...base, registrations: [{ agentId: 99, agentRegistry: REG }] };
   const missing = await run();
   assert.equal(missing.status, 'warn');
