@@ -64,6 +64,8 @@ test('trust reader: every answer equals the full index', async () => {
   for (const n of ['xrpl', 'eip155', 'eip155:8453', 'solana', 'stellar', 'nothing']) assert.deepEqual(await reader.byNetwork(n), await full.byNetwork(n), n);
   assert.deepEqual(await reader.similar('https://z.example/x', 'Weather forecast for a city'), await full.similar('https://z.example/x', 'Weather forecast for a city'));
   assert.deepEqual(reader.submittedKeys('s.example'), full.submittedKeys('s.example'));
+  for (const site of ['a.example', 'b.example', 'e.example', 'nobody.example']) assert.deepEqual(await reader.sellerEndpoints(site), full.sellerEndpoints(site), site);
+  assert.equal((await reader.sellerEndpoints('a.example')).total, 2);
 
   // A network view is passed through as its file, or answered empty, never parsed for the API.
   const opened = await reader.openNetwork('xrpl');
@@ -91,4 +93,11 @@ test('trust reader: keeps at most maxBuckets buckets, and falls back to the full
   assert.equal((await fallback.lookup('https://a.example/forecast', { waitMs: 2000 })).days_payable, 3);
   assert.equal(fallback.summary().resources, Object.keys(index.resources).length);
   assert.equal(await fallback.openNetwork('xrpl'), null, 'the API then answers from byNetwork()');
+});
+
+test('trust reader: seller endpoints are unavailable, not an error, until a scan has published their files', async () => {
+  const { fetchImpl } = await served();
+  const without = async (u) => (u.includes('views/seller-endpoints/') ? new Response('not found', { status: 404 }) : fetchImpl(u));
+  const reader = createTrustReader({ base: BASE, fetchImpl: without });
+  assert.deepEqual(await reader.sellerEndpoints('a.example', { waitMs: 2000 }), { unavailable: true });
 });

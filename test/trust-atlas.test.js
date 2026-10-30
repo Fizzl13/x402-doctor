@@ -164,3 +164,15 @@ test('GET /api/trust/seller: any subdomain names the seller, open to any origin;
   assert.equal((await fetch(base)).status, 400);
   assert.equal((await fetch(`${base}?host=nobody.example`)).status, 404);
 });
+
+test('GET /api/trust/seller: 503 with a reason while the seller lists are not published, and when the reader has none', async (t) => {
+  const bazaarIndex = { lookup: async () => null, listings: async () => null, refresh: () => Promise.resolve(), siteCalls: () => null };
+  for (const [trustIndex, want] of [[{ sellerEndpoints: async () => ({ unavailable: true }) }, /next daily scan/], [{}, /loading/]]) {
+    const app = createApp({ env: {}, status: { snapshot: async () => ({}) }, bazaarIndex, trustIndex: { atlas: () => null, summary: () => null, refresh: () => Promise.resolve(), ...trustIndex } });
+    const server = await new Promise((resolve) => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
+    t.after(() => server.close());
+    const res = await fetch(`http://127.0.0.1:${server.address().port}/api/trust/seller?host=fizzl.eu`);
+    assert.equal(res.status, 503);
+    assert.match((await res.json()).error, want);
+  }
+});
