@@ -2,7 +2,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { privateKeyToAccount, generatePrivateKey } = require('viem/accounts');
-const { verifyPayees, DELEGATION_TYPES, isEoaCode } = require('../lib/payee');
+const { verifyPayees, DELEGATION_TYPES, isEoaCode, docUrl } = require('../lib/payee');
 
 const REGISTRY = '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432';
 const URL_ = 'https://seller.example/api/thing';
@@ -95,4 +95,10 @@ test('payee verification: endpoint-unlisted, no-agent-wallet, not-read and no-id
   assert.equal(anon.outcome, 'no-identity');
   const named = await run([opt({ extra: { erc8004: { registry: `eip155:8453:${REGISTRY}`, agentId: '7' } } })], { fileIdentities: [] });
   assert.equal(named[0].outcome, 'verified-wallet', 'an identity named in extra.erc8004 is read from the registry and its tokenURI');
+});
+
+test('payee verification: an ipfs:// tokenURI is read through a public gateway', () => {
+  assert.equal(docUrl('ipfs://bafkreien3ak5'), 'https://gateway.pinata.cloud/ipfs/bafkreien3ak5');
+  assert.equal(docUrl('ipfs://ipfs/bafy/agent.json'), 'https://gateway.pinata.cloud/ipfs/bafy/agent.json');
+  assert.equal(docUrl('https://seller.example/agent.json'), 'https://seller.example/agent.json');
 });
