@@ -129,3 +129,38 @@ test('GET /api/stats carries the market summary once the Trust Index and the Baz
   assert.equal(body.market.read_at, '2026-10-15T12:00:00.000Z');
   assert.doesNotMatch(JSON.stringify(body.market), /paid/);
 });
+
+test('sellerEndpoints: one seller across its subdomains, payable first, with verdict, record, price, networks and bait', async () => {
+  const ti = createTrustIndex({ url: 'http://index.test', categoriesUrl: 'http://cat.test', fetchImpl });
+  assert.equal(ti.sellerEndpoints('seller.ai'), null, 'null while loading');
+  await ti.refresh();
+  const s = ti.sellerEndpoints('seller.ai');
+  assert.equal(s.total, 2);
+  assert.deepEqual(s.endpoints.map((e) => [e.url, e.verdict]), [['https://pay.seller.ai/a', 'go'], ['https://api.seller.ai/b', 'no_go']]);
+  assert.equal(s.endpoints[0].price_usd, 0.01);
+  assert.equal(s.endpoints[0].payable_ratio, 1);
+  assert.deepEqual(s.endpoints[1].networks, [], 'non-string networks dropped');
+  assert.equal(ti.sellerEndpoints('x.run.app').endpoints[0].bait, true);
+  assert.equal(ti.sellerEndpoints('nobody.example').total, 0);
+  assert.equal(ti.sellerEndpoints('seller.ai', { limit: 1 }).truncated, true);
+});
+
+test('GET /api/trust/seller: any subdomain names the seller, open to any origin; 400 without a host, 404 for an unknown seller', async (t) => {
+  const bazaarIndex = { lookup: async () => null, listings: async () => null, refresh: () => Promise.resolve(), siteCalls: () => null };
+  const ti = createTrustIndex({ url: 'http://index.test', categoriesUrl: 'http://cat.test', fetchImpl });
+  await ti.refresh();
+  const app = createApp({ env: {}, status: { snapshot: async () => ({}) }, bazaarIndex, trustIndex: ti });
+  const server = await new Promise((resolve) => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
+  t.after(() => server.close());
+  const base = `http://127.0.0.1:${server.address().port}/api/trust/seller`;
+  const res = await fetch(`${base}?host=api.seller.ai`);
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get('access-control-allow-origin'), '*');
+  const body = await res.json();
+  assert.equal(body.site, 'seller.ai');
+  assert.equal(body.endpoints.length, 2);
+  assert.match(body.check, /\/\?url=$/);
+  assert.equal((await (await fetch(`${base}?host=https://pay.seller.ai/a`)).json()).site, 'seller.ai', 'a URL works too');
+  assert.equal((await fetch(base)).status, 400);
+  assert.equal((await fetch(`${base}?host=nobody.example`)).status, 404);
+});

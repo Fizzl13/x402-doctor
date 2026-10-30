@@ -7,6 +7,7 @@ const { ALGORITHM, verifyReceipt, AUTHORITY, SERVICE } = require('./lib/receipt'
 const { securityHeaders } = require('./lib/security-headers');
 const { headGuard } = require('./lib/head-guard');
 const { nohumansClaim } = require('./lib/nohumans-claim');
+const { siteOf } = require('./lib/site');
 const { fizzlCors } = require('./lib/fizzl-cors');
 const { createSafeFetch, isPrivateIp } = require('./lib/safe-fetch');
 const diagnoseLib = require('./lib/diagnose');
@@ -634,6 +635,18 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     res.set({ 'Cache-Control': 'public, max-age=1800', 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json; charset=utf-8', Vary: 'Accept-Encoding' });
     if (/\bgzip\b/.test(req.get('accept-encoding') || '')) return res.set('Content-Encoding', 'gzip').send(atlasCache.gz);
     res.send(zlib.gunzipSync(atlasCache.gz));
+  });
+  // One seller's endpoints for the atlas card (atlas.fizzl.eu): ?host=api.example.com or example.com, any subdomain
+  // counts as the same seller, as on the map. Free, read-only.
+  app.get('/api/trust/seller', trustLimit, (req, res) => {
+    let host;
+    try { host = new URL(/^https?:\/\//i.test(String(req.query.host || '')) ? String(req.query.host) : `https://${req.query.host}`).hostname.toLowerCase(); } catch { host = ''; }
+    if (!host || !host.includes('.')) return res.status(400).json({ error: 'host is required, e.g. /api/trust/seller?host=fizzl.eu' });
+    const data = trustIndex.sellerEndpoints(siteOf(host));
+    if (!data) return res.status(503).json({ error: 'trust index loading, try again shortly' });
+    res.set('Cache-Control', 'public, max-age=1800').set('Access-Control-Allow-Origin', '*');
+    if (!data.total) return res.status(404).json({ ...data, error: 'no scanned endpoints for this seller' });
+    res.json({ ...data, check: `${publicUrl}/?url=` });
   });
   app.get('/api/trust/summary', trustLimit, async (_req, res) => {
     const summary = trustIndex.summary();
