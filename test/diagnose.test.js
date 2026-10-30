@@ -833,8 +833,8 @@ test('ERC-8004 identity: verified when the registered agent points back to this 
   assert.match(missing.message, /doesn't exist/);
 });
 
-test('ERC-8004 payee verification: the payTo must be the agent wallet registered for the verified agent', async () => {
-  const { checkAgentIdentity } = require('../lib/diagnose');
+test('ERC-8004 payee verification in the web check: per payment option, bound to the verified agent or not', async () => {
+  const { checkAgentIdentity, checkPayeeBinding } = require('../lib/diagnose');
   const abiString = (s) => {
     const hex = Buffer.from(s).toString('hex');
     return `0x${'20'.padStart(64, '0')}${s.length.toString(16).padStart(64, '0')}${hex.padEnd(Math.ceil(hex.length / 64) * 64, '0')}`;
@@ -843,33 +843,40 @@ test('ERC-8004 payee verification: the payTo must be the agent wallet registered
   let site = null;
   const rpc = await listen(async (req, res) => {
     const body = JSON.parse(await readBody(req));
-    const data = body.params[0].data, id = parseInt(data.slice(10), 16);
     res.setHeader('content-type', 'application/json');
-    const result = data.startsWith('0x00339509') // getAgentWallet: agent 7 has one, agent 9 none (cleared on transfer)
-      ? `0x${(id === 7 ? WALLET.slice(2) : '').padStart(64, '0')}`
-      : abiString(`${site}/.well-known/agent-registration.json`);
-    res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, result }));
+    const reply = (result) => res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, result }));
+    if (body.method === 'eth_blockNumber') return reply('0x100');
+    if (body.method === 'eth_getCode') return reply('0x');
+    const data = body.params[0].data, id = parseInt(data.slice(10, 74), 16);
+    if (data.startsWith('0x00339509')) return reply(`0x${(id === 7 ? WALLET.slice(2) : '').padStart(64, '0')}`); // getAgentWallet: none for agent 9
+    reply(abiString(`${site}/.well-known/agent-registration.json`));
   });
   let agentId = 7;
   site = await listen((req, res) => {
     res.setHeader('content-type', 'application/json');
-    res.end(JSON.stringify({ type: 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1', name: 'Test service', services: [], registrations: [{ agentId, agentRegistry: 'eip155:8453:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432' }] }));
+    res.end(JSON.stringify({ type: 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1', name: 'Test service', services: [{ name: 'web', endpoint: `${site}/` }], registrations: [{ agentId, agentRegistry: 'eip155:8453:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432' }] }));
   });
   const safeFetch = createSafeFetch({ allowPrivate: true });
-  const run = async (payTos) => { const checks = []; await checkAgentIdentity(site, safeFetch, checks, { evmRpcUrls: { [BASE]: rpc }, payTos }); return checks; };
+  const evmRpcUrls = { [BASE]: rpc };
+  const opt = (over) => ({ scheme: 'exact', network: BASE, asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', amount: '10000', payTo: WALLET, ...over });
+  const run = async (accepts) => {
+    const checks = [];
+    const ids = await checkAgentIdentity(site, safeFetch, checks, { evmRpcUrls });
+    await checkPayeeBinding(accepts, `${site}/paid`, ids || [], checks, { evmRpcUrls, safeFetch });
+    return checks.find((c) => c.id === 'payee-identity');
+  };
 
-  const same = await run([WALLET.toUpperCase().replace('0X', '0x')]);
-  assert.deepEqual(same.map((c) => [c.id, c.status]), [['agent-identity', 'pass'], ['payee-identity', 'pass']], 'case does not matter');
-  const other = (await run([PAYTO])).find((c) => c.id === 'payee-identity');
+  const same = await run([opt({ payTo: WALLET.toUpperCase().replace('0X', '0x') })]);
+  assert.equal(same.status, 'pass', 'case does not matter');
+  assert.equal(same.payees[0].outcome, 'verified-wallet');
+  const other = await run([opt({ payTo: PAYTO }), opt({ network: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp', payTo: 'ATWJ82yHqQ3wXrQ3ZVf1Bd7wXLp2Pyc4e2JPxwh6JBH9' })]);
   assert.equal(other.status, 'warn');
-  assert.match(other.message, /^payTo 0x6B0F…5F25 is not the agent wallet registered for agent #7 on Base \(0x2c7c…128b\)/);
-  assert.match(other.hint, /setAgentWallet\(agentId, 0x6B0F4651eD42893ab58139938175E4a69f175F25, deadline, signature\)/);
+  assert.match(other.message, /agent #7 at block 256, agent wallet 0x2c7c…128b\. Base 0x6B0F…5F25: mismatch; Solana ATWJ82…JBH9: mismatch\./);
   assert.match(other.hint, /agent-wallet\.html\?agents=7&wallet=0x6B0F4651eD42893ab58139938175E4a69f175F25/);
-  assert.equal((await run([])).length, 1, 'no EVM payTo: no payee check');
   agentId = 9;
-  const none = (await run([PAYTO])).find((c) => c.id === 'payee-identity');
+  const none = await run([opt({ payTo: PAYTO })]);
   assert.equal(none.status, 'info');
-  assert.match(none.message, /^No agent wallet is set for agent #9 on Base/);
+  assert.equal(none.payees[0].outcome, 'no-agent-wallet');
 });
 
 test("Coinbase's agents: payable with USDC on Base (exact/upto), the v2 and $5 limits of the Coinbase MCP, none without Base USDC", () => {

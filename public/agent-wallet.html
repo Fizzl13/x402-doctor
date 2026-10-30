@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Set your agent wallet</title>
+<title>Agent wallet and payees</title>
 <link rel="canonical" href="https://x402-doctor.fizzl.eu/agent-wallet.html">
 <link rel="icon" href="/favicon.ico">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -63,6 +63,22 @@
     <p>Switch to the account that owns the agents and send one transaction per agent (a small Base gas fee). <span id="timer"></span></p>
     <button class="ghost" id="pickOwner">Choose account</button>
     <button id="send" disabled>Send</button>
+  </div>
+
+  <div class="step">
+    <h2>4. Payee delegations (other networks)</h2>
+    <p>A payTo that isn't the agent wallet (Solana, the XRP Ledger, Algorand, Stellar, a treasury) is bound by a delegation the agent wallet signs (draft ERC "x402 Payee Verification", EIP-712). Paste one of your paid routes; the check lists its payees that aren't bound yet. Sign them with the agent wallet, then publish the result under <code>payees</code> in your registration file or in each option's <code>extra.erc8004.delegation</code>.</p>
+    <label for="route">A paid route</label>
+    <input id="route" placeholder="https://your-api.example/paid" autocomplete="off">
+    <label for="days">Valid for (days, at most 365)</label>
+    <input id="days" type="number" min="1" max="365" value="365">
+    <button class="ghost" id="findPayees">Find payees</button>
+    <button class="ghost" id="pickAgentWallet">Choose account</button>
+    <button id="signDelegations" disabled>Sign delegations</button>
+    <table id="payeeTable" hidden><thead><tr><th>Network</th><th>payTo</th><th>Now</th></tr></thead><tbody></tbody></table>
+    <label for="out" hidden id="outLabel">Signed delegations (copy and publish)</label>
+    <textarea id="out" rows="8" readonly hidden style="width:100%;font-size:.75rem;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text)"></textarea>
+    <button class="ghost" id="copyOut" hidden>Copy</button>
   </div>
 
   <div id="log" role="status"></div>
@@ -172,6 +188,67 @@
       setTimeout(() => load().then(() => log('Done when every agent shows ✓ above.', 'ok')), 8000);
     } catch (e) { log(e.message || String(e), 'bad'); }
   };
+
+  // ---- payee delegations (draft ERC "x402 Payee Verification for ERC-8004 Agents")
+  $('route').value = q.get('route') || '';
+  let plan = null;
+  $('pickAgentWallet').onclick = () => pick().then((a) => log(`Account: ${short(a)}`)).catch((e) => log(e.message || String(e), 'bad'));
+  $('findPayees').onclick = async () => {
+    try {
+      const route = $('route').value.trim();
+      if (!/^https:\/\//.test(route)) { log('Paste a paid route (https://…).', 'bad'); return; }
+      log('Checking the route… (up to half a minute)');
+      const r = await fetch('/api/diagnose', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: route }) });
+      const report = await r.json();
+      const check = (report.checks || []).find((c) => c.id === 'payee-identity');
+      if (!check || !Array.isArray(check.payees)) { log(report.error || 'No ERC-8004 identity found for this route (registration file or extra.erc8004), so there is nothing to delegate.', 'bad'); return; }
+      const todo = check.payees.filter((p) => ['mismatch', 'invalid-delegation'].includes(p.outcome) && p.identity?.agentWallet);
+      const id = check.payees.find((p) => p.identity)?.identity;
+      plan = { route, origin: new URL(route).origin, id, todo };
+      const body = $('payeeTable').querySelector('tbody');
+      body.replaceChildren(...check.payees.map((p) => {
+        const tr = document.createElement('tr');
+        const ok = String(p.outcome).startsWith('verified-');
+        for (const [t, cls] of [[p.network], [short(p.payTo)], [p.outcome, ok ? 'ok' : 'warn']]) { const td = document.createElement('td'); td.textContent = t; if (cls) td.className = cls; tr.append(td); }
+        return tr;
+      }));
+      $('payeeTable').hidden = false;
+      $('signDelegations').disabled = !todo.length;
+      log(todo.length ? `${todo.length} payee(s) to delegate. Choose the agent wallet ${short(id.agentWallet)}, then Sign delegations.` : 'Nothing to delegate: every payee is bound, or the identity has no agent wallet yet (steps 1 to 3).', todo.length ? undefined : 'ok');
+    } catch (e) { log(e.message || String(e), 'bad'); }
+  };
+  $('signDelegations').onclick = async () => {
+    try {
+      if (!eth()) { log('No wallet found. Open this page in your wallet app\'s browser.', 'bad'); return; }
+      await eth().request({ method: 'eth_requestAccounts' });
+      const me = await account(), id = plan.id;
+      if (!me || me.toLowerCase() !== id.agentWallet.toLowerCase()) { log(`Switch to the agent wallet ${short(id.agentWallet)} first (Choose account). Now: ${short(me)}.`, 'bad'); return; }
+      const [, chain, registry] = id.registry.split(':');
+      const days = Math.min(365, Math.max(1, Number($('days').value) || 365));
+      const validAfter = Math.floor(Date.now() / 1000) - 60;
+      const validUntil = validAfter + Math.min(days * 86400, 31536000 - 60);
+      const signed = [];
+      for (const p of plan.todo) {
+        const nonce = `0x${[...crypto.getRandomValues(new Uint8Array(32))].map((b) => b.toString(16).padStart(2, '0')).join('')}`;
+        const message = { chainId: chain, registry, agentId: String(id.agentId), agentWallet: id.agentWallet, network: p.network, payTo: p.payTo, asset: p.asset ?? '*', origin: plan.origin, validAfter: String(validAfter), validUntil: String(validUntil), nonce };
+        const typed = {
+          types: {
+            EIP712Domain: [{ name: 'name', type: 'string' }, { name: 'version', type: 'string' }, { name: 'chainId', type: 'uint256' }, { name: 'verifyingContract', type: 'address' }],
+            PayeeDelegation: [{ name: 'chainId', type: 'uint256' }, { name: 'registry', type: 'address' }, { name: 'agentId', type: 'uint256' }, { name: 'agentWallet', type: 'address' }, { name: 'network', type: 'string' }, { name: 'payTo', type: 'string' }, { name: 'asset', type: 'string' }, { name: 'origin', type: 'string' }, { name: 'validAfter', type: 'uint64' }, { name: 'validUntil', type: 'uint64' }, { name: 'nonce', type: 'bytes32' }],
+          },
+          primaryType: 'PayeeDelegation',
+          domain: { name: 'x402 Payee Delegation', version: '1', chainId: Number(chain), verifyingContract: registry },
+          message,
+        };
+        const signature = await eth().request({ method: 'eth_signTypedData_v4', params: [me, JSON.stringify(typed)] });
+        signed.push({ network: p.network, payTo: p.payTo, delegation: { message, signature } });
+        log(`Signed the delegation for ${p.network}.`, 'ok');
+      }
+      $('out').value = JSON.stringify({ agentId: String(id.agentId), registry: id.registry, origin: plan.origin, payees: signed }, null, 1);
+      for (const el of ['out', 'outLabel', 'copyOut']) $(el).hidden = false;
+    } catch (e) { log(e.message || String(e), 'bad'); }
+  };
+  $('copyOut').onclick = () => navigator.clipboard.writeText($('out').value).then(() => log('Copied.', 'ok')).catch(() => { $('out').select(); log('Select the text and copy it.'); });
 })();
 </script>
 </body>
