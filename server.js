@@ -2,6 +2,7 @@ const express = require('express');
 const zlib = require('node:zlib');
 const fs = require('fs');
 const path = require('path');
+const PAYEE_DELEGATIONS = require('./lib/payee-delegations.json');
 const { x402TrustTxtRoute } = require('./lib/x402-trust-txt');
 const { ALGORITHM, verifyReceipt, AUTHORITY, SERVICE } = require('./lib/receipt');
 const { securityHeaders } = require('./lib/security-headers');
@@ -397,6 +398,9 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     services: [
       { name: 'web', endpoint: `${publicUrl}/` },
       { name: 'MCP', endpoint: `${publicUrl}/mcp`, version: '2025-06-18' },
+      // The payees that aren't the agent wallet, each with the payee delegation the agent wallet (0x6B0F…5F25) signed
+      // on 30 Oct 2026 for a year (draft ERC "x402 Payee Verification for ERC-8004 Agents", ethereum/ERCs#2132).
+      { name: 'x402', endpoint: `${publicUrl}/api/v1/preflight`, payees: PAYEE_DELEGATIONS },
     ],
     active: true,
     x402Support: true,
