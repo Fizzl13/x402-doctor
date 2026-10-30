@@ -8,7 +8,7 @@ Backed by a daily Trust Index of ~50,000 paid x402 and MPP endpoints across Base
 - [Agent instructions (skill.md)](https://x402-doctor.fizzl.eu/skill.md): how to use the preflight, the diagnosis and the MCP tools, and how to pay
 - [OpenAPI](https://x402-doctor.fizzl.eu/openapi.json): every paid route with its price, input and output schema
 - [x402 discovery document](https://x402-doctor.fizzl.eu/.well-known/x402)
-- MCP server (streamable HTTP): https://x402-doctor.fizzl.eu/mcp, with the free tool `x402_quick_check`
+- MCP server (streamable HTTP): https://x402-doctor.fizzl.eu/mcp, with the free tools `x402_quick_check` and `x402_payee_check` (is each payTo bound to the seller's ERC-8004 agent?)
 - Agent skills: `npx skills add Fizzl13/x402-doctor`, or in Claude Code `/plugin marketplace add Fizzl13/x402-doctor` then `/plugin install x402-doctor@fizzl`. Every Fizzl skill: https://github.com/Fizzl13/fizzl-skills
 
 ## Paid API

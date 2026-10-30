@@ -126,7 +126,7 @@ function assertAnnotated(tools) {
 test('mcp: a free quick check, five paid tools with their prices, the free payment proof and receipt checks and the free feedback tool', async () => {
   const client = await mcpClient();
   const { tools } = await client.listTools();
-  assert.deepEqual(tools.map((t) => t.name).sort(), ['check_payment_proof', 'feedback', 'verify_receipt', 'x402_diagnose', 'x402_fix', 'x402_preflight', 'x402_preflight_batch', 'x402_preflight_deep', 'x402_quick_check', 'x402_trust_add', 'x402_trust_record']);
+  assert.deepEqual(tools.map((t) => t.name).sort(), ['check_payment_proof', 'feedback', 'verify_receipt', 'x402_diagnose', 'x402_fix', 'x402_payee_check', 'x402_preflight', 'x402_preflight_batch', 'x402_preflight_deep', 'x402_quick_check', 'x402_trust_add', 'x402_trust_record']);
   const fb = await client.callTool({ name: 'feedback', arguments: { type: 'feature', message: 'Check Solana payTo token accounts in quick check', endpoint: 'x402_quick_check' } });
   assert.ok(!fb.isError);
   assert.equal(JSON.parse(fb.content[0].text).service, 'doctor');
@@ -148,7 +148,7 @@ test('mcp: a free quick check, five paid tools with their prices, the free payme
 test('mcp/free: only the free tools, annotated, with no price or paid tool in any description', async () => {
   const client = await mcpClient('/mcp/free');
   const { tools } = await client.listTools();
-  assert.deepEqual(tools.map((t) => t.name).sort(), ['check_payment_proof', 'x402_quick_check', 'x402_trust_add', 'x402_trust_record']);
+  assert.deepEqual(tools.map((t) => t.name).sort(), ['check_payment_proof', 'x402_payee_check', 'x402_quick_check', 'x402_trust_add', 'x402_trust_record']);
   assertAnnotated(tools);
   for (const t of tools) {
     assert.doesNotMatch(t.description, /\$\d|x402_diagnose|x402_preflight|x402_fix/, `${t.name} points to nothing paid`);
@@ -157,6 +157,11 @@ test('mcp/free: only the free tools, annotated, with no price or paid tool in an
   assert.ok(!out.isError, JSON.stringify(out.content));
   assert.ok(['pass', 'warn', 'fail'].includes(out.structuredContent.overall));
   assert.doesNotMatch(out.structuredContent.next, /\$\d|x402_diagnose|x402_fix/, 'the answer points to nothing paid either');
+  const payee = await client.callTool({ name: 'x402_payee_check', arguments: { url: targetUrl } });
+  assert.ok(!payee.isError, JSON.stringify(payee.content));
+  assert.equal(payee.structuredContent.status, 'none', 'a seller without an ERC-8004 identity has no payee verdict');
+  assert.match(payee.structuredContent.summary, /No ERC-8004 identity found|No payee verdict/);
+  assert.deepEqual(payee.structuredContent.payees, []);
   const paid = await client.callTool({ name: 'x402_diagnose', arguments: { url: targetUrl } });
   assert.ok(paid.isError, 'no paid tool here');
   await client.close();
@@ -343,7 +348,7 @@ test('diagnose on an x402 MCP server: tools listed, unpaid calls return the paym
   assert.equal(report.method, 'MCP');
   assert.equal(byId('returns-402')[0].status, 'info');
   assert.equal(byId('mcp-server')[0].status, 'pass');
-  assert.match(byId('mcp-server')[0].message, /11 tools/);
+  assert.match(byId('mcp-server')[0].message, /12 tools/);
   const calls = byId('mcp-payment-required');
   assert.equal(calls.length, 2, JSON.stringify(report.checks, null, 1));
   for (const c of calls) assert.equal(c.status, 'pass', c.message);

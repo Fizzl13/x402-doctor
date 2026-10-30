@@ -582,11 +582,12 @@ The marketplace is [`.claude-plugin/marketplace.json`](.claude-plugin/marketplac
 
 `https://x402-doctor.fizzl.eu/mcp` is an MCP server (Streamable HTTP, stateless) for Claude, Cursor and agent frameworks, listed in the official MCP registry as `io.github.Fizzl13/x402-doctor`. Directories can read its tools without connecting from the server card at `/.well-known/mcp/server-card.json` (the same list as `tools/list`).
 
-`https://x402-doctor.fizzl.eu/mcp/free` is the same server with only the free tools (`x402_quick_check`, `check_payment_proof`, `x402_trust_record`, `x402_trust_add`), for directories whose clients don't pay, such as Claude's connectors directory. Claude calls connectors from Anthropic's outbound range (`160.79.104.0/21`), so calls from there share one pool of 300 free calls an hour instead of 10 per address, on both endpoints.
+`https://x402-doctor.fizzl.eu/mcp/free` is the same server with only the free tools (`x402_quick_check`, `x402_payee_check`, `check_payment_proof`, `x402_trust_record`, `x402_trust_add`), for directories whose clients don't pay, such as Claude's connectors directory. Claude calls connectors from Anthropic's outbound range (`160.79.104.0/21`), so calls from there share one pool of 300 free calls an hour instead of 10 per address, on both endpoints.
 
 | Tool | Price | Returns |
 |---|---|---|
 | `x402_quick_check` | free, 10 calls/hour | pass/warn/fail, the number of problems and the top three |
+| `x402_payee_check` | free (same hourly limit) | Per payment option, whether its payTo is bound to the seller's ERC-8004 agent: verified-wallet, verified-delegation, mismatch, invalid-delegation, endpoint-unlisted, no-agent-wallet or not-read (draft ERC "x402 Payee Verification", ethereum/ERCs#2132) |
 | `x402_diagnose` | $0.01 USDC via x402 | Every check with a fix hint, as `GET /api/v1/diagnose` |
 | `x402_preflight` | $0.001 USDC via x402 | go/caution/no_go before paying an endpoint, as `GET /api/v1/preflight` |
 | `x402_preflight_batch` | $0.005 USDC via x402 | The preflight for up to 10 endpoints (`urls`), as `GET /api/v1/preflight/batch` |
