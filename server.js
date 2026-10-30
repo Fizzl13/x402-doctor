@@ -638,12 +638,14 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   });
   // One seller's endpoints for the atlas card (atlas.fizzl.eu): ?host=api.example.com or example.com, any subdomain
   // counts as the same seller, as on the map. Free, read-only.
-  app.get('/api/trust/seller', trustLimit, (req, res) => {
+  app.get('/api/trust/seller', trustLimit, async (req, res) => {
     let host;
     try { host = new URL(/^https?:\/\//i.test(String(req.query.host || '')) ? String(req.query.host) : `https://${req.query.host}`).hostname.toLowerCase(); } catch { host = ''; }
     if (!host || !host.includes('.')) return res.status(400).json({ error: 'host is required, e.g. /api/trust/seller?host=fizzl.eu' });
-    const data = trustIndex.sellerEndpoints(siteOf(host));
+    let data = null;
+    try { data = await trustIndex.sellerEndpoints?.(siteOf(host), { waitMs: 5000 }); } catch (err) { console.error('[trust] seller endpoints:', err.message); }
     if (!data) return res.status(503).json({ error: 'trust index loading, try again shortly' });
+    if (data.unavailable) return res.status(503).json({ error: 'seller lists are published with the next daily scan; try again later' });
     res.set('Cache-Control', 'public, max-age=1800').set('Access-Control-Allow-Origin', '*');
     if (!data.total) return res.status(404).json({ ...data, error: 'no scanned endpoints for this seller' });
     res.json({ ...data, check: `${publicUrl}/?url=` });
