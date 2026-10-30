@@ -61,7 +61,7 @@ test('search: only what may be bought, best first; the search URL carries the ne
     { ...result('https://h.test/w'), prices: [{ network: 'Solana', usd: 0.001 }] },
   ], calls) });
   assert.deepEqual(out.map((c) => c.url), ['https://c.test/w', 'https://b.test/w', 'https://a.test/w']);
-  assert.deepEqual(out[0], { url: 'https://c.test/w', method: 'GET', description: 'weather at https://c.test/w', example: { place: 'London', days: 3 }, price_usd: 0.003, relevance: 0.99, record: { days: 30, payableDays: 30, ratio: 1 } });
+  assert.deepEqual(out[0], { url: 'https://c.test/w', method: 'GET', description: 'weather at https://c.test/w', example: { place: 'London', days: 3 }, example_in: 'query', price_usd: 0.003, relevance: 0.99, record: { days: 30, payableDays: 30, ratio: 1 } });
   assert.match(calls[0], /q=weather\+amsterdam&max=0\.01&net=eip155%3A8453/);
   assert.equal(leftOut(result('https://d.test/w', { usd: 0.02 }), 0.01), 'price $0.02 above the cap of $0.01');
   await assert.rejects(candidatesFor('x', { capUsd: 0.01, fetch: async () => new Response('', { status: 500 }) }), (e) => e.status === 503);

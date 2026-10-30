@@ -340,7 +340,7 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
     }
     server.registerTool('x402_pick', {
       title: 'Which paid API to buy (free)',
-      description: `Free: say what your agent needs and get the paid x402 API that x402 Doctor has seen paying out day after day at a fair price (up to $${CAP_USD}), with its track record, price and example input, plus alternatives. To buy it in one call, POST ${publicUrl}${BUY_ROUTE} {"need": …} ($${PRICE_USD} over x402): the answer comes back checked, and nothing is charged when no service delivers. Limited to ${FREE_PER_HOUR} free calls an hour.`,
+      description: `Free: say what your agent needs and get the paid x402 API that x402 Doctor has seen paying out day after day at a fair price (up to $${CAP_USD}), with its track record, price and example input (example_in: "query" for URL parameters, "body" for a JSON body), plus alternatives. To buy it in one call, POST ${publicUrl}${BUY_ROUTE} {"need": …} ($${PRICE_USD} over x402): the answer comes back checked, and nothing is charged when no service delivers. Limited to ${FREE_PER_HOUR} free calls an hour.`,
       inputSchema: { need: z.string().min(3).max(500).describe('What your agent needs, in a sentence, with the details (place, symbol, query)') },
       annotations: { readOnlyHint: true, openWorldHint: true },
     }, async ({ need }) => {
