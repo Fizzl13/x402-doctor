@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Set your agent wallet</title>
+<link rel="canonical" href="https://x402-doctor.fizzl.eu/agent-wallet.html">
+<link rel="icon" href="/favicon.ico">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Make your x402 payTo the agent wallet of your ERC-8004 agent on Base, so agents that verify payees can see the payment goes to you. Signed and sent from your own wallet.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700&family=Unbounded:wght@600;700&display=swap">
+<style>
+  :root { --bg: #020708; --panel: #041212; --line: rgba(97,245,195,.16); --text: #f4f8f7; --text-soft: #a8b5b2; --go: #3fb950; --nogo: #f85149; --caution: #d29922; --accent: #61f5c3; --on-accent: #02100c; }
+  @media (prefers-color-scheme: light) {
+    :root { --bg: #f6f8fa; --panel: #ffffff; --line: #d0d7de; --text: #1f2328; --text-soft: #57606a; --go: #1a7f37; --nogo: #cf222e; --caution: #9a6700; --accent: #0a7a5c; --on-accent: #ffffff; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Lexend', system-ui, sans-serif; line-height: 1.55; }
+  .wrap { max-width: 680px; margin: 0 auto; padding: 40px 16px 80px; }
+  h1 { font-family: 'Unbounded', 'Lexend', sans-serif; font-size: 1.45rem; margin: 0 0 8px; }
+  .sub { color: var(--text-soft); margin: 0 0 24px; }
+  .step { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin: 0 0 14px; }
+  .step h2 { font-size: 1rem; margin: 0 0 6px; }
+  .step p { margin: 0 0 10px; color: var(--text-soft); font-size: .93rem; }
+  label { display: block; font-size: .85rem; color: var(--text-soft); margin: 8px 0 4px; }
+  input { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; font-size: .9rem; }
+  button { background: var(--accent); color: var(--on-accent); border: 0; border-radius: 8px; padding: 10px 16px; font: inherit; font-weight: 600; cursor: pointer; margin: 6px 6px 0 0; }
+  button:disabled { opacity: .45; cursor: default; }
+  button.ghost { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+  table { width: 100%; border-collapse: collapse; font-size: .85rem; margin-top: 8px; }
+  td, th { text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--line); word-break: break-all; }
+  .ok { color: var(--go); } .bad { color: var(--nogo); } .warn { color: var(--caution); }
+  #log { font-size: .85rem; white-space: pre-wrap; color: var(--text-soft); margin-top: 8px; }
+  code { font-size: .85em; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Set your agent wallet</h1>
+  <p class="sub">ERC-8004 keeps one <em>agent wallet</em> per agent: the address it is paid at. Agents that verify payees compare it with the payTo in your 402. This page makes your payTo that wallet, in the Identity Registry on Base. Your wallet signs and sends everything; nothing goes through Fizzl.</p>
+
+  <div class="step">
+    <h2>1. Your agents and payTo</h2>
+    <label for="agents">Agent ids (comma separated)</label>
+    <input id="agents" placeholder="97519, 97522" autocomplete="off">
+    <label for="wallet">New agent wallet (your payTo on Base)</label>
+    <input id="wallet" placeholder="0x…" autocomplete="off">
+    <button id="connect">Connect wallet</button>
+    <table id="table" hidden><thead><tr><th>Agent</th><th>Owner</th><th>Agent wallet now</th></tr></thead><tbody></tbody></table>
+  </div>
+
+  <div class="step">
+    <h2>2. Sign with the payTo wallet</h2>
+    <p>Switch your wallet to the payTo account, then sign one message per agent. It proves you control that address. The signatures are valid for 4 minutes.</p>
+    <button class="ghost" id="pickSigner">Choose account</button>
+    <button id="sign" disabled>Sign</button>
+  </div>
+
+  <div class="step">
+    <h2>3. Send as the owner</h2>
+    <p>Switch to the account that owns the agents and send one transaction per agent (a small Base gas fee). <span id="timer"></span></p>
+    <button class="ghost" id="pickOwner">Choose account</button>
+    <button id="send" disabled>Send</button>
+  </div>
+
+  <div id="log" role="status"></div>
+  <p class="sub" style="margin-top:24px">Then run the <a href="/">web check</a> on one of your paid routes: payee-identity should pass. Registry: <code>0x8004A169FB4a3325136EB29fA0ceB6D2e539a432</code> (ERC-8004 Identity Registry, Base).</p>
+</div>
+<script>
+(() => {
+  const REG = '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432', BASE = '0x2105', VALID_S = 240;
+  const $ = (id) => document.getElementById(id);
+  const log = (m, cls) => { const p = document.createElement('div'); if (cls) p.className = cls; p.textContent = m; $('log').prepend(p); };
+  const q = new URLSearchParams(location.search);
+  $('agents').value = q.get('agents') || '';
+  $('wallet').value = q.get('wallet') || '';
+  const eth = () => window.ethereum;
+  const hex64 = (n) => BigInt(n).toString(16).padStart(64, '0');
+  const isAddr = (a) => /^0x[0-9a-fA-F]{40}$/.test(a);
+  const short = (a) => (a ? `${a.slice(0, 6)}…${a.slice(-4)}` : '—');
+  let rows = [], sigs = null, deadline = 0, tick = null;
+
+  const ids = () => [...new Set($('agents').value.split(/[\s,]+/).filter((x) => /^\d{1,30}$/.test(x)))];
+  const call = (data) => eth().request({ method: 'eth_call', params: [{ to: REG, data }, 'latest'] });
+  const addrOf = (word) => (word && word.length >= 66 ? `0x${word.slice(-40)}` : null);
+  async function account() { const [a] = await eth().request({ method: 'eth_accounts' }); return a || null; }
+  async function onBase() {
+    if ((await eth().request({ method: 'eth_chainId' })) === BASE) return;
+    await eth().request({ method: 'wallet_switchEthereumChain', params: [{ chainId: BASE }] });
+  }
+  async function pick() { await eth().request({ method: 'wallet_requestPermissions', params: [{ eth_accounts: {} }] }); return account(); }
+
+  async function load() {
+    if (!eth()) { log('No wallet found. Open this page in your wallet app\'s browser (MetaMask: Browser tab).', 'bad'); return false; }
+    const list = ids(), wallet = $('wallet').value.trim();
+    if (!list.length) { log('Fill in at least one agent id.', 'bad'); return false; }
+    if (!isAddr(wallet)) { log('Fill in the new agent wallet: a 0x address of 40 hex characters.', 'bad'); return false; }
+    await eth().request({ method: 'eth_requestAccounts' });
+    await onBase();
+    rows = [];
+    for (const id of list) {
+      try {
+        const owner = addrOf(await call(`0x6352211e${hex64(id)}`)); // ownerOf
+        const now = addrOf(await call(`0x00339509${hex64(id)}`)); // getAgentWallet
+        rows.push({ id, owner, now });
+      } catch { log(`Agent #${id} doesn't exist in the registry on Base.`, 'bad'); }
+    }
+    const body = $('table').querySelector('tbody');
+    body.replaceChildren(...rows.map((r) => {
+      const tr = document.createElement('tr');
+      const done = r.now && r.now.toLowerCase() === wallet.toLowerCase();
+      for (const [t, cls] of [[`#${r.id}`], [short(r.owner)], [done ? `${short(r.now)} ✓` : short(r.now), done ? 'ok' : 'warn']]) { const td = document.createElement('td'); td.textContent = t; if (cls) td.className = cls; tr.append(td); }
+      return tr;
+    }));
+    $('table').hidden = !rows.length;
+    $('sign').disabled = !rows.length;
+    return rows.length > 0;
+  }
+
+  $('connect').onclick = () => load().catch((e) => log(e.message || String(e), 'bad'));
+  $('pickSigner').onclick = () => pick().then((a) => log(`Account: ${short(a)}`)).catch((e) => log(e.message || String(e), 'bad'));
+  $('pickOwner').onclick = () => pick().then((a) => log(`Account: ${short(a)}`)).catch((e) => log(e.message || String(e), 'bad'));
+
+  $('sign').onclick = async () => {
+    try {
+      if (!(await load())) return;
+      const wallet = $('wallet').value.trim(), me = await account();
+      if (!me || me.toLowerCase() !== wallet.toLowerCase()) { log(`Switch to the payTo account ${short(wallet)} first (Choose account). Now: ${short(me)}.`, 'bad'); return; }
+      // The deadline from the chain's own clock: the registry takes at most 5 minutes ahead.
+      const block = await eth().request({ method: 'eth_getBlockByNumber', params: ['latest', false] });
+      deadline = parseInt(block.timestamp, 16) + VALID_S;
+      sigs = [];
+      for (const r of rows) {
+        const typed = {
+          types: {
+            EIP712Domain: [{ name: 'name', type: 'string' }, { name: 'version', type: 'string' }, { name: 'chainId', type: 'uint256' }, { name: 'verifyingContract', type: 'address' }],
+            AgentWalletSet: [{ name: 'agentId', type: 'uint256' }, { name: 'newWallet', type: 'address' }, { name: 'owner', type: 'address' }, { name: 'deadline', type: 'uint256' }],
+          },
+          primaryType: 'AgentWalletSet',
+          domain: { name: 'ERC8004IdentityRegistry', version: '1', chainId: 8453, verifyingContract: REG },
+          message: { agentId: r.id, newWallet: wallet, owner: r.owner, deadline: String(deadline) },
+        };
+        const sig = await eth().request({ method: 'eth_signTypedData_v4', params: [me, JSON.stringify(typed)] });
+        sigs.push({ r, sig });
+        log(`Signed for agent #${r.id}.`, 'ok');
+      }
+      $('send').disabled = false;
+      clearInterval(tick);
+      tick = setInterval(() => {
+        const left = deadline - Math.floor(Date.now() / 1000);
+        $('timer').textContent = left > 0 ? `Signatures valid for about ${left} s.` : 'Signatures expired: sign again.';
+        if (left <= 0) { $('send').disabled = true; clearInterval(tick); }
+      }, 1000);
+    } catch (e) { log(e.message || String(e), 'bad'); }
+  };
+
+  $('send').onclick = async () => {
+    try {
+      const me = await account(), wallet = $('wallet').value.trim();
+      for (const { r, sig } of sigs || []) {
+        if (!me || me.toLowerCase() !== String(r.owner).toLowerCase()) { log(`Switch to the owner of agent #${r.id}, ${short(r.owner)} (Choose account). Now: ${short(me)}.`, 'bad'); return; }
+        const s = sig.replace(/^0x/, ''), len = s.length / 2;
+        // setAgentWallet(uint256 agentId, address newWallet, uint256 deadline, bytes signature)
+        const data = `0x2d1ef5ae${hex64(r.id)}${wallet.slice(2).toLowerCase().padStart(64, '0')}${hex64(deadline)}${hex64(128)}${hex64(len)}${s.padEnd(Math.ceil(s.length / 64) * 64, '0')}`;
+        const tx = await eth().request({ method: 'eth_sendTransaction', params: [{ from: me, to: REG, data }] });
+        log(`Agent #${r.id}: sent (${tx.slice(0, 12)}…). Checking in a few seconds…`);
+      }
+      clearInterval(tick);
+      $('send').disabled = true;
+      setTimeout(() => load().then(() => log('Done when every agent shows ✓ above.', 'ok')), 8000);
+    } catch (e) { log(e.message || String(e), 'bad'); }
+  };
+})();
+</script>
+</body>
+</html>

@@ -288,6 +288,7 @@ test('payee-identity: setAgentWallet with the payTo, signed by the payTo wallet,
   assert.match(f.title, /#97519/);
   assert.match(code(f), /"setAgentWallet\(uint256,address,uint256,bytes\)" 97519 0x6B0F4651eD42893ab58139938175E4a69f175F25 \$DEADLINE \$SIGNATURE_FROM_PAYTO/);
   assert.match(code(f), /"getAgentWallet\(uint256\)\(address\)" 97519/);
+  assert.match(f.steps[0], /agent-wallet\.html\?agents=97519&wallet=0x6B0F4651eD42893ab58139938175E4a69f175F25/);
   assert.equal(buildFixes(report({ checks: [{ id: 'payee-identity', status: 'pass', message: 'The payTo is the agent wallet registered for agent #1 on Base.' }] })).fixes?.length ?? 0, 0, 'a pass needs no fix');
 });
 

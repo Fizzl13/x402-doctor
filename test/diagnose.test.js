@@ -864,6 +864,7 @@ test('ERC-8004 payee verification: the payTo must be the agent wallet registered
   assert.equal(other.status, 'warn');
   assert.match(other.message, /^payTo 0x6B0F…5F25 is not the agent wallet registered for agent #7 on Base \(0x2c7c…128b\)/);
   assert.match(other.hint, /setAgentWallet\(agentId, 0x6B0F4651eD42893ab58139938175E4a69f175F25, deadline, signature\)/);
+  assert.match(other.hint, /agent-wallet\.html\?agents=7&wallet=0x6B0F4651eD42893ab58139938175E4a69f175F25/);
   assert.equal((await run([])).length, 1, 'no EVM payTo: no payee check');
   agentId = 9;
   const none = (await run([PAYTO])).find((c) => c.id === 'payee-identity');
