@@ -283,13 +283,20 @@ test('agent-identity: a template for a wrong file, register for an unknown id, s
   assert.match(code(back), /"setAgentURI\(uint256,string\)" 97522 "https:\/\/agent\.example\.com\/\.well-known\/agent-registration\.json"/);
 });
 
-test('payee-identity: setAgentWallet with the payTo, signed by the payTo wallet, then getAgentWallet to check', () => {
-  const f = fix(buildFixes(report({ url: 'https://agent.example.com/v1/x', checks: [{ id: 'payee-identity', status: 'warn', message: 'payTo 0x6B0F…5F25 is not the agent wallet registered for agent #97519 on Base (0x2c7c…128b). An agent that verifies payees can\'t tell this payment goes to this agent and may refuse it.', hint: 'Make the payTo the agent wallet: in the Identity Registry (0x8004A169FB4a3325136EB29fA0ceB6D2e539a432), the agent\'s owner calls setAgentWallet(agentId, 0x6B0F4651eD42893ab58139938175E4a69f175F25, deadline, signature) with an EIP-712 signature from 0x6B0F…5F25 that proves it controls that address. Or pay out to 0x2c7c…128b.' }] })), 'payee-identity');
-  assert.match(f.title, /#97519/);
-  assert.match(code(f), /"setAgentWallet\(uint256,address,uint256,bytes\)" 97519 0x6B0F4651eD42893ab58139938175E4a69f175F25 \$DEADLINE \$SIGNATURE_FROM_PAYTO/);
-  assert.match(code(f), /"getAgentWallet\(uint256\)\(address\)" 97519/);
-  assert.match(f.steps[0], /agent-wallet\.html\?agents=97519&wallet=0x6B0F4651eD42893ab58139938175E4a69f175F25/);
-  assert.equal(buildFixes(report({ checks: [{ id: 'payee-identity', status: 'pass', message: 'The payTo is the agent wallet registered for agent #1 on Base.' }] })).fixes?.length ?? 0, 0, 'a pass needs no fix');
+test('payee-identity: setAgentWallet for an EVM payTo, a signed delegation for the others, and the page that does both', () => {
+  const message = 'Not every payTo is bound to this agent (ERC-8004 payee verification): an agent that verifies payees may refuse the unbound ones: agent #97522 at block 1, agent wallet 0x2c7c…128b. Base 0x6B0F…5F25: mismatch; Solana ATWJ82…JBH9: mismatch.';
+  const hint = 'Make 0x6B0F4651eD42893ab58139938175E4a69f175F25 the agent wallet (setAgentWallet in the Identity Registry 0x8004A169FB4a3325136EB29fA0ceB6D2e539a432, the agent\'s owner sends it with an EIP-712 signature from that address), or have the agent wallet sign an EIP-712 payee delegation.';
+  const payees = [
+    { network: 'eip155:8453', payTo: '0x6B0F4651eD42893ab58139938175E4a69f175F25', asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', outcome: 'mismatch' },
+    { network: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp', payTo: 'ATWJ82yHqQ3wXrQ3ZVf1Bd7wXLp2Pyc4e2JPxwh6JBH9', asset: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', outcome: 'mismatch' },
+  ];
+  const f = fix(buildFixes(report({ url: 'https://agent.example.com/v1/x', checks: [{ id: 'payee-identity', status: 'warn', message, hint, payees }] })), 'payee-identity');
+  assert.match(f.title, /#97522/);
+  assert.match(f.steps[0], /agent-wallet\.html\?agents=97522&wallet=0x6B0F4651eD42893ab58139938175E4a69f175F25&route=https%3A%2F%2Fagent\.example\.com%2Fv1%2Fx/);
+  assert.match(code(f), /"setAgentWallet\(uint256,address,uint256,bytes\)" 97522 0x6B0F4651eD42893ab58139938175E4a69f175F25 \$DEADLINE \$SIGNATURE_FROM_PAYTO/);
+  assert.match(code(f), /"network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"/);
+  assert.match(code(f), /"origin": "https:\/\/agent\.example\.com"/);
+  assert.equal(buildFixes(report({ checks: [{ id: 'payee-identity', status: 'pass', message: 'Every payTo is bound to this agent.' }] })).fixes?.length ?? 0, 0, 'a pass needs no fix');
 });
 
 test('payto-stable: one fixed payout address per network', () => {
