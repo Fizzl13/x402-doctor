@@ -21,6 +21,9 @@
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
+// Every payTo with the payee delegation the agent wallet of agent #988891 (0x2c7c…128b) signed on 30 Oct 2026 for a
+// year (draft ERC "x402 Payee Verification for ERC-8004 Agents", ethereum/ERCs#2132).
+const PAYEE_DELEGATIONS = require('./lib/buy-payee-delegations.json');
 const { paymentMiddleware, x402ResourceServer } = require('@x402/express');
 const { HTTPFacilitatorClient } = require('@x402/core/server');
 const { ExactEvmScheme } = require('@x402/evm/exact/server');
@@ -398,6 +401,7 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
     services: [
       { name: 'web', endpoint: `${publicUrl}/` },
       { name: 'MCP', endpoint: `${publicUrl}/mcp`, version: '2025-06-18' },
+      { name: 'x402', endpoint: `${publicUrl}${BUY_ROUTE}`, payees: PAYEE_DELEGATIONS },
     ],
     active: true,
     x402Support: true,

@@ -188,7 +188,8 @@ test('server: free pick with its limit, the purchase, bad input, no wallet, disc
   const agent = await (await fetch(`${base}/.well-known/agent-registration.json`)).json();
   assert.equal(agent.type, 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1');
   assert.equal(agent.name, 'Fizzl Buy');
-  assert.deepEqual(agent.services.map((x) => x.endpoint), ['https://buy.test/', 'https://buy.test/mcp']);
+  assert.deepEqual(agent.services.map((x) => x.endpoint), ['https://buy.test/', 'https://buy.test/mcp', 'https://buy.test/v1/buy']);
+  assert.equal(agent.services[2].payees.length, 6, 'every payTo with its payee delegation');
   assert.equal(agent.x402Support, true);
   assert.equal(agent.image, 'https://buy.test/icon.png');
   const icon = await fetch(`${base}/icon.png`);
