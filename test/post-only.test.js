@@ -9,6 +9,7 @@ function server() {
   const seen = [];
   const paywall = (req, res, next) => {
     seen.push(`${req.method} ${req.path}`);
+    if (req.method === 'POST' && req.path === '/v1/buy' && /text\/html/.test(req.get('accept') || '')) return res.status(402).type('html').send('<script>window.x402 = { testnet: true }</script>');
     if (req.method === 'POST' && req.path === '/v1/buy') return res.status(402).set('PAYMENT-REQUIRED', 'terms').json({});
     next();
   };
@@ -55,4 +56,12 @@ test('a path the paywall doesn\'t guard gets 405; other routes and POST are unto
   assert.equal((await call(app, '/v1/other')).status, 405);
   assert.equal((await call(app, '/v1/pick')).status, 200);
   assert.equal((await call(app, '/v1/buy', { method: 'POST' })).status, 200);
+});
+
+test('a browser\'s GET gets the 402 as JSON, not a paywall page that can\'t pay a POST route', async () => {
+  const { app } = server();
+  const r = await call(app, '/v1/buy', { headers: { accept: 'text/html,application/xhtml+xml', 'user-agent': 'Mozilla/5.0' } });
+  assert.equal(r.status, 402);
+  assert.equal(r.terms, 'terms');
+  assert.doesNotMatch(r.body, /window\.x402/);
 });
