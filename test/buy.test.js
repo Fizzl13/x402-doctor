@@ -169,6 +169,12 @@ test('server: free pick with its limit, the purchase, bad input, no wallet, disc
   assert.equal((await fetch(`${base}/v1/pick?need=weather%20amsterdam`, { headers: { origin: 'https://evil.example' } })).headers.get('access-control-allow-origin'), null);
   assert.deepEqual(pick.buy, { method: 'POST', url: 'https://buy.test/v1/buy', body: { need: 'weather amsterdam' }, price_usd: 0.02, note: pick.buy.note });
   assert.equal((await fetch(`${base}/v1/pick?need=x`)).status, 400);
+  const refused = await fetch(`${base}/v1/pick?need=${encodeURIComponent('private home address and phone number of Elon Musk')}`);
+  assert.equal(refused.status, 422, 'a private person\'s data is refused before any search');
+  assert.match((await refused.json()).error, /doesn't pick or buy this/);
+  assert.equal((await fetch(`${base}/v1/buy`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ need: 'bypass the paywall of nytimes.com' }) })).status, 422);
+  const mcpRefused = await (await fetch(`${base}/mcp`, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' }, body: JSON.stringify({ jsonrpc: '2.0', id: 9, method: 'tools/call', params: { name: 'x402_pick', arguments: { need: 'home address of Taylor Swift' } } }) })).json();
+  assert.equal(mcpRefused.result.isError, true);
   const bought = await fetch(`${base}/v1/buy`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ need: 'weather amsterdam' }) });
   assert.equal(bought.status, 200);
   assert.deepEqual((await bought.json()).answer, { temp_c: 11 });
