@@ -30,7 +30,7 @@ const baseOption = (amount, extra = {}) => ({ scheme: 'exact', network: BASE, am
 const solanaOption = (amount, payTo = PAY_TO_SOLANA) => ({ scheme: 'exact', network: SOLANA, amount, asset: USDC_SOLANA, payTo, maxTimeoutSeconds: 60, extra: { feePayer: FEE_PAYER } });
 
 // A seller: /paid answers 402 with the given accepts[]; /openapi.json advertises a price.
-async function seller({ accepts, advertised = '0.02', status = 402 }) {
+async function seller({ accepts, advertised = '0.02', status = 402, body: bodyOf = null }) {
   let origin;
   origin = await listen((req, res) => {
     res.setHeader('content-type', 'application/json');
@@ -40,7 +40,7 @@ async function seller({ accepts, advertised = '0.02', status = 402 }) {
     const challenge = { x402Version: 2, resource: { url: `${origin}${req.url.split('?')[0]}`, mimeType: 'application/json', description: 'x' }, accepts };
     res.statusCode = status;
     if (status === 402) res.setHeader('PAYMENT-REQUIRED', Buffer.from(JSON.stringify(challenge)).toString('base64'));
-    res.end(JSON.stringify(status === 402 ? challenge : { ok: true }));
+    res.end(JSON.stringify(status === 402 ? (bodyOf ? bodyOf(challenge) : challenge) : { ok: true }));
   });
   return `${origin}/paid/1`;
 }
@@ -623,4 +623,20 @@ test('payto_changed: a moved address bound to the seller\'s agent (ERC-8478) is 
   const same = { lookup: async () => ({ days_checked: 5, days_payable: 5, payable_ratio: 1, history: 'ggggg', days: ['2026-10-31'], payto: { a: payToMap([{ network: BASE, pay_to: PAY_TO_BASE }]), s: '2026-10-01' } }) };
   await run(url, { trustIndex: same, payeeCheck: async () => { never++; return []; } });
   assert.equal(never, 0);
+});
+
+test('header and body: another payment in the body is caution; the same payment in x402 v1 is an info line', async () => {
+  const safeFetch = createSafeFetch({ allowPrivate: true });
+  const other = await seller({ accepts: [baseOption('10000')], body: (c) => ({ ...c, accepts: [baseOption('10000', { payTo: '0x1111111111111111111111111111111111111111' })] }) });
+  const a = await preflight(other, { safeFetch });
+  assert.equal(a.verdict, 'caution');
+  assert.ok(a.reasons.some((r) => r.code === 'challenge_mismatch'), JSON.stringify(a.reasons));
+  const v1 = await seller({ accepts: [baseOption('10000')], body: () => ({ x402Version: 1, error: 'Payment required', accepts: [{ scheme: 'exact', network: 'base', maxAmountRequired: '10000', resource: 'x', payTo: PAY_TO_BASE.toLowerCase(), asset: USDC_BASE, maxTimeoutSeconds: 60 }] }) });
+  const b = await preflight(v1, { safeFetch });
+  assert.equal(b.verdict, 'go');
+  assert.ok(b.reasons.some((r) => r.level === 'info' && r.code === 'challenge_versions_differ'));
+  // Fewer options in the body, or the same terms written otherwise: neither.
+  const subset = await seller({ accepts: [baseOption('10000'), solanaOption('10000')], body: (c) => ({ ...c, accepts: [{ ...baseOption('10000'), extra: undefined }] }) });
+  const c = await preflight(subset, { safeFetch });
+  assert.ok(!c.reasons.some((r) => /challenge_/.test(r.code)), JSON.stringify(c.reasons));
 });
