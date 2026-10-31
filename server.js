@@ -672,9 +672,11 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     res.json({ ...summary, onchain_payments: onchain, ...(onchainSolana ? { onchain_payments_solana: onchainSolana } : {}), ...(onchainXrpl ? { onchain_payments_xrpl: onchainXrpl } : {}), ...(onchainStellar ? { onchain_payments_stellar: onchainStellar } : {}), ...(onchainAlgorand ? { onchain_payments_algorand: onchainAlgorand } : {}), ...(onchainXlayer ? { onchain_payments_xlayer: onchainXlayer } : {}) });
   });
   // Who gets paid on the XRP Ledger, Stellar, Algorand or X Layer (free, public data): every watched payout address that received
-  // x402 payments in the last 7 complete days, most money first, with its XRPL AI Hub name or its endpoints' hosts, and
+  // x402 payments in the last 7 complete days (Base and Solana: the 100 paid most), with its XRPL AI Hub name or its endpoints' hosts, and
   // how many of its payers pay ten or more sellers (fleets, checkers). The /xrpl, /stellar and /algorand pages read it.
   const SELLER_LISTS = {
+    base: { fn: 'sellersBase', limit: 100, none: 'Base payments are not loaded yet; try again in a minute' },
+    solana: { fn: 'sellersSolana', limit: 100, none: 'no complete day of Solana payments yet; try again later' },
     xrpl: { fn: 'sellersXrpl', none: 'no complete day of XRP Ledger payments yet (counting started on 25 Oct 2026); try again later' },
     stellar: { fn: 'sellersStellar', none: 'no complete day of Stellar payments yet (counting starts the day after the next Trust Index scan); try again later' },
     algorand: { fn: 'sellersAlgorand', none: 'no complete day of Algorand payments yet (counting started on 27 Oct 2026); try again later' },
@@ -683,9 +685,9 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   app.get('/api/trust/payments', trustLimit, async (req, res) => {
     const network = String(req.query.network || '').trim().toLowerCase();
     const which = Object.hasOwn(SELLER_LISTS, network) ? SELLER_LISTS[network] : null;
-    if (!which) return res.status(400).json({ error: 'network is required; supported: xrpl, stellar, algorand, xlayer (/api/trust/payments?network=xrpl)' });
+    if (!which) return res.status(400).json({ error: 'network is required; supported: base, solana, xrpl, stellar, algorand, xlayer (/api/trust/payments?network=xrpl)' });
     res.set('Cache-Control', 'public, max-age=600').set('Access-Control-Allow-Origin', '*');
-    const list = typeof onchainPayments[which.fn] === 'function' ? await onchainPayments[which.fn]({ waitMs: 3000 }).catch(() => null) : null;
+    const list = typeof onchainPayments[which.fn] === 'function' ? await onchainPayments[which.fn]({ waitMs: 3000, ...(which.limit ? { limit: which.limit } : {}) }).catch(() => null) : null;
     if (!list) return res.status(503).json({ error: which.none });
     res.json(list);
   });

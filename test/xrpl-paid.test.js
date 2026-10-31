@@ -90,7 +90,7 @@ test('GET /api/trust/payments?network=xrpl: the list as JSON, 400 for another ne
     const body = await res.json();
     assert.equal(body.sellers[0].name, 'Heurist Inference Router');
     assert.equal(body.paid, 12);
-    assert.equal((await fetch(`${base}/api/trust/payments?network=base`)).status, 400);
+    assert.equal((await fetch(`${base}/api/trust/payments?network=tron`)).status, 400);
   } finally { s.close(); }
   const empty = createOnchainPayments({ url: 'https://x/payments.json', solanaUrl: '', xrplUrl: 'https://x/payments-xrpl.json', xrplPayTosUrl: '', fetchImpl: async (url) => ({ ok: true, json: async () => (url.includes('xrpl') ? { ...paymentsFile(), days: {} } : { version: 1, updated: `${DAY2}T09:00:00Z`, days: {}, pay_tos: {} }) }) });
   const second = await start(createApp({ allowPrivate: true, env: {}, trustIndex, onchainPayments: empty }));
