@@ -82,3 +82,15 @@ test('mergeIndex keeps pt and pr, updated only by a scan that could pay', () => 
   assert.deepEqual(index.resources[key].pt.c, ['eip155:8453']);
   assert.deepEqual(index.resources[key].pr, [0.02, '2026-10-31', 0.01]);
 });
+
+test('changeReasons: a moved address bound to the seller\'s agent (ERC-8478) is an info line, not a caution', () => {
+  const record = { days: ['2026-10-31'], payto: { a: { ...payToMap([opt('eip155:8453', A)]), ...payToMap([opt('solana:x', SOL)]) }, s: '2026-10-01' } };
+  const live = [opt('eip155:8453', B), opt('solana:x', 'So22222222222222222222222222222222222222222')];
+  const bound = new Map([['eip155:8453', '988891']]);
+  const r = changeReasons({ record, options: live, now, bound });
+  assert.deepStrictEqual(r.map((x) => [x.level, x.code]), [['info', 'payto_changed_bound'], ['caution', 'payto_changed']]);
+  assert.match(r[0].message, /on Base changed since the daily scan, and the new one is bound to the seller's ERC-8004 agent #988891/);
+  assert.match(r[1].message, /on solana:x is not the one/);
+  const recent = changeReasons({ record: { payto: { a: payToMap([opt('eip155:8453', B)]), s: '2026-10-30', c: ['eip155:8453'] } }, options: [opt('eip155:8453', B)], now, bound });
+  assert.deepStrictEqual(recent.map((x) => x.code), ['payto_changed_bound']);
+});

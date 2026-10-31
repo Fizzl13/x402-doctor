@@ -309,6 +309,13 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     });
     res.status(status).json(body);
   });
+  // Free, for sellers: why agents refused to pay an endpoint in the last 30 days (refused outcome reports, counts only).
+  app.get('/api/v1/refusals', outcomeLimit, (req, res) => {
+    let url;
+    try { url = new URL(String(req.query.url || '')).href; } catch { return res.status(400).json({ error: 'url is required, e.g. /api/v1/refusals?url=https://api.example.com/paid' }); }
+    res.set('Cache-Control', 'public, max-age=300').set('Access-Control-Allow-Origin', '*');
+    res.json({ url, ...(outcomes.refusals(url) || { days: 30, refused: 0, wallets: 0, reasons: [] }), how: 'Agents report a refusal with POST /api/v1/outcome { outcome: "refused", reason, source, query, preflight }: the signed Doctor preflight they checked first.' });
+  });
   app.use(feedback.router(express)); // its own 16 kB JSON parser, before the 4 kB one
   // MCP calls (lib/mcp.js) carry a payment in _meta, and verify_receipt a whole signed answer: 256 kB like /api/v1/verify.
   // /mcp/free is the same server with only the free tools (for Claude's connectors directory).
@@ -722,7 +729,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     }
     if (/^https?:\/\/[^/?#]*https?:/i.test(targetUrl)) return res.status(400).json({ error: 'This looks like two URLs pasted into each other; send only the endpoint URL.' });
     try {
-      const report = await diagnoseLib.diagnose(targetUrl, { safeFetch, method, body, bazaarIndex: bazaar, cdpValidate, describe, poison, price: priceCheck, payments: onchainPayments });
+      const report = await diagnoseLib.diagnose(targetUrl, { safeFetch, method, body, bazaarIndex: bazaar, cdpValidate, describe, poison, price: priceCheck, payments: onchainPayments, refusals: (u) => outcomes.refusals(u) });
       // A broken endpoint with a published contact: a draft for the owner's outreach (never sent from here).
       outreachHook.maybeDraft(targetUrl, report, { agent: req.get('user-agent') }).catch(() => {});
       // The page's own share link, for callers that only see JSON (curl, scripts):

@@ -605,3 +605,22 @@ test('namesake (lib/namesakes.js): an info line from the track record, the verdi
   assert.equal(line.level, 'info');
   assert.match(line.message, /"X402 Doctor" is also at fizzl\.eu \(6 payers in the last 30 days, this one 4\), with a different payout address/);
 });
+
+test('payto_changed: a moved address bound to the seller\'s agent (ERC-8478) is info; unbound stays caution', async () => {
+  const { payToMap } = require('../lib/payee-history');
+  const url = await seller({ accepts: [baseOption('10000')] });
+  const trustIndex = { lookup: async () => ({ days_checked: 5, days_payable: 5, payable_ratio: 1, history: 'ggggg', days: ['2026-10-31'], payto: { a: payToMap([{ network: BASE, pay_to: '0x1111111111111111111111111111111111111111' }]), s: '2026-10-01' } }) };
+  const unbound = await run(url, { trustIndex, payeeCheck: async () => [{ network: BASE, outcome: 'mismatch' }] });
+  assert.ok(unbound.reasons.some((r) => r.code === 'payto_changed' && r.level === 'caution'), JSON.stringify(unbound.reasons));
+  let asked = 0;
+  const bound = await run(url, { trustIndex, payeeCheck: async () => { asked++; return [{ network: BASE, outcome: 'verified-delegation', identity: { agentId: '988891' } }]; } });
+  assert.equal(asked, 1);
+  assert.ok(!bound.reasons.some((r) => r.code === 'payto_changed'), JSON.stringify(bound.reasons));
+  assert.ok(bound.reasons.some((r) => r.code === 'payto_changed_bound' && r.level === 'info' && /#988891/.test(r.message)));
+  assert.equal(bound.verdict, 'go', JSON.stringify(bound.reasons));
+  // Not asked when nothing moved.
+  let never = 0;
+  const same = { lookup: async () => ({ days_checked: 5, days_payable: 5, payable_ratio: 1, history: 'ggggg', days: ['2026-10-31'], payto: { a: payToMap([{ network: BASE, pay_to: PAY_TO_BASE }]), s: '2026-10-01' } }) };
+  await run(url, { trustIndex: same, payeeCheck: async () => { never++; return []; } });
+  assert.equal(never, 0);
+});
