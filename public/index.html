@@ -196,7 +196,7 @@
  "featureList": [
   "Pre-payment check for AI agents (go, caution or no_go)",
   "Full diagnosis of an x402 endpoint with fixes as code",
-  "Daily Trust Index of about 50,000 paid endpoints",
+  "Daily Trust Index of about 42,000 paid endpoints",
   "MCP server at https://x402-doctor.fizzl.eu/mcp"
  ],
  "provider": {
@@ -216,7 +216,7 @@
  ],
  "subjectOf": {
   "@type": "Article",
-  "headline": "We check 50,000 paid x402 endpoints every day. Here's what works and what breaks.",
+  "headline": "We check 42,000 paid x402 endpoints every day. Here's what works and what breaks.",
   "url": "https://fizzl.eu/research/x402-health-october-2026/"
  }
 }
@@ -255,7 +255,7 @@
    "name": "Which x402 endpoints actually settle and deliver?",
    "acceptedAnswer": {
     "@type": "Answer",
-    "text": "The x402 Trust Index at https://x402-doctor.fizzl.eu/trust checks about 50,000 paid x402 and MPP endpoints every day and keeps a 30-day record per endpoint; GET https://x402-doctor.fizzl.eu/api/trust?url=<endpoint> returns it for free. Every week x402 Doctor also buys about 30 random payable endpoints and publishes what came back."
+    "text": "The x402 Trust Index at https://x402-doctor.fizzl.eu/trust checks about 42,000 paid x402 and MPP endpoints every day and keeps a 30-day record per endpoint; GET https://x402-doctor.fizzl.eu/api/trust?url=<endpoint> returns it for free. Every week x402 Doctor also buys about 30 random payable endpoints and publishes what came back."
    }
   },
   {
@@ -392,7 +392,7 @@
     <details><summary>How do I check an x402 endpoint before my AI agent pays it?</summary><p>Call x402 Doctor's preflight: GET https://x402-doctor.fizzl.eu/api/v1/preflight?url=&lt;endpoint&gt;&amp;max_usd=0.05. For $0.001 it answers go, caution or no_go, with the reasons and the cheapest option that will settle. It checks the 402 the way a paying agent would: the price against the listing, whether the payout address can receive, the OFAC sanctions list, testnet-only offers and the endpoint's 30-day record. The MCP tool x402_quick_check gives a free pass, warn or fail.</p></details>
     <details><summary>Why can't agents pay my x402 endpoint?</summary><p>Most often the 402 names another URL than the one called (the resource field), the listed URL doesn't answer 402 on the listed method, only a testnet is offered, or the 402 asks more than the listing says. Paste your endpoint above for a free diagnosis with the fix for each problem, or run npx github:Fizzl13/x402-doctor &lt;url&gt; in CI.</p></details>
     <details><summary>Is there a free x402 endpoint validator?</summary><p>Yes. The web check on this page is free: paste a URL and it decodes the 402 challenge and runs every check without paying. In CI, use npx github:Fizzl13/x402-doctor &lt;url&gt; or the GitHub Action Fizzl13/x402-doctor-action. Agents can use the free MCP tool x402_quick_check (10 calls an hour).</p></details>
-    <details><summary>Which x402 endpoints actually settle and deliver?</summary><p>The x402 Trust Index at https://x402-doctor.fizzl.eu/trust checks about 50,000 paid x402 and MPP endpoints every day and keeps a 30-day record per endpoint; GET https://x402-doctor.fizzl.eu/api/trust?url=&lt;endpoint&gt; returns it for free. Every week x402 Doctor also buys about 30 random payable endpoints and publishes what came back.</p></details>
+    <details><summary>Which x402 endpoints actually settle and deliver?</summary><p>The x402 Trust Index at https://x402-doctor.fizzl.eu/trust checks about 42,000 paid x402 and MPP endpoints every day and keeps a 30-day record per endpoint; GET https://x402-doctor.fizzl.eu/api/trust?url=&lt;endpoint&gt; returns it for free. Every week x402 Doctor also buys about 30 random payable endpoints and publishes what came back.</p></details>
     <details><summary>Does x402 Doctor check Solana, the XRP Ledger, Algorand and Stellar?</summary><p>Yes. It checks offers on Base and other EVM chains, Solana, the XRP Ledger, Algorand, Stellar and Circle's Arc, and MPP challenges. Its own paid calls accept USDC on Base, Solana, Algorand or Stellar, RLUSD on the XRP Ledger, USD₮0 on X Layer, or MPP.</p></details>
     <details><summary>How do I add x402 Doctor to Claude or Cursor?</summary><p>Add the remote MCP server https://x402-doctor.fizzl.eu/mcp. In Claude Code: claude mcp add --transport http x402-doctor https://x402-doctor.fizzl.eu/mcp. Agent skills: npx skills add Fizzl13/x402-doctor, or in Claude Code /plugin marketplace add Fizzl13/x402-doctor and then /plugin install x402-doctor@fizzl.</p></details>
   </div>
@@ -412,7 +412,7 @@
     <br><br>
     <a href="/trust">x402 Trust Index</a>: a daily check of every x402 resource in the CDP Bazaar and its 30-day track record.
     <br><br>
-    <a href="https://fizzl.eu/research/x402-health-october-2026/">x402 health report, October 2026</a>: what the daily scan of 50,000 paid endpoints shows, and the most common seller mistakes with fixes.
+    <a href="https://fizzl.eu/research/x402-health-october-2026/">x402 health report, October 2026</a>: what the daily scan of 42,000 paid endpoints shows, and the most common seller mistakes with fixes.
     <br><br>
     <a href="https://fizzl.eu/guides/x402-endpoint-checkers/">x402 endpoint checkers compared</a>: how this check differs from Coinbase's validator, x402lint, Settled and four other tools, by the question each one answers.
     <br><br>
