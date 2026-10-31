@@ -587,7 +587,7 @@ The marketplace is [`.claude-plugin/marketplace.json`](.claude-plugin/marketplac
 | Tool | Price | Returns |
 |---|---|---|
 | `x402_quick_check` | free, 10 calls/hour | pass/warn/fail, the number of problems and the top three |
-| `x402_payee_check` | free (same hourly limit) | Per payment option, whether its payTo is bound to the seller's ERC-8004 agent: verified-wallet, verified-delegation, mismatch, invalid-delegation, endpoint-unlisted, no-agent-wallet or not-read (draft ERC "x402 Payee Verification", ethereum/ERCs#2132) |
+| `x402_payee_check` | free (same hourly limit) | Per payment option, whether its payTo is bound to the seller's ERC-8004 agent: verified-wallet, verified-delegation, mismatch, invalid-delegation, endpoint-unlisted, owner-only, no-agent-wallet or not-read (draft ERC "x402 Payee Verification", ethereum/ERCs#2132) |
 | `x402_diagnose` | $0.01 USDC via x402 | Every check with a fix hint, as `GET /api/v1/diagnose` |
 | `x402_preflight` | $0.001 USDC via x402 | go/caution/no_go before paying an endpoint, as `GET /api/v1/preflight` |
 | `x402_preflight_batch` | $0.005 USDC via x402 | The preflight for up to 10 endpoints (`urls`), as `GET /api/v1/preflight/batch` |

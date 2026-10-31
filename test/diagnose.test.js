@@ -861,6 +861,7 @@ test('ERC-8004 payee verification in the web check: per payment option, bound to
     if (body.method === 'eth_getCode') return reply('0x');
     const data = body.params[0].data, id = parseInt(data.slice(10, 74), 16);
     if (data.startsWith('0x00339509')) return reply(`0x${(id === 7 ? WALLET.slice(2) : '').padStart(64, '0')}`); // getAgentWallet: none for agent 9
+    if (data.startsWith('0x6352211e')) return reply(`0x${'c0ffee'.padStart(64, '0')}`); // ownerOf
     reply(abiString(`${site}/.well-known/agent-registration.json`));
   });
   let agentId = 7;
@@ -889,6 +890,10 @@ test('ERC-8004 payee verification in the web check: per payment option, bound to
   const none = await run([opt({ payTo: PAYTO })]);
   assert.equal(none.status, 'info');
   assert.equal(none.payees[0].outcome, 'no-agent-wallet');
+  const owner = await run([opt({ payTo: `0x${'c0ffee'.padStart(40, '0')}` })]);
+  assert.equal(owner.status, 'info', 'owner-only is reported, never a pass');
+  assert.equal(owner.payees[0].outcome, 'owner-only');
+  assert.match(owner.hint, /never counts as verified[\s\S]*setAgentWallet[\s\S]*agent-wallet\.html\?agents=9/);
 });
 
 test("Coinbase's agents: payable with USDC on Base (exact/upto), the v2 and $5 limits of the Coinbase MCP, none without Base USDC", () => {
