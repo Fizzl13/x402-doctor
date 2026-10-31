@@ -9,6 +9,7 @@ const URL_ = 'https://seller.example/api/thing';
 const agent = privateKeyToAccount(generatePrivateKey()); // the agent wallet in these tests
 const SOL_PAYTO = 'ATWJ82yHqQ3wXrQ3ZVf1Bd7wXLp2Pyc4e2JPxwh6JBH9';
 const NOW = Date.UTC(2026, 9, 30, 20, 0, 0);
+const OWNER = '0x0000000000000000000000000000000000c0ffee';
 const hex = (s) => Buffer.from(s).toString('hex');
 const abiString = (s) => `0x${'20'.padStart(64, '0')}${s.length.toString(16).padStart(64, '0')}${hex(s).padEnd(Math.ceil(hex(s).length / 64) * 64, '0')}`;
 
@@ -21,6 +22,7 @@ function chain({ wallet = agent.address, code = '0x', fail = null } = {}) {
     const data = params[0].data, id = parseInt(data.slice(10, 74), 16);
     if (data.startsWith('0x00339509')) return `0x${(id === 7 ? wallet.slice(2) : '').padStart(64, '0')}`;
     if (data.startsWith('0xc87b56dd')) return abiString('https://seller.example/.well-known/agent-registration.json');
+    if (data.startsWith('0x6352211e')) return `0x${OWNER.slice(2).padStart(64, '0')}`;
     throw new Error(`unexpected ${method}`);
   };
 }
@@ -91,6 +93,13 @@ test('payee verification: endpoint-unlisted, no-agent-wallet, not-read and no-id
   const [down] = await run([opt()], { rpc: chain({ fail: 'eth_call' }) });
   assert.equal(down.outcome, 'not-read', 'a failed read is never a pass or a fail');
   assert.match(down.reason, /agent wallet/);
+  const [ownerOnly] = await run([opt({ payTo: OWNER })], { fileIdentities: file(DOC, '8') });
+  assert.equal(ownerOnly.outcome, 'owner-only', 'no agent wallet, payTo is the owner: reported, never verified');
+  const [ownerElsewhere] = await run([opt({ payTo: OWNER, network: 'eip155:196' })], { fileIdentities: file(DOC, '8') });
+  assert.equal(ownerElsewhere.outcome, 'no-agent-wallet', 'owner-only holds on the registry\'s chain only');
+  const [ownerDown] = await run([opt({ payTo: OWNER })], { fileIdentities: file(DOC, '8'), rpc: async (n, m, params) => { if (m === 'eth_call' && params[0].data.startsWith('0x6352211e')) throw new Error('RPC down'); return chain()(n, m, params); } });
+  assert.equal(ownerDown.outcome, 'not-read');
+  assert.match(ownerDown.reason, /owner/);
   const [anon] = await run([opt()], { fileIdentities: [] });
   assert.equal(anon.outcome, 'no-identity');
   const named = await run([opt({ extra: { erc8004: { registry: `eip155:8453:${REGISTRY}`, agentId: '7' } } })], { fileIdentities: [] });
