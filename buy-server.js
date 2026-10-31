@@ -538,7 +538,7 @@ if (require.main === module) {
   const routes = routesFor(env);
   start.attach(resourceServer, [...new Set(routes[`POST ${BUY_ROUTE}`].accepts.map((a) => a.network))]);
   // The challenge names buy.fizzl.eu also when called on the Render address.
-  const paywall = onPublicHost(env.PUBLIC_URL || 'https://buy.fizzl.eu', paymentMiddleware(routes, resourceServer, undefined, undefined, false));
+  const paywall = onPublicHost(env.PUBLIC_URL || 'https://buy.fizzl.eu', paymentMiddleware(routes, resourceServer, { appName: 'Fizzl Buy', testnet: false }, undefined, false));
   const app = createBuyApp({ env, paywall, resourceServer });
   const port = Number(env.PORT) || 3000;
   app.listen(port, () => console.log(`fizzl-buy on :${port}`));
