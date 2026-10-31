@@ -369,3 +369,100 @@ test('payment-identifier: the missing extension is an improvement with code; req
   const shape = buildFixes(report({ checks: [run({ 'payment-identifier': { required: false } })] }));
   assert.equal(fix(shape, 'payment-identifier').title, 'Fix the payment-identifier declaration');
 });
+
+// ---- The recipes for the remaining option checks (31 Oct 2026).
+const one = (checks, opts = {}) => buildFixes(report({ checks, ...opts }));
+const optionOf = (f) => JSON.parse(f.code.find((c) => c.label === 'The option, fixed').snippet);
+
+test('gateway-option: Circle\'s domain version and Gateway Wallet', () => {
+  const accepts = [{ scheme: 'exact', network: BASE, amount: '10000', asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', payTo: PAY_TO, extra: { name: 'GatewayWalletBatched', version: '2' } }];
+  const f = fix(one([{ id: 'accepts[0]-extra', status: 'fail', message: 'accepts[0]: Circle Gateway option with extra.version "2"; …' }], { accepts }), 'gateway-option');
+  assert.deepEqual(optionOf(f).extra, { name: 'GatewayWalletBatched', version: '1', verifyingContract: '0x77777777Dcc4d5A8B6E418Fd04D8997ef11000eE' });
+});
+
+test('accepts-order: standard options first, Gateway after', () => {
+  const gw = { scheme: 'exact', network: BASE, amount: '10000', asset: 'x', payTo: PAY_TO, extra: { name: 'GatewayWalletBatched', version: '1', verifyingContract: '0x77777777Dcc4d5A8B6E418Fd04D8997ef11000eE' } };
+  const std = { scheme: 'exact', network: BASE, amount: '10000', asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', payTo: PAY_TO, extra: { name: 'USD Coin', version: '2' } };
+  const f = fix(one([{ id: 'accepts-order', status: 'warn', message: 'accepts[0] (Circle Gateway) comes before accepts[1] …' }], { accepts: [gw, std] }), 'accepts-order');
+  assert.deepEqual(JSON.parse(f.code[0].snippet).map((a) => a.extra.name), ['USD Coin', 'GatewayWalletBatched']);
+});
+
+test('batch-settlement: receiverAuthorizer, withdrawDelay and the EIP-712 domain filled in', () => {
+  const accepts = [{ scheme: 'batch-settlement', network: BASE, amount: '1000', asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', payTo: PAY_TO, extra: {} }];
+  const f = fix(one([{ id: 'accepts[0]-extra', status: 'fail', message: 'accepts[0]: "batch-settlement" needs extra.receiverAuthorizer …', hint: 'Give the server scheme a receiverAuthorizerSigner.' }, { id: 'accepts[0]-batch-delay', status: 'warn', message: 'accepts[0]: no extra.withdrawDelay …' }], { accepts }), 'batch-settlement');
+  const extra = optionOf(f).extra;
+  assert.equal(extra.withdrawDelay, 86400);
+  assert.match(extra.receiverAuthorizer, /signs your claims/);
+  assert.deepEqual([extra.name, extra.version], ['USD Coin', '2']);
+  assert.ok(f.steps.includes('Give the server scheme a receiverAuthorizerSigner.'));
+});
+
+test('auth-capture: operator, escrow, fees, flow and per-402 deadlines', () => {
+  const accepts = [{ scheme: 'auth-capture', network: BASE, amount: '10000', asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', payTo: PAY_TO, extra: { authCaptureEscrow: '0x1234567890123456789012345678901234567890', minFeeBps: 50, maxFeeBps: 10, paymentFlow: 'charge', operatorType: 'policy' } }];
+  const f = fix(one([{ id: 'accepts[0]-auth-escrow', status: 'fail', message: 'accepts[0]: extra.authCaptureEscrow … is not a commerce-payments escrow' }], { accepts }), 'auth-capture');
+  const extra = optionOf(f).extra;
+  assert.equal(extra.authCaptureEscrow, '0xf96815976523E00e65Be8f34cA5e64b4f41EB19c');
+  assert.deepEqual([extra.minFeeBps, extra.maxFeeBps, extra.paymentFlow, extra.operatorType], [0, 0, 'escrow', 'delegated']);
+  assert.match(extra.captureAuthorizer, /operator/);
+  assert.match(code(f), /captureDeadline: now \+ 24 \* 3600/);
+});
+
+test('upto-extra, transfer-method and upto-proxy', () => {
+  const upto = [{ scheme: 'upto', network: BASE, amount: '10000', asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', payTo: PAY_TO, extra: {} }];
+  assert.equal(optionOf(fix(one([{ id: 'accepts[0]-extra', status: 'fail', message: 'accepts[0]: "upto" needs extra.facilitatorAddress …' }], { accepts: upto }), 'upto-extra')).extra.assetTransferMethod, 'permit2');
+  assert.equal(optionOf(fix(one([{ id: 'accepts[0]-extra', status: 'fail', message: 'accepts[0]: USDT on Base has no transferWithAuthorization (EIP-3009), so this EIP-3009 option can\'t be settled.' }], { accepts: upto }), 'transfer-method')).extra.assetTransferMethod, 'permit2');
+  const proxied = optionOf(fix(one([{ id: 'upto-proxy', status: 'fail', option: 0, message: 'The x402 upto proxy (0x4020…) is not deployed on Base …' }], { accepts: upto }), 'upto-proxy'));
+  assert.deepEqual([proxied.scheme, proxied.extra], ['exact', { name: 'USD Coin', version: '2' }]);
+});
+
+test('cloudflare-option and cloudflare-registration', () => {
+  const accepts = [{ scheme: 'exact', network: 'cloudflare:402', asset: 'USD', amount: '1', payTo: '0xabc', extra: { version: '1.0.0', other: 1 } }];
+  const fixed = optionOf(fix(one([{ id: 'accepts[0]-payto', status: 'warn', message: 'accepts[0]: payTo "0xabc"; on Cloudflare\'s network it is "merchant" …' }], { accepts }), 'cloudflare-option'));
+  assert.deepEqual([fixed.scheme, fixed.payTo, fixed.extra], ['batch-settlement', 'merchant', { version: '1.0.0', other: 1 }]);
+  assert.match(code(fix(one([{ id: 'cloudflare-registration', status: 'warn', message: 'Cloudflare option without the http-message-signatures extension …' }], { accepts }), 'cloudflare-registration')), /registrationUrl/);
+});
+
+test('nevermined-plan, timeout and amount-zero', () => {
+  const nvm = [{ scheme: 'nvm:erc4337', network: 'eip155:8453', planId: '123', payTo: PAY_TO }];
+  assert.equal(optionOf(fix(one([{ id: 'accepts[0]-plan', status: 'warn', message: 'accepts[0]: plan 123… without an extra.agentId …' }], { accepts: nvm }), 'nevermined-plan')).planId, '123');
+  assert.equal(optionOf(fix(one([{ id: 'accepts[0]-timeout', status: 'warn', message: 'accepts[0]: maxTimeoutSeconds 0 is outside 1..3600.' }]), 'timeout')).maxTimeoutSeconds, 300);
+  const zero = fix(one([{ id: 'accepts[0]-amount-zero', status: 'warn', message: 'accepts[0]: amount "0": this request is quoted $0 …', hint: 'Answer 400 with what is missing.' }]), 'amount-zero');
+  assert.ok(zero.steps[0].startsWith('Answer 400'));
+  assert.match(code(zero), /status\(400\)/);
+});
+
+test('xrpl-invoice, xrpl-account and xrpl-trustline', () => {
+  const xrpl = [{ scheme: 'exact', network: 'xrpl:0', amount: '0.01', asset: '524C555344000000000000000000000000000000', payTo: 'rExampleAccount', extra: { issuer: 'rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De' } }];
+  const inv = optionOf(fix(one([{ id: 'accepts[0]-invoice', status: 'warn', message: 'accepts[0]: no extra.invoiceId. …' }], { accepts: xrpl }), 'xrpl-invoice'));
+  assert.deepEqual([inv.extra.invoiceId, inv.extra.sourceTag, inv.extra.issuer], ['api.example.com /paid', 804681468, 'rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De']);
+  assert.match(code(fix(one([{ id: 'xrpl-payout-account', status: 'fail', option: 0, message: 'payTo rExampleAccount has Deposit Authorization on: …' }], { accepts: xrpl }), 'xrpl-account')), /"ClearFlag": 9/);
+  assert.match(code(fix(one([{ id: 'xrpl-payout-account', status: 'fail', option: 0, message: 'payTo rExampleAccount requires a destination tag, but …' }], { accepts: xrpl }), 'xrpl-account')), /"ClearFlag": 1/);
+  assert.match(code(fix(one([{ id: 'xrpl-payout-trustline', status: 'fail', option: 0, message: 'payTo rExampleAccount has no trust line for RLUSD …' }], { accepts: xrpl }), 'xrpl-trustline')), /"TransactionType": "TrustSet"[\s\S]*rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De/);
+  assert.deepEqual(fix(one([{ id: 'xrpl-payout-trustline', status: 'fail', option: 0, message: 'The RLUSD trust line of payTo rExampleAccount is frozen, …' }], { accepts: xrpl }), 'xrpl-trustline').code, []);
+});
+
+test('algorand-feepayer, algorand-optin and stellar-trustline', () => {
+  const algo = [{ scheme: 'exact', network: 'algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k', amount: '10000', asset: '31566704', payTo: 'ALGOPAYTO', extra: { feePayer: 'nope' } }];
+  assert.match(code(fix(one([{ id: 'accepts[0]-feepayer', status: 'fail', message: 'accepts[0]: extra.feePayer "nope" is not a valid Algorand address …' }], { accepts: algo }), 'algorand-feepayer')), /\/supported/);
+  assert.match(code(fix(one([{ id: 'algorand-payout-optin', status: 'fail', option: 0, message: 'payTo ALGOPAYTO has not opted in to ASA 31566704 …' }], { accepts: algo }), 'algorand-optin')), /goal asset optin --assetid 31566704 --account ALGOPAYTO/);
+  const xlm = [{ scheme: 'exact', network: 'stellar:pubnet', amount: '100000', asset: 'CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75', payTo: 'GPAYTO', extra: {} }];
+  const missing = fix(one([{ id: 'stellar-payout-trustline', status: 'fail', option: 0, message: 'payTo GPAYTO does not exist on Stellar (never funded with XLM), …' }], { accepts: xlm }), 'stellar-trustline');
+  assert.match(missing.title, /Fund/);
+  assert.match(code(missing), /change-trust --source-account GPAYTO --line USDC:GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN/);
+});
+
+test('x401, l402, lightning and the MCP recipes', () => {
+  assert.match(code(fix(one([{ id: 'x401', status: 'warn', message: 'x401: the PROOF-REQUEST header is not base64url-encoded JSON …', hint: 'PROOF-REQUEST: one unpadded base64url JSON object …' }]), 'x401')), /base64url/);
+  assert.match(code(fix(one([{ id: 'l402-bad-credential', status: 'fail', message: 'A made-up preimage got HTTP 200: …', hint: 'Check that sha256(preimage) …' }]), 'l402')), /status\(401\)/);
+  assert.match(code(fix(one([{ id: 'l402-expiry', status: 'fail', message: 'The invoice expired at …', hint: 'Make a fresh invoice for every 402.' }]), 'l402')), /WWW-Authenticate: L402/);
+  assert.ok(fix(one([{ id: 'lightning-request-hash', status: 'fail', message: 'accepts[0]: extra.requestHash is not the http:1 hash …', hint: 'Hash JCS(…)' }]), 'lightning-option'));
+  assert.match(code(fix(one([{ id: 'mcp-payment-text', status: 'fail', message: 'my_tool: the payment requirement is only in structuredContent; …', hint: 'Add the text content.' }]), 'mcp-payment')), /createPaymentWrapper/);
+  assert.ok(fix(one([{ id: 'mcp-paid-tools', status: 'warn', message: 'No tool description says it is paid …', hint: 'Say so in the description.' }]), 'mcp-describe'));
+});
+
+test('every failed or warning check Doctor can report has a recipe, except a free trial', () => {
+  // A free trial is not something the seller got wrong; every other check gets a fix.
+  const out = one([{ id: 'returns-402', status: 'warn', message: 'No 402 yet: the endpoint answered for free during a trial (x-free-trial), …' }, { id: 'solana-payout-account', status: 'warn', option: 0, message: 'payTo X has no token account for USDC on Solana. …' }], { accepts: [{ scheme: 'exact', network: SOLANA, amount: '10000', asset: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', payTo: 'So11111111111111111111111111111111111111112' }] });
+  assert.deepEqual(out.unfixed.map((u) => u.id), ['returns-402']);
+  assert.ok(fix(out, 'solana-account'));
+});
