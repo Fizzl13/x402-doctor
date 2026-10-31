@@ -55,6 +55,7 @@ const { createLure } = require('./lib/jev-lure');
 const { createAnswerCheck } = require('./lib/jev-answer');
 const { createSpotWallet } = require('./lib/spot-wallet');
 const { candidatesFor } = require('./lib/buy/search');
+const { refusalFor } = require('./lib/buy/refuse');
 const { createFiller } = require('./lib/buy/fill');
 const { buy, createBudget, BuyError, MAX_TRIES } = require('./lib/buy/purchase');
 const { createOncePerPayment, createPaymentLocks, keyOf, REFUSED } = require('./lib/buy/once');
@@ -238,6 +239,8 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
   const needOf = (v) => {
     const need = typeof v === 'string' ? v.trim() : '';
     if (need.length < 3 || need.length > 500) throw new BuyError(400, 'need must say what your agent needs, in 3 to 500 characters');
+    const refused = refusalFor(need);
+    if (refused) throw new BuyError(422, `Fizzl Buy doesn't pick or buy this: ${refused.reason}. Nothing was charged.`);
     return need;
   };
 
@@ -347,6 +350,7 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
       inputSchema: { need: z.string().min(3).max(500).describe('What your agent needs, in a sentence, with the details (place, symbol, query)') },
       annotations: { readOnlyHint: true, openWorldHint: true },
     }, async ({ need }) => {
+      try { needOf(need); } catch (err) { return toolError(err.message); }
       if (!freeLimiter(req.ip)) return { content: [{ type: 'text', text: `Free limit reached (${FREE_PER_HOUR} an hour). POST ${publicUrl}${BUY_ROUTE} ($${PRICE_USD}) buys directly.` }], isError: true };
       try {
         const out = await pickFor(need);
