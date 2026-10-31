@@ -2,6 +2,7 @@ const express = require('express');
 const zlib = require('node:zlib');
 const fs = require('fs');
 const path = require('path');
+const { createPassVerifier, limitKeyOf } = require('./lib/fizzl-pass');
 const PAYEE_DELEGATIONS = require('./lib/payee-delegations.json');
 const { x402TrustTxtRoute } = require('./lib/x402-trust-txt');
 const { ALGORITHM, verifyReceipt, AUTHORITY, SERVICE } = require('./lib/receipt');
@@ -57,15 +58,17 @@ const RATE_LIMIT = { windowMs: 60 * 1000, max: 10 };
 
 // Tiny per-IP limiter: every diagnosis makes several outbound requests, so
 // the public instance must not become a free scanner.
-function rateLimit({ windowMs, max }) {
+// A Fizzl Pass (X-Fizzl-Pass header, lib/fizzl-pass.js) counts per pass, with the tier's higher limit.
+function rateLimit({ windowMs, max }, pass = null) {
   const hits = new Map();
-  return (req, res, next) => {
+  return async (req, res, next) => {
     const now = Date.now();
-    const key = req.ip;
+    const { key, factor } = await limitKeyOf(pass, req);
+    const limit = max * factor;
     const recent = (hits.get(key) || []).filter((t) => now - t < windowMs);
-    if (recent.length >= max) {
+    if (recent.length >= limit) {
       res.set('Retry-After', String(Math.ceil(windowMs / 1000)));
-      return res.status(429).json({ error: `Too many diagnoses; try again in a minute (limit ${max}/min).` });
+      return res.status(429).json({ error: `Too many diagnoses; try again in a minute (limit ${limit}/min).` });
     }
     recent.push(now);
     hits.set(key, recent);
@@ -218,8 +221,10 @@ function trustProxyHops(env) {
   return Number.isInteger(n) && n >= 0 && n <= 10 && String(env.TRUST_PROXY_HOPS).trim() !== '' ? n : 3;
 }
 
-function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, cdpValidate = env.CDP_VALIDATE === 'off' ? null : createCdpValidator(), trustIndex = createTrustReader(), spotResults = createSpotResults(), deliveryElsewhere = createDeliveryElsewhere(), onchainPayments = createOnchainPayments(), media = createMediaCache(), usageLog = createUsageLog({ service: 'doctor', env }), usageReader = createUsageReader({ env }), publicStats = createPublicStats({ usageReader }), settlementFetch = globalThis.fetch, status = null, outreachHook: outreachHookOverride = null, describe = createDescribe({ apiKey: env.TYPESAFE_API_KEY }), poison = createPoisonCheck({ apiKey: env.TYPESAFE_API_KEY }), creditStore, agentKinds = createAgentKinds({ apiKey: env.TYPESAFE_API_KEY }), downloads = createDownloads(), priceCheck = createPriceCheck({ apiKey: env.TYPESAFE_API_KEY, trustIndex }), deliveryStore, deliveryResults, trustSubmissions: trustSubmissionsOverride = null } = {}) {
+function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, cdpValidate = env.CDP_VALIDATE === 'off' ? null : createCdpValidator(), trustIndex = createTrustReader(), spotResults = createSpotResults(), deliveryElsewhere = createDeliveryElsewhere(), onchainPayments = createOnchainPayments(), media = createMediaCache(), usageLog = createUsageLog({ service: 'doctor', env }), usageReader = createUsageReader({ env }), publicStats = createPublicStats({ usageReader }), settlementFetch = globalThis.fetch, status = null, outreachHook: outreachHookOverride = null, describe = createDescribe({ apiKey: env.TYPESAFE_API_KEY }), poison = createPoisonCheck({ apiKey: env.TYPESAFE_API_KEY }), creditStore, agentKinds = createAgentKinds({ apiKey: env.TYPESAFE_API_KEY }), downloads = createDownloads(), priceCheck = createPriceCheck({ apiKey: env.TYPESAFE_API_KEY, trustIndex }), deliveryStore, deliveryResults, trustSubmissions: trustSubmissionsOverride = null, pass: passOverride = null } = {}) {
   const app = express();
+  // Fizzl Pass holders get higher free limits (lib/fizzl-pass.js); the public key comes from the Agent Wallet.
+  const passVerifier = passOverride || createPassVerifier({ jwksUrl: env.PASS_JWKS_URL || undefined });
   const pagesWithCount = {}; // the home page and llms.txt handlers, set with the other pages below
   const safeFetch = createSafeFetch({ allowPrivate });
   // Outreach drafts for the owner (lib/outreach-hook.js); off without OUTREACH_URL and OUTREACH_KEY.
@@ -256,7 +261,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     submit: (url) => submitToTrust(url, { via: 'mcp' }),
     howToList: "Not in the x402 Trust Index yet. Its daily scan checks every resource listed in the CDP Bazaar, Circle's Agent Marketplace, GoPlausible's discovery list, the XRPL AI Hub, nohumans.directory, PayAPI Market or the MPP directory; your own endpoint can be added with x402_trust_add.",
   };
-  paidApi = createPaidApi({ safeFetch, env, trustIndex, feedback, bazaarIndex: bazaar, cdpValidate, outcomes, checkPaymentProof, creditStore, priceCheck, spotResults, deliveryElsewhere, onchainPayments, deliveryStore, ...(deliveryResults ? { deliveryResults } : {}), trust: trustTools });
+  paidApi = createPaidApi({ pass: passVerifier, safeFetch, env, trustIndex, feedback, bazaarIndex: bazaar, cdpValidate, outcomes, checkPaymentProof, creditStore, priceCheck, spotResults, deliveryElsewhere, onchainPayments, deliveryStore, ...(deliveryResults ? { deliveryResults } : {}), trust: trustTools });
 
   // Doctor's requests reach the app through three proxies (the caller, then two
   // hops, the last a private Render address: measured 26 Sep), so Express has to
@@ -301,7 +306,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   });
   // Free: report what happened after paying an endpoint that a paid preflight
   // checked. The signed preflight travels along (its own 64 kB parser).
-  const outcomeLimit = rateLimit({ windowMs: 60 * 60 * 1000, max: 120 });
+  const outcomeLimit = rateLimit({ windowMs: 60 * 60 * 1000, max: 120 }, passVerifier);
   app.post('/api/v1/outcome', outcomeLimit, express.json({ limit: '64kb' }), async (req, res) => {
     const { status, body } = await outcomes.report(req.body, {
       agent: agentOf(req.headers['user-agent']),
@@ -425,7 +430,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
 
   // x402 Trust Index (free): the 30-day track record of a scanned resource,
   // from the daily scan of the CDP Bazaar. Sellers can look up their own.
-  const trustLimit = rateLimit({ windowMs: 60 * 1000, max: 30 });
+  const trustLimit = rateLimit({ windowMs: 60 * 1000, max: 30 }, passVerifier);
   app.get('/api/trust', trustLimit, async (req, res) => {
     const target = req.query.url;
     let parsed;
@@ -458,7 +463,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   // Sellers add their own endpoint (free): Doctor checks that it answers 402 with a payment challenge, and the next
   // daily scan picks it up from /api/trust/submitted (lib/trust-submissions.js). Each one costs a live check of the
   // endpoint, so 10 an hour per IP.
-  const submitLimit = rateLimit({ windowMs: 60 * 60 * 1000, max: 10 });
+  const submitLimit = rateLimit({ windowMs: 60 * 60 * 1000, max: 10 }, passVerifier);
   app.post('/api/trust/submit', submitLimit, async (req, res) => {
     const out = await submitToTrust(req.body && req.body.url, { via: 'web', agent: agentOf(req.headers['user-agent']), visitor: visitorOf(req.ip, env.USAGE_LOG_SALT || env.USAGE_LOG_TOKEN) });
     res.status(out.status).json(out.body);
@@ -469,7 +474,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   // Many track records at once, for directories and indexers that re-test their own lists (free): up to 100 URLs per
   // call. The index's days and date come once at the top instead of in every record.
   const BATCH_MAX = 100;
-  const trustBatchLimit = rateLimit({ windowMs: 60 * 1000, max: 10 });
+  const trustBatchLimit = rateLimit({ windowMs: 60 * 1000, max: 10 }, passVerifier);
   app.post('/api/trust/batch', trustBatchLimit, express.json({ limit: '64kb' }), async (req, res) => {
     const urls = req.body && req.body.urls;
     if (!Array.isArray(urls) || urls.length === 0 || urls.length > BATCH_MAX) {
@@ -595,7 +600,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     }
   });
   app.use('/api/settlement', fizzlCors);
-  app.post('/api/settlement', rateLimit(limits), express.json({ limit: '32kb' }), async (req, res) => {
+  app.post('/api/settlement', rateLimit(limits, passVerifier), express.json({ limit: '32kb' }), async (req, res) => {
     const b = req.body || {};
     const header = typeof b.transaction === 'string' && typeof b.network === 'string' ? { transaction: b.transaction, network: b.network, payer: b.payer } : (b.header ?? b.payment_response);
     if (!(header && typeof header === 'object') && (typeof header !== 'string' || !header.trim())) return res.status(400).json({ error: 'Send { "header": "<the PAYMENT-RESPONSE header value>" }, or { "transaction": "…", "network": "eip155:8453" }.' });
@@ -712,7 +717,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
 
   // The free check may also be called from the live demo on fizzl.eu (browser, CORS).
   app.use('/api/diagnose', fizzlCors);
-  app.post('/api/diagnose', rateLimit(limits), async (req, res) => {
+  app.post('/api/diagnose', rateLimit(limits, passVerifier), async (req, res) => {
     const { url: targetUrl, body: rawBody } = req.body || {};
     let { method } = req.body || {};
     if (!targetUrl || typeof targetUrl !== 'string') return res.status(400).json({ error: 'url is required' });

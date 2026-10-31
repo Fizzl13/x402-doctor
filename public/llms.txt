@@ -33,3 +33,6 @@ Backed by a daily Trust Index of ~42,000 paid x402 and MPP endpoints across Base
 ## Optional
 - [Fizzl](https://fizzl.eu/llms.txt): the other Fizzl services (pre-sign checks, agent wallet, trading signals)
 - [Source code](https://github.com/Fizzl13/x402-doctor) and the [GitHub Action](https://github.com/Fizzl13/x402-doctor-action) for CI
+
+## Fizzl Pass
+A Fizzl Pass holder (Bronze comes with Agent Wallet Pro) sends its signed proof in the `X-Fizzl-Pass` header and gets 5 times the free limits, counted per pass instead of per IP. The proof comes from the Agent Wallet dashboard; anyone can check a wallet's pass at https://wallet.fizzl.eu/v1/pass/status?wallet=<address>.
