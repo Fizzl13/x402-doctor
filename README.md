@@ -361,6 +361,10 @@ Space waits in `hf-mcp/`. Doctor's own MCP server is `https://x402-doctor.fizzl.
 
 - The pre-payment check adds `signals.track_record` and a `caution` (`unreliable_history`) when a seller was
   payable on fewer than half of at least 3 scanned days.
+- It also compares who gets paid and the price with the daily scans (`lib/payee-history.js`): a `caution`
+  (`payto_changed`) when the payout address on a network is not the one the last scan saw, or changed in a scan of the
+  last 7 days, and `price_changed` when the price is higher than in the last scan (`info` when lower) or changed this
+  week. The index keeps a short fingerprint of each payout address, not the address.
 - **Spot-buy sample: does "go" mean paid and delivered?** The scan only reads the 402 challenge. Once a week
   [`spot-buy.yml`](.github/workflows/spot-buy.yml) buys a small random sample of "go" endpoints (`lib/spot-buy.js`):
   x402 `exact` in USDC on Base only, one endpoint per host, never a fizzl.eu or test host, the seller's own declared

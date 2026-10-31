@@ -92,7 +92,7 @@ test.before(async () => {
 
   const env = { AGENT_PAYOUT_WALLET: PAY_TO_BASE, AGENT_PAYOUT_WALLET_SOLANA: PAY_TO_SOLANA, FACILITATOR_URL: facilitatorUrl, RECEIPT_SIGNER_SECRET: 'paid-api-test-secret-long-enough-0123456789', MPP_SECRET: 'paid-api-mpp-secret-0123456789', BUILDER_CODE: 'fizzl_test' };
   const trustIndex = {
-    lookup: async (u) => (u.startsWith(targetUrl) ? { days_checked: 5, days_payable: 1, payable_ratio: 0.2, history: 'nnngn', last: 'n', streak: 1 } : null),
+    lookup: async (u) => (u.startsWith(targetUrl) ? { days_checked: 5, days_payable: 1, payable_ratio: 0.2, history: 'nnngn', last: 'n', streak: 1, days: ['2026-10-31'], payto: { a: { 'eip155:8453': '0000000000' }, s: '2026-10-01' } } : null),
     seller: async (u) => (u.startsWith(targetUrl) ? { origin: new URL(targetUrl).origin, resources: 4, payable_now: 1, avg_payable_ratio: 0.25, unreliable: 3 } : null),
     refresh: () => Promise.resolve(),
     summary: () => ({ updated: '2026-09-23T03:00:00Z', days: 5, resources: 1, latest: { go: 0, caution: 0, no_go: 1, unreachable: 0 } }),
@@ -234,6 +234,8 @@ test('preflight: unpaid 402 at $0.001; a paid call returns the verdict (no_go: t
   assert.match(report.options[0].problems.join(' '), /EIP-712 domain/);
   // Track record from the trust index: payable on 1 of 5 days -> caution reason and signal.
   assert.ok(report.reasons.some((r) => r.code === 'unreliable_history' && /1 of the last 5/.test(r.message)));
+  // The payout address isn't the one the daily scan saw (lib/payee-history.js).
+  assert.ok(report.reasons.some((r) => r.code === 'payto_changed' && /on Base is not the one/.test(r.message)), JSON.stringify(report.reasons));
   assert.equal(report.signals.track_record.history, 'nnngn');
   assert.equal(state.settle, 1);
 
