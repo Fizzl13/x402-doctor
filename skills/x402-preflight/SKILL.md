@@ -82,7 +82,7 @@ curl -s -X POST https://x402-doctor.fizzl.eu/api/v1/outcome -H 'content-type: ap
   -d '{"outcome":"paid_ok","status":200,"query":{"url":"<endpoint>","max_usd":"0.05"},"preflight":<the preflight answer, unchanged>}'
 ```
 
-- **`outcome`:** `paid_ok` means it answered 2xx, `paid_failed` means it answered 402 again, `paid_error` means another error after paying.
+- **`outcome`:** `paid_ok` means it answered 2xx, `paid_failed` means it answered 402 again, `paid_error` means another error after paying, `refused` means you decided not to pay. Send `reason` with it (the reason code that stopped you, e.g. `payto_changed`) and `source` (`doctor`, `presign-guard`, `policy` or `other`): the seller then learns why nobody pays.
 - **`query`:** the parameters you sent to the preflight, as strings.
 
 ## Input safety

@@ -293,6 +293,12 @@ After a paid preflight, a buyer can report (free) what happened when it then pai
 - Doctor counts reports per endpoint over 30 days. When most reported payments failed, from at least three different paying wallets, later preflights add `payments_fail_after_preflight` (caution); `signals.agent_outcomes` shows the counts.
 - Reports land in the usage log (endpoint, outcome, status, verdict, payer from the receipt); nothing else about the buyer.
 
+**Refused, and why.** An agent that checked an endpoint and then did not pay it can say why: `"outcome": "refused"` with a `reason` (a short code: the preflight or presign-guard reason that stopped it, such as `payto_changed`, `price_changed` or `payee_mismatch`) and a `source` (`doctor`, `presign-guard`, `policy` or `other`), with the same signed preflight. Any verdict counts here, `no_go` too. Refusals never count as failed payments. They are the seller's signal back: the free web check shows them (`buyer-refusals`, info), and `GET /api/v1/refusals?url=…` gives the counts per reason for the last 30 days, never who refused.
+
+```json
+{ "outcome": "refused", "reason": "payto_changed", "source": "doctor", "preflight": { …the signed preflight answer… }, "query": { "url": "…" } }
+```
+
 ### Signed verdicts
 
 Every paid answer (diagnose, preflight, batch, deep and fix; HTTP and MCP) carries a `receipt` signed by Doctor, so an agent can later prove **which verdict it got for which endpoint**, for example why it did or didn't pay:

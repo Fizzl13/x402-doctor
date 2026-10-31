@@ -88,3 +88,37 @@ test('POST /api/v1/outcome on the app: a signed report is accepted, a bare one r
     assert.strictEqual(bad.status, 400);
   } finally { server.close(); }
 });
+
+test('refused: a reason and source, any verdict, counted apart from payments, counts only for the seller', async () => {
+  const { outcomes, recorded } = make();
+  const noGo = await preflightFor(ENDPOINT, { verdict: 'no_go', payer: '0x1' });
+  const r = await outcomes.report({ outcome: 'refused', reason: 'payto_changed', source: 'doctor', ...noGo });
+  assert.strictEqual(r.status, 200);
+  assert.deepStrictEqual(r.body.endpoint.refusals, { days: 30, refused: 1, wallets: 1, reasons: [{ reason: 'payto_changed', count: 1, wallets: 1 }] });
+  assert.deepStrictEqual({ reason: recorded[0].input.reason, source: recorded[0].input.source, verdict: recorded[0].input.verdict }, { reason: 'payto_changed', source: 'doctor', verdict: 'no_go' });
+  await outcomes.report({ outcome: 'refused', reason: 'payto_changed', ...(await preflightFor(ENDPOINT, { payer: '0x2' })) });
+  await outcomes.report({ outcome: 'refused', reason: 'price_changed', source: 'presign-guard', ...(await preflightFor(ENDPOINT, { verdict: 'caution', payer: '0x2' })) });
+  assert.deepStrictEqual(outcomes.refusals(ENDPOINT), { days: 30, refused: 3, wallets: 2, reasons: [{ reason: 'payto_changed', count: 2, wallets: 2 }, { reason: 'price_changed', count: 1, wallets: 1 }] });
+  assert.strictEqual(outcomes.lookup(ENDPOINT), null, 'refusals are not payments');
+  assert.strictEqual(outcomes.refusals('https://api.example.com/other'), null);
+});
+
+test('refused needs a reason code and a known source', async () => {
+  const { outcomes } = make();
+  const pf = await preflightFor();
+  assert.match((await outcomes.report({ outcome: 'refused', ...pf })).body.error, /needs reason/);
+  assert.match((await outcomes.report({ outcome: 'refused', reason: 'Not A Code!', ...pf })).body.error, /needs reason/);
+  assert.match((await outcomes.report({ outcome: 'refused', reason: 'payto_changed', source: 'me', ...pf })).body.error, /source must be/);
+});
+
+test('refusals are rebuilt from the usage log', async () => {
+  const events = [
+    { route: 'outcome', result: { accepted: true }, input: { url: ENDPOINT, outcome: 'refused', reason: 'payee_mismatch', request_id: 'a', payer: '0x1' } },
+    { route: 'outcome', result: { accepted: true }, input: { url: ENDPOINT, outcome: 'refused', reason: 'payee_mismatch', request_id: 'a', payer: '0x1' } },
+    { route: 'outcome', result: { accepted: true }, input: { url: ENDPOINT, outcome: 'paid_ok', request_id: 'b', payer: '0x2' } },
+  ];
+  const { outcomes } = make({ events });
+  await outcomes.refresh();
+  assert.deepStrictEqual(outcomes.refusals(ENDPOINT).reasons, [{ reason: 'payee_mismatch', count: 1, wallets: 1 }]);
+  assert.deepStrictEqual(outcomes.lookup(ENDPOINT), { reports: 1, failed: 0, failed_payers: 0 });
+});
