@@ -43,20 +43,27 @@
   <div class="card"><b>Price:</b> <span class="price">$0.02</span> a purchase over x402 ({{networks}}), for services up to $0.01. <b>Nothing is charged when no service delivers.</b></div>
 
   <h2>Why</h2>
-  <p>The x402 Bazaar lists more than 36,000 paid endpoints. Many are broken, test services or bait, and an agent can't tell which. x402 Doctor checks every one of them every day; Fizzl Buy only buys from sellers with a good track record, after a fresh pre-payment check (OFAC payout screen, namesakes, bait), and checks that the answer is what was paid for.</p>
+  <p>The x402 Bazaar lists more than 40,000 paid endpoints. Many are broken, test services or bait, and an agent can't tell which. x402 Doctor checks every one of them every day; Fizzl Buy only buys from sellers with a good track record, after a fresh pre-payment check (OFAC payout screen, namesakes, bait), and checks that the answer is what was paid for.</p>
 
   <h2>How it works</h2>
   <ol>
     <li><b>Pick:</b> the paid APIs that fit the need, ranked by meaning, kept to sellers payable on at least 80% of the days x402 Doctor checked.</li>
     <li><b>Fill in:</b> the service's own input, taken from your sentence.</li>
     <li><b>Check and buy:</b> a fresh preflight must say go; then Fizzl pays from its own wallet.</li>
-    <li><b>Check the answer:</b> TypeSafe Jev judges whether it is what was paid for. If not, Fizzl tries the next service.</li>
+    <li><b>Check the answer:</b> TypeSafe Jev judges whether it is what was paid for. If not, Fizzl tries the next service (at most three), and a seller that just failed goes to the back of the list for six hours.</li>
   </ol>
+
+  <h2>Safe to call</h2>
+  <ul>
+    <li><b>Paid once, never twice:</b> one payment buys one answer. The same payment sent again at the same moment is refused, and a retry after a lost answer with the same payment id gets that answer back without paying again (x402's payment-identifier).</li>
+    <li><b>Some things it won't buy:</b> a private person's personal data (home address, phone number, personal e-mail, ID numbers) or a way to break in (bypassing a paywall or login, stolen credentials, card data). Those needs get a 422 before any search, and nothing is charged.</li>
+    <li><b>Who gets paid:</b> Fizzl Buy is ERC-8004 agent #988891. Every payout address in its 402 is covered by a payee delegation its agent wallet signed (ERC-8478), so an agent can check on chain that the money goes to Fizzl. <a href="https://x402-doctor.fizzl.eu/?url=https%3A%2F%2Fbuy.fizzl.eu%2Fv1%2Fbuy&amp;method=POST">Check it in x402 Doctor</a>.</li>
+  </ul>
 
   <h2>Use it</h2>
   <pre>POST https://buy.fizzl.eu/v1/buy
 {"need": "weather forecast for Amsterdam tomorrow"}</pre>
-  <p>Free first: <code>GET https://buy.fizzl.eu/v1/pick?need=…</code> shows which service would be bought and why (10 an hour), and the MCP server at <code>https://buy.fizzl.eu/mcp</code> has the free tool <code>x402_pick</code>. MCP clients that pay x402 can buy there too: <code>x402_buy</code> ($0.02, paid inside the call).</p>
+  <p>Free first: <code>GET https://buy.fizzl.eu/v1/pick?need=…</code> shows which service would be bought and why (10 an hour), and the MCP server at <code>https://buy.fizzl.eu/mcp</code> has the free tool <code>x402_pick</code>. MCP clients that pay x402 can buy there too: <code>x402_buy</code> ($0.02, paid inside the call). Opening <code>/v1/buy</code> in a browser shows the payment terms as JSON: buying takes a POST.</p>
 
   <h2>Let your agent buy on its own</h2>
   <p>The payment needs no person: the 402 names the price, the agent's wallet signs a USDC authorization and sends the request again. What a person sets up once is the wallet and its limits. With the <a href="https://wallet.fizzl.eu">Fizzl Agent Wallet</a>, in Claude Desktop, Claude Code, Cursor or any MCP client:</p>
