@@ -595,6 +595,21 @@ test('GoPlausible catalog: resourceUrl and method, https only, one per origin + 
   assert.ok(!list.some((r) => r.url.startsWith('http://')));
 });
 
+test('GoPlausible catalog: a server that caps the page size below the asked limit is paged on by what came back', async () => {
+  // Since late Oct 2026 the discovery API returns 100 items however many are asked, of 2,700+.
+  const { loadGoPlausibleCatalog } = require('../lib/trust-scan');
+  const TOTAL = 250;
+  const urls = [];
+  const list = await loadGoPlausibleCatalog({ fetchImpl: async (u) => {
+    urls.push(u);
+    const offset = Number(new URL(u).searchParams.get('offset'));
+    const items = Array.from({ length: Math.max(0, Math.min(100, TOTAL - offset)) }, (_, i) => ({ resourceUrl: `https://algo.example/r/${offset + i}` }));
+    return Response.json({ items, pagination: { limit: 100, offset, total: TOTAL } });
+  } });
+  assert.equal(list.length, TOTAL);
+  assert.deepEqual(urls.map((u) => new URL(u).searchParams.get('offset')), ['0', '100', '200']);
+});
+
 test('nohumans.directory catalogue: endpoint_url, https only, one per origin + path, no /mcp, templates marked, pages until next_offset is null', async () => {
   const { loadNohumansCatalog } = require('../lib/trust-scan');
   const page = (offset) => offset === 0
