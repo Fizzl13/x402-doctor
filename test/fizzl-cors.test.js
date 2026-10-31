@@ -14,8 +14,8 @@ before(async () => {
 });
 after(() => server.close());
 
-test("fizzl.eu may read the free route", async () => {
-  for (const origin of ["https://fizzl.eu", "https://www.fizzl.eu"]) {
+test("fizzl.eu and ai.fizzl.eu may read the free route", async () => {
+  for (const origin of ["https://fizzl.eu", "https://www.fizzl.eu", "https://ai.fizzl.eu"]) {
     const res = await fetch(`${base}/free`, { headers: { origin } });
     assert.strictEqual(res.headers.get("access-control-allow-origin"), origin);
     assert.match(res.headers.get("vary"), /Origin/);
