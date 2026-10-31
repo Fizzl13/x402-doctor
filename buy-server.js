@@ -24,6 +24,7 @@ const express = require('express');
 // Every payTo with the payee delegation the agent wallet of agent #988891 (0x2c7c…128b) signed on 30 Oct 2026 for a
 // year (draft ERC "x402 Payee Verification for ERC-8004 Agents", ethereum/ERCs#2132).
 const { createPassVerifier, limitKeyOf } = require('./lib/fizzl-pass');
+const { createVault, redisVault } = require('./lib/fizzl-vault');
 const PAYEE_DELEGATIONS = require('./lib/buy-payee-delegations.json');
 const { paymentMiddleware, x402ResourceServer } = require('@x402/express');
 const { HTTPFacilitatorClient } = require('@x402/core/server');
@@ -193,6 +194,9 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
   // Fizzl Pass holders get the tier's higher free limit, counted per pass (lib/fizzl-pass.js).
   const passVerifier = deps.pass ?? createPassVerifier({ jwksUrl: env.PASS_JWKS_URL || undefined });
   const allowFree = async (req) => { const { key, factor } = await limitKeyOf(passVerifier, req); return freeLimiter(key, factor); };
+  // Fizzl Pass vault (lib/fizzl-vault.js): credit back after a paid purchase by a pass wallet, and purchases paid from
+  // the vault. Off without CREDITS_REDIS_URL (the same Redis as x402 Doctor and presign-guard).
+  const vault = createVault({ store: deps.vaultStore !== undefined ? deps.vaultStore : (env.CREDITS_REDIS_URL ? redisVault(env.CREDITS_REDIS_URL) : null), pass: passVerifier, statusUrl: env.PASS_STATUS_URL || undefined });
   const usageLog = deps.usageLog ?? createUsageLog({ service: 'buy', env });
   const signer = deps.signer === undefined ? createSigner(env, { label: 'fizzl-buy', service: 'fizzl-buy' }) : deps.signer;
   const instance = deps.instance ?? INSTANCE;
@@ -254,7 +258,7 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
   app.get('/health', (_req, res) => res.json({ ok: true, wallet: wallet ? wallet.address : null, filler: filler.enabled, answer_check: Boolean(answerCheck?.enabled), spent_today_usd: budget.spent(), memory: memoryOf(), uptime_s: Math.round(process.uptime()) }));
 
   app.use(usageLog.middleware((req, res, body) => {
-    const via = req.path === '/mcp' ? 'mcp' : 'api';
+    const via = req.path === '/mcp' ? 'mcp' : req.fizzlCredits?.vault ? 'vault' : 'api';
     // spent_usd: what this call paid sellers (also when the agent's own payment then failed), for the day budget.
     if (req.path === BUY_ROUTE && req.method === 'POST') return { route: 'buy', via, input: { chars: String(req.body?.need || '').length, ...(res.locals.spentUsd ? { spent_usd: res.locals.spentUsd, instance } : {}) }, result: { delivered: body?.delivered, paid_usd: body?.paid_usd, service: body?.service?.url ? new URL(body.service.url).host : undefined, tried: body?.tried, error: body?.error } };
     if (req.path === '/v1/pick') return { route: 'pick', via, input: { chars: String(req.query.need || '').length }, result: { pick: body?.pick?.url ? new URL(body.pick.url).host : null, error: body?.error } };
@@ -268,6 +272,9 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
     if (req.path === '/mcp' && req.body?.method === 'tools/call') return { route: String(req.body.params?.name || 'mcp'), via, input: {}, result: {} };
     return null;
   }));
+
+  app.use(vault.creditBack());
+  app.get('/v1/vault', vault.balanceHandler());
 
   // Free: what the inkoper would buy (also from the live demo on fizzl.eu, in the browser).
   app.use('/v1/pick', fizzlCors);
@@ -434,7 +441,9 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
   // again. The body is read first, so the same id with another need is a new purchase.
   app.use(BUY_ROUTE, express.json({ limit: '16kb' }), (deps.paymentRetry ?? createPaymentRetry()).middleware);
   app.use(deps.oncePerPayment ?? createOncePerPayment({ paths: [BUY_ROUTE], locks }));
-  if (paywall) app.use(paywall);
+  // A purchase paid from a Fizzl Pass vault skips the paywall; a purchase that doesn't deliver gives it back.
+  app.use(vault.payFromVault((req) => (req.method === 'POST' && req.path === BUY_ROUTE ? PRICE_USD : null)));
+  if (paywall) app.use((req, res, next) => (req.fizzlCredits ? next() : paywall(req, res, next)));
   app.use(signPaidResponses(signer, [`POST ${BUY_ROUTE}`]));
   app.post(BUY_ROUTE, express.json({ limit: '16kb' }), async (req, res) => {
     try {
