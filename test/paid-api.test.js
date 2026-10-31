@@ -124,6 +124,19 @@ test('unpaid request: 402 offering $0.01 USDC on Base and Solana, mirrored into 
   assert.equal(res.headers.get('cache-control'), 'no-store');
 });
 
+test('an x402 v1 payment gets a 402 that says why: this service speaks v2, and which clients to use', async () => {
+  const v1 = Buffer.from(JSON.stringify({ x402Version: 1, scheme: 'exact', network: 'base', payload: { signature: '0x00', authorization: {} } })).toString('base64');
+  const res = await fetch(diagnoseUrl(targetUrl), { headers: { 'X-PAYMENT': v1 } });
+  assert.equal(res.status, 402);
+  const body = await res.json();
+  assert.match(body.error, /x402 v1 payment not accepted \(network "base"\): this service speaks x402 v2/);
+  assert.ok(body.upgrade.some((u) => /@x402\/fetch/.test(u)));
+  assert.ok(Array.isArray(body.accepts), 'the v2 terms are still there');
+  assert.equal(state.verify, 0);
+  const plain = await (await fetch(diagnoseUrl(targetUrl))).json();
+  assert.equal(plain.upgrade, undefined, 'an unpaid request gets the plain 402');
+});
+
 test('called on the Render address, a paid route goes to the same route on x402-doctor.fizzl.eu (308), where the challenge names it', async () => {
   const { port } = new URL(api);
   const res = await new Promise((resolve, reject) => {
