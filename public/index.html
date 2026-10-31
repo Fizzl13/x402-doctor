@@ -630,7 +630,9 @@ async function showTrust(url, id) {
       }
       // Bought with real USDC by nohumans.directory or PayAPI Market, with an answer back: what the read-only check can't see.
       for (const h of (data.delivered_elsewhere ? data.delivered_elsewhere.sources || [data.delivered_elsewhere] : [])) {
-        line.append(` Bought with real USDC by ${h.source} on ${h.paid_on}, and the answer came${h.status === 'failing' ? ' (failing their checks since)' : ''}. `, ...(h.listing ? [link(h.listing, 'Their record →')] : []));
+        line.append(h.status === 'failed'
+          ? ` Bought with real USDC by ${h.source} on ${h.paid_on}, and no usable answer came${h.reason ? ` (${h.reason})` : ''}. `
+          : ` Bought with real USDC by ${h.source} on ${h.paid_on}, and the answer came${h.status === 'failing' ? ' (failing their checks since)' : ''}. `, ...(h.listing ? [link(h.listing, 'Their record →')] : []));
       }
     } else if (res.status === 404 && data.submitted_at) {
       line.append(`Added to the x402 Trust Index on ${data.submitted_at.slice(0, 10)}: the next daily scan checks it.`);

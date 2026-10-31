@@ -7,7 +7,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
 const { loadNohumansCatalog, loadPayApiCatalog } = require('../lib/trust-scan');
-const { createDeliveryElsewhere, SOURCES } = require('../lib/delivery-elsewhere');
+const { createDeliveryElsewhere, openClawSource, SOURCES } = require('../lib/delivery-elsewhere');
 const { createSafeFetch } = require('../lib/safe-fetch');
 const { preflight } = require('../lib/preflight');
 const { keyOf } = require('../lib/bazaar-index');
@@ -101,4 +101,45 @@ test('preflight: an endpoint others bought and got an answer from adds an info l
   assert.ok(!plain.reasons.some((r) => r.code === 'delivered_elsewhere') && !plain.signals.delivered_elsewhere);
   const down = await preflight(url, { safeFetch, delivery: { forUrl: async () => { throw new Error('down'); } } });
   assert.equal(down.verdict, plain.verdict, 'a failing source changes nothing');
+});
+
+test('OpenClaw grades: the latest graded purchase per endpoint, delivered or failed, with its reason and report link', async () => {
+  const feed = { grades: [
+    { url: 'https://a.example/v1/x?q=1', date: '2026-10-20', delivered: true, report: 'https://openclaw.example/r/1' },
+    { url: 'https://a.example/v1/x', date: '2026-10-31T12:00:00Z', delivered: false, reason: 'paid, but GET\n returned only a usage note', report: 'javascript:alert(1)' },
+    { url: 'https://b.example/v1/y', date: '2026-10-29', delivered: true },
+    { url: 'https://b.example/v1/y', date: '2026-10-01', delivered: false, reason: 'older' },
+    { url: 'not a url', date: '2026-10-29', delivered: true },
+    { url: 'https://c.example/z', date: 'yesterday', delivered: false },
+    { url: 'https://d.example/z', date: '2026-10-29', delivered: 'yes' },
+  ] };
+  const delivery = createDeliveryElsewhere({ sources: [openClawSource('https://openclaw.example/grades.json')], fetchImpl: async () => Response.json(feed) });
+  const a = await delivery.forUrl('https://a.example/v1/x', { waitMs: 1000 });
+  assert.deepEqual([a.source, a.paid_on, a.status, a.reason, a.listing], ['OpenClaw', '2026-10-31', 'failed', 'paid, but GET returned only a usage note', null]);
+  const b = await delivery.forUrl('https://b.example/v1/y');
+  assert.deepEqual([b.status, b.paid_on, b.reason ?? null], ['delivered', '2026-10-29', null]);
+  assert.equal(await delivery.forUrl('https://c.example/z'), null);
+  assert.equal(await delivery.forUrl('https://d.example/z'), null);
+  assert.ok(!SOURCES.some((x) => x.name === 'OpenClaw'), 'off without OPENCLAW_GRADES_URL');
+});
+
+test('preflight: a grader paid and got no usable answer is an info line next to the verdict; one that got an answer stays under delivered', async () => {
+  const origin = await listen((req, res) => {
+    res.setHeader('content-type', 'application/json');
+    if (req.url === '/openapi.json') { res.statusCode = 404; return res.end('{}'); }
+    const challenge = { x402Version: 2, resource: { url: `http://${req.headers.host}${req.url}`, mimeType: 'application/json', description: 'x' }, accepts: [{ scheme: 'exact', network: 'eip155:8453', amount: '10000', asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', payTo: '0x6B0F4651eD42893ab58139938175E4a69f175F25', maxTimeoutSeconds: 60, extra: { name: 'USD Coin', version: '2' } }] };
+    res.statusCode = 402;
+    res.setHeader('PAYMENT-REQUIRED', Buffer.from(JSON.stringify(challenge)).toString('base64'));
+    res.end(JSON.stringify(challenge));
+  });
+  const url = `${origin}/paid`;
+  const safeFetch = createSafeFetch({ allowPrivate: true });
+  const failed = { source: 'OpenClaw', paid_on: '2026-10-31', status: 'failed', reason: 'GET returned only a usage note', listing: null };
+  const payapi = { source: 'PayAPI Market', paid_on: '2026-10-20', status: 'verified', listing: 'https://payapi.market/api/x' };
+  const seen = await preflight(url, { safeFetch, delivery: { forUrl: async () => ({ ...failed, sources: [failed, payapi] }) } });
+  assert.equal(seen.verdict, 'go');
+  assert.equal(seen.reasons.find((r) => r.code === 'failed_elsewhere').message, 'Bought with real USDC, and no usable answer came: OpenClaw on 2026-10-31 (GET returned only a usage note).');
+  assert.equal(seen.reasons.find((r) => r.code === 'delivered_elsewhere').message, 'Bought with real USDC, and the answer came: PayAPI Market on 2026-10-20.');
+  const onlyFailed = await preflight(url, { safeFetch, delivery: { forUrl: async () => ({ ...failed, sources: [failed] }) } });
+  assert.ok(!onlyFailed.reasons.some((r) => r.code === 'delivered_elsewhere'));
 });

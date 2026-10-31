@@ -576,7 +576,9 @@
       const paid = document.createElement('div');
       paid.className = 'legend';
       paid.style.marginTop = '12px';
-      paid.append(`Bought with real USDC by ${de.source} on ${de.paid_on}, and the answer came${de.status === 'failing' ? '; it has failed their checks since' : ''}. `);
+      paid.append(de.status === 'failed'
+        ? `Bought with real USDC by ${de.source} on ${de.paid_on}, and no usable answer came${de.reason ? ` (${de.reason})` : ''}. `
+        : `Bought with real USDC by ${de.source} on ${de.paid_on}, and the answer came${de.status === 'failing' ? '; it has failed their checks since' : ''}. `);
       if (de.listing) {
         const a = document.createElement('a');
         a.href = de.listing;

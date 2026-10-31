@@ -397,6 +397,10 @@ Space waits in `hf-mcp/`. Doctor's own MCP server is `https://x402-doctor.fizzl.
   `sources`) and an `info` line (`delivered_elsewhere`) for such an endpoint, `GET /api/trust?url=…` adds
   `delivered_elsewhere`, and the web check and `/trust` show it (`lib/delivery-elsewhere.js`). It is information next
   to the read-only check, never the verdict.
+  A third source, OpenClawProductions' delivery grades, is read straight from their feed once `OPENCLAW_GRADES_URL` is
+  set (`{ "grades": [{ "url", "date", "delivered": true|false, "reason"?, "report"? }] }`, the latest per endpoint).
+  It also has failed purchases (paid, and no usable answer): those add an `info` line `failed_elsewhere` with the
+  reason.
   The same wallet makes one other kind of payment, started by hand: [`index-payment.yml`](.github/workflows/index-payment.yml)
   pays our own fizzl.eu routes (`scripts/index-payment.js`), because the CDP Bazaar lists a route only after a payment
   for it settles and drops it after 30 days without one. `stale` (the default) pays each of our 16 routes whose last
