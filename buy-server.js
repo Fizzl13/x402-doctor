@@ -23,6 +23,7 @@ const path = require('path');
 const express = require('express');
 // Every payTo with the payee delegation the agent wallet of agent #988891 (0x2c7c…128b) signed on 30 Oct 2026 for a
 // year (draft ERC "x402 Payee Verification for ERC-8004 Agents", ethereum/ERCs#2132).
+const { createPassVerifier, limitKeyOf } = require('./lib/fizzl-pass');
 const PAYEE_DELEGATIONS = require('./lib/buy-payee-delegations.json');
 const { paymentMiddleware, x402ResourceServer } = require('@x402/express');
 const { HTTPFacilitatorClient } = require('@x402/core/server');
@@ -85,10 +86,10 @@ const memoryOf = () => {
 
 function createRateLimiter(limit, windowMs) {
   const hits = new Map();
-  return (key) => {
+  return (key, factor = 1) => {
     const now = Date.now();
     const recent = (hits.get(key) || []).filter((t) => now - t < windowMs);
-    if (recent.length >= limit) { hits.set(key, recent); return false; }
+    if (recent.length >= limit * factor) { hits.set(key, recent); return false; }
     recent.push(now);
     hits.set(key, recent);
     if (hits.size > 10000) hits.delete(hits.keys().next().value);
@@ -189,6 +190,9 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
   const wallet = deps.wallet ?? (env.BUY_WALLET_KEY ? createSpotWallet({ key: env.BUY_WALLET_KEY, capUsd: CAP_USD, rpc: env.BASE_RPC_URL || undefined }) : null);
   const budget = deps.budget ?? createBudget({ dailyUsd: Number(env.BUY_DAILY_USD) || 5 });
   const freeLimiter = deps.freeLimiter ?? createRateLimiter(FREE_PER_HOUR, 60 * 60 * 1000);
+  // Fizzl Pass holders get the tier's higher free limit, counted per pass (lib/fizzl-pass.js).
+  const passVerifier = deps.pass ?? createPassVerifier({ jwksUrl: env.PASS_JWKS_URL || undefined });
+  const allowFree = async (req) => { const { key, factor } = await limitKeyOf(passVerifier, req); return freeLimiter(key, factor); };
   const usageLog = deps.usageLog ?? createUsageLog({ service: 'buy', env });
   const signer = deps.signer === undefined ? createSigner(env, { label: 'fizzl-buy', service: 'fizzl-buy' }) : deps.signer;
   const instance = deps.instance ?? INSTANCE;
@@ -270,7 +274,7 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
   app.get('/v1/pick', async (req, res) => {
     try {
       const need = needOf(req.query.need);
-      if (!freeLimiter(req.ip)) return res.status(429).json({ error: `Free limit reached (${FREE_PER_HOUR} an hour). POST ${BUY_ROUTE} ($${PRICE_USD}) buys directly.` });
+      if (!(await allowFree(req))) return res.status(429).json({ error: `Free limit reached (${FREE_PER_HOUR} an hour; more with a Fizzl Pass). POST ${BUY_ROUTE} ($${PRICE_USD}) buys directly.` });
       res.set('Cache-Control', 'no-store').json(await pickFor(need));
     } catch (err) {
       res.status(err.status || 500).json({ error: err.status ? err.message : 'internal error' });
@@ -351,7 +355,7 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
       annotations: { readOnlyHint: true, openWorldHint: true },
     }, async ({ need }) => {
       try { needOf(need); } catch (err) { return toolError(err.message); }
-      if (!freeLimiter(req.ip)) return { content: [{ type: 'text', text: `Free limit reached (${FREE_PER_HOUR} an hour). POST ${publicUrl}${BUY_ROUTE} ($${PRICE_USD}) buys directly.` }], isError: true };
+      if (!(await allowFree(req))) return { content: [{ type: 'text', text: `Free limit reached (${FREE_PER_HOUR} an hour). POST ${publicUrl}${BUY_ROUTE} ($${PRICE_USD}) buys directly.` }], isError: true };
       try {
         const out = await pickFor(need);
         return { content: [{ type: 'text', text: JSON.stringify(out) }], structuredContent: out };
