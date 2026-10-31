@@ -43,7 +43,7 @@ const { createStatus } = require('./lib/status');
 const { renderBadge, badgeFor } = require('./lib/badge');
 const { addMppOffers } = require('./lib/mpp-pay');
 const { createOutreachHook, recheckFindings } = require('./lib/outreach-hook');
-const { createPageMeta, trustDescription, trustFill, networkFill } = require('./lib/page-meta');
+const { createPageMeta, trustDescription, trustFill, networkFill, countFill, withCount } = require('./lib/page-meta');
 const { createTriage } = require('./lib/jev-triage');
 const { createDescribe } = require('./lib/jev-describe');
 const { createPriceCheck } = require('./lib/jev-price');
@@ -220,6 +220,7 @@ function trustProxyHops(env) {
 
 function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, cdpValidate = env.CDP_VALIDATE === 'off' ? null : createCdpValidator(), trustIndex = createTrustReader(), spotResults = createSpotResults(), deliveryElsewhere = createDeliveryElsewhere(), onchainPayments = createOnchainPayments(), media = createMediaCache(), usageLog = createUsageLog({ service: 'doctor', env }), usageReader = createUsageReader({ env }), publicStats = createPublicStats({ usageReader }), settlementFetch = globalThis.fetch, status = null, outreachHook: outreachHookOverride = null, describe = createDescribe({ apiKey: env.TYPESAFE_API_KEY }), poison = createPoisonCheck({ apiKey: env.TYPESAFE_API_KEY }), creditStore, agentKinds = createAgentKinds({ apiKey: env.TYPESAFE_API_KEY }), downloads = createDownloads(), priceCheck = createPriceCheck({ apiKey: env.TYPESAFE_API_KEY, trustIndex }), deliveryStore, deliveryResults, trustSubmissions: trustSubmissionsOverride = null } = {}) {
   const app = express();
+  const pagesWithCount = {}; // the home page and llms.txt handlers, set with the other pages below
   const safeFetch = createSafeFetch({ allowPrivate });
   // Outreach drafts for the owner (lib/outreach-hook.js); off without OUTREACH_URL and OUTREACH_KEY.
   const outreachHook = outreachHookOverride || createOutreachHook({ url: env.OUTREACH_URL, key: env.OUTREACH_KEY, safeFetch, publicUrl: env.PUBLIC_URL || 'https://x402-doctor.fizzl.eu', triage: createTriage({ apiKey: env.TYPESAFE_API_KEY }) });
@@ -349,7 +350,10 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   });
 
   // status.fizzl.eu (a custom domain on this service) opens the status page.
-  app.get('/', (req, res, next) => (req.hostname === 'status.fizzl.eu' ? res.sendFile(path.join(__dirname, 'public', 'status.html')) : next()));
+  // The home page and llms.txt say how many endpoints the Trust Index checks: the latest scan's count (countFill), not a
+  // number written into the file that goes stale. pagesWithCount is set further down, with the other pages.
+  app.get(['/', '/index.html'], (req, res, next) => (req.hostname === 'status.fizzl.eu' && req.path === '/' ? res.sendFile(path.join(__dirname, 'public', 'status.html')) : pagesWithCount.home(req, res, next)));
+  app.get('/llms.txt', (req, res, next) => pagesWithCount.llms(req, res, next));
   app.use(express.static(path.join(__dirname, 'public')));
 
   // Paid agent API (x402). The web page below stays free and rate-limited.
@@ -533,7 +537,14 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     if (updated && fill.length) pageNumbers.set(key, { updated, fill });
     return fill;
   };
-  app.get('/trust', page('trust.html', '/trust', liveTrust, onceper('trust', () => trustFill(trustIndex.summary()))));
+  const scanCount = onceper('count', () => countFill(trustIndex.summary()));
+  app.get('/trust', page('trust.html', '/trust', liveTrust, onceper('trust', () => { const summary = trustIndex.summary(); return [...trustFill(summary), ...countFill(summary)]; })));
+  const llmsFile = path.join(__dirname, 'public', 'llms.txt');
+  let llmsText = null;
+  pagesWithCount.home = page('index.html', '/', undefined, scanCount);
+  pagesWithCount.llms = (_req, res, next) => Promise.resolve().then(scanCount).catch(() => [])
+    .then((fill) => { llmsText ??= fs.readFileSync(llmsFile, 'utf8'); res.type('text/plain; charset=utf-8').send(withCount(llmsText, fill)); })
+    .catch(next);
   // Per-network view of the Trust Index (free): every scanned x402 endpoint that offers a network, payable today
   // or not and why. The /xrpl, /algorand, /stellar and /xlayer pages read it.
   app.get('/api/trust/network', trustLimit, async (req, res) => {

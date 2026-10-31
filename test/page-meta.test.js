@@ -90,3 +90,36 @@ test('today\'s numbers in the HTML of /trust and the network pages, for crawlers
   const xrpl = await (await fetch(`${base}/xrpl`)).text();
   assert.match(xrpl, /<div class="v">…<\/div>/, 'no numbers yet: the placeholders stay');
 });
+
+test('countFill: "about"/"~" counts follow the latest scan, exact counts and titles stay', () => {
+  const { countFill, withCount } = require('../lib/page-meta');
+  const summary = { latest: { go: 38595, caution: 2572, no_go: 906, unreachable: 247 } };
+  const text = 'a Trust Index of ~42,000 paid x402 endpoints; checks about 50,000 paid x402 and MPP endpoints (about 38,000 endpoints). We check 42,000 paid x402 endpoints every day. 37,624 endpoints checked.';
+  assert.equal(withCount(text, countFill(summary)), 'a Trust Index of ~42,000 paid x402 endpoints; checks about 42,000 paid x402 and MPP endpoints (about 42,000 endpoints). We check 42,000 paid x402 endpoints every day. 37,624 endpoints checked.');
+  assert.match(withCount('about 42,000 paid', countFill({ latest: { go: 66717, caution: 2695, no_go: 1087, unreachable: 293 } })), /about 71,000 paid/);
+  assert.deepEqual(countFill(null), []);
+  assert.deepEqual(countFill({ latest: { go: 0, caution: 0, no_go: 0, unreachable: 0 } }), []);
+  const meta = createPageMeta({ read: () => '<title>t</title><meta property="og:title" content="t"><p>about 50,000 paid endpoints, ~50,000 paid ones</p>' });
+  assert.match(meta.render('x.html', { fill: countFill(summary) }), /about 42,000 paid endpoints, ~42,000 paid ones/);
+});
+
+test('the home page, /trust and llms.txt carry the latest scan\'s count; the files as they are while the index loads', async (t) => {
+  let summary = { latest: { go: 60000, caution: 2000, no_go: 1000, unreachable: 300 }, daily: [{ date: '2026-10-31', go: 60000, caution: 2000, no_go: 1000, unreachable: 300 }] };
+  let updated = 1;
+  const trustIndex = { lookup: async () => null, refresh: () => Promise.resolve(), summary: () => summary, updated: () => updated };
+  const app = createApp({ env: {}, trustIndex, status: { snapshot: async () => ({}) } });
+  const server = await new Promise((resolve) => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
+  t.after(() => server.close());
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const home = await (await fetch(`${base}/`)).text();
+  assert.match(home, /about 63,000 paid x402 and MPP endpoints/);
+  assert.doesNotMatch(home, /about 42,000/);
+  assert.match(home, /<title>/);
+  const llms = await fetch(`${base}/llms.txt`);
+  assert.match(llms.headers.get('content-type'), /text\/plain/);
+  assert.match(await llms.text(), /~63,000 paid x402 and MPP endpoints/);
+  assert.match(await (await fetch(`${base}/trust`)).text(), /\(about 63,000 endpoints\)/);
+  summary = null; updated = 2;
+  assert.match(await (await fetch(`${base}/llms.txt`)).text(), /~42,000 paid/);
+  assert.match(await (await fetch(`${base}/index.html`)).text(), /about 42,000 paid/);
+});
