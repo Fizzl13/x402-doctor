@@ -106,6 +106,14 @@ test('payee verification: endpoint-unlisted, no-agent-wallet, not-read and no-id
   assert.equal(named[0].outcome, 'verified-wallet', 'an identity named in extra.erc8004 is read from the registry and its tokenURI');
 });
 
+test('payee verification: an x402 v1 network name ("base") counts as eip155:8453', async () => {
+  const [v1] = await run([opt({ network: 'base' })]);
+  assert.equal(v1.outcome, 'verified-wallet');
+  assert.equal(v1.network, 'base', 'reported as the seller wrote it');
+  const [owner] = await run([opt({ network: 'base', payTo: OWNER })], { fileIdentities: file(DOC, '8') });
+  assert.equal(owner.outcome, 'owner-only');
+});
+
 test('payee verification: an ipfs:// tokenURI is read through a public gateway', () => {
   assert.equal(docUrl('ipfs://bafkreien3ak5'), 'https://gateway.pinata.cloud/ipfs/bafkreien3ak5');
   assert.equal(docUrl('ipfs://ipfs/bafy/agent.json'), 'https://gateway.pinata.cloud/ipfs/bafy/agent.json');
