@@ -22,6 +22,8 @@ services:
         value: Fizzl13/usage-log
       - key: ADMIN_PASSWORD
         sync: false
+      - key: PASS_SALE_KEY # the same long random value as on the Agent Wallet: sells Fizzl Passes over x402 (lib/pass-sale.js)
+        sync: false
       - key: RECEIPT_SIGNER_SECRET # signs verdict receipts (lib/receipt.js); holds no funds; unset = unsigned answers
         generateValue: true
       - key: RECEIPT_SIGNER_CERT # payout wallet's certificate for the signing key ("YYYY-MM-DD:0x…", from /sign-receipt-key; optional)
