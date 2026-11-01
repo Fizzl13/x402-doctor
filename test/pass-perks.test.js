@@ -3,7 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
-const { spawn } = require('node:child_process');
+const { spawn, spawnSync } = require('node:child_process');
 const net = require('node:net');
 const express = require('express');
 const { createPassVerifier } = require('../lib/fizzl-pass');
@@ -70,7 +70,9 @@ test('Silver: one a month; a refused endpoint uses none; a new month starts agai
   } finally { s.close(); }
 });
 
-test('the Redis counter: atomic, never above the month\'s checks, given back on an error', async (t) => {
+// Needs redis-server on the machine (not on GitHub's runners): skipped without it.
+const hasRedis = !spawnSync('redis-server', ['--version']).error;
+test('the Redis counter: atomic, never above the month\'s checks, given back on an error', { skip: !hasRedis && 'redis-server not installed' }, async (t) => {
   const port = await new Promise((ok) => { const srv = net.createServer().listen(0, () => { const p = srv.address().port; srv.close(() => ok(p)); }); });
   const proc = spawn('redis-server', ['--port', String(port), '--save', '', '--appendonly', 'no'], { stdio: 'ignore' });
   proc.unref();
