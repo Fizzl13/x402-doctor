@@ -24,7 +24,7 @@ const express = require('express');
 // Every payTo with the payee delegation the agent wallet of agent #988891 (0x2c7c…128b) signed on 30 Oct 2026 for a
 // year (draft ERC "x402 Payee Verification for ERC-8004 Agents", ethereum/ERCs#2132).
 const { createPassVerifier, limitKeyOf } = require('./lib/fizzl-pass');
-const { createVault, redisVault } = require('./lib/fizzl-vault');
+const { createVault, redisVault, usdOf } = require('./lib/fizzl-vault');
 const PAYEE_DELEGATIONS = require('./lib/buy-payee-delegations.json');
 const { paymentMiddleware, x402ResourceServer } = require('@x402/express');
 const { HTTPFacilitatorClient } = require('@x402/core/server');
@@ -258,7 +258,7 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
   app.get('/health', (_req, res) => res.json({ ok: true, wallet: wallet ? wallet.address : null, filler: filler.enabled, answer_check: Boolean(answerCheck?.enabled), spent_today_usd: budget.spent(), memory: memoryOf(), uptime_s: Math.round(process.uptime()) }));
 
   app.use(usageLog.middleware((req, res, body) => {
-    const via = req.path === '/mcp' ? 'mcp' : req.fizzlCredits?.vault ? 'vault' : 'api';
+    const via = res.locals.vaultPaid || req.fizzlCredits?.vault ? 'vault' : req.path === '/mcp' ? 'mcp' : 'api';
     // spent_usd: what this call paid sellers (also when the agent's own payment then failed), for the day budget.
     if (req.path === BUY_ROUTE && req.method === 'POST') return { route: 'buy', via, input: { chars: String(req.body?.need || '').length, ...(res.locals.spentUsd ? { spent_usd: res.locals.spentUsd, instance } : {}) }, result: { delivered: body?.delivered, paid_usd: body?.paid_usd, service: body?.service?.url ? new URL(body.service.url).host : undefined, tried: body?.tried, error: body?.error } };
     if (req.path === '/v1/pick') return { route: 'pick', via, input: { chars: String(req.query.need || '').length }, result: { pick: body?.pick?.url ? new URL(body.pick.url).host : null, error: body?.error } };
@@ -332,6 +332,23 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
         try { paid = await paidBuy(); } catch (err) { return toolError(`payments unavailable: ${err.message}`); }
         // One payment buys one answer, also across HTTP and MCP (lib/buy/once.js).
         const payload = extra?._meta?.['x402/payment'];
+        // No payment, but a Fizzl Pass proof on the request with enough credit: paid from the pass's vault, given back
+        // when no seller delivers.
+        const fromVault = !payload ? await vault.take(req, PRICE_USD).catch(() => null) : null;
+        if (fromVault) {
+          res.locals.vaultPaid = true;
+          try {
+            const { out: result, spent } = await purchase(wanted);
+            res.locals.spentUsd = spent;
+            const signed = signer ? await signer.sign(result, { route: 'mcp x402_buy', input: { need }, payment: null }) : result;
+            return { content: [{ type: 'text', text: JSON.stringify(signed) }], structuredContent: signed, _meta: { 'fizzl/vault': { paid: true, usd: fromVault.usd, balance_usd: fromVault.balance_usd } } };
+          } catch (err) {
+            fromVault.refund();
+            res.locals.spentUsd = err.spent || 0;
+            if (!err.status) console.error('[buy] mcp vault', err);
+            return toolError(`${err.status ? err.message : 'internal error'} (the credit was given back)`);
+          }
+        }
         const key = payload ? keyOf(payload) : null;
         if (key) { const refused = locks.take(key); if (refused) return toolError(REFUSED[refused]); }
         let settled = false;
@@ -349,6 +366,9 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
             }
           })({ need }, extra);
           settled = out?._meta?.['x402/payment-response']?.success === true;
+          // Credit back for a pass wallet, once the payment settled (lib/fizzl-vault.js).
+          const payer = out?._meta?.['x402/payment-response']?.payer;
+          if (settled && payer && !out.isError) vault.creditSettled({ payer, usd: usdOf(payload?.accepted), req }).catch(() => {});
           return out;
         } finally {
           if (key) locks.done(key, settled);
