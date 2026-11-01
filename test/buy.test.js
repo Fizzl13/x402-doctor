@@ -30,7 +30,7 @@ function seller(amount = '2000', { refusals = null } = {}) {
         res.statusCode = 204;
         return res.end();
       }
-      const challenge = { x402Version: 2, resource: { url: `http://${req.headers.host}${req.url}`, description: 'weather', mimeType: 'application/json' }, accepts: [{ scheme: 'exact', network: 'eip155:8453', amount, asset: USDC, payTo: PAY_TO, maxTimeoutSeconds: 60, extra: { name: 'USD Coin', version: '2' } }], ...(refusals ? { extensions: { refusal: { info: { url: `http://${req.headers.host}/.well-known/x402-refusal`, version: '0.1-draft' } } } } : {}) };
+      const challenge = { x402Version: 2, resource: { url: `http://${req.headers.host}${req.url}`, description: 'weather', mimeType: 'application/json' }, accepts: [{ scheme: 'exact', network: 'eip155:8453', amount, asset: USDC, payTo: PAY_TO, maxTimeoutSeconds: 60, extra: { name: 'USD Coin', version: '2' } }], ...(refusals ? { extensions: { refusal: { info: { url: `http://${req.headers.host}/.well-known/x402-refusal`, version: '0.2-draft' } } } } : {}) };
       res.statusCode = 402;
       res.setHeader('content-type', 'application/json');
       res.setHeader('PAYMENT-REQUIRED', Buffer.from(JSON.stringify(challenge)).toString('base64'));
