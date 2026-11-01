@@ -26,6 +26,7 @@ const express = require('express');
 const { createPassVerifier, limitKeyOf } = require('./lib/fizzl-pass');
 const { createVault, redisVault, usdOf } = require('./lib/fizzl-vault');
 const { createRefusalSender, createRefusalRoutes, refusalExtension, PATH: REFUSAL_PATH } = require('./lib/refusal');
+const { createErrorReporter } = require('./lib/error-report');
 const PAYEE_DELEGATIONS = require('./lib/buy-payee-delegations.json');
 const { paymentMiddleware, x402ResourceServer } = require('@x402/express');
 const { HTTPFacilitatorClient } = require('@x402/core/server');
@@ -485,6 +486,9 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
       res.status(err.status || 500).json({ error: err.status ? err.message : 'internal error', ...(err.attempts?.length ? { attempts: err.attempts } : {}) });
     }
   });
+  // Last: a 5xx is answered as JSON and reported to Sentry when SENTRY_DSN is set (lib/error-report.js).
+  app.errorReporter = createErrorReporter({ dsn: env.SENTRY_DSN, service: 'fizzl-buy', release: require('./package.json').version });
+  app.use(app.errorReporter.expressHandler());
   return app;
 }
 
@@ -585,6 +589,7 @@ if (require.main === module) {
   // The challenge names buy.fizzl.eu also when called on the Render address.
   const paywall = onPublicHost(env.PUBLIC_URL || 'https://buy.fizzl.eu', paymentMiddleware(routes, resourceServer, { appName: 'Fizzl Buy', testnet: false }, undefined, false));
   const app = createBuyApp({ env, paywall, resourceServer });
+  app.errorReporter.installProcessHooks();
   const port = Number(env.PORT) || 3000;
   app.listen(port, () => console.log(`fizzl-buy on :${port}`));
 }
