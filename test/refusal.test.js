@@ -107,3 +107,31 @@ test('Doctor\'s own 402 names the refusal endpoint, and the endpoint answers', a
   const info = await (await fetch(`${base}${PATH}`)).json();
   assert.equal(info.received.by_resource['https://x402-doctor.fizzl.eu/api/v1/preflight'].reasons.network_unsupported, 1);
 });
+
+test('sender: posts the ready report, refuses redirects, and never throws', async () => {
+  const { createRefusalSender } = require('../lib/refusal');
+  const calls = [];
+  const ok = createRefusalSender({ fetchImpl: async (u, o) => { calls.push({ u, o }); return { status: 204 }; }, by: 'me/1' });
+  const refusal = { url: 'https://s.example/r', report: refusalReport({ resource: 'https://s.example/paid', accept: ACCEPT, reason: 'payto_changed' }) };
+  assert.equal(await ok.send(refusal), true);
+  assert.equal(calls[0].o.redirect, 'error');
+  assert.equal(JSON.parse(calls[0].o.body).by, 'me/1');
+  assert.equal(await ok.send(refusal), false, 'once a day per resource and reason');
+  const down = createRefusalSender({ fetchImpl: async () => { throw new Error('ECONNREFUSED'); }, log: { warn() {} } });
+  assert.equal(await down.send(refusal), false);
+  assert.equal(await down.send(null), false);
+});
+
+test('Fizzl Buy\'s own 402 names its refusal endpoint, which takes reports', async () => {
+  const { routesFor, createBuyApp } = require('../buy-server');
+  const route = routesFor({ AGENT_PAYOUT_WALLET: ACCEPT.payTo })['POST /v1/buy'];
+  assert.equal(route.extensions.refusal.info.url, 'https://buy.fizzl.eu/.well-known/x402-refusal');
+  const a = createBuyApp({ env: { PUBLIC_URL: 'https://buy.fizzl.eu' }, deps: { usageLog: { middleware: () => (_q, _s, n) => n() }, vaultStore: null, sanctions: null, trustIndex: null, lure: null, wallet: null } });
+  const s = await new Promise((ok) => { const x = a.listen(0, '127.0.0.1', () => ok(x)); });
+  servers.push(s);
+  const base = `http://127.0.0.1:${s.address().port}`;
+  const report = refusalReport({ resource: 'https://buy.fizzl.eu/v1/buy', accept: ACCEPT, reason: 'price_above_limit' });
+  assert.equal((await fetch(`${base}${PATH}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(report) })).status, 204);
+  const info = await (await fetch(`${base}${PATH}`)).json();
+  assert.equal(info.received.by_resource['https://buy.fizzl.eu/v1/buy'].reasons.price_above_limit, 1);
+});

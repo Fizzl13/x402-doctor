@@ -19,10 +19,18 @@ const servers = [];
 test.after(() => servers.forEach((s) => s.close()));
 
 // A seller whose every path answers a 402 for amount (atomic USDC on Base) without a payment.
-function seller(amount = '2000') {
+// refusals: an array; with it the 402 names a refusal url on the seller and every POST there lands in it.
+function seller(amount = '2000', { refusals = null } = {}) {
   return new Promise((resolve) => {
-    const server = http.createServer((req, res) => {
-      const challenge = { x402Version: 2, resource: { url: `http://${req.headers.host}${req.url}`, description: 'weather', mimeType: 'application/json' }, accepts: [{ scheme: 'exact', network: 'eip155:8453', amount, asset: USDC, payTo: PAY_TO, maxTimeoutSeconds: 60, extra: { name: 'USD Coin', version: '2' } }] };
+    const server = http.createServer(async (req, res) => {
+      if (refusals && req.method === 'POST' && req.url === '/.well-known/x402-refusal') {
+        let raw = '';
+        for await (const c of req) raw += c;
+        refusals.push(JSON.parse(raw));
+        res.statusCode = 204;
+        return res.end();
+      }
+      const challenge = { x402Version: 2, resource: { url: `http://${req.headers.host}${req.url}`, description: 'weather', mimeType: 'application/json' }, accepts: [{ scheme: 'exact', network: 'eip155:8453', amount, asset: USDC, payTo: PAY_TO, maxTimeoutSeconds: 60, extra: { name: 'USD Coin', version: '2' } }], ...(refusals ? { extensions: { refusal: { info: { url: `http://${req.headers.host}/.well-known/x402-refusal`, version: '0.1-draft' } } } } : {}) };
       res.statusCode = 402;
       res.setHeader('content-type', 'application/json');
       res.setHeader('PAYMENT-REQUIRED', Buffer.from(JSON.stringify(challenge)).toString('base64'));
@@ -353,4 +361,27 @@ test('purchase: a seller that was paid and gave no usable answer gets a strike; 
   assert.equal(strikes.has(new URL(a).host), true, 'paid, answer not what was paid for');
   assert.equal(strikes.has(new URL(c).host), false, 'refused before payment (price above the cap)');
   assert.equal(strikes.has(new URL(b).host), false);
+});
+
+// The refusal extension (lib/refusal.js, draft x402-foundation/x402#4087): a seller the inkoper won't pay hears why.
+test('purchase: a seller whose 402 names a refusal url hears why it was not paid, once a day', async () => {
+  const { createRefusalSender, offerHash } = require('../lib/refusal');
+  const got = [];
+  const pricey = await seller('20000', { refusals: got });
+  const good = await seller();
+  const { paid, d } = await deps({ results: [result(`${pricey}/w`, { usd: 0.005 }), result(`${good}/w`, { relevance: 0.9 })] });
+  d.refusals = createRefusalSender({ fetchImpl: (u, o) => fetch(u, o), by: 'fizzl-buy/test' });
+  const out = await buy({ need: 'weather amsterdam' }, d);
+  assert.equal(out.delivered, true);
+  assert.equal(paid.length, 1, 'only the good seller is paid');
+  assert.equal(out.attempts[0].refusal_sent, true);
+  for (let i = 0; i < 50 && !got.length; i++) await new Promise((r) => setTimeout(r, 20));
+  assert.equal(got.length, 1);
+  assert.equal(got[0].reason, 'price_above_limit');
+  assert.equal(got[0].by, 'fizzl-buy/test');
+  assert.equal(got[0].resource, `${pricey}/w`, 'without the query: the report carries none of the agent\'s input');
+  assert.equal(got[0].offer.hash, offerHash({ scheme: 'exact', network: 'eip155:8453', amount: '20000', asset: USDC, payTo: PAY_TO, maxTimeoutSeconds: 60, extra: { name: 'USD Coin', version: '2' } }));
+  await buy({ need: 'weather amsterdam' }, d);
+  await new Promise((r) => setTimeout(r, 100));
+  assert.equal(got.length, 1, 'the same refusal again the same day is not sent twice');
 });
