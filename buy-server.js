@@ -25,6 +25,7 @@ const express = require('express');
 // year (draft ERC "x402 Payee Verification for ERC-8004 Agents", ethereum/ERCs#2132).
 const { createPassVerifier, limitKeyOf } = require('./lib/fizzl-pass');
 const { createVault, redisVault, usdOf } = require('./lib/fizzl-vault');
+const { createRefusalSender, createRefusalRoutes, refusalExtension, PATH: REFUSAL_PATH } = require('./lib/refusal');
 const PAYEE_DELEGATIONS = require('./lib/buy-payee-delegations.json');
 const { paymentMiddleware, x402ResourceServer } = require('@x402/express');
 const { HTTPFacilitatorClient } = require('@x402/core/server');
@@ -157,6 +158,7 @@ function routesFor(env) {
         ...merchantExtension,
         ...builderCodeExtension(env.BUILDER_CODE),
         ...paymentIdentifierExtension,
+        ...refusalExtension(env.PUBLIC_URL || 'https://buy.fizzl.eu'),
       },
     },
   };
@@ -196,6 +198,8 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
   const allowFree = async (req) => { const { key, factor } = await limitKeyOf(passVerifier, req); return freeLimiter(key, factor); };
   // Fizzl Pass vault (lib/fizzl-vault.js): credit back after a paid purchase by a pass wallet, and purchases paid from
   // the vault. Off without CREDITS_REDIS_URL (the same Redis as x402 Doctor and presign-guard).
+  // A seller the inkoper won't pay hears why, when its 402 names a refusal url (lib/refusal.js, draft).
+  const refusals = deps.refusals !== undefined ? deps.refusals : createRefusalSender({ fetchImpl: (u, o) => fetch(u, o), by: 'fizzl-buy/1.0 (+https://buy.fizzl.eu)' });
   const vault = createVault({ store: deps.vaultStore !== undefined ? deps.vaultStore : (env.CREDITS_REDIS_URL ? redisVault(env.CREDITS_REDIS_URL) : null), pass: passVerifier, statusUrl: env.PASS_STATUS_URL || undefined });
   const usageLog = deps.usageLog ?? createUsageLog({ service: 'buy', env });
   const signer = deps.signer === undefined ? createSigner(env, { label: 'fizzl-buy', service: 'fizzl-buy' }) : deps.signer;
@@ -211,7 +215,7 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
     const counted = { left: () => budget.left(), add: (usd) => { spent = Math.round((spent + usd) * 1e6) / 1e6; budget.add(usd); } };
     if (!wallet) throw Object.assign(new BuyError(503, 'The inkoper has no wallet on this server (BUY_WALLET_KEY). Nothing was charged.'), { spent });
     try {
-      const out = await buy({ need }, { fill: filler.fill, payFetch: wallet.payFetch, balance: wallet.balance, budget: counted, answerCheck, safeFetch, sanctions, trustIndex, lure, capUsd: CAP_USD, fetch: searchFetch, strikes });
+      const out = await buy({ need }, { fill: filler.fill, payFetch: wallet.payFetch, balance: wallet.balance, budget: counted, answerCheck, safeFetch, sanctions, trustIndex, lure, capUsd: CAP_USD, fetch: searchFetch, strikes, refusals });
       return { out, spent };
     } catch (err) {
       throw Object.assign(err, { spent });
@@ -235,7 +239,7 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
   }
 
   async function pickFor(need) {
-    const candidates = await candidatesFor(need, { capUsd: CAP_USD, fetch: searchFetch, strikes });
+    const candidates = await candidatesFor(need, { capUsd: CAP_USD, fetch: searchFetch, strikes, refusals });
     return {
       need,
       pick: candidates[0] ?? null,
@@ -258,6 +262,7 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
   app.get('/health', (_req, res) => res.json({ ok: true, wallet: wallet ? wallet.address : null, filler: filler.enabled, answer_check: Boolean(answerCheck?.enabled), spent_today_usd: budget.spent(), memory: memoryOf(), uptime_s: Math.round(process.uptime()) }));
 
   app.use(usageLog.middleware((req, res, body) => {
+    if (req.method === 'POST' && req.path === REFUSAL_PATH) return { route: 'refusal received', via: 'api', input: res.locals.refusal || {}, result: { status: res.statusCode, error: body && body.error } };
     const via = res.locals.vaultPaid || req.fizzlCredits?.vault ? 'vault' : req.path === '/mcp' ? 'mcp' : 'api';
     // spent_usd: what this call paid sellers (also when the agent's own payment then failed), for the day budget.
     if (req.path === BUY_ROUTE && req.method === 'POST') return { route: 'buy', via, input: { chars: String(req.body?.need || '').length, ...(res.locals.spentUsd ? { spent_usd: res.locals.spentUsd, instance } : {}) }, result: { delivered: body?.delivered, paid_usd: body?.paid_usd, service: body?.service?.url ? new URL(body.service.url).host : undefined, tried: body?.tried, error: body?.error } };
@@ -273,6 +278,10 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
     return null;
   }));
 
+  // Refusals of Fizzl Buy's own 402 (lib/refusal.js, draft): why a buyer didn't pay, counted on GET.
+  const refusalRoutes = createRefusalRoutes({ publicUrl });
+  app.get(REFUSAL_PATH, (req, res) => { res.set('Access-Control-Allow-Origin', '*'); refusalRoutes.get(req, res); });
+  app.post(REFUSAL_PATH, express.json({ limit: '4kb' }), (req, res) => { res.set('Access-Control-Allow-Origin', '*'); return refusalRoutes.post(req, res); });
   app.use(vault.creditBack());
   app.get('/v1/vault', vault.balanceHandler());
 
