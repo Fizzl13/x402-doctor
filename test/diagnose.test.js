@@ -1683,3 +1683,22 @@ test('Solana payout account: an empty answer is asked once more and never cached
   assert.equal(again[0].status, 'pass', 'the empty answer was not kept for 10 minutes');
   assert.equal(asked, 3);
 });
+
+test('refusal extension: absent is a hint, a url buyers would not send to or that does not answer is a warning, a working one passes', async () => {
+  const { checkRefusalExtension } = require('../lib/diagnose');
+  const fetches = [];
+  const safeFetch = async (u) => { fetches.push(u); return { status: u.includes('down') ? 404 : 200, headers: new Headers(), text: '{}' }; };
+  const run = async (extensions, resource = 'https://api.seller.com/paid') => { const checks = []; await checkRefusalExtension({ x402Version: 2, accepts: [], ...(extensions ? { extensions } : {}) }, resource, safeFetch, checks); return checks; };
+  const none = await run(null);
+  assert.deepEqual([none[0].id, none[0].status], ['refusal-extension', 'info']);
+  assert.match(none[0].hint, /x402-foundation\/x402\/issues\/4087/);
+  assert.equal(fetches.length, 0, 'nothing fetched without the extension');
+  const elsewhere = await run({ refusal: { info: { url: 'https://victim.example/r' } } });
+  assert.equal(elsewhere[0].status, 'warn');
+  assert.match(elsewhere[0].message, /own site/);
+  const down = await run({ refusal: { info: { url: 'https://api.seller.com/down' } } });
+  assert.equal(down[0].status, 'warn');
+  assert.match(down[0].message, /answers HTTP 404/);
+  const ok = await run({ refusal: { info: { url: 'https://api.seller.com/.well-known/x402-refusal' } } });
+  assert.deepEqual([ok[0].status, ok[0].message], ['pass', "Takes refusals at https://api.seller.com/.well-known/x402-refusal: a buyer that doesn't pay can tell you why (reason code and which offer)."]);
+});
