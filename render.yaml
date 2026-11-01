@@ -24,6 +24,8 @@ services:
         sync: false
       - key: PASS_SALE_KEY # the same long random value as on the Agent Wallet: sells Fizzl Passes over x402 (lib/pass-sale.js)
         sync: false
+      - key: SENTRY_DSN # optional: errors (5xx, crashes) to Sentry, without payment headers or request data (lib/error-report.js)
+        sync: false
       - key: RECEIPT_SIGNER_SECRET # signs verdict receipts (lib/receipt.js); holds no funds; unset = unsigned answers
         generateValue: true
       - key: RECEIPT_SIGNER_CERT # payout wallet's certificate for the signing key ("YYYY-MM-DD:0x…", from /sign-receipt-key; optional)
