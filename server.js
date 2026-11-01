@@ -338,7 +338,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     if (pack) return { route: 'credits pack', via: 'api', input: { pack: Number(pack[1]) }, result: { status: res.statusCode, error: body && body.error } };
     if (req.method === 'POST' && req.path === REFUSAL_PATH) return { route: 'refusal received', via: 'api', input: res.locals.refusal || {}, result: { status: res.statusCode, error: body && body.error } };
     const d = describeDoctorCall(req, res, body);
-    return d && req.fizzlCredits ? (req.fizzlCredits.vault ? { ...d, via: 'vault', vault_usd: req.fizzlCredits.vault / 1e6 } : { ...d, via: 'credits', credits: req.fizzlCredits.cost }) : d;
+    return d && req.fizzlCredits ? (req.fizzlCredits.vault ? { ...d, via: 'vault', vault_usd: req.fizzlCredits.vault / 1e6 } : req.fizzlCredits.perk ? { ...d, via: 'pass', perk: req.fizzlCredits.perk, tier: req.fizzlCredits.tier } : { ...d, via: 'credits', credits: req.fizzlCredits.cost }) : d;
   }));
 
   app.post(REFUSAL_PATH, (req, res) => { res.set('Access-Control-Allow-Origin', '*'); return refusals.post(req, res); });
