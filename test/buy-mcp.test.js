@@ -17,6 +17,15 @@ const { createBuyApp } = require('../buy-server');
 const { createBudget } = require('../lib/buy/purchase');
 const { createSafeFetch } = require('../lib/safe-fetch');
 const { createSigner, verifyReceipt } = require('../lib/receipt');
+const crypto = require('node:crypto');
+const { createPassVerifier } = require('../lib/fizzl-pass');
+const { memoryVault } = require('../lib/fizzl-vault');
+
+// A Fizzl Pass proof signed by a test key, for the vault test.
+const passKeys = crypto.generateKeyPairSync('ed25519');
+const jwks = { keys: [{ kty: 'OKP', crv: 'Ed25519', kid: 'k', x: passKeys.publicKey.export({ format: 'jwk' }).x }] };
+const proof = (wallets) => { const b = `fzp1.${Buffer.from(JSON.stringify({ kid: 'k', tier: 'bronze', until: Date.now() + 86400000, wallets })).toString('base64url')}`; return `${b}.${crypto.sign(null, Buffer.from(b), passKeys.privateKey).toString('base64url')}`; };
+const vaultStore = memoryVault();
 
 const BASE = 'eip155:8453';
 const USDC = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
@@ -72,7 +81,7 @@ test.before(async () => {
       answerCheck: { enabled: true, check: async () => ({ delivered: { verdict: 'yes' }, injection: { flagged: false } }) },
       filler: { enabled: true, fill: async (_n, c) => ({ fits: true, request: { method: 'GET', url: `${c.url}?place=Amsterdam` } }) },
       wallet: { address: '0xBuy', payFetch, balance: async () => 5_000_000 }, budget: createBudget({ dailyUsd: 5 }),
-      usageLog, signer: createSigner({ RECEIPT_SIGNER_SECRET: SECRET }, { label: 'fizzl-buy', service: 'fizzl-buy' }), instance: 'me',
+      usageLog, vaultStore, pass: createPassVerifier({ keys: jwks }), signer: createSigner({ RECEIPT_SIGNER_SECRET: SECRET }, { label: 'fizzl-buy', service: 'fizzl-buy' }), instance: 'me',
     },
   });
   api = await new Promise((resolve) => { const s = app.listen(0, '127.0.0.1', () => resolve(`http://127.0.0.1:${s.address().port}`)); servers.push(s); });
@@ -166,4 +175,42 @@ test('x402_buy: one payment buys one answer, also sent twice at once', async () 
   assert.match(third.content[0].text, /already used/);
   assert.deepEqual([paid.length, state.settle], [1, 1]);
   await c.close();
+});
+
+// Fizzl Pass vault (lib/fizzl-vault.js): a paid x402_buy by a pass wallet earns 10% back; a call with the proof on
+// the request and no payment is paid from the vault, and given back when no seller delivers.
+test('x402_buy: a paid purchase earns credit back; then purchases with the proof and no payment are paid from the vault', async () => {
+  const account = privateKeyToAccount(generatePrivateKey());
+  const wallet = account.address.toLowerCase();
+  const headers = { 'x-fizzl-pass': proof([wallet]) };
+  const payments = new x402Client((_v, accepts) => accepts.find((a) => a.network === BASE)).register(BASE, new ExactEvmScheme(account));
+  const paying = wrapMCPClientWithPayment(new Client({ name: 'paying-agent', version: '1.0.0' }), payments, { autoPayment: true });
+  await paying.connect(new StreamableHTTPClientTransport(new URL(`${api}/mcp`), { requestInit: { headers } }));
+  const bought = await paying.callTool('x402_buy', { need: 'weather forecast for Amsterdam tomorrow' });
+  assert.ok(!bought.isError, JSON.stringify(bought.content));
+  assert.equal(bought.paymentMade, true);
+  await new Promise((r) => setTimeout(r, 50));
+  assert.equal(await vaultStore.balance([wallet]), 2000, '$0.02 paid: $0.002 back');
+  await paying.close();
+  await vaultStore.credit(wallet, 18000, 86400); // topped up to the $0.02 a purchase costs
+
+  const plain = new Client({ name: 'vault-agent', version: '1.0.0' });
+  await plain.connect(new StreamableHTTPClientTransport(new URL(`${api}/mcp`), { requestInit: { headers } }));
+  const settled = state.settle;
+  // No seller delivers: the credit comes back.
+  answers = [{ status: 500, body: { error: 'down' } }];
+  const failed = await plain.callTool({ name: 'x402_buy', arguments: { need: 'weather forecast for Amsterdam tomorrow' } });
+  assert.ok(failed.isError);
+  assert.match(failed.content[0].text, /credit was given back/);
+  assert.equal(await vaultStore.balance([wallet]), 20000);
+  const fromVault = await plain.callTool({ name: 'x402_buy', arguments: { need: 'weather forecast for Amsterdam tomorrow' } });
+  assert.ok(!fromVault.isError, JSON.stringify(fromVault.content));
+  assert.deepEqual(fromVault._meta['fizzl/vault'], { paid: true, usd: 0.02, balance_usd: 0 });
+  assert.equal(state.settle, settled, 'no payment');
+  await new Promise((r) => setTimeout(r, 20));
+  assert.equal(logged.at(-1).via, 'vault');
+  const again = await plain.callTool({ name: 'x402_buy', arguments: { need: 'weather forecast for Amsterdam tomorrow' } });
+  assert.ok(again.isError, 'empty vault: the normal payment request');
+  assert.equal(again._meta?.['fizzl/vault'], undefined);
+  await plain.close();
 });
