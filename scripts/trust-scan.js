@@ -22,7 +22,7 @@
 const fs = require('fs');
 const path = require('path');
 const { createSafeFetch } = require('../lib/safe-fetch');
-const { loadCatalog, loadMppCatalog, loadGoPlausibleCatalog, loadCircleCatalog, loadNohumansCatalog, loadPayApiCatalog, loadXrplHub, loadSubmissions, submittedResources, scan, mergeIndex, summarize, shareOf, hostOf } = require('../lib/trust-scan');
+const { loadCatalog, loadMppCatalog, loadGoPlausibleCatalog, loadCircleCatalog, loadNohumansCatalog, loadPayApiCatalog, loadXrplHub, loadSubmissions, submittedResources, scan, mergeIndex, outageOf, summarize, shareOf, hostOf } = require('../lib/trust-scan');
 const { mergePayTos } = require('../lib/onchain-payments');
 const { mergeSolanaPayTos } = require('../lib/onchain-payments-solana');
 const { mergeXrplPayTos } = require('../lib/onchain-payments-xrpl');
@@ -154,8 +154,15 @@ function merge(todo, done, { out }) {
 
   const all = done.flatMap((d) => d.results);
   const addedKeys = new Set(todo.added.map((r) => r.key));
-  const results = all.filter((r) => !addedKeys.has(r.key));
   const previous = readIndexDir(out);
+  // A seller that answered 5xx on most of its endpoints that were payable at their last check: not checked today,
+  // last verdict kept, once (lib/trust-scan.js outageOf).
+  const outage = outageOf(previous, all.filter((r) => !addedKeys.has(r.key)));
+  const results = outage.results;
+  if (outage.hosts.length) {
+    console.log('hosts with an outage during the scan (5xx where the last check was payable; not checked today, last verdict kept):');
+    for (const h of outage.hosts) console.log(`  ${h.host}: ${h.endpoints} endpoints`);
+  }
   const submittedPath = path.join(out, 'submitted.json');
   const previousSubmitted = read(submittedPath);
   const descriptions = new Map(todo.resources.map((r) => [r.key, r.description]));
@@ -173,6 +180,7 @@ function merge(todo, done, { out }) {
     submitted: Object.keys(submitted.resources).length,
     scan_seconds: Math.max(...done.map((d) => d.seconds)),
     ...(shares > 1 ? { shares: { finished: done.length, of: shares } } : {}),
+    ...(outage.hosts.length ? { host_outage: outage.hosts } : {}),
   };
 
   const written = writeIndexDir(out, index);
