@@ -143,3 +143,21 @@ test('preflight: a grader paid and got no usable answer is an info line next to 
   const onlyFailed = await preflight(url, { safeFetch, delivery: { forUrl: async () => ({ ...failed, sources: [failed] }) } });
   assert.ok(!onlyFailed.reasons.some((r) => r.code === 'delivered_elsewhere'));
 });
+
+test('OpenClaw feed as published (rows[]): failed only with a tx hash, "y:"/"n:" prefixes and masked reasons dropped', async () => {
+  const feed = { source: 'OpenClaw paid x402 pings', listed: false, rows: [
+    { url: 'https://a.example/hello', host: 'a.example', date: '2026-10-31 06:11:00 ET', tx_hash: '0x6b', delivered: false, reason: 'n: paid hello endpoint returns only {status: ok}', grade_0_100: 70 },
+    { url: 'https://b.example/x', host: 'b.example', date: '2026-10-31 06:11:34 ET', tx_hash: '0x55', delivered: true, reason: 'y: 24 billboard ad placements' },
+    { url: 'https://c.example/v1', host: 'c.example', date: '2026-10-30 10:00:00 ET', tx_hash: null, delivered: false, reason: 'skipped: x402 v1-only accept' },
+    { url: 'https://d.example/q', host: 'd.example', date: '2026-10-30 10:00:00 ET', tx_hash: '0x77', delivered: false, reason: 'masked' },
+    { url: 'https://e.example/p', host: 'e.example', date: '2026-10-30 10:00:00 ET', tx_hash: '0x88', delivered: false, reason: 'partial: catalog, not data' },
+  ] };
+  const delivery = createDeliveryElsewhere({ sources: [openClawSource('https://openclawproductions.com/api/v1/graded')], fetchImpl: async () => Response.json(feed) });
+  const a = await delivery.forUrl('https://a.example/hello', { waitMs: 1000 });
+  assert.deepEqual([a.status, a.paid_on, a.reason], ['failed', '2026-10-31', 'paid hello endpoint returns only {status: ok}']);
+  assert.equal((await delivery.forUrl('https://b.example/x')).status, 'delivered');
+  assert.equal(await delivery.forUrl('https://c.example/v1'), null, 'not paid: not a failed purchase');
+  const d = await delivery.forUrl('https://d.example/q');
+  assert.deepEqual([d.status, d.reason ?? null], ['failed', null]);
+  assert.equal((await delivery.forUrl('https://e.example/p')).reason, 'partial: catalog, not data');
+});
