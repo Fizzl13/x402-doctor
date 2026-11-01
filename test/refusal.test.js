@@ -135,3 +135,41 @@ test('Fizzl Buy\'s own 402 names its refusal endpoint, which takes reports', asy
   const info = await (await fetch(`${base}${PATH}`)).json();
   assert.equal(info.received.by_resource['https://buy.fizzl.eu/v1/buy'].reasons.price_above_limit, 1);
 });
+
+test('v0.2: trust_low, a screening_hit only when signed, and counts per day', async () => {
+  const { REASONS, FROM_PREFLIGHT, SIGNED_ONLY, REPORT_SCHEMA, createRefusalSender } = require('../lib/refusal');
+  assert.ok(REASONS.trust_low);
+  assert.equal(FROM_PREFLIGHT.unreliable_history, 'trust_low');
+  assert.equal(FROM_PREFLIGHT.charged_without_answer, 'trust_low');
+  assert.deepEqual([...SIGNED_ONLY], ['screening_hit']);
+  assert.deepEqual(REPORT_SCHEMA.allOf[0].then.required, ['signature']);
+
+  let t = Date.parse('2026-11-01T10:00:00Z');
+  const { url, post } = await app({ perHour: 10, now: () => t });
+  const resource = 'https://x402-doctor.fizzl.eu/api/v1/preflight';
+  const unsigned = refusalReport({ resource, accept: ACCEPT, reason: 'screening_hit', now: new Date(t) });
+  const r = await post(unsigned);
+  assert.equal(r.status, 400, 'an unsigned screening_hit could flag any seller');
+  assert.match((await r.json()).error, /must be signed/);
+  const account = privateKeyToAccount(generatePrivateKey());
+  const signed = { ...unsigned, signature: { type: 'eip191', signer: account.address, value: await account.signMessage({ message: signingMessage(unsigned) }) } };
+  assert.equal((await post(signed)).status, 204);
+
+  assert.equal((await post(refusalReport({ resource, accept: ACCEPT, reason: 'trust_low', detail: 'unknown', now: new Date(t) }))).status, 204);
+  t += 86400 * 1000;
+  assert.equal((await post(refusalReport({ resource, accept: ACCEPT, reason: 'trust_low', detail: 'score', now: new Date(t) }))).status, 204);
+  assert.equal((await post(refusalReport({ resource, accept: ACCEPT, reason: 'trust_low', now: new Date(t) }))).status, 204);
+  const info = await (await fetch(url)).json();
+  assert.equal(info.version, '0.2-draft');
+  assert.deepEqual(info.received.by_day, [
+    { day: '2026-11-02', resource, reason: 'trust_low', count: 2, signed: 0 },
+    { day: '2026-11-01', resource, reason: 'screening_hit', count: 1, signed: 1 },
+    { day: '2026-11-01', resource, reason: 'trust_low', count: 1, signed: 0 },
+  ]);
+
+  // A buyer's sender doesn't post a screening_hit it can't sign (the seller would refuse it).
+  const calls = [];
+  const sender = createRefusalSender({ fetchImpl: async () => { calls.push(1); return { status: 204 }; } });
+  assert.equal(await sender.send({ url: 'https://s.example/r', report: refusalReport({ resource: 'https://s.example/paid', accept: ACCEPT, reason: 'screening_hit' }) }), false);
+  assert.equal(calls.length, 0);
+});
