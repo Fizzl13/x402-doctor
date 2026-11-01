@@ -337,7 +337,10 @@ published as well while they stay under 90 MB. The scan runs in parallel jobs, e
 reads the catalogs, four scan jobs, a publish job merges them): a share that fails leaves its endpoints not checked
 that day, never marked down. A seller with more than 5,000 endpoints gets a share of them checked each day, so that
 each one has its turn within a week (the rest are `-` that day and keep their last verdict; one seller listed 62,924
-on 27 Oct 2026).
+on 27 Oct 2026). A seller whose endpoints answer with a server error in one scan while at least 50 of them were payable
+at their last check has an outage, not 50 broken endpoints: those are `-` that day (code `host_outage`, listed in
+`summary.json` as `host_outage`) and keep their last verdict, once; if they still fail at their next check they are
+marked down. On 29 Oct and 1 Nov 2026 one seller's outage turned 7,000 to 9,000 endpoints no-go for a day.
 The server doesn't load that index (42 MB, ~88,000 resources on 25 Oct 2026): after the scan, `scripts/trust-views.js`
 (`lib/trust-views.js`) writes it as small precomputed files on the same branch, from the same code (`views/meta.json`
 with the summary, `views/atlas.json`, `views/templates.json`, `views/sellers.json`, the price check's word index under

@@ -5,7 +5,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
 const { createSafeFetch } = require('../lib/safe-fetch');
-const { loadCatalog, politeFetch, retryAfterMs, scan, statusReport, mergeIndex, trackRecord, summarize, interleave, USER_AGENT } = require('../lib/trust-scan');
+const { loadCatalog, politeFetch, retryAfterMs, scan, statusReport, mergeIndex, outageOf, trackRecord, summarize, interleave, USER_AGENT } = require('../lib/trust-scan');
 const { createTrustIndex } = require('../lib/trust-index');
 
 const BASE = 'eip155:8453';
@@ -392,6 +392,37 @@ test('mergeIndex keeps one letter per day aligned with days, replaces a same-day
   assert.equal(index.resources.a.h.length, 30);
   assert.equal(index.resources.b, undefined, 'not seen for 30 days');
   assert.deepEqual(summarize(index).today, { g: 1, c: 0, n: 0, x: 0 });
+});
+
+test('outageOf: a seller whose payable endpoints all answer 5xx in one scan is not checked that day, once; a few failing ones are down', () => {
+  const r = (host, i, verdict, codes = []) => ({ key: `https://${host}/e${i}`, url: `https://${host}/e${i}`, method: 'POST', verdict, codes, price_usd: verdict === 'go' ? 0.01 : null, networks: verdict === 'go' ? [BASE] : [], ms: 5 });
+  const range = (n) => Array.from({ length: n }, (_, i) => i);
+  // Yesterday: 60 endpoints of big.example and 3 of small.example payable, 5 of big.example already no_go.
+  let index = mergeIndex(null, [...range(60).map((i) => r('big.example', i, 'go')), ...range(5).map((i) => r('big.example', 100 + i, 'no_go', ['no_402'])), ...range(3).map((i) => r('small.example', i, 'go'))], { date: '2026-11-01' });
+  // Today: big.example answers 500 everywhere, small.example too.
+  const today = [...range(60).map((i) => r('big.example', i, 'no_go', ['server_error'])), ...range(5).map((i) => r('big.example', 100 + i, 'no_go', ['server_error'])), ...range(3).map((i) => r('small.example', i, 'no_go', ['server_error']))];
+  const out = outageOf(index, today, { min: 50 });
+  assert.deepEqual(out.hosts, [{ host: 'big.example', endpoints: 60 }]);
+  index = mergeIndex(index, out.results, { date: '2026-11-02' });
+  const res = index.resources;
+  assert.equal(res['https://big.example/e0'].h, 'g-', 'payable yesterday: not checked today');
+  assert.equal(res['https://big.example/e0'].last.verdict, 'go', 'its last real verdict stays');
+  assert.equal(res['https://big.example/e0'].o, '2026-11-02');
+  assert.equal(res['https://big.example/e100'].h, 'nn', 'already down before the outage: still down');
+  assert.equal(res['https://small.example/e0'].h, 'gn', 'three failing endpoints of a small seller are down');
+  assert.equal(res['https://small.example/e0'].o, undefined);
+  // Still 5xx at the next check: down this time, and the outage mark is gone.
+  const again = outageOf(index, range(60).map((i) => r('big.example', i, 'no_go', ['server_error'])), { min: 50 });
+  assert.deepEqual(again.hosts, []);
+  index = mergeIndex(index, again.results, { date: '2026-11-03' });
+  assert.equal(index.resources['https://big.example/e0'].h, 'g-n');
+  assert.equal(index.resources['https://big.example/e0'].o, undefined);
+  // Back and payable: a later outage is skipped once more.
+  index = mergeIndex(index, range(60).map((i) => r('big.example', i, 'go')), { date: '2026-11-04' });
+  assert.equal(outageOf(index, range(60).map((i) => r('big.example', i, 'no_go', ['server_error'])), { min: 50 }).hosts.length, 1);
+  // A day it is sampled out (not checked) keeps the mark.
+  const marked = mergeIndex(null, [{ ...r('big.example', 0, 'not_checked', ['host_outage']), outage: true }], { date: '2026-11-05' });
+  assert.equal(mergeIndex(marked, [r('big.example', 0, 'not_checked', ['sampled'])], { date: '2026-11-06' }).resources['https://big.example/e0'].o, '2026-11-05');
 });
 
 test('trackRecord counts payable days and the current streak', () => {
