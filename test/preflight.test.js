@@ -30,14 +30,14 @@ const baseOption = (amount, extra = {}) => ({ scheme: 'exact', network: BASE, am
 const solanaOption = (amount, payTo = PAY_TO_SOLANA) => ({ scheme: 'exact', network: SOLANA, amount, asset: USDC_SOLANA, payTo, maxTimeoutSeconds: 60, extra: { feePayer: FEE_PAYER } });
 
 // A seller: /paid answers 402 with the given accepts[]; /openapi.json advertises a price.
-async function seller({ accepts, advertised = '0.02', status = 402, body: bodyOf = null }) {
+async function seller({ accepts, advertised = '0.02', status = 402, body: bodyOf = null, extensions = undefined }) {
   let origin;
   origin = await listen((req, res) => {
     res.setHeader('content-type', 'application/json');
     if (req.url === '/openapi.json') {
       return res.end(JSON.stringify({ openapi: '3.1.0', info: { title: 't' }, paths: { '/paid/{id}': { get: { 'x-payment-info': { protocols: ['x402'], price: { mode: 'fixed', currency: 'USD', amount: advertised } } } } } }));
     }
-    const challenge = { x402Version: 2, resource: { url: `${origin}${req.url.split('?')[0]}`, mimeType: 'application/json', description: 'x' }, accepts };
+    const challenge = { x402Version: 2, resource: { url: `${origin}${req.url.split('?')[0]}`, mimeType: 'application/json', description: 'x' }, accepts, ...(extensions ? { extensions: typeof extensions === 'function' ? extensions(origin) : extensions } : {}) };
     res.statusCode = status;
     if (status === 402) res.setHeader('PAYMENT-REQUIRED', Buffer.from(JSON.stringify(challenge)).toString('base64'));
     res.end(JSON.stringify(status === 402 ? (bodyOf ? bodyOf(challenge) : challenge) : { ok: true }));
@@ -639,4 +639,23 @@ test('header and body: another payment in the body is caution; the same payment 
   const subset = await seller({ accepts: [baseOption('10000'), solanaOption('10000')], body: (c) => ({ ...c, accepts: [{ ...baseOption('10000'), extra: undefined }] }) });
   const c = await preflight(subset, { safeFetch });
   assert.ok(!c.reasons.some((r) => /challenge_/.test(r.code)), JSON.stringify(c.reasons));
+});
+
+// The refusal extension (lib/refusal.js, draft x402-foundation/x402#4087): a ready report when the seller takes refusals.
+test('refusal: a no_go for a seller that takes refusals comes with a ready report; go, or no extension, comes without', async () => {
+  const { offerHash } = require('../lib/refusal');
+  const option = baseOption('20000');
+  const takes = await seller({ accepts: [option], extensions: (origin) => ({ refusal: { info: { url: `${origin}/.well-known/x402-refusal`, version: '0.1-draft' } } }) });
+  const r = await run(takes, { maxUsd: 0.01 });
+  assert.equal(r.verdict, 'no_go');
+  assert.equal(r.refusal.url, `${new URL(takes).origin}/.well-known/x402-refusal`);
+  assert.equal(r.refusal.report.reason, 'price_above_limit');
+  assert.equal(r.refusal.report.resource, takes);
+  assert.deepEqual(r.refusal.report.offer, { hash: offerHash(option), acceptIndex: 0 });
+  assert.equal(r.refusal.report.detail, 'x402 Doctor preflight: over_budget');
+  assert.equal((await run(takes)).refusal, undefined, 'go: nothing to refuse');
+  assert.equal((await run(await seller({ accepts: [option] }), { maxUsd: 0.01 })).refusal, undefined, 'no extension: no report');
+  // A refusal url on someone else's site is ignored.
+  const elsewhere = await seller({ accepts: [option], extensions: { refusal: { info: { url: 'https://victim.example/hook' } } } });
+  assert.equal((await run(elsewhere, { maxUsd: 0.01 })).refusal, undefined);
 });

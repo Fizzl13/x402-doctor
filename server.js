@@ -35,6 +35,7 @@ const { NETWORKS } = require('./lib/networks');
 const { languageOf, createAgentKinds, createDownloads } = require('./lib/usage-insights');
 const { createFeedback } = require('./lib/feedback');
 const { createOutcomes } = require('./lib/outcomes');
+const { createRefusalRoutes, PATH: REFUSAL_PATH } = require('./lib/refusal');
 const { createUsageReader } = require('./lib/usage-reader');
 const { createPublicStats, statsCors } = require('./lib/public-stats');
 const { marketSummary } = require('./lib/market-summary');
@@ -321,6 +322,11 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     res.set('Cache-Control', 'public, max-age=300').set('Access-Control-Allow-Origin', '*');
     res.json({ url, ...(outcomes.refusals(url) || { days: 30, refused: 0, wallets: 0, reasons: [] }), how: 'Agents report a refusal with POST /api/v1/outcome { outcome: "refused", reason, source, query, preflight }: the signed Doctor preflight they checked first.' });
   });
+  // The refusal extension (draft, lib/refusal.js): buyers that decide not to pay one of Doctor's 402s say why here.
+  // Counted in the usage log (route "refusal received") and on GET.
+  const refusals = createRefusalRoutes({ publicUrl: env.PUBLIC_URL || 'https://x402-doctor.fizzl.eu' });
+  app.get(REFUSAL_PATH, (req, res) => { res.set('Access-Control-Allow-Origin', '*'); refusals.get(req, res); });
+  app.options(REFUSAL_PATH, (_req, res) => res.set({ 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST', 'Access-Control-Allow-Headers': 'content-type' }).status(204).end());
   app.use(feedback.router(express)); // its own 16 kB JSON parser, before the 4 kB one
   // MCP calls (lib/mcp.js) carry a payment in _meta, and verify_receipt a whole signed answer: 256 kB like /api/v1/verify.
   // /mcp/free is the same server with only the free tools (for Claude's connectors directory).
@@ -330,9 +336,12 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     // Prepaid credits (credits.js): a pack sale, or a call paid from credits.
     const pack = req.method === 'GET' && /^\/api\/v1\/credits\/(\d+)$/.exec(req.path);
     if (pack) return { route: 'credits pack', via: 'api', input: { pack: Number(pack[1]) }, result: { status: res.statusCode, error: body && body.error } };
+    if (req.method === 'POST' && req.path === REFUSAL_PATH) return { route: 'refusal received', via: 'api', input: res.locals.refusal || {}, result: { status: res.statusCode, error: body && body.error } };
     const d = describeDoctorCall(req, res, body);
     return d && req.fizzlCredits ? (req.fizzlCredits.vault ? { ...d, via: 'vault', vault_usd: req.fizzlCredits.vault / 1e6 } : { ...d, via: 'credits', credits: req.fizzlCredits.cost }) : d;
   }));
+
+  app.post(REFUSAL_PATH, (req, res) => { res.set('Access-Control-Allow-Origin', '*'); return refusals.post(req, res); });
 
   // Usage dashboard for the owner: every call to the Fizzl services, from the usage log.
   const admin = adminAuth(env);

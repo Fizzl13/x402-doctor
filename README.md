@@ -295,6 +295,8 @@ After a paid preflight, a buyer can report (free) what happened when it then pai
 
 **Refused, and why.** An agent that checked an endpoint and then did not pay it can say why: `"outcome": "refused"` with a `reason` (a short code: the preflight or presign-guard reason that stopped it, such as `payto_changed`, `price_changed` or `payee_mismatch`) and a `source` (`doctor`, `presign-guard`, `policy` or `other`), with the same signed preflight. Any verdict counts here, `no_go` too. Refusals never count as failed payments. They are the seller's signal back: the free web check shows them (`buyer-refusals`, info), and `GET /api/v1/refusals?url=…` gives the counts per reason for the last 30 days, never who refused.
 
+**Refusal extension (draft).** A proposal for an open version of the same signal, straight from buyer to seller: [x402-foundation/x402#4087](https://github.com/x402-foundation/x402/issues/4087). Doctor implements both sides (`lib/refusal.js`). Its own 402s carry `extensions.refusal.info.url` = `https://x402-doctor.fizzl.eu/.well-known/x402-refusal`, which takes a report (`POST`, answered 204) and shows the counts per resource and reason (`GET`). When a preflight's verdict is not `go` and the seller names a refusal url on its own site, the answer has `refusal: { url, send_if, report }`: a ready report with the reason code (`price_above_limit`, `payto_changed`, `terms_mismatch`, …) and the sha256 of the refused `accepts[]` entry. Doctor never sends it; a buyer that doesn't pay can post it, fire-and-forget.
+
 ```json
 { "outcome": "refused", "reason": "payto_changed", "source": "doctor", "preflight": { …the signed preflight answer… }, "query": { "url": "…" } }
 ```
