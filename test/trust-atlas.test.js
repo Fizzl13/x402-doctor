@@ -176,3 +176,30 @@ test('GET /api/trust/seller: 503 with a reason while the seller lists are not pu
     assert.match((await res.json()).error, want);
   }
 });
+
+test('GET /api/trust/seller: on-chain payments and the demand label from the endpoints\' payout fingerprints', async (t) => {
+  const bazaarIndex = { lookup: async () => null, listings: async () => null, refresh: () => Promise.resolve(), siteCalls: () => null };
+  const trustIndex = {
+    sellerEndpoints: async () => ({ site: 'seller.ai', updated: '2026-11-02', total: 2, truncated: false, endpoints: [
+      { url: 'https://api.seller.ai/a', verdict: 'go', networks: ['eip155:8453'], payto: { 'eip155:8453': 'abcdef0123' } },
+      { url: 'https://api.seller.ai/b', verdict: 'go', networks: ['eip155:8453'], payto: { 'eip155:8453': 'abcdef0123' } },
+    ] }),
+    refresh: () => Promise.resolve(), summary: () => null, lookup: async () => null,
+  };
+  const asked = [];
+  const window = { network: 'eip155:8453', pay_to: '0xabc', days: 7, payments: 480000, payers: 5629, usd: 9595.63, demand: { paid_days: 7, payers_one_day_pct: 87, payers_every_day: 10, payments_per_payer_day: 68.6 }, as_of: 'x' };
+  const onchainPayments = {
+    byFingerprint: async (network, fp) => { asked.push([network, fp]); return window; },
+    judgeDemand: async () => ({ operators: 0.72, label: 'few_operators' }),
+    totals: async () => null,
+  };
+  const app = createApp({ env: {}, status: { snapshot: async () => ({}) }, bazaarIndex, trustIndex, onchainPayments });
+  const server = await new Promise((resolve) => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
+  t.after(() => server.close());
+  const body = await (await fetch(`http://127.0.0.1:${server.address().port}/api/trust/seller?host=seller.ai`)).json();
+  assert.deepEqual(asked, [['eip155:8453', 'abcdef0123']], 'one lookup per payout address');
+  assert.equal(body.onchain_payments.length, 1);
+  assert.equal(body.onchain_payments[0].payers, 5629);
+  assert.equal(body.onchain_payments[0].pay_to, undefined, 'no payout address in the card');
+  assert.deepEqual(body.onchain_payments[0].demand.judged, { operators: 0.72, label: 'few_operators' });
+});
