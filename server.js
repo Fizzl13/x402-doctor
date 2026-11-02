@@ -1041,6 +1041,13 @@ if (require.main === module) {
         trustIndex: app.trustIndex,
       });
       setInterval(() => { scanWatch.tick().catch(() => {}); }, 30 * 60 * 1000).unref();
+      // The Monday dependency audit and weekly report when GitHub dropped their scheduled runs (lib/weekly-watch.js).
+      const { createWeeklyWatch } = require('./lib/weekly-watch');
+      const weekly = createWeeklyWatch({
+        token: dispatchToken,
+        dispatch: (workflow) => createDispatcher({ token: dispatchToken, workflow, waits: 'next Monday\'s schedule is the fallback' }).dispatch(),
+      });
+      setInterval(() => { weekly.tick().catch(() => {}); }, 30 * 60 * 1000).unref();
     }
   });
 }
