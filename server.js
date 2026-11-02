@@ -686,7 +686,18 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     if (data.unavailable) return res.status(503).json({ error: 'seller lists are published with the next daily scan; try again later' });
     res.set('Cache-Control', 'public, max-age=1800').set('Access-Control-Allow-Origin', '*');
     if (!data.total) return res.status(404).json({ ...data, error: 'no scanned endpoints for this seller' });
-    res.json({ ...data, check: `${publicUrl}/?url=` });
+    // Who paid this seller on-chain in the last 7 days, and whether that looks like broad demand or a few operators
+    // (lib/jev-demand.js), from the payout fingerprints on its endpoints; at most 5 payout addresses per seller.
+    const prints = new Map();
+    for (const e of data.endpoints || []) for (const [network, fp] of Object.entries(e.payto || {})) prints.set(`${network}|${fp}`, [network, fp]);
+    const onchain = [];
+    for (const [network, fp] of [...prints.values()].slice(0, 5)) {
+      const w = typeof onchainPayments.byFingerprint === 'function' ? await onchainPayments.byFingerprint(network, fp, { waitMs: 1500 }).catch(() => null) : null;
+      if (!w?.payments) continue;
+      const judged = w.demand && onchainPayments.judgeDemand ? await onchainPayments.judgeDemand(w).catch(() => null) : null;
+      onchain.push({ network: w.network, days: w.days, payments: w.payments, payers: w.payers, usd: w.usd, ...(w.payers_wide ? { payers_wide: w.payers_wide } : {}), ...(w.closed_loop ? { closed_loop: true } : {}), ...(w.demand ? { demand: { ...w.demand, ...(judged ? { judged } : {}) } } : {}) });
+    }
+    res.json({ ...data, ...(onchain.length ? { onchain_payments: onchain } : {}), check: `${publicUrl}/?url=` });
   });
   app.get('/api/trust/summary', trustLimit, async (_req, res) => {
     const summary = trustIndex.summary();
