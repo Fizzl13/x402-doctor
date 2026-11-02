@@ -1,0 +1,454 @@
+{
+  "window": {
+    "from": "2026-10-27",
+    "to": "2026-11-02",
+    "days": 7
+  },
+  "resources": 41512,
+  "hosts": 4289,
+  "payable": 39681,
+  "payable_pct": 95.6,
+  "clean": 36444,
+  "clean_pct": 87.8,
+  "caution_pct": 7.8,
+  "payable_pct_week_start": 96.5,
+  "no_go": 1831,
+  "no_go_pct": 4.4,
+  "caution": 3237,
+  "hosts_with_payable": 3870,
+  "reasons": [
+    {
+      "code": "gateway_only",
+      "count": 1682,
+      "why": "offer only Circle Gateway options, paid from a Gateway balance that standard x402 clients don't have",
+      "short": "are Circle Gateway only",
+      "fix": "add a plain \"exact\" option next to Gateway if standard x402 agents should pay too"
+    },
+    {
+      "code": "no_402",
+      "count": 1193,
+      "why": "don't answer 402 at all, so there is nothing to pay",
+      "short": "don't answer 402",
+      "fix": "make the listed route answer 402 (a moved or renamed endpoint stays listed under its old URL until a payment goes through the new one)"
+    },
+    {
+      "code": "resource_mismatch",
+      "count": 743,
+      "why": "name another URL in their 402 than the one requested",
+      "short": "name the wrong URL in their 402",
+      "fix": "build resource.url from your public origin (behind a TLS proxy: trust proxy, so it stays https)"
+    },
+    {
+      "code": "unreachable",
+      "count": 317,
+      "why": "timed out or could not be reached",
+      "short": "are unreachable",
+      "fix": "check that the host is up and answers within 10 seconds"
+    },
+    {
+      "code": "challenge_mismatch",
+      "count": 282,
+      "why": "challenge mismatch",
+      "fix": ""
+    },
+    {
+      "code": "unknown_asset",
+      "count": 174,
+      "why": "ask to be paid in a token that isn't a known USDC contract",
+      "short": "ask for a non-USDC token",
+      "fix": "use the network's USDC contract as the asset"
+    },
+    {
+      "code": "server_error",
+      "count": 154,
+      "why": "answered with a server error (5xx): down or failing",
+      "short": "answer with a server error",
+      "fix": "check the server and its hosting (behind Cloudflare, a 52x or 530 means Cloudflare could not reach your origin)"
+    },
+    {
+      "code": "testnet_only",
+      "count": 128,
+      "why": "offer only testnet payment options",
+      "short": "are testnet only",
+      "fix": "add a mainnet option (for example Base, eip155:8453) or delist the test endpoint"
+    },
+    {
+      "code": "host_disabled",
+      "count": 120,
+      "why": "answer with Vercel's own 402: Vercel has switched the deployment off (DEPLOYMENT_DISABLED)",
+      "short": "have their hosting switched off",
+      "fix": "turn the deployment back on in Vercel (check the plan's limits and billing); until then agents get Vercel's page, not your 402"
+    },
+    {
+      "code": "mpp_realm_mismatch",
+      "count": 102,
+      "why": "name another host as the MPP realm than the one they're served on",
+      "short": "name the wrong MPP realm",
+      "fix": "set realm to the public host name of the endpoint"
+    },
+    {
+      "code": "price_above_advertised",
+      "count": 70,
+      "why": "charge more than their OpenAPI advertises",
+      "short": "charge more than advertised",
+      "fix": "keep the price in openapi.json in step with the 402"
+    },
+    {
+      "code": "price_depends_on_request",
+      "count": 29,
+      "why": "price depends on request",
+      "fix": ""
+    },
+    {
+      "code": "priced_in_xrp",
+      "count": 27,
+      "why": "priced in xrp",
+      "fix": ""
+    },
+    {
+      "code": "price_far_above_advertised",
+      "count": 22,
+      "why": "charge 10 times what their OpenAPI advertises or more",
+      "short": "charge 10x what they advertise",
+      "fix": "check the amount in atomic units, and keep the price in openapi.json in step with the 402"
+    },
+    {
+      "code": "invalid_challenge",
+      "count": 17,
+      "why": "answer 402 without a valid x402 challenge",
+      "short": "send a broken 402",
+      "fix": "send the PaymentRequired object (base64 JSON in the PAYMENT-REQUIRED header, mirrored in the body)"
+    },
+    {
+      "code": "suspicious_amount",
+      "count": 14,
+      "why": "write the amount as dollars (\"0.01\") instead of atomic units",
+      "short": "write dollars instead of atomic units",
+      "fix": "use atomic units: \"10000\" is $0.01 USDC"
+    },
+    {
+      "code": "price_very_high",
+      "count": 12,
+      "why": "price very high",
+      "fix": ""
+    },
+    {
+      "code": "no_payable_option",
+      "count": 7,
+      "why": "list payment options that would all fail",
+      "short": "offer no working payment option",
+      "fix": "fix the blocking problem per option (network name, payTo, amount in atomic units)"
+    },
+    {
+      "code": "mpp_no_expires",
+      "count": 3,
+      "why": "send an MPP challenge without an expiry",
+      "short": "send MPP challenges without an expiry",
+      "fix": "set expires on each challenge (a few minutes ahead), so a captured challenge cannot be replayed later"
+    },
+    {
+      "code": "payto_burn",
+      "count": 1,
+      "why": "pay out to the zero address or another burn address, a placeholder left in the config",
+      "short": "pay out to a burn address",
+      "fix": "set payTo to the wallet you want to be paid in"
+    }
+  ],
+  "networks": [
+    {
+      "network": "eip155:8453",
+      "count": 37453,
+      "pct": 94.4
+    },
+    {
+      "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+      "count": 13800,
+      "pct": 34.8
+    },
+    {
+      "network": "eip155:137",
+      "count": 10794,
+      "pct": 27.2
+    },
+    {
+      "network": "eip155:42161",
+      "count": 9440,
+      "pct": 23.8
+    },
+    {
+      "network": "eip155:5042",
+      "count": 4539,
+      "pct": 11.4
+    },
+    {
+      "network": "eip155:480",
+      "count": 3846,
+      "pct": 9.7
+    },
+    {
+      "network": "eip155:10",
+      "count": 3776,
+      "pct": 9.5
+    },
+    {
+      "network": "tempo",
+      "count": 3580,
+      "pct": 9
+    },
+    {
+      "network": "eip155:143",
+      "count": 3363,
+      "pct": 8.5
+    },
+    {
+      "network": "xrpl:0",
+      "count": 2821,
+      "pct": 7.1
+    },
+    {
+      "network": "eip155:43114",
+      "count": 2530,
+      "pct": 6.4
+    },
+    {
+      "network": "eip155:999",
+      "count": 2317,
+      "pct": 5.8
+    },
+    {
+      "network": "eip155:1329",
+      "count": 2171,
+      "pct": 5.5
+    },
+    {
+      "network": "eip155:42220",
+      "count": 1910,
+      "pct": 4.8
+    },
+    {
+      "network": "stellar:pubnet",
+      "count": 1875,
+      "pct": 4.7
+    },
+    {
+      "network": "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k",
+      "count": 1596,
+      "pct": 4
+    },
+    {
+      "network": "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=",
+      "count": 1587,
+      "pct": 4
+    },
+    {
+      "network": "eip155:1",
+      "count": 1562,
+      "pct": 3.9
+    },
+    {
+      "network": "eip155:130",
+      "count": 1502,
+      "pct": 3.8
+    },
+    {
+      "network": "eip155:146",
+      "count": 1502,
+      "pct": 3.8
+    },
+    {
+      "network": "eip155:56",
+      "count": 1299,
+      "pct": 3.3
+    },
+    {
+      "network": "eip155:196",
+      "count": 1114,
+      "pct": 2.8
+    },
+    {
+      "network": "eip155:4663",
+      "count": 973,
+      "pct": 2.5
+    },
+    {
+      "network": "null",
+      "count": 598,
+      "pct": 1.5
+    },
+    {
+      "network": "eip155:84532",
+      "count": 423,
+      "pct": 1.1
+    },
+    {
+      "network": "mpp:tempo",
+      "count": 377,
+      "pct": 1
+    },
+    {
+      "network": "lightning:bitcoin",
+      "count": 198,
+      "pct": 0.5
+    },
+    {
+      "network": "eip155:5042002",
+      "count": 140,
+      "pct": 0.4
+    },
+    {
+      "network": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+      "count": 136,
+      "pct": 0.3
+    },
+    {
+      "network": "eip155:80002",
+      "count": 133,
+      "pct": 0.3
+    },
+    {
+      "network": "eip155:1952",
+      "count": 132,
+      "pct": 0.3
+    },
+    {
+      "network": "eip155:4326",
+      "count": 113,
+      "pct": 0.3
+    },
+    {
+      "network": "stripe",
+      "count": 68,
+      "pct": 0.2
+    },
+    {
+      "network": "eip155:1187947933",
+      "count": 42,
+      "pct": 0.1
+    },
+    {
+      "network": "algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=",
+      "count": 40,
+      "pct": 0.1
+    },
+    {
+      "network": "stacks:1",
+      "count": 30,
+      "pct": 0.1
+    },
+    {
+      "network": "nano:mainnet",
+      "count": 26,
+      "pct": 0.1
+    },
+    {
+      "network": "xrpl:1",
+      "count": 14,
+      "pct": 0
+    },
+    {
+      "network": "hyperliquid:mainnet",
+      "count": 14,
+      "pct": 0
+    },
+    {
+      "network": "eip155:8217",
+      "count": 7,
+      "pct": 0
+    },
+    {
+      "network": "hedera:mainnet",
+      "count": 7,
+      "pct": 0
+    },
+    {
+      "network": "lnbtc:000000000019d6689c085ae165831e93",
+      "count": 7,
+      "pct": 0
+    },
+    {
+      "network": "mpp:evm:8453",
+      "count": 6,
+      "pct": 0
+    },
+    {
+      "network": "mpp:stripe",
+      "count": 5,
+      "pct": 0
+    },
+    {
+      "network": "eip155:2099",
+      "count": 5,
+      "pct": 0
+    },
+    {
+      "network": "eip155:50",
+      "count": 4,
+      "pct": 0
+    },
+    {
+      "network": "sui:mainnet",
+      "count": 2,
+      "pct": 0
+    },
+    {
+      "network": "eip155:42793",
+      "count": 2,
+      "pct": 0
+    },
+    {
+      "network": "mpp:solana",
+      "count": 1,
+      "pct": 0
+    },
+    {
+      "network": "algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDe",
+      "count": 1,
+      "pct": 0
+    },
+    {
+      "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147wwSaGf",
+      "count": 1,
+      "pct": 0
+    },
+    {
+      "network": "eip155:11142220",
+      "count": 1,
+      "pct": 0
+    }
+  ],
+  "median_price_usd": 0.01,
+  "this_week": {
+    "broke": 542,
+    "fixed": 1581,
+    "added": 3443,
+    "flaky": 648
+  },
+  "left_out_test": {
+    "resources": 262,
+    "hosts": 122
+  },
+  "not_judged_needs_input": 2090,
+  "protocols": [
+    {
+      "protocol": "x402",
+      "resources": 41089,
+      "clean_pct": 88,
+      "payable_pct": 95.6
+    },
+    {
+      "protocol": "mpp",
+      "resources": 423,
+      "clean_pct": 65,
+      "payable_pct": 89.8
+    }
+  ],
+  "spot": {
+    "date": "2026-11-01",
+    "bought": 27,
+    "delivered": 20,
+    "pct": 74.1,
+    "lost": 0,
+    "lost_usd": 0,
+    "errors": 7
+  }
+}

@@ -1,0 +1,225 @@
+{
+  "date": "2026-11-02",
+  "read_at": "2026-11-02T07:25:38.857Z",
+  "sellers": 3210,
+  "calls_30d": 906535,
+  "calls_active": 701646,
+  "active_pct": 77.4,
+  "kinds": [
+    {
+      "id": "data",
+      "name": "Other data & lookups",
+      "calls": 377210,
+      "calls_active": 344844,
+      "share_active": 49.1,
+      "top_seller_share": 0.358,
+      "payers": 70011
+    },
+    {
+      "id": "crypto",
+      "name": "Crypto prices & trading",
+      "calls": 217766,
+      "calls_active": 203345,
+      "share_active": 29,
+      "top_seller_share": 0.512,
+      "payers": 16066
+    },
+    {
+      "id": "search",
+      "name": "Search, web & news",
+      "calls": 73890,
+      "calls_active": 64434,
+      "share_active": 9.2,
+      "top_seller_share": 0.563,
+      "payers": 4942
+    },
+    {
+      "id": "dev",
+      "name": "Developer tools",
+      "calls": 39301,
+      "calls_active": 28052,
+      "share_active": 4,
+      "top_seller_share": 0.339,
+      "payers": 7869
+    },
+    {
+      "id": "onchain",
+      "name": "Wallets & on-chain data",
+      "calls": 21755,
+      "calls_active": 15794,
+      "share_active": 2.3,
+      "top_seller_share": 0.468,
+      "payers": 14950
+    },
+    {
+      "id": "ai",
+      "name": "AI models & text generation",
+      "calls": 131050,
+      "calls_active": 15068,
+      "share_active": 2.1,
+      "top_seller_share": 0.84,
+      "payers": 3572
+    },
+    {
+      "id": "social",
+      "name": "Social & people",
+      "calls": 13311,
+      "calls_active": 11488,
+      "share_active": 1.6,
+      "top_seller_share": 0.55,
+      "payers": 1264
+    },
+    {
+      "id": "finance",
+      "name": "Stocks, macro & finance",
+      "calls": 14485,
+      "calls_active": 11462,
+      "share_active": 1.6,
+      "top_seller_share": 0.421,
+      "payers": 3311
+    },
+    {
+      "id": "security",
+      "name": "Security & risk checks",
+      "calls": 10940,
+      "calls_active": 4268,
+      "share_active": 0.6,
+      "top_seller_share": 0.145,
+      "payers": 4392
+    },
+    {
+      "id": "media",
+      "name": "Images, audio & video",
+      "calls": 5076,
+      "calls_active": 2063,
+      "share_active": 0.3,
+      "top_seller_share": 0.149,
+      "payers": 2294
+    },
+    {
+      "id": "places",
+      "name": "Weather, maps & places",
+      "calls": 1751,
+      "calls_active": 828,
+      "share_active": 0.1,
+      "top_seller_share": 0.2,
+      "payers": 658
+    }
+  ],
+  "heavy_routes": [
+    {
+      "id": "a7d10f80ad85",
+      "kind": "AI models & text generation",
+      "calls": 110034,
+      "wallets": 474,
+      "calls_per_wallet": 232,
+      "share_of_market": 12.1,
+      "last_paid": "2026-10-21",
+      "still_paid": false,
+      "new": false
+    },
+    {
+      "id": "0bf4f1904793",
+      "kind": "Crypto prices & trading",
+      "calls": 93485,
+      "wallets": 305,
+      "calls_per_wallet": 307,
+      "share_of_market": 10.3,
+      "last_paid": "2026-11-02",
+      "still_paid": true,
+      "new": false
+    },
+    {
+      "id": "81fe57c734d7",
+      "kind": "Search, web & news",
+      "calls": 29491,
+      "wallets": 154,
+      "calls_per_wallet": 192,
+      "share_of_market": 3.3,
+      "last_paid": "2026-11-02",
+      "still_paid": true,
+      "new": false
+    },
+    {
+      "id": "ff225a8616e1",
+      "kind": "Crypto prices & trading",
+      "calls": 22489,
+      "wallets": 17,
+      "calls_per_wallet": 1323,
+      "share_of_market": 2.5,
+      "last_paid": "2026-11-02",
+      "still_paid": true,
+      "new": false
+    },
+    {
+      "id": "b27b0ae38c01",
+      "kind": "Other data & lookups",
+      "calls": 18880,
+      "wallets": 36,
+      "calls_per_wallet": 524,
+      "share_of_market": 2.1,
+      "last_paid": "2026-11-02",
+      "still_paid": true,
+      "new": false
+    },
+    {
+      "id": "6535a37b555f",
+      "kind": "Crypto prices & trading",
+      "calls": 14878,
+      "wallets": 62,
+      "calls_per_wallet": 240,
+      "share_of_market": 1.6,
+      "last_paid": "2026-11-02",
+      "still_paid": true,
+      "new": false
+    },
+    {
+      "id": "a3e0cc304bda",
+      "kind": "Crypto prices & trading",
+      "calls": 14799,
+      "wallets": 66,
+      "calls_per_wallet": 224,
+      "share_of_market": 1.6,
+      "last_paid": "2026-11-02",
+      "still_paid": true,
+      "new": false
+    },
+    {
+      "id": "60f04784f597",
+      "kind": "Developer tools",
+      "calls": 13313,
+      "wallets": 58,
+      "calls_per_wallet": 230,
+      "share_of_market": 1.5,
+      "last_paid": "2026-11-02",
+      "still_paid": true,
+      "new": false
+    }
+  ],
+  "risers": [
+    {
+      "site": "datapackvibe.com",
+      "kind": "Other data & lookups",
+      "gained": 72947,
+      "active": 134952
+    },
+    {
+      "site": "kadec0.xyz",
+      "kind": "Other data & lookups",
+      "gained": 3684,
+      "active": 6656
+    },
+    {
+      "site": "strale.io",
+      "kind": "Other data & lookups",
+      "gained": 3462,
+      "active": 6495
+    }
+  ],
+  "previous": {
+    "date": "2026-10-26",
+    "calls_30d": 897959,
+    "calls_active": 577835,
+    "active_pct": 64.3
+  }
+}
