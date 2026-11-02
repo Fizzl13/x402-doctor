@@ -44,6 +44,23 @@ test('checkEnvelope reads header-based v2 challenge and body mirror', async () =
   assert.equal(checks.some((check) => check.id === 'envelope-body-mirror' && check.status === 'pass'), true);
 });
 
+test('checkEnvelope: a v1-shaped body with plain network names is the same payment as the v2 header (t0ll.xyz)', async () => {
+  const opt = (network, asset) => ({ scheme: 'exact', network, payTo: '0xdC36D51963d08862c525045ccFD39FAe6a0C7F40', asset, amount: '50000' });
+  const header = { x402Version: 2, accepts: [opt('eip155:4663', '0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168'), opt('eip155:8453', '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913')] };
+  const v1 = (o, network) => ({ scheme: o.scheme, network, payTo: o.payTo, asset: o.asset, maxAmountRequired: o.amount });
+  const run = async (body) => {
+    const checks = [];
+    await checkEnvelope({ res: { headers: new Map([['payment-required', Buffer.from(JSON.stringify(header)).toString('base64')]]), async text() { return JSON.stringify(body); } } }, checks);
+    return checks.find((c) => c.id === 'envelope-body-mirror');
+  };
+  const same = await run({ x402Version: 1, accepts: [v1(header.accepts[0], 'robinhood'), v1(header.accepts[1], 'base')] });
+  assert.equal(same.mirror, 'version', 'the same payment in the older format, not a different one');
+  // An unknown plain name with the same terms is not another payment either; another payTo is.
+  assert.equal((await run({ x402Version: 1, accepts: [v1(header.accepts[1], 'base-mainnet')] })).mirror, 'version');
+  const other = await run({ x402Version: 1, accepts: [{ ...v1(header.accepts[1], 'base'), payTo: '0x1111111111111111111111111111111111111111' }] });
+  assert.equal(other.mirror, 'terms');
+});
+
 test('checkAccepts flags malformed accepts entries and accepts valid CAIP-2 network ids', () => {
   const checks = [];
   const accepts = [
