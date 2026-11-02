@@ -177,3 +177,33 @@ test('checkConcordiumAgent: a pass with the agent, a warn with a fix, and no che
   await checkConcordiumAgent([{ network: TESTNET, payTo: WALLET }], `${SELLER}/paid`, none, { safeFetch: pages({}), fetchImpl: registry({}).fetchImpl });
   assert.equal(none.length, 0);
 });
+
+test("x402 Doctor's own Agent Card: served byte for byte, with the badge of agent #993 on testnet and this origin listed", async () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const { cardOrigins } = require('../lib/concordium-agent');
+  const { createApp } = require('../server');
+  const file = fs.readFileSync(path.join(__dirname, '..', 'lib', 'agent-card.json'));
+  const trustIndex = { lookup: async () => null, refresh: () => Promise.resolve(), summary: () => null };
+  const app = createApp({ allowPrivate: true, env: {}, trustIndex });
+  const server = await new Promise((resolve) => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
+  try {
+    const res = await fetch(`http://127.0.0.1:${server.address().port}/.well-known/agent-card.json`);
+    assert.equal(res.status, 200);
+    assert.match(res.headers.get('content-type'), /application\/json/);
+    const body = Buffer.from(await res.arrayBuffer());
+    assert.equal(sha256Hex(body.toString('utf8')), crypto.createHash('sha256').update(file).digest('hex'), 'the served bytes are the file: its hash is pinned on chain');
+    const card = JSON.parse(body);
+    assert.deepEqual(cardBadge(card), { tokenAddress: 'JyP9Y8gHmf4U8QPMm1TkT', chain: TESTNET });
+    assert.equal(badgeNetwork('JyP9Y8gHmf4U8QPMm1TkT'), 'testnet');
+    assert.ok(cardOrigins(card).has('https://x402-doctor.fizzl.eu'));
+  } finally { server.close(); }
+});
+
+test('the CIS-8004 module schema served for the pin page is the registry module schema', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const schema = Buffer.from(fs.readFileSync(path.join(__dirname, '..', 'public', 'concordium', 'cis8004-schema.b64'), 'utf8').trim(), 'base64');
+  assert.equal(schema.subarray(0, 2).toString('hex'), 'ffff', 'a versioned module schema');
+  assert.ok(schema.includes(Buffer.from('CIS-8004')) && schema.includes(Buffer.from('setAgentURI')));
+});

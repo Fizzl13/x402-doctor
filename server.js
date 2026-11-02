@@ -118,9 +118,14 @@ const whyOf = (b) => {
 // What each Doctor call was about, for the usage log (null = not logged).
 const hostOf = (u) => { try { return new URL(String(u)).host; } catch { return null; } };
 
+// The Agent Card as published (its bytes are hashed on chain; see the route).
+const AGENT_CARD = fs.readFileSync(path.join(__dirname, 'lib', 'agent-card.json'));
+
 function describeDoctorCall(req, _res, body) {
   // Who reads the EIP-8004 registration (e.g. agent registries such as Metaplex).
   if (req.method === 'GET' && req.path === '/.well-known/agent-registration.json') return { route: 'agent registration', via: 'discovery', input: {}, result: { status: _res.statusCode } };
+  // Who reads the A2A Agent Card (Concordium badge checks, A2A clients).
+  if (req.method === 'GET' && req.path === '/.well-known/agent-card.json') return { route: 'agent card', via: 'discovery', input: {}, result: { status: _res.statusCode } };
   // Who reads the MCP server card (directories such as Smithery).
   if (req.method === 'GET' && req.path === '/.well-known/mcp/server-card.json') return { route: 'mcp server card', via: 'discovery', input: {}, result: { status: _res.statusCode } };
   const b = body || {};
@@ -413,6 +418,11 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
       signer: `${origin}/.well-known/x402-doctor-signer.json`,
     });
   });
+
+  // Agent Card (A2A + ERC-8004) with the Concordium badge of agent #993 in Concordium's Agent Registry (testnet). Its
+  // SHA-256 is pinned on chain as the agent's metadata_hash, so it is served byte for byte from lib/agent-card.json:
+  // any change to that file must be followed by a new setAgentURI (public/concordium-agent.html) or the badge breaks.
+  app.get('/.well-known/agent-card.json', (req, res) => res.set('cache-control', 'public, max-age=300').set('access-control-allow-origin', '*').type('application/json').send(AGENT_CARD));
 
   // Agent registration (ERC-8004 format) for the Metaplex Agent Registry on Solana:
   // the document the registered agent points to. registrations gets the asset

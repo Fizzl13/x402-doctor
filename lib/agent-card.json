@@ -1,0 +1,56 @@
+{
+  "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
+  "protocolVersion": "0.3.0",
+  "name": "x402 Doctor",
+  "description": "Checks x402 and MPP paid APIs before an agent pays: a $0.001 preflight (go / caution / no_go, plus the option that will settle), a free payee check (is every payTo really the seller's, through ERC-8004 or a Concordium badge), a $0.01 full diagnosis and the fix code for $0.05. Never pays the endpoint it checks.",
+  "url": "https://x402-doctor.fizzl.eu/",
+  "version": "1.0.0",
+  "provider": { "organization": "Fizzl", "url": "https://fizzl.eu" },
+  "image": "https://x402-doctor.fizzl.eu/og.jpg",
+  "documentationUrl": "https://github.com/Fizzl13/x402-doctor",
+  "capabilities": {
+    "streaming": false,
+    "pushNotifications": false,
+    "extensions": [
+      {
+        "uri": "https://docs.concordium.com/a2a-extensions/concordium-badge/v1",
+        "description": "Verified by Concordium badge — on-chain agent identity in a CIS-8004 registry",
+        "required": false,
+        "params": {
+          "tokenAddress": "ccd:4221332d34e1694168c2a0c0b3fd0f27/cis-2:JyP9Y8gHmf4U8QPMm1TkT",
+          "owner": { "account": "ccd:4221332d34e1694168c2a0c0b3fd0f27:3HFbRLEGSVUsebprTBmTvpdbTkHg4ncutEYWf4EEaQfgQae9v3" },
+          "agentWallet": "ccd:4221332d34e1694168c2a0c0b3fd0f27:3HFbRLEGSVUsebprTBmTvpdbTkHg4ncutEYWf4EEaQfgQae9v3",
+          "contracts": {
+            "cis8004": "ccd:4221332d34e1694168c2a0c0b3fd0f27:12802.0",
+            "cis8": "ccd:4221332d34e1694168c2a0c0b3fd0f27:12801.0"
+          },
+          "verify": "Resolve tokenAddress via CIS-8004 agent_of; confirm owner + status=Active + card SHA-256 == metadata_hash.",
+          "verification": {
+            "service": "Concordium Agent Registry",
+            "verifyUrl": "https://agent-registry-mcp.concordium.com/v1/badge-check/JyP9Y8gHmf4U8QPMm1TkT",
+            "mcp": "https://agent-registry-mcp.concordium.com/mcp",
+            "docs": "https://docs.concordium.com/en/mainnet/technical-reference/agent-registry/concordium-badge.html"
+          }
+        }
+      }
+    ]
+  },
+  "defaultInputModes": ["application/json"],
+  "defaultOutputModes": ["application/json"],
+  "skills": [
+    { "id": "preflight", "name": "Preflight", "description": "Before paying an x402 endpoint: go, caution or no_go, with the reasons and the payment option that will settle.", "tags": ["x402", "payments", "safety"] },
+    { "id": "payee-check", "name": "Payee check", "description": "Is every payTo of an x402 endpoint really its seller's? Per payment option, verified against the seller's ERC-8004 agent or Concordium badge.", "tags": ["x402", "identity", "erc-8004", "concordium"] },
+    { "id": "diagnose", "name": "Diagnose", "description": "Every check of an x402 endpoint with pass, warn or fail and a fix hint, for sellers.", "tags": ["x402", "developer"] }
+  ],
+  "services": [
+    { "name": "web", "endpoint": "https://x402-doctor.fizzl.eu/" },
+    { "name": "MCP", "endpoint": "https://x402-doctor.fizzl.eu/mcp", "version": "2025-06-18" },
+    { "name": "x402", "endpoint": "https://x402-doctor.fizzl.eu/api/v1/preflight" }
+  ],
+  "active": true,
+  "x402Support": true,
+  "registrations": [
+    { "agentId": 993, "agentRegistry": "ccd:4221332d34e1694168c2a0c0b3fd0f27:12802.0" },
+    { "agentId": 97519, "agentRegistry": "eip155:8453:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432" }
+  ]
+}
