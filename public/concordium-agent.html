@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Pin your Agent Card</title>
+<link rel="canonical" href="https://x402-doctor.fizzl.eu/concordium-agent.html">
+<link rel="icon" href="/favicon.ico">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Pin your Agent Card to your agent in Concordium's Agent Registry: hash the card as served and set agent_uri and metadata_hash on chain, signed in your own Concordium wallet.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700&family=Unbounded:wght@600;700&display=swap">
+<style>
+  :root { --bg: #020708; --panel: #041212; --line: rgba(97,245,195,.16); --text: #f4f8f7; --text-soft: #a8b5b2; --go: #3fb950; --nogo: #f85149; --caution: #d29922; --accent: #61f5c3; --on-accent: #021010; }
+  @media (prefers-color-scheme: light) {
+    :root { --bg: #f6f8fa; --panel: #ffffff; --line: #d0d7de; --text: #1f2328; --text-soft: #57606a; --go: #1a7f37; --nogo: #cf222e; --caution: #9a6700; --accent: #0a7a5c; --on-accent: #ffffff; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Lexend', system-ui, sans-serif; line-height: 1.55; }
+  .wrap { max-width: 680px; margin: 0 auto; padding: 40px 16px 80px; }
+  h1 { font-family: 'Unbounded', 'Lexend', sans-serif; font-size: 1.45rem; margin: 0 0 8px; }
+  .sub { color: var(--text-soft); margin: 0 0 24px; }
+  .step { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin: 0 0 14px; }
+  .step h2 { font-size: 1rem; margin: 0 0 6px; }
+  .step p { margin: 0 0 10px; color: var(--text-soft); font-size: .93rem; }
+  label { display: block; font-size: .85rem; color: var(--text-soft); margin: 8px 0 4px; }
+  input { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; font-size: .9rem; }
+  button { background: var(--accent); color: var(--on-accent); border: 0; border-radius: 8px; padding: 10px 16px; font: inherit; font-weight: 600; cursor: pointer; margin: 6px 6px 0 0; }
+  button:disabled { opacity: .45; cursor: default; }
+  table { width: 100%; border-collapse: collapse; font-size: .85rem; margin-top: 8px; }
+  td, th { text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--line); word-break: break-all; vertical-align: top; }
+  th { width: 34%; color: var(--text-soft); font-weight: 500; }
+  .ok { color: var(--go); } .bad { color: var(--nogo); } .warn { color: var(--caution); }
+  #log { font-size: .85rem; white-space: pre-wrap; color: var(--text-soft); margin-top: 8px; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Pin your Agent Card</h1>
+  <p class="sub">A Concordium badge is valid when the card at your agent's <code>agent_uri</code> hashes (SHA-256) to the <code>metadata_hash</code> on chain. This page hashes your card as it is served and sets both on chain with <code>setAgentURI</code>, signed in your own Concordium wallet. x402 Doctor never sees a key.</p>
+
+  <div class="step">
+    <h2>1. Your badge and card</h2>
+    <label for="badge">Badge (the CIS-2 token address of your agent)</label>
+    <input id="badge" autocomplete="off" spellcheck="false">
+    <label for="uri">Agent Card URL</label>
+    <input id="uri" autocomplete="off" spellcheck="false">
+    <button id="check">Check</button>
+    <table id="table" hidden><tbody></tbody></table>
+  </div>
+
+  <div class="step">
+    <h2>2. Sign with the owner's Concordium wallet</h2>
+    <p>Uses the Concordium Wallet for Web (Chrome or Brave), on the network of the badge, with the account that owns the agent.</p>
+    <button id="sign" disabled>Connect and sign</button>
+    <div id="log"></div>
+  </div>
+</div>
+
+<script type="module">
+const REGISTRY = 'https://agent-registry-mcp.concordium.com';
+// CIS-8004's module schema (the same module on testnet and mainnet: 142462ff…a5c6), from Concordium's registry app.
+const SCHEMA_URL = '/concordium/cis8004-schema.b64';
+const GENESIS = { testnet: '4221332d34e1694168c2a0c0b3fd0f27', mainnet: '9dd9ca4d19e9393877d2c44b70f89acb' };
+const EXPLORER = { testnet: 'https://testnet.ccdscan.io', mainnet: 'https://ccdscan.io' };
+const $ = (id) => document.getElementById(id);
+const q = new URLSearchParams(location.search);
+$('badge').value = q.get('badge') || '';
+$('uri').value = q.get('uri') || `${location.origin}/.well-known/agent-card.json`;
+const log = (m, cls) => { const d = document.createElement('div'); if (cls) d.className = cls; d.textContent = m; $('log').appendChild(d); };
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+let state = null;
+
+async function sha256Hex(buf) {
+  const h = await crypto.subtle.digest('SHA-256', buf);
+  return [...new Uint8Array(h)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+$('check').onclick = async () => {
+  $('sign').disabled = true;
+  state = null;
+  const badge = $('badge').value.trim();
+  const uri = $('uri').value.trim();
+  const rows = [];
+  try {
+    const res = await fetch(uri, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`the card answered HTTP ${res.status}`);
+    const bytes = await res.arrayBuffer();
+    const hash = await sha256Hex(bytes);
+    let card = null;
+    try { card = JSON.parse(new TextDecoder().decode(bytes)); } catch { /* not JSON */ }
+    const ext = (card?.capabilities?.extensions || []).find((e) => String(e?.uri || '').includes('concordium-badge/v1'));
+    const inCard = String(ext?.params?.tokenAddress || '').split('/cis-2:').pop();
+    const chain = await (await fetch(`${REGISTRY}/v1/check-badge/${encodeURIComponent(badge)}`)).json();
+    const on = chain.on_chain || {};
+    const network = chain.network;
+    rows.push(['Network', esc(network || '?')]);
+    rows.push(['Owner', esc(on.owner_account || '?')]);
+    rows.push(['Status', `<span class="${on.status === 'Active' ? 'ok' : 'bad'}">${esc(on.status || '?')}</span>`]);
+    rows.push(['agent_uri now', esc(on.agent_uri || '(none)')]);
+    rows.push(['metadata_hash now', esc(on.metadata_hash_hex || '(none)')]);
+    rows.push(['Card hash (as served)', esc(hash)]);
+    rows.push(['Badge in the card', inCard === badge ? '<span class="ok">this badge</span>' : `<span class="bad">${inCard ? esc(inCard) : 'none'}</span>`]);
+    const pinned = on.agent_uri === uri && String(on.metadata_hash_hex || '').toLowerCase() === hash;
+    rows.push(['Pinned', pinned ? '<span class="ok">yes: nothing to sign</span>' : '<span class="warn">not yet</span>']);
+    if (!GENESIS[network]) throw new Error('unknown network for this badge');
+    if (on.status !== 'Active') throw new Error('the agent is not Active');
+    if (inCard !== badge) throw new Error('put this badge in the card first (capabilities.extensions)');
+    if (!pinned) {
+      state = { badge, uri, hash, network, owner: on.owner_account };
+      $('sign').disabled = false;
+    }
+  } catch (err) {
+    rows.push(['Problem', `<span class="bad">${esc(err.message)}</span>`]);
+  }
+  $('table').hidden = false;
+  $('table').querySelector('tbody').innerHTML = rows.map(([k, v]) => `<tr><th>${k}</th><td>${v}</td></tr>`).join('');
+};
+
+$('sign').onclick = async () => {
+  if (!state) return;
+  $('sign').disabled = true;
+  $('log').textContent = '';
+  try {
+    const provider = window.concordium;
+    if (!provider) throw new Error('No Concordium Wallet for Web found in this browser.');
+    const [account] = await provider.requestAccounts();
+    const chain = String(await provider.getSelectedChain() || '');
+    if (!chain.startsWith(GENESIS[state.network])) throw new Error(`Switch the wallet to ${state.network} and try again.`);
+    if (account !== state.owner) throw new Error(`Select the owner account ${state.owner} in the wallet (now ${account}).`);
+    const built = await (await fetch(`${REGISTRY}/v1/build-set-agent-uri/${encodeURIComponent(state.badge)}?metadata_hash_hex=${state.hash}&agent_uri=${encodeURIComponent(state.uri)}`)).json();
+    if (!built.parameter_json || built.receive_name !== 'CIS-8004.setAgentURI') throw new Error('The registry service did not build the transaction.');
+    const schema = (await (await fetch(SCHEMA_URL)).text()).trim();
+    const sdk = await import('https://esm.sh/@concordium/web-sdk@12.0.2');
+    log('Confirm the transaction in your wallet…');
+    const tx = await provider.sendTransaction(
+      account,
+      sdk.AccountTransactionType.Update,
+      {
+        amount: sdk.CcdAmount.zero(),
+        address: sdk.ContractAddress.create(built.contract_address.index, built.contract_address.subindex),
+        receiveName: sdk.ReceiveName.fromString(built.receive_name),
+        maxContractExecutionEnergy: sdk.Energy.create(built.suggested_energy || 30000),
+      },
+      built.parameter_json,
+      { type: 'module', value: schema },
+    );
+    log(`Sent: ${tx}`, 'ok');
+    const a = document.createElement('a');
+    a.href = `${EXPLORER[state.network]}/?dcount=1&dentity=transaction&dhash=${tx}`;
+    a.textContent = 'View the transaction';
+    a.target = '_blank';
+    $('log').appendChild(a);
+    log('Waiting for the badge check…');
+    for (let i = 0; i < 30; i += 1) {
+      await new Promise((r) => setTimeout(r, 4000));
+      const c = await (await fetch(`${REGISTRY}/v1/check-badge/${encodeURIComponent(state.badge)}`)).json().catch(() => null);
+      if (c?.on_chain?.metadata_hash_hex?.toLowerCase() === state.hash) {
+        log(c.badge_valid ? 'Pinned: the badge is valid.' : `Pinned. Badge check: ${(c.issues || []).map((x) => x.message).join('; ') || 'see the registry'}`, c.badge_valid ? 'ok' : 'warn');
+        return;
+      }
+    }
+    log('Not visible yet; check again in a minute with step 1.', 'warn');
+  } catch (err) {
+    log(err.message || String(err), 'bad');
+    $('sign').disabled = false;
+  }
+};
+</script>
+</body>
+</html>
