@@ -649,14 +649,14 @@ test('header and body: another payment in the body is caution; the same payment 
 test('refusal: a no_go for a seller that takes refusals comes with a ready report; go, or no extension, comes without', async () => {
   const { offerHash } = require('../lib/refusal');
   const option = baseOption('20000');
-  const takes = await seller({ accepts: [option], extensions: (origin) => ({ refusal: { info: { url: `${origin}/.well-known/x402-refusal`, version: '0.3-draft' } } }) });
+  const takes = await seller({ accepts: [option], extensions: (origin) => ({ refusal: { info: { url: `${origin}/.well-known/x402-refusal`, version: '0.4-draft' } } }) });
   const r = await run(takes, { maxUsd: 0.01 });
   assert.equal(r.verdict, 'no_go');
   assert.equal(r.refusal.url, `${new URL(takes).origin}/.well-known/x402-refusal`);
   assert.equal(r.refusal.report.reason, 'price_above_limit');
   assert.equal(r.refusal.report.resource, takes);
   assert.deepEqual(r.refusal.report.offer, { hash: offerHash(option), acceptIndex: 0 });
-  assert.equal(r.refusal.report.detail, 'x402 Doctor preflight: over_budget');
+  assert.equal(r.refusal.report.detail, undefined, 'a policy reason carries no detail: the buyer\'s limit is the owner\'s');
   assert.equal(r.refusal.report.by, undefined, 'no "by": buyers are not grouped by the checker they use');
   assert.equal(r.refusal.signature_required, undefined);
   assert.equal(r.refusal.signing_message, require('../lib/refusal').signingMessage(r.refusal.report));

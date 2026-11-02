@@ -37,8 +37,13 @@ test('extension entry: small, with the url and the required fields', () => {
 });
 
 test('parse: a buyer\'s report passes; bad fields, old reports and other sellers\' resources do not', () => {
-  const report = refusalReport({ resource: 'https://x402-doctor.fizzl.eu/api/v1/preflight', accept: ACCEPT, acceptIndex: 0, reason: 'price_above_limit', detail: 'limit $0.005', by: 'test' });
+  const report = refusalReport({ resource: 'https://x402-doctor.fizzl.eu/api/v1/preflight', accept: ACCEPT, acceptIndex: 0, reason: 'price_above_limit', detail: 'per_call', by: 'test' });
   assert.ok(parseRefusal(report, { ownHost: 'x402-doctor.fizzl.eu' }).report);
+  // 0.4: no limits, budgets or amounts in a policy reason's detail; price_above_limit's is a category.
+  assert.throws(() => refusalReport({ resource: 'x', accept: ACCEPT, reason: 'price_above_limit', detail: 'limit $0.005' }), /which limit/);
+  assert.throws(() => refusalReport({ resource: 'x', accept: ACCEPT, reason: 'policy_blocked', detail: 'daily budget 5 USDC' }), /must not contain/);
+  assert.ok(refusalReport({ resource: 'x', accept: ACCEPT, reason: 'policy_blocked', detail: 'seller not on the allow list' }));
+  assert.ok(refusalReport({ resource: 'x', accept: ACCEPT, reason: 'network_unsupported', detail: 'pays USDC on Base only' }));
   assert.throws(() => refusalReport({ resource: 'x', accept: ACCEPT, reason: 'nope' }));
   const bad = (patch) => parseRefusal({ ...report, ...patch }, { ownHost: 'x402-doctor.fizzl.eu' }).error;
   assert.match(bad({ reason: 'cheaper_elsewhere' }), /reason must be one of/);
@@ -47,6 +52,8 @@ test('parse: a buyer\'s report passes; bad fields, old reports and other sellers
   assert.match(bad({ detail: 'x'.repeat(201) }), /detail/);
   assert.match(bad({ resource: 'https://other.example/paid' }), /not a resource of/);
   assert.match(bad({ x402Version: '2' }), /x402Version/);
+  assert.match(bad({ detail: 'limit $0.005' }), /which limit/);
+  assert.match(bad({ reason: 'trust_low', detail: 'score below max 0.7' }), /must not contain/);
 });
 
 async function app(opts = {}) {
@@ -138,7 +145,7 @@ test('Fizzl Buy\'s own 402 names its refusal endpoint, which takes reports', asy
 
 test('v0.3: check_unavailable says which check could not complete, and needs that detail', async () => {
   const { UNAVAILABLE_CHECKS, VERSION, REASONS, SIGNED_ONLY, REPORT_SCHEMA } = require('../lib/refusal');
-  assert.equal(VERSION, '0.3-draft');
+  assert.equal(VERSION, '0.4-draft');
   assert.deepEqual(UNAVAILABLE_CHECKS, ['payto_binding', 'screening', 'trust']);
   assert.ok(REASONS.check_unavailable);
   assert.match(REASONS.payto_unverified, /checked and found nothing/);
