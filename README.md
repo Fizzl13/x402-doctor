@@ -653,6 +653,53 @@ Then, per payment option, one outcome:
 Every payTo verified is a pass. A mismatch, a revoked agent, a swapped card or an unlisted endpoint is a warning with
 the fix.
 
+### Concordium Trusted Agents Hackathon
+
+x402 Doctor is itself a Concordium agent: **#993** in the Agent Registry on testnet, badge
+[`JyP9Y8gHmf4U8QPMm1TkT`](https://agent-registry-mcp.concordium.com/v1/check-badge/JyP9Y8gHmf4U8QPMm1TkT) (Concordium's
+own check: `badge_valid: true`). Its Agent Card is at
+[`/.well-known/agent-card.json`](https://x402-doctor.fizzl.eu/.well-known/agent-card.json), and its Base payTo
+`0x6B0F…5F25` is bound to the agent with CIS-8. Its own payee check therefore says `verified-external-key` on Base and
+X Layer.
+
+On chain (CCDScan, testnet):
+
+- [Registered](https://testnet.ccdscan.io/?dcount=1&dentity=transaction&dhash=d9c63c8932fecdcb2c9011d3d40918e18f1d8b87e09e3a4b34f973b97f663b9b):
+  minted agent #993, with the owner account as agent wallet.
+- [Card pinned](https://testnet.ccdscan.io/?dcount=1&dentity=transaction&dhash=2f488bd3098c41b90737700364e91f3cc260d8e04027a4d6c39881ca351f8f44):
+  `setAgentURI` with the card's SHA-256.
+- [Base key bound](https://testnet.ccdscan.io/?dcount=1&dentity=transaction&dhash=dffcf331a85afeafbf472b4a7809ab0e36855f5e1aee79078b5cd8995701f004):
+  `setExternalReference`, CIS-8, `eip155:8453`.
+
+`node concordium/demo.mjs` reads the registry live and pays nothing. It shows x402 Doctor verified, and three things
+an agent must not pay, all refused:
+
+- a copycat server with the same card and badge (`endpoint-unlisted`);
+- Doctor's own card with a swapped payTo (`mismatch`);
+- the badge of a revoked agent (`revoked`).
+
+[`/concordium-agent.html`](https://x402-doctor.fizzl.eu/concordium-agent.html) does the two steps Concordium's registry
+app can't do after registration, for any agent, signed in the owner's own wallets. It pins the card's hash, and it binds
+an EVM payTo (MetaMask signs one message, the Concordium wallet signs `setExternalReference`).
+
+The registry today (2 Nov 2026, read through Concordium's service):
+
+- Mainnet has 5,118 agents from 107 owners. One owner holds 1,419 of them.
+- 4,007 have an agent wallet, and every one of those wallets is the owner's own account.
+- In a random sample of 200 Active cards, 161 could be fetched and 159 matched their on-chain hash.
+- None of those 161 cards declares `x402Support`.
+
+So nothing links a Concordium agent to the wallet it is paid at on another chain yet. That link is what this check reads.
+
+Path to production:
+
+1. The check is live today in the free web check, the free MCP tool `x402_payee_check` and the paid preflight. It
+   needs no setup from sellers beyond the badge.
+2. Register x402 Doctor on mainnet (contract `<10082,0>`). The same module serves both registries.
+3. Add the outcome to the preflight's verdict once badges with bound payTos exist. `payto_changed`, for example, can
+   then trust a move that the agent's CIS-8 key covers, as it does for ERC-8004.
+4. Offer x402 on Concordium itself (CCD or PLT), as soon as a facilitator settles it.
+
 ## Feedback
 
 Found a bug, or missing something? Send it with `POST /feedback` (free, no payment) or the MCP tool `feedback`:
