@@ -141,8 +141,9 @@ test('verified-external-key: an EVM payTo is the address of the secp256k1 key bo
   const text = card();
   const tools = (holder) => ({ agent_by_token_address: agent(text, { external_reference: { contract_address: { index: 12801, subindex: 0 }, kind: 'Cis8', key } }), owner_of_key: holder });
   const accepts = [{ network: 'eip155:8453', payTo: account.address }, { network: 'eip155:8453', payTo: '0x000000000000000000000000000000000000dEaD' }];
-  const bound = await verifyConcordiumPayees(accepts, { url: SELLER, safeFetch: pages({ [CARD_URL]: text }), fetchImpl: registry(tools({ owner_account: OWNER })).fetchImpl });
-  assert.deepEqual(bound.results.map((x) => x.outcome), ['verified-external-key', 'mismatch']);
+  const solana = { network: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp', payTo: 'ATWJ82T8nRdQwZnaysB68N5EpaSvLRsQP4h6eWmaJBH9' };
+  const bound = await verifyConcordiumPayees([...accepts, solana, { network: 'xrpl:0', payTo: 'r9xmBsRr8Ao7jRgjjxreMiAwGiCK2FGwqw' }], { url: SELLER, safeFetch: pages({ [CARD_URL]: text }), fetchImpl: registry(tools({ owner_account: OWNER })).fetchImpl });
+  assert.deepEqual(bound.results.map((x) => x.outcome), ['verified-external-key', 'mismatch', 'not-bound', 'not-bound'], 'an EVM key says nothing about a Solana or XRPL payTo');
   clearConcordiumCache();
   const unbound = await verifyConcordiumPayees(accepts.slice(0, 1), { url: SELLER, safeFetch: pages({ [CARD_URL]: text }), fetchImpl: registry(tools(null)).fetchImpl });
   assert.equal(unbound.results[0].outcome, 'not-bound');
@@ -179,6 +180,11 @@ test('checkConcordiumAgent: a pass with the agent, a warn with a fix, and no che
   await checkConcordiumAgent([{ network: TESTNET, payTo: WALLET }], `${SELLER}/paid`, warn, { safeFetch: pages({ [CARD_URL]: text }), fetchImpl: registry({ agent_by_token_address: agent(card({ name: 'Old' })) }).fetchImpl });
   assert.equal(warn[0].status, 'warn');
   assert.match(warn[0].hint, /sha256sum.*check-badge\/JyP9TtQC3HCNrTYR3sc2T/);
+  clearConcordiumCache();
+  const partial = [];
+  await checkConcordiumAgent([{ network: TESTNET, payTo: WALLET }, { network: 'xrpl:0', payTo: 'r9xmBsRr8Ao7jRgjjxreMiAwGiCK2FGwqw' }], `${SELLER}/paid`, partial, { safeFetch: pages({ [CARD_URL]: text }), fetchImpl: registry({ agent_by_token_address: agent(text) }).fetchImpl });
+  assert.equal(partial[0].status, 'info');
+  assert.match(partial[0].message, /Verified by Concordium for 1 of 2 payTos/);
   const none = [];
   await checkConcordiumAgent([{ network: TESTNET, payTo: WALLET }], `${SELLER}/paid`, none, { safeFetch: pages({}), fetchImpl: registry({}).fetchImpl });
   assert.equal(none.length, 0);
