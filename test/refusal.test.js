@@ -136,8 +136,32 @@ test('Fizzl Buy\'s own 402 names its refusal endpoint, which takes reports', asy
   assert.equal(info.received.by_resource['https://buy.fizzl.eu/v1/buy'].reasons.price_above_limit, 1);
 });
 
+test('v0.3: check_unavailable says which check could not complete, and needs that detail', async () => {
+  const { UNAVAILABLE_CHECKS, VERSION, REASONS, SIGNED_ONLY, REPORT_SCHEMA } = require('../lib/refusal');
+  assert.equal(VERSION, '0.3-draft');
+  assert.deepEqual(UNAVAILABLE_CHECKS, ['payto_binding', 'screening', 'trust']);
+  assert.ok(REASONS.check_unavailable);
+  assert.match(REASONS.payto_unverified, /checked and found nothing/);
+  const t = Date.parse('2026-11-02T08:00:00Z');
+  const resource = 'https://seller.example/api/data';
+  // A ready report: the detail must start with the check.
+  assert.throws(() => refusalReport({ resource, accept: ACCEPT, reason: 'check_unavailable', now: new Date(t) }), /detail/);
+  assert.throws(() => refusalReport({ resource, accept: ACCEPT, reason: 'check_unavailable', detail: 'screening_hit', now: new Date(t) }), /detail/);
+  const ok = refusalReport({ resource, accept: ACCEPT, reason: 'check_unavailable', detail: 'screening: sanctions list not loaded', now: new Date(t) });
+  assert.equal(parseRefusal(ok, { ownHost: 'seller.example', now: t }).report.detail, 'screening: sanctions list not loaded');
+  for (const detail of ['payto_binding', 'trust (lookup timed out)']) assert.ok(parseRefusal({ ...ok, detail }, { ownHost: 'seller.example', now: t }).report, detail);
+  // Received without the check named, or with something else: refused.
+  for (const detail of [undefined, 'lookup failed', 'trustworthy', 'screening_hit']) assert.match(parseRefusal({ ...ok, detail }, { ownHost: 'seller.example', now: t }).error, /check_unavailable/, String(detail));
+  // The schema says the same.
+  const rule = REPORT_SCHEMA.allOf.find((r) => r.if.properties.reason.const === 'check_unavailable');
+  assert.deepEqual(rule.then.required, ['detail']);
+  assert.ok(new RegExp(rule.then.properties.detail.pattern).test('payto_binding'));
+  // Unsigned and taken, like any reason but screening_hit.
+  assert.ok(!SIGNED_ONLY.has('check_unavailable'));
+});
+
 test('v0.2: trust_low, a screening_hit only when signed, and counts per day', async () => {
-  const { REASONS, FROM_PREFLIGHT, SIGNED_ONLY, REPORT_SCHEMA, createRefusalSender } = require('../lib/refusal');
+  const { REASONS, FROM_PREFLIGHT, SIGNED_ONLY, REPORT_SCHEMA, createRefusalSender, VERSION } = require('../lib/refusal');
   assert.ok(REASONS.trust_low);
   assert.equal(FROM_PREFLIGHT.unreliable_history, 'trust_low');
   assert.equal(FROM_PREFLIGHT.charged_without_answer, 'trust_low');
@@ -160,7 +184,7 @@ test('v0.2: trust_low, a screening_hit only when signed, and counts per day', as
   assert.equal((await post(refusalReport({ resource, accept: ACCEPT, reason: 'trust_low', detail: 'score', now: new Date(t) }))).status, 204);
   assert.equal((await post(refusalReport({ resource, accept: ACCEPT, reason: 'trust_low', now: new Date(t) }))).status, 204);
   const info = await (await fetch(url)).json();
-  assert.equal(info.version, '0.2-draft');
+  assert.equal(info.version, VERSION);
   assert.deepEqual(info.received.by_day, [
     { day: '2026-11-02', resource, reason: 'trust_low', count: 2, signed: 0 },
     { day: '2026-11-01', resource, reason: 'screening_hit', count: 1, signed: 1 },

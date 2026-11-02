@@ -645,7 +645,7 @@ test('header and body: another payment in the body is caution; the same payment 
 test('refusal: a no_go for a seller that takes refusals comes with a ready report; go, or no extension, comes without', async () => {
   const { offerHash } = require('../lib/refusal');
   const option = baseOption('20000');
-  const takes = await seller({ accepts: [option], extensions: (origin) => ({ refusal: { info: { url: `${origin}/.well-known/x402-refusal`, version: '0.2-draft' } } }) });
+  const takes = await seller({ accepts: [option], extensions: (origin) => ({ refusal: { info: { url: `${origin}/.well-known/x402-refusal`, version: '0.3-draft' } } }) });
   const r = await run(takes, { maxUsd: 0.01 });
   assert.equal(r.verdict, 'no_go');
   assert.equal(r.refusal.url, `${new URL(takes).origin}/.well-known/x402-refusal`);
