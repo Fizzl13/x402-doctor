@@ -35,6 +35,7 @@ the medicine, the exact code that fixes each problem for your stack, in the brow
 | | `accepts[i]-payto`, `-asset` | Invalid EVM, Solana, XRPL or Algorand addresses (XRPL and Algorand with their checksums); a payTo that is a placeholder nobody holds a key for (the zero address, which USDC refuses, `0x…dEaD`, or Solana's System Program or incinerator), also as an MPP `recipient`; asset that is not USDC, or USDC of another network (e.g. Base Sepolia USDC on Base); on Algorand an asset that is not an ASA id (USDC is ASA 31566704); on XRPL an XRP amount that isn't in drops, or "RLUSD" from another issuer than Ripple's |
 | | `accepts[i]-amount` | Decimal dollar amounts (`"0.02"`) instead of atomic units, zero or non-integer amounts |
 | | Stellar options | x402 `exact` on Stellar (`stellar:pubnet`, `@x402/stellar`): payTo a G…, C… or M… address with a valid StrKey checksum, asset a Soroban token contract (USDC is `CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75`; `"USDC"` or a testnet contract fails), a positive integer amount (USDC has 7 decimals: `100000` is $0.01) and `extra.areFeesSponsored: true`, without which the client refuses |
+| | `testnet-only` | Every option is on a test network (Base Sepolia, Solana Devnet, …): the challenge can be valid, but agents paying with real USDC have no option |
 | | `aws-test-mode` | A 402 served through Amazon CloudFront that offers only testnets (info): AWS WAF Monetize left in Test currency mode |
 | | `accepts[i]-extra` | Solana without `extra.feePayer` (clients throw "feePayer is required"), EVM without the EIP-712 `name`/`version` |
 | | `accepts[i]-batch`, `-batch-delay`, `-batch-deposit`, `batch-escrow` | The `batch-settlement` scheme (one deposit into the x402 escrow, then a signed voucher per call, claimed in batches): `extra.receiverAuthorizer` missing (clients refuse), `withdrawDelay` missing or outside 900 s to 30 days, no EIP-712 domain for the EIP-3009 deposit, `minDeposit` not in atomic units, the escrow not deployed on the network; the deposit and withdraw delay buyers commit to |
@@ -605,7 +606,7 @@ The marketplace is [`.claude-plugin/marketplace.json`](.claude-plugin/marketplac
 
 | Tool | Price | Returns |
 |---|---|---|
-| `x402_quick_check` | free, 10 calls/hour | pass/warn/fail, the number of problems and the top three |
+| `x402_quick_check` | free, 10 calls/hour | pass/warn/fail, the number of problems and the top three (fails first, then what stops a payer, then findability) |
 | `x402_payee_check` | free (same hourly limit) | Per payment option, whether its payTo is bound to the seller's ERC-8004 agent: verified-wallet, verified-delegation, mismatch, invalid-delegation, endpoint-unlisted, owner-only, no-agent-wallet or not-read (draft ERC "x402 Payee Verification", ethereum/ERCs#2132) |
 | `x402_diagnose` | $0.01 USDC via x402 | Every check with a fix hint, as `GET /api/v1/diagnose` |
 | `x402_preflight` | $0.001 USDC via x402 | go/caution/no_go before paying an endpoint, as `GET /api/v1/preflight` |

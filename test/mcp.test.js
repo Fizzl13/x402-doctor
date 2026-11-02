@@ -359,3 +359,20 @@ test('diagnose on an x402 MCP server: tools listed, unpaid calls return the paym
   assert.ok(!report.mcp.calls.some((c) => c.tool === 'feedback'), 'a diagnosis never sends feedback');
   assert.equal(state.settle, 0, 'nothing paid');
 });
+
+test('summarize: problems that stop a payer come before findability warnings', () => {
+  const { summarize } = require('../lib/mcp');
+  const checks = [
+    { id: 'envelope-body-mirror', status: 'warn', message: 'header only' },
+    { id: 'bazaar', status: 'warn', message: 'no bazaar' },
+    { id: 'openapi-present', status: 'warn', message: 'no openapi' },
+    { id: 'testnet-only', status: 'warn', message: 'testnet only' },
+    { id: 'accepts[0]-asset', status: 'warn', message: 'unknown asset' },
+    { id: 'returns-402', status: 'pass', message: 'ok' },
+  ];
+  const out = summarize({ url: 'https://seller.example/x', overall: 'warn', checks });
+  assert.deepEqual(out.top_problems, ['warn: testnet only', 'warn: unknown asset', 'warn: header only']);
+  const withFail = summarize({ url: 'https://seller.example/x', overall: 'fail', checks: [...checks, { id: 'challenge-header', status: 'fail', message: 'mismatch' }] });
+  assert.equal(withFail.top_problems[0], 'fail: mismatch');
+  assert.equal(withFail.warnings, 5);
+});

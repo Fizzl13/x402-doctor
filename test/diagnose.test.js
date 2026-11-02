@@ -1702,3 +1702,21 @@ test('refusal extension: absent is a hint, a url buyers would not send to or tha
   const ok = await run({ refusal: { info: { url: 'https://api.seller.com/.well-known/x402-refusal' } } });
   assert.deepEqual([ok[0].status, ok[0].message], ['pass', "Takes refusals at https://api.seller.com/.well-known/x402-refusal: a buyer that doesn't pay can tell you why (reason code and which offer)."]);
 });
+
+test('checkAccepts: only test networks is a warning, a mainnet option next to them is not', () => {
+  const pay = (network, asset) => ({ scheme: 'exact', network, amount: '10000', asset, payTo: '0x408C4610F6879a75c25722cfCd18A2Eff99dc20F' });
+  const devnet = { scheme: 'exact', network: 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1', amount: '10000', asset: '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU', payTo: 'GZ3zH1kuwj7Ss3qgo2MjMR8VnVWgCBwPbBtDUB5uY5fz' };
+  const only = [];
+  checkAccepts([devnet, pay('eip155:84532', '0x036CbD53842c5426634e7929541eC2318f3dCF7e')], only);
+  const warn = only.find((c) => c.id === 'testnet-only');
+  assert.equal(warn?.status, 'warn');
+  assert.match(warn.message, /Solana Devnet, Base Sepolia/);
+
+  const mixed = [];
+  checkAccepts([devnet, pay('eip155:8453', '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913')], mixed);
+  assert.equal(mixed.find((c) => c.id === 'testnet-only'), undefined);
+
+  const unknown = [];
+  checkAccepts([pay('eip155:999999', '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913')], unknown);
+  assert.equal(unknown.find((c) => c.id === 'testnet-only'), undefined);
+});
