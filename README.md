@@ -612,7 +612,7 @@ The marketplace is [`.claude-plugin/marketplace.json`](.claude-plugin/marketplac
 | Tool | Price | Returns |
 |---|---|---|
 | `x402_quick_check` | free, 10 calls/hour | pass/warn/fail, the number of problems and the top three (fails first, then what stops a payer, then findability) |
-| `x402_payee_check` | free (same hourly limit) | Per payment option, whether its payTo is bound to the seller's ERC-8004 agent: verified-wallet, verified-delegation, mismatch, invalid-delegation, endpoint-unlisted, owner-only, no-agent-wallet or not-read (draft ERC "x402 Payee Verification", ethereum/ERCs#2132) |
+| `x402_payee_check` | free (same hourly limit) | Per payment option, whether its payTo is bound to the seller's ERC-8004 agent: verified-wallet, verified-delegation, mismatch, invalid-delegation, endpoint-unlisted, owner-only, no-agent-wallet or not-read (draft ERC "x402 Payee Verification", ethereum/ERCs#2132); with a Concordium badge on the seller's Agent Card also `concordium` (see Verified by Concordium) |
 | `x402_diagnose` | $0.01 USDC via x402 | Every check with a fix hint, as `GET /api/v1/diagnose` |
 | `x402_preflight` | $0.001 USDC via x402 | go/caution/no_go before paying an endpoint, as `GET /api/v1/preflight` |
 | `x402_preflight_batch` | $0.005 USDC via x402 | The preflight for up to 10 endpoints (`urls`), as `GET /api/v1/preflight/batch` |
@@ -624,6 +624,34 @@ The marketplace is [`.claude-plugin/marketplace.json`](.claude-plugin/marketplac
 | `feedback` | free | Report a bug or a missing feature, as `POST /feedback` (below) |
 
 The paid tools are paid inside the MCP call with the x402 MCP transport (`_meta["x402/payment"]`), on Base or Solana, at the same prices and to the same payout wallets as the HTTP routes. Invalid input is refused before payment, and a failed call is not charged. A delivery check ordered over MCP is queued only once its payment settled, like the HTTP route.
+
+## Verified by Concordium
+
+When a seller's `/.well-known/agent-card.json` carries a Concordium badge (the A2A extension
+`https://docs.concordium.com/a2a-extensions/concordium-badge/v1`), the web check adds `concordium-agent` and
+`x402_payee_check` adds `concordium` (`lib/concordium-agent.js`). The badge is a CIS-2 token address in Concordium's
+Agent Registry (CIS-8004, the Concordium form of ERC-8004). Each agent is an NFT owned by a Concordium account, and
+every Concordium account belongs to a verified identity at protocol level, so there is an accountable owner behind it.
+
+The check reads the registry through Concordium's hosted Agent Registry service (read-only). The badge's own contract
+decides the network: `<10082,0>` is mainnet, `<12802,0>` is testnet, and any other contract is not trusted. Then:
+
+- the agent must be `Active`;
+- the card at its on-chain `agent_uri` must hash (SHA-256) to the on-chain `metadata_hash`;
+- that anchored card must list this endpoint's origin, or be served from it. A copy of the card on another server
+  carries the same badge, so the badge alone proves nothing.
+
+Then, per payment option, one outcome:
+
+- `verified-wallet`: a Concordium payTo is the agent wallet.
+- `verified-external-key`: a payTo on another chain (EVM, Solana) is the address of the key the agent bound with
+  CIS-8, and the CIS-8 registry still holds that binding for the agent's owner.
+- `owner-only`, `no-agent-wallet`, `mismatch` or `not-bound`.
+- For the whole agent: `revoked`, `card-mismatch`, `endpoint-unlisted`, or `not-read`. `not-read` is never a pass or
+  a fail.
+
+Every payTo verified is a pass. A mismatch, a revoked agent, a swapped card or an unlisted endpoint is a warning with
+the fix.
 
 ## Feedback
 
