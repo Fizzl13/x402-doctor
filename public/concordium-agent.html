@@ -56,6 +56,13 @@
     <button id="sign" disabled>Connect and sign</button>
     <div id="log"></div>
   </div>
+
+  <div class="step">
+    <h2>3. Bind your EVM payTo to the agent (optional)</h2>
+    <p>A payTo on Base or another EVM chain counts as the agent's when its key is bound with CIS-8 and the agent names that key (<code>setExternalReference</code>). First link the key to your Concordium account in <a href="https://agent-registry.concordium.com" target="_blank" rel="noopener">Concordium's Agent Registry</a>: Register Agent → Cross-Chain → your chain → Connect Wallet, Prove Ownership, Link Key, and stop there (no Sign &amp; Register). Then come back here: MetaMask signs one message to show your public key (no transaction), and your Concordium wallet signs <code>setExternalReference</code>.</p>
+    <button id="link" disabled>Find my key and bind it</button>
+    <div id="log2"></div>
+  </div>
 </div>
 
 <script type="module">
@@ -68,7 +75,10 @@ const $ = (id) => document.getElementById(id);
 const q = new URLSearchParams(location.search);
 $('badge').value = q.get('badge') || '';
 $('uri').value = q.get('uri') || `${location.origin}/.well-known/agent-card.json`;
-const log = (m, cls) => { const d = document.createElement('div'); if (cls) d.className = cls; d.textContent = m; $('log').appendChild(d); };
+const logTo = (el) => (m, cls) => { const d = document.createElement('div'); if (cls) d.className = cls; d.textContent = m; $(el).appendChild(d); };
+const log = logTo('log');
+const log2 = logTo('log2');
+let agentInfo = null;
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 let state = null;
 
@@ -104,6 +114,8 @@ $('check').onclick = async () => {
     rows.push(['Badge in the card', inCard === badge ? '<span class="ok">this badge</span>' : `<span class="bad">${inCard ? esc(inCard) : 'none'}</span>`]);
     const pinned = on.agent_uri === uri && String(on.metadata_hash_hex || '').toLowerCase() === hash;
     rows.push(['Pinned', pinned ? '<span class="ok">yes: nothing to sign</span>' : '<span class="warn">not yet</span>']);
+    agentInfo = GENESIS[network] && on.status === 'Active' ? { badge, network, owner: on.owner_account } : null;
+    $('link').disabled = !agentInfo;
     if (!GENESIS[network]) throw new Error('unknown network for this badge');
     if (on.status !== 'Active') throw new Error('the agent is not Active');
     if (inCard !== badge) throw new Error('put this badge in the card first (capabilities.extensions)');
@@ -165,6 +177,85 @@ $('sign').onclick = async () => {
   } catch (err) {
     log(err.message || String(err), 'bad');
     $('sign').disabled = false;
+  }
+};
+// One MCP tool call on Concordium's Agent Registry service (JSON-RPC; the answer may come as one SSE event).
+async function registryTool(name, args) {
+  const res = await fetch(`${REGISTRY}/mcp`, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: args } }) });
+  let text = await res.text();
+  if (/^\s*(event|data):/.test(text)) text = text.split('\n').filter((l) => l.startsWith('data:')).map((l) => l.slice(5)).join('');
+  const body = JSON.parse(text);
+  const out = (body.result?.content || []).map((c) => c.text || '').join('');
+  if (body.error || body.result?.isError) throw new Error(out || body.error?.message || `${name} failed`);
+  return out && out !== 'null' ? JSON.parse(out) : null;
+}
+
+$('link').onclick = async () => {
+  if (!agentInfo) return;
+  $('link').disabled = true;
+  $('log2').textContent = '';
+  try {
+    const eth = window.ethereum;
+    if (!eth) throw new Error('No EVM wallet (MetaMask) found in this browser.');
+    const viem = await import('https://esm.sh/viem@2.31.7');
+    const [address] = await eth.request({ method: 'eth_requestAccounts' });
+    const message = `x402 Doctor: show my public key to bind ${address} to Concordium agent ${agentInfo.badge}. This is not a transaction.`;
+    log2(`Sign the message in your EVM wallet (${address})…`);
+    const signature = await eth.request({ method: 'personal_sign', params: [viem.toHex(message), address] });
+    const publicKey = await viem.recoverPublicKey({ hash: viem.hashMessage(message), signature });
+    const { publicKeyToAddress } = await import('https://esm.sh/viem@2.31.7/accounts');
+    if (publicKeyToAddress(publicKey).toLowerCase() !== address.toLowerCase()) throw new Error('The recovered key is not this address.');
+    const publicKeyHex = publicKey.replace(/^0x/, '').toLowerCase();
+    log2(`Key of ${address}: ${publicKeyHex.slice(0, 18)}…`, 'ok');
+    // The CIS-8 binding the registry app made (Link Key): the namespace is the chain chosen there.
+    let found = null;
+    for (const namespace of ['eip155:8453', 'eip155:1', 'eip155:196', 'eip155:10', 'eip155:42161', 'eip155:137', 'eip155:56']) {
+      const reg = await registryTool('owner_of_key', { external_key: { namespace, key_type: 'secp256k1-uncompressed', public_key_hex: publicKeyHex }, network: agentInfo.network }).catch(() => null);
+      if (reg && (!reg.status || reg.status === 'Active')) { found = { namespace, reg }; break; }
+    }
+    if (!found) throw new Error('This key is not linked yet. Do Link Key in Concordium\'s Agent Registry first (see above), then try again.');
+    const holder = found.reg.owner_account || found.reg.owner || found.reg.account || null;
+    if (holder && holder !== agentInfo.owner) throw new Error(`This key is linked to ${holder}, not to the agent's owner.`);
+    log2(`Linked with CIS-8 (${found.namespace}).`, 'ok');
+    const provider = window.concordium;
+    if (!provider) throw new Error('No Concordium Wallet for Web found in this browser.');
+    const [account] = await provider.requestAccounts();
+    const chain = String(await provider.getSelectedChain() || '');
+    if (!chain.startsWith(GENESIS[agentInfo.network])) throw new Error(`Switch the Concordium wallet to ${agentInfo.network} and try again.`);
+    if (account !== agentInfo.owner) throw new Error(`Select the owner account ${agentInfo.owner} in the Concordium wallet (now ${account}).`);
+    const agent = await registryTool('agent_by_token_address', { token_address: agentInfo.badge, network: agentInfo.network });
+    const built = await registryTool('build_set_external_reference', {
+      network: agentInfo.network,
+      token_id: String(agent.token_id),
+      sender: account,
+      external_reference: { contract_address: { index: agentInfo.network === 'mainnet' ? 10081 : 12801, subindex: 0 }, kind: 'Cis8', key: { namespace: found.namespace, key_type: 'secp256k1-uncompressed', public_key_hex: publicKeyHex } },
+    });
+    if (!built?.parameter_json || built.receive_name !== 'CIS-8004.setExternalReference') throw new Error('The registry service did not build the transaction.');
+    const schema = (await (await fetch(SCHEMA_URL)).text()).trim();
+    const sdk = await import('https://esm.sh/@concordium/web-sdk@12.0.2');
+    log2('Confirm the transaction in your Concordium wallet…');
+    const tx = await provider.sendTransaction(
+      account,
+      sdk.AccountTransactionType.Update,
+      {
+        amount: sdk.CcdAmount.zero(),
+        address: sdk.ContractAddress.create(built.contract_address.index, built.contract_address.subindex),
+        receiveName: sdk.ReceiveName.fromString(built.receive_name),
+        maxContractExecutionEnergy: sdk.Energy.create(built.suggested_energy || 30000),
+      },
+      built.parameter_json,
+      { type: 'module', value: schema },
+    );
+    log2(`Sent: ${tx}`, 'ok');
+    for (let i = 0; i < 30; i += 1) {
+      await new Promise((r) => setTimeout(r, 4000));
+      const now = await registryTool('agent_by_token_address', { token_address: agentInfo.badge, network: agentInfo.network }).catch(() => null);
+      if (now?.external_reference) { log2(`Bound: payTo ${address} now belongs to the agent.`, 'ok'); return; }
+    }
+    log2('Not visible yet; check again in a minute.', 'warn');
+  } catch (err) {
+    log2(err.message || String(err), 'bad');
+    $('link').disabled = false;
   }
 };
 </script>

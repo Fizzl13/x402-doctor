@@ -150,6 +150,12 @@ test('verified-external-key: an EVM payTo is the address of the secp256k1 key bo
   const someoneElse = await verifyConcordiumPayees(accepts.slice(0, 1), { url: SELLER, safeFetch: pages({ [CARD_URL]: text }), fetchImpl: registry(tools({ owner_account: WALLET })).fetchImpl });
   assert.equal(someoneElse.results[0].outcome, 'not-bound');
   clearConcordiumCache();
+  const revoked = await verifyConcordiumPayees(accepts.slice(0, 1), { url: SELLER, safeFetch: pages({ [CARD_URL]: text }), fetchImpl: registry(tools({ owner: OWNER, status: 'Revoked' })).fetchImpl });
+  assert.equal(revoked.results[0].outcome, 'not-bound', 'a revoked CIS-8 binding binds nothing');
+  clearConcordiumCache();
+  const asOwner = await verifyConcordiumPayees(accepts.slice(0, 1), { url: SELLER, safeFetch: pages({ [CARD_URL]: text }), fetchImpl: registry(tools({ owner: OWNER, status: 'Active' })).fetchImpl });
+  assert.equal(asOwner.results[0].outcome, 'verified-external-key', "the registry's own field name (owner)");
+  clearConcordiumCache();
   const noKey = await verifyConcordiumPayees(accepts.slice(0, 1), { url: SELLER, safeFetch: pages({ [CARD_URL]: text }), fetchImpl: registry({ agent_by_token_address: agent(text) }).fetchImpl });
   assert.equal(noKey.results[0].outcome, 'not-bound');
 });
