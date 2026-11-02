@@ -159,7 +159,11 @@ test('broken options, unknown token and non-402 endpoints', async () => {
   assert.equal(down.reasons[0].code, 'server_error');
   assert.match(down.reasons[0].message, /530/);
   const notImplemented = await run(await seller({ accepts: [], status: 501 }));
-  assert.equal(notImplemented.reasons[0].code, 'no_402', '501 says the method is not implemented, not that the server is down');
+  assert.equal(notImplemented.reasons[0].code, 'no_402', '501 says the method is not implemented, not that the server is down');  // 410 Gone to every method: retired by the seller, not broken.
+  const gone = await run(await seller({ accepts: [], status: 410 }));
+  assert.equal(gone.verdict, 'no_go');
+  assert.equal(gone.reasons[0].code, 'retired');
+  assert.match(gone.reasons[0].message, /410 Gone/);
 });
 
 test('no answer and free trials: unreachable (a timeout next to a 405) and free_trial (a caution), not no_402', async () => {
