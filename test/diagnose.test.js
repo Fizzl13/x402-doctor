@@ -321,6 +321,19 @@ test('a payTo that is the zero address or another burn address fails: nobody get
   assert.equal(payto(2).status, 'pass');
 });
 
+test('a deliberate burn of a non-dollar token at 0x…dEaD is an info line, not a placeholder', () => {
+  const token = '0xFdA080f64d84C989Cfc50FF18253542CfE502Db3';
+  const checks = [];
+  checkAccepts([
+    { scheme: 'exact', network: 'eip155:4663', amount: '15534669000000000000', asset: token, payTo: '0x000000000000000000000000000000000000dEaD', extra: { name: 'WAFERMAP', version: '1' } },
+    { scheme: 'exact', network: 'eip155:4663', amount: '10000', asset: token, payTo: '0x0000000000000000000000000000000000000000' },
+  ], checks);
+  const payto = (i) => checks.find((c) => c.id === `accepts[${i}]-payto`);
+  assert.equal(payto(0).status, 'info');
+  assert.match(payto(0).message, /paid by burning that token/);
+  assert.equal(payto(1).status, 'fail', 'the zero address stays a placeholder whatever the token');
+});
+
 test('an openapi.json cut off at the size cap is reported as too large, not as invalid JSON', async () => {
   const checks = [];
   const fetchCapped = async () => ({ status: 200, text: '{"openapi":"3.1.0","paths":{"/a":', truncated: true });
