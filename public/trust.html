@@ -156,6 +156,7 @@
   <p class="note" id="onchainStellarLine" hidden></p>
   <p class="note" id="onchainAlgorandLine" hidden></p>
   <p class="note" id="onchainXlayerLine" hidden></p>
+  <p class="note" id="onchainMonadLine" hidden></p>
 
   <h2>Paid and delivered?</h2>
   <p class="note" id="spotLine" aria-live="polite">Loading the latest spot-buy…</p>
@@ -395,6 +396,14 @@
       const usdL = ol.usd < 10 ? ol.usd.toFixed(2) : fmt(Math.round(ol.usd));
       $('onchainXlayerLine').textContent = `On X Layer: ${periodL}, ${fmt(ol.payers)} different wallets made ${fmt(ol.payments)} signed USD₮0 or USDC payments ($${usdL}) to ${fmt(ol.pay_tos_paid)} of the ${fmt(ol.watched)} X Layer payout addresses here.${ol.pay_tos_paid_only_wide ? ` ${fmt(ol.pay_tos_paid_only_wide)} of those were paid only by wallets that pay ${ol.wide_sellers} or more of them, as checkers and scanners do.` : ''}${ol.pay_tos_closed_loop ? ` ${fmt(ol.pay_tos_closed_loop)} ${ol.pay_tos_closed_loop === 1 ? 'looks' : 'look'} like a closed loop: every ordinary payer received the money back from the payout address.` : ''}`;
       $('onchainXlayerLine').hidden = false;
+    }
+    // And on Monad: USDC payments the payer signed with EIP-3009, as on Base (lib/onchain-payments-monad.js).
+    const om = s.onchain_payments_monad;
+    if (om && om.payments) {
+      const periodM = om.days === 1 ? 'yesterday' : `in the last ${om.days} days`;
+      const usdM = om.usd < 10 ? om.usd.toFixed(2) : fmt(Math.round(om.usd));
+      $('onchainMonadLine').textContent = `On Monad: ${periodM}, ${fmt(om.payers)} different wallets made ${fmt(om.payments)} signed USDC payments ($${usdM}) to ${fmt(om.pay_tos_paid)} of the ${fmt(om.watched)} Monad payout addresses here.${om.pay_tos_paid_only_wide ? ` ${fmt(om.pay_tos_paid_only_wide)} of those were paid only by wallets that pay ${om.wide_sellers} or more of them, as checkers and scanners do.` : ''}${om.pay_tos_closed_loop ? ` ${fmt(om.pay_tos_closed_loop)} ${om.pay_tos_closed_loop === 1 ? 'looks' : 'look'} like a closed loop: every ordinary payer received the money back from the payout address.` : ''}`;
+      $('onchainMonadLine').hidden = false;
     }
     renderReasons(s);
     renderServices(s.services);

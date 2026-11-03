@@ -5,20 +5,23 @@
 // transactions (paytos-solana.json) and writes payments-solana.json, and with --xrpl-paytos the same for the XRP
 // Ledger (paytos-xrpl.json, payments-xrpl.json), with --stellar-paytos for Stellar (paytos-stellar.json,
 // payments-stellar.json), with --algorand-paytos for Algorand (paytos-algorand.json, payments-algorand.json), and
-// with --xlayer-paytos for X Layer (paytos-xlayer.json, payments-xlayer.json). Read-only: it never pays and holds no key.
+// with --xlayer-paytos for X Layer (paytos-xlayer.json, payments-xlayer.json), and with --monad-paytos for Monad
+// (paytos-monad.json, payments-monad.json). Read-only: it never pays and holds no key.
 //
 //   node scripts/onchain-payments.js --state payments-data/payments.json --paytos paytos.json \
 //     --sol-state payments-data/payments-solana.json --sol-paytos paytos-solana.json \
 //     --xrpl-state payments-data/payments-xrpl.json --xrpl-paytos paytos-xrpl.json \
 //     --stellar-state payments-data/payments-stellar.json --stellar-paytos paytos-stellar.json \
 //     --algorand-state payments-data/payments-algorand.json --algorand-paytos paytos-algorand.json \
-//     --xlayer-state payments-data/payments-xlayer.json --xlayer-paytos paytos-xlayer.json
+//     --xlayer-state payments-data/payments-xlayer.json --xlayer-paytos paytos-xlayer.json \
+//     --monad-state payments-data/payments-monad.json --monad-paytos paytos-monad.json
 //
 // BASE_RPC_URL (optional) is asked first; the public node serves only the last ~10,000 blocks, so with it alone a
 // gap of more than ~5 hours between runs shows up as lower coverage. SOLANA_RPC_URL (optional) is asked before
 // Solana's public node, which allows one call a second per method. XRPL_RPC_URL (optional) is asked before the public
 // XRPL nodes, STELLAR_HORIZON_URL (optional) before horizon.stellar.org, ALGORAND_INDEXER_URL (optional) before
-// AlgoNode's public indexer, XLAYER_RPC_URL (optional) before rpc.xlayer.tech.
+// AlgoNode's public indexer, XLAYER_RPC_URL (optional) before rpc.xlayer.tech, MONAD_RPC_URL (optional) before
+// rpc.monad.xyz.
 
 const fs = require('node:fs');
 const { collect, totalsOf, PUBLIC_RPC } = require('../lib/onchain-payments');
@@ -27,6 +30,7 @@ const { collectXrpl, PUBLIC_NODES: XRPL_PUBLIC_NODES } = require('../lib/onchain
 const { collectStellar, PUBLIC_HORIZON } = require('../lib/onchain-payments-stellar');
 const { collectAlgorand, PUBLIC_INDEXER } = require('../lib/onchain-payments-algorand');
 const { collectXlayer, PUBLIC_RPC: XLAYER_PUBLIC_RPC } = require('../lib/onchain-payments-xlayer');
+const { collectMonad, PUBLIC_RPC: MONAD_PUBLIC_RPC } = require('../lib/onchain-payments-monad');
 
 function arg(name, fallback) {
   const i = process.argv.indexOf(`--${name}`);
@@ -123,14 +127,30 @@ async function xlayer() {
   console.log(`X Layer: ${payTos.length} payout addresses watched; last 7 days: ${JSON.stringify(totalsOf(state))}`);
 }
 
+async function monad() {
+  const listPath = arg('monad-paytos', null);
+  if (!listPath) return;
+  const statePath = arg('monad-state', 'payments-data/payments-monad.json');
+  const payTos = Object.keys(read(listPath)?.pay_tos || {});
+  if (!payTos.length) {
+    console.log('no payout addresses on Monad yet (paytos-monad.json comes with the next Trust Index scan); nothing to do');
+    return;
+  }
+  const nodes = [process.env.MONAD_RPC_URL?.trim(), MONAD_PUBLIC_RPC].filter(Boolean);
+  const state = await collectMonad(read(statePath), { payTos, nodes, log: (line) => console.log(`Monad: ${line}`) });
+  fs.writeFileSync(statePath, JSON.stringify(state));
+  console.log(`Monad: ${payTos.length} payout addresses watched; last 7 days: ${JSON.stringify(totalsOf(state))}`);
+}
+
 async function main() {
-  // Base first: it is the established count, and a Solana, XRPL, Stellar, Algorand or X Layer problem must not hold it up.
+  // Base first: it is the established count, and a Solana, XRPL, Stellar, Algorand, X Layer or Monad problem must not hold it up.
   await base();
   await solana().catch((err) => console.error('Solana:', err));
   await xrpl().catch((err) => console.error('XRPL:', err));
   await stellar().catch((err) => console.error('Stellar:', err));
   await algorand().catch((err) => console.error('Algorand:', err));
   await xlayer().catch((err) => console.error('X Layer:', err));
+  await monad().catch((err) => console.error('Monad:', err));
 }
 
 main().catch((err) => {
