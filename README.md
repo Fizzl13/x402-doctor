@@ -388,7 +388,8 @@ Space waits in `hf-mcp/`. Doctor's own MCP server is `https://x402-doctor.fizzl.
   payable on fewer than half of at least 3 scanned days.
 - It also compares who gets paid and the price with the daily scans (`lib/payee-history.js`): a `caution`
   (`payto_changed`) when the payout address on a network is not the one the last scan saw, or changed in a scan of the
-  last 7 days, and `price_changed` when the price is higher than in the last scan (`info` when lower) or changed this
+  last 7 days (`payto_changed_alone` when that daily change was the only one of its host while at least 3 other
+  endpoints of the host kept their address: most changes come per host, as when a seller rotates its wallet), and `price_changed` when the price is higher than in the last scan (`info` when lower) or changed this
   week. The index keeps a short fingerprint of each payout address, not the address.
 - **Fizzl Buy buy-check.** [`buy-check.yml`](.github/workflows/buy-check.yml), started by hand only, buys through
   Fizzl Buy (`POST https://buy.fizzl.eu/v1/buy`, $0.02) the way an agent would (`scripts/buy-check.js`): 1 to 20
