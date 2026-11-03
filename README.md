@@ -653,6 +653,14 @@ Then, per payment option, one outcome:
 Every payTo verified is a pass. A mismatch, a revoked agent, a swapped card or an unlisted endpoint is a warning with
 the fix.
 
+The paid pre-payment check (`/api/v1/preflight`, MCP `x402_preflight`) uses the same outcomes (the daily scan doesn't
+ask: one more request per endpoint). A badge that vouches for the seller adds an `info`
+line (`concordium_verified`) and `signals.concordium`. A badge that doesn't is `caution`: `concordium_payto_mismatch`
+(the payout address is not the agent's; it names the networks where it is), `concordium_endpoint_unlisted` (a copied
+badge), `concordium_revoked` or `concordium_card_mismatch`. A payout address that changed since the daily scan
+(`payto_changed`) but is the agent's wallet or its CIS-8 key is the seller's own move: `payto_changed_bound`, `info`,
+as for ERC-8004. No badge, no key for that chain, or a registry that didn't answer changes nothing.
+
 ### Concordium Trusted Agents Hackathon
 
 x402 Doctor is itself a Concordium agent: **#993** in the Agent Registry on testnet, badge

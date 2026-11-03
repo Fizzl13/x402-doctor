@@ -629,6 +629,49 @@ test('payto_changed: a moved address bound to the seller\'s agent (ERC-8478) is 
   assert.equal(never, 0);
 });
 
+test('Verified by Concordium: a badge that vouches is info, one that does not is caution, none changes nothing', async () => {
+  const url = await seller({ accepts: [baseOption('10000')] });
+  const agent = { tokenAddress: 'JyP9Y8gHmf4U8QPMm1TkT', tokenId: 993, network: 'testnet', owner: '3HFb', agentWallet: null };
+  const ok = await run(url, { concordium: async () => ({ agent, results: [{ network: BASE, payTo: PAY_TO_BASE, outcome: 'verified-external-key' }] }) });
+  assert.equal(ok.verdict, 'go', JSON.stringify(ok.reasons));
+  const line = ok.reasons.find((r) => r.code === 'concordium_verified');
+  assert.equal(line.level, 'info');
+  assert.match(line.message, /Base belongs to Concordium agent #993 \(badge JyP9Y8gHmf4U8QPMm1TkT, testnet\)/);
+  assert.equal(ok.signals.concordium.agent_id, 993);
+  assert.equal(ok.signals.concordium.payees[0].outcome, 'verified-external-key');
+  const wrong = await run(url, { concordium: async () => ({ agent, results: [{ network: BASE, payTo: PAY_TO_BASE, outcome: 'mismatch' }] }) });
+  assert.equal(wrong.verdict, 'caution');
+  assert.ok(wrong.reasons.some((r) => r.code === 'concordium_payto_mismatch' && /payout address on Base is not that agent's/.test(r.message)), JSON.stringify(wrong.reasons));
+  const copied = await run(url, { concordium: async () => ({ agent, results: [{ network: BASE, payTo: PAY_TO_BASE, outcome: 'endpoint-unlisted', reason: 'x' }] }) });
+  assert.equal(copied.verdict, 'caution');
+  assert.deepEqual(copied.reasons.filter((r) => r.code.startsWith('concordium_')).map((r) => r.code), ['concordium_endpoint_unlisted']);
+  const revoked = await run(url, { concordium: async () => ({ agent: { ...agent, status: 'Revoked' }, results: [{ network: BASE, payTo: PAY_TO_BASE, outcome: 'revoked', reason: 'registry status Revoked' }] }) });
+  assert.ok(revoked.reasons.some((r) => r.code === 'concordium_revoked' && r.level === 'caution' && /registry status Revoked/.test(r.message)));
+  // Nothing to compare (no key for this chain, the registry not read) or no badge: no line, no signal, verdict as before.
+  const quiet = await run(url, { concordium: async () => ({ agent, results: [{ network: BASE, payTo: PAY_TO_BASE, outcome: 'not-bound' }] }) });
+  assert.equal(quiet.verdict, 'go');
+  assert.ok(!quiet.reasons.some((r) => r.code.startsWith('concordium_')));
+  const none = await run(url, { concordium: async () => ({ agent: null, results: [] }) });
+  assert.equal(none.signals.concordium, undefined);
+  const broken = await run(url, { concordium: async () => { throw new Error('registry down'); } });
+  assert.equal(broken.verdict, 'go');
+  // The real check against a seller without an Agent Card: nothing changes.
+  const plain = await run(url, { concordium: true });
+  assert.ok(!plain.reasons.some((r) => r.code.startsWith('concordium_')), JSON.stringify(plain.reasons));
+});
+
+test('payto_changed: a moved address that is the seller\'s Concordium agent key is info (payto_changed_bound)', async () => {
+  const { payToMap } = require('../lib/payee-history');
+  const url = await seller({ accepts: [baseOption('10000')] });
+  const trustIndex = { lookup: async () => ({ days_checked: 5, days_payable: 5, payable_ratio: 1, history: 'ggggg', days: ['2026-10-31'], payto: { a: payToMap([{ network: BASE, pay_to: '0x1111111111111111111111111111111111111111' }]), s: '2026-10-01' } }) };
+  const agent = { tokenAddress: 'JyP9Y8gHmf4U8QPMm1TkT', tokenId: 993, network: 'testnet' };
+  const r = await run(url, { trustIndex, payeeCheck: async () => [], concordium: async () => ({ agent, results: [{ network: BASE, payTo: PAY_TO_BASE, outcome: 'verified-external-key' }] }) });
+  assert.ok(!r.reasons.some((x) => x.code === 'payto_changed'), JSON.stringify(r.reasons));
+  const line = r.reasons.find((x) => x.code === 'payto_changed_bound');
+  assert.match(line.message, /bound to the seller's agent #993 \(testnet\) in Concordium's Agent Registry/);
+  assert.equal(r.verdict, 'go', JSON.stringify(r.reasons));
+});
+
 test('header and body: another payment in the body is caution; the same payment in x402 v1 is an info line', async () => {
   const safeFetch = createSafeFetch({ allowPrivate: true });
   const other = await seller({ accepts: [baseOption('10000')], body: (c) => ({ ...c, accepts: [baseOption('10000', { payTo: '0x1111111111111111111111111111111111111111' })] }) });
