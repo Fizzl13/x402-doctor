@@ -701,12 +701,11 @@ So nothing links a Concordium agent to the wallet it is paid at on another chain
 
 Path to production:
 
-1. The check is live today in the free web check, the free MCP tool `x402_payee_check` and the paid preflight. It
-   needs no setup from sellers beyond the badge.
+1. The check is live today in the free web check, the free MCP tool `x402_payee_check` and the paid preflight, whose
+   verdict uses the outcome (x402-doctor#509): `payto_changed` trusts a move that the agent's CIS-8 key covers, as it
+   does for ERC-8004. It needs no setup from sellers beyond the badge.
 2. Register x402 Doctor on mainnet (contract `<10082,0>`). The same module serves both registries.
-3. Add the outcome to the preflight's verdict once badges with bound payTos exist. `payto_changed`, for example, can
-   then trust a move that the agent's CIS-8 key covers, as it does for ERC-8004.
-4. Offer x402 on Concordium itself (CCD or PLT), as soon as a facilitator settles it.
+3. Offer x402 on Concordium itself (CCD or PLT), as soon as a facilitator settles it.
 
 ## Feedback
 
