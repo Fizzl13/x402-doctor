@@ -7,7 +7,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
 const { mergeXrplPayTos, collectXrpl, paymentOf, createXrplRpc, XRPL, X402_SOURCE_TAG } = require('../lib/onchain-payments-xrpl');
-const { windowOf, totalsOf, paidBackNote, createOnchainPayments } = require('../lib/onchain-payments');
+const { windowOf, totalsOf, sellersOf, paidBackNote, createOnchainPayments } = require('../lib/onchain-payments');
 const { payTosOf } = require('../lib/trust-scan');
 const { preflight } = require('../lib/preflight');
 const { checkOnchainPayments } = require('../lib/diagnose');
@@ -89,8 +89,8 @@ test('mergeXrplPayTos: the day last seen, old ones dropped after 14 days', () =>
 
 test('paymentOf: marked RLUSD and USDC in, in micro-dollars; unmarked, XRP, look-alikes, failures and others are not', () => {
   const at = `${DAY1}T10:00:00Z`;
-  assert.deepEqual(paymentOf(pay({ from: BUYER, to: SELLER, value: '0.005', at, ledger: 1, tag: X402_SOURCE_TAG }), SELLER), { dir: 'in', x402: true, from: BUYER, micro: 5000 });
-  assert.deepEqual(paymentOf(pay({ from: BUYER, to: SELLER, value: '1.25', token: USDC, at, ledger: 1, invoice: INVOICE }), SELLER), { dir: 'in', x402: true, from: BUYER, micro: 1250000 });
+  assert.deepEqual(paymentOf(pay({ from: BUYER, to: SELLER, value: '0.005', at, ledger: 1, tag: X402_SOURCE_TAG }), SELLER), { dir: 'in', x402: true, marker: 'source_tag', from: BUYER, micro: 5000 });
+  assert.deepEqual(paymentOf(pay({ from: BUYER, to: SELLER, value: '1.25', token: USDC, at, ledger: 1, invoice: INVOICE }), SELLER), { dir: 'in', x402: true, marker: 'invoice_id', from: BUYER, micro: 1250000 });
   assert.equal(paymentOf(pay({ from: BUYER, to: SELLER, value: '2', at, ledger: 1 }), SELLER).x402, false, 'no SourceTag or InvoiceID: a plain payment');
   assert.equal(paymentOf(pay({ from: BUYER, to: SELLER, value: '2', at, ledger: 1, tag: 12345 }), SELLER).x402, false, 'another SourceTag');
   assert.equal(paymentOf(pay({ from: BUYER, to: SELLER, value: '10000', token: null, at, ledger: 1, tag: X402_SOURCE_TAG }), SELLER), null, 'XRP has no dollar amount');
@@ -103,7 +103,8 @@ test('paymentOf: marked RLUSD and USDC in, in micro-dollars; unmarked, XRP, look
 
 test('paymentOf: a cashed Check (batch settlement) is a payment from its creator, marked by the Check or the cash', () => {
   const at = `${DAY1}T10:00:00Z`;
-  assert.deepEqual(paymentOf(cash({ creator: BUYER, casher: SELLER, value: '0.298149', at, ledger: 1 }), SELLER), { dir: 'in', x402: true, from: BUYER, micro: 298149 });
+  assert.deepEqual(paymentOf(cash({ creator: BUYER, casher: SELLER, value: '0.298149', at, ledger: 1 }), SELLER), { dir: 'in', x402: true, marker: 'both', from: BUYER, micro: 298149 });
+  assert.equal(paymentOf(cash({ creator: BUYER, casher: SELLER, value: '1', at, ledger: 1, tag: null, checkTag: null }), SELLER).marker, 'invoice_id', 'only the Check\'s invoice');
   assert.equal(paymentOf(cash({ creator: BUYER, casher: SELLER, value: '1', at, ledger: 1, tag: null }), SELLER).x402, true, 'the Check carries the mark');
   assert.equal(paymentOf(cash({ creator: BUYER, casher: SELLER, value: '1', at, ledger: 1, tag: null, checkTag: null, checkInvoice: null }), SELLER).x402, false, 'a plain Check');
   assert.deepEqual(paymentOf(cash({ creator: SELLER, casher: BUYER, value: '0.5', at, ledger: 1 }), SELLER), { dir: 'out', to: BUYER, micro: 500000 }, 'a Check the payout address wrote, cashed by someone else');
@@ -139,6 +140,8 @@ test('collectXrpl: marked payments counted per day from today on first sight; th
   const s2 = await collectXrpl(s, { payTos: [SELLER], fetchImpl: node.fetchImpl, now: () => Date.parse(`${DAY2}T11:00:00Z`), ...quick });
   assert.deepEqual([node.calls[0].forward, node.calls[0].ledger_index_min], [true, 111]);
   assert.deepEqual(s2.pay_tos[SELLER].d[DAY2].slice(0, 2), [3, 60000]);
+  // Which client marked them: t54's source tag twice, @x402/xrpl's invoice once (the unmarked one isn't counted).
+  assert.deepEqual(s2.markers[DAY2], { source_tag: [2, 40000], invoice_id: [1, 20000] });
 
   // The window, the totals and the closed-loop note speak of RLUSD or USDC.
   const s3 = await collectXrpl(s2, { payTos: [SELLER], fetchImpl: node.fetchImpl, now: () => Date.parse('2026-10-24T09:00:00Z'), ...quick });
@@ -148,6 +151,10 @@ test('collectXrpl: marked payments counted per day from today on first sight; th
   assert.match(paidBackNote(w), /also received RLUSD or USDC from this payout address/);
   const tot = totalsOf(s3);
   assert.deepEqual([tot.network, tot.symbol, tot.watched, tot.pay_tos_paid, tot.payments], [XRPL, 'RLUSD or USDC', 1, 1, 3]);
+  assert.deepEqual(tot.by_marker, { days: 1, source_tag: { payments: 2, usd: 0.04 }, invoice_id: { payments: 1, usd: 0.02 } });
+  assert.deepEqual(sellersOf(s3).total.by_marker, tot.by_marker);
+  // Days counted before the split have no markers: the split covers only the days it has.
+  assert.equal(totalsOf({ ...s3, markers: undefined }).by_marker, undefined);
 });
 
 test('collectXrpl: cashed Checks count for the seller that cashes them, and as money back for the one that wrote them', async () => {
