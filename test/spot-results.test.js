@@ -28,6 +28,13 @@ test('viewOf: the summary and only the purchases, without the wallet; dry runs a
   assert.equal(viewOf({ ...report, summary: { ...report.summary, live: false } }), null);
 });
 
+test('viewOf: the answer check per purchase, when it ran', () => {
+  const judged = { ...report, results: [{ ...report.results[0], answer: { delivered: { verdict: 'no', p: 0.2, why: 'not what was paid for' }, injection: { flagged: true, p: 0.9 } } }, report.results[1]] };
+  const v = viewOf(judged);
+  assert.deepEqual(v.purchases[0].answer_check, { delivered: 'no', injection: true });
+  assert.equal(v.purchases[1].answer_check, undefined, 'not judged: no field');
+});
+
 test('createSpotResults: latest run and per-URL lookup (path match, query and trailing slash ignored); unknown when unavailable', async () => {
   const spot = createSpotResults({ url: 'http://spot.test', fetchImpl: serve(report) });
   assert.equal((await spot.latest({ waitMs: 1000 })).summary.bought, 2);
