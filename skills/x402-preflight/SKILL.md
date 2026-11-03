@@ -61,6 +61,11 @@ The answer:
 
 **Before an expensive call:** `GET /api/v1/preflight/deep?url=<endpoint>` costs $0.01. It adds the full diagnosis, the daily history, the seller's other endpoints and domain moves.
 
+**Building the agent yourself?** With the official x402 client, one line runs this preflight before every payment and aborts on no_go (and on caution unless you opt in), so the decision below doesn't depend on the model remembering it:
+
+- JavaScript (`@x402/core`, used by `@x402/fetch` and `@x402/axios`): `client.onBeforePaymentCreation(doctorPreflight({ client, maxUsd: 0.05 }))`, with `import { doctorPreflight } from "x402-safe-fetch/hook"`.
+- Python (`x402ClientSync`): `payer.on_before_payment_creation(doctor_preflight(session=session, max_usd=0.05))`, with `from fizzl.hook import doctor_preflight` (`pip install "fizzl[x402]"`).
+
 ## 3. Decide
 
 - **go:** pay, with `recommended_option`. With `checks_complete: false`, or a `no_data` track record and purchases (a seller nobody has paid yet), keep the first payment small.
