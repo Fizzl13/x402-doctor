@@ -226,6 +226,13 @@
     }
     const total = p.sellers.reduce((n, s) => n + s.usd, 0);
     $('paid-note').textContent = `${fmt(p.paid)} of ${fmt(p.watched)} watched payout addresses were paid, ${usd(total)} in all, over ${p.days.length === 1 ? '1 day' : `${p.days.length} days`} (${p.days[0]}${p.days.length > 1 ? ` to ${p.days[p.days.length - 1]}` : ''}, UTC). Counted every hour since 25 Oct 2026. Data: GET /api/trust/payments?network=xrpl (free, JSON).`;
+    // Which x402 client marked them (counted since 3 Nov 2026): t54's source tag, @x402/xrpl's invoice, or both.
+    const m = p.total && p.total.by_marker;
+    if (m) {
+      const part = (k, label) => (m[k] ? `${fmt(m[k].payments)} (${usd(m[k].usd)}) ${label}` : null);
+      const parts = [part('source_tag', "with t54's source tag"), part('invoice_id', "with @x402/xrpl's invoice"), part('both', 'with both')].filter(Boolean);
+      if (parts.length) $('paid-note').textContent += ` By the client that marked them, over the last ${m.days === 1 ? 'day' : `${m.days} days`}: ${parts.join(', ')}.`;
+    }
     if (!p.sellers.length) $('paid').hidden = true;
   }).catch((e) => { $('paid').hidden = true; $('paid-note').textContent = `The payment count isn't available right now (${e.message}).`; });
   $('q').addEventListener('input', () => { shown = PAGE; render(); });

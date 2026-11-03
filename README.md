@@ -481,6 +481,9 @@ Space waits in `hf-mcp/`. Doctor's own MCP server is `https://x402-doctor.fizzl.
   are asked with `account_tx`, oldest first, and a run cut short keeps its last ledger whole for the next one. The
   result is `payments-xrpl.json` on `payments-data`; a seller without a Base or Solana option gets the same
   `onchain_payments` line for its XRPL payout address, and `/api/trust/summary` adds `onchain_payments_xrpl`.
+  Since 3 Nov 2026 each payment's mark is kept per day (`markers` in the file), so the totals and the list of who gets
+  paid split the window by client: `by_marker` with `source_tag` (t54), `invoice_id` (@x402/xrpl) and `both`, over
+  the `days` counted that way.
   `XRPL_RPC_URL` is asked before the public nodes (xrplcluster.com, xrpl.ws).
 - **Real payments on Stellar and Algorand.** The same workflow counts the USDC payments into the Stellar payout
   accounts (`paytos-stellar.json`; a Soroban transfer the payer authorized and a facilitator sent,
