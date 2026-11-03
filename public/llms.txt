@@ -10,6 +10,7 @@ Backed by a daily Trust Index of ~42,000 paid x402 and MPP endpoints across Base
 - [x402 discovery document](https://x402-doctor.fizzl.eu/.well-known/x402)
 - MCP server (streamable HTTP): https://x402-doctor.fizzl.eu/mcp, with the free tools `x402_quick_check` and `x402_payee_check` (is each payTo bound to the seller's ERC-8004 agent?)
 - Agent skills: `npx skills add Fizzl13/x402-doctor`, or in Claude Code `/plugin marketplace add Fizzl13/x402-doctor` then `/plugin install x402-doctor@fizzl`. Every Fizzl skill: https://github.com/Fizzl13/fizzl-skills
+- One line for the official x402 client: every payment it makes gets this preflight first. JavaScript (`@x402/core`, `@x402/fetch`, `@x402/axios`): `import { doctorPreflight } from "x402-safe-fetch/hook"; client.onBeforePaymentCreation(doctorPreflight({ client, maxUsd: 0.05 }))`. Python (`x402ClientSync`): `from fizzl.hook import doctor_preflight; payer.on_before_payment_creation(doctor_preflight(session=session, max_usd=0.05))`. no_go aborts the payment before anything is signed; caution aborts unless the owner opts in.
 
 ## Paid API
 - `GET /api/v1/preflight?url=<endpoint>&max_usd=0.05` ($0.001): before paying an x402 endpoint: go, caution or no_go with reasons and the cheapest option that will settle. The answer also lists `checked` and `not_checked` (because: unavailable, no_data, not_sent or out_of_scope) and `checks_complete`: "go" never means more than what was checked, and Doctor doesn't pay
