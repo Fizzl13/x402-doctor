@@ -41,6 +41,7 @@ The free tools work right away. The paid tools ask for an x402 payment inside th
 Examples:
 
 - Before paying an unknown API: `GET https://x402-doctor.fizzl.eu/api/v1/preflight?url=https%3A%2F%2Fexample.com%2Fpaid&max_usd=0.05` (max $0.001). Pay the endpoint only on `go`; on `caution`, tell your owner why.
+- Already pay with the official x402 client? One line gives every payment this preflight first. JavaScript (`@x402/core`, `@x402/fetch`, `@x402/axios`): `client.onBeforePaymentCreation(doctorPreflight({ client, maxUsd: 0.05 }))` with `import { doctorPreflight } from "x402-safe-fetch/hook"`. Python (`x402ClientSync`): `payer.on_before_payment_creation(doctor_preflight(session=session, max_usd=0.05))` with `from fizzl.hook import doctor_preflight` (`pip install "fizzl[x402]"`). `no_go` aborts the payment before anything is signed; `caution` aborts unless your owner opts in.
 - "Why does my x402 endpoint fail?": `GET https://x402-doctor.fizzl.eu/api/v1/diagnose?url=<your endpoint>` (max $0.01)
 - A POST route that checks its input before the 402 (400 or 422 to an empty body): add `&body=<URL-encoded JSON>` with an example request body to preflight, deep, diagnose or fix (the MCP tools take `body` too). Without it, x402 Doctor tries the `requestBody` example in the endpoint's `/openapi.json`, and otherwise reports that it needs input instead of calling the endpoint broken.
 
