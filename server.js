@@ -42,6 +42,7 @@ const { createUsageReader } = require('./lib/usage-reader');
 const { createPublicStats, statsCors } = require('./lib/public-stats');
 const { marketSummary } = require('./lib/market-summary');
 const { setupsFunnel } = require('./lib/usage-funnel');
+const { paidOf, parseKnown, summarizePayments } = require('./lib/usage-payments');
 const { checkSettlement } = require('./lib/settlement');
 const { createStatus } = require('./lib/status');
 const { renderBadge, badgeFor } = require('./lib/badge');
@@ -361,12 +362,25 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     const days = Math.min(365, Math.max(1, Number(req.query.days) || 30));
     try {
       const data = await usageReader.load({ days });
+      // Payments over the whole range, from small per-file summaries: the event list above stops at the newest
+      // 20,000 calls (about a day), and payments must not be cut off with it.
+      let payments = null;
+      try {
+        const fromIso = new Date(Date.now() - days * 86400000).toISOString();
+        const [{ files }, knownText] = await Promise.all([
+          usageReader.summarizeAll(paidOf, { key: 'paid', from: fromIso.slice(0, 10) }),
+          usageReader.readText('scripts/known.json').catch(() => null),
+        ]);
+        payments = summarizePayments(files, { known: parseKnown(knownText), fromIso });
+      } catch (err) {
+        payments = { error: err.message };
+      }
       let trust = null;
       try { trust = trustIndex.summary(); } catch { /* not loaded yet */ }
       const events = data.events || [];
       const languages = {};
       for (const e of events) if (e.agent && !languages[e.agent]) languages[e.agent] = languageOf(e.agent);
-      res.json({ ...data, funnel: setupsFunnel(events), trust: trust && trust.by_protocol ? { by_protocol: trust.by_protocol } : null, languages, agent_kinds: agentKinds.kindsFor(events), agent_kinds_by_jev: agentKinds.enabled });
+      res.json({ ...data, payments, funnel: setupsFunnel(events), trust: trust && trust.by_protocol ? { by_protocol: trust.by_protocol } : null, languages, agent_kinds: agentKinds.kindsFor(events), agent_kinds_by_jev: agentKinds.enabled });
     } catch (err) {
       res.status(502).json({ error: err.message });
     }

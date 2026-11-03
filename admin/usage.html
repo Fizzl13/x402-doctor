@@ -91,6 +91,12 @@
   .hbars .val { font-variant-numeric: tabular-nums; text-align: right; color: var(--text); white-space: nowrap; }
   .hbars .val small { color: var(--text-soft); }
   .note { color: var(--text-soft); font-size: 12.5px; margin: 10px 0 0; }
+  .headline { font-size: 1.15rem; font-weight: 650; margin: 0 0 4px; }
+  .headline.good { color: var(--ok); }
+  .pay-tiles .tile.hl { border-color: var(--ok); }
+  .kind { display: inline-block; font-size: 11.5px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line); white-space: nowrap; }
+  .kind.outside { color: var(--ok); border-color: var(--ok); font-weight: 600; }
+  .kind.own, .kind.test { color: var(--text-soft); }
   @media (max-width: 760px) {
     .grid2 { grid-template-columns: 1fr; }
     .tiles, .services { grid-template-columns: repeat(2, 1fr); }
@@ -101,6 +107,12 @@
     #calls tr { padding: 10px 0; border-bottom: 1px solid var(--line); }
     #calls td { display: inline-block; border: 0; padding: 2px 8px 2px 0; max-width: none; }
     #calls td.mono { display: block; }
+    /* Payments: one card per payer or payment */
+    #payCustomers thead, #payRecent thead { display: none; }
+    #payCustomers, #payCustomers tbody, #payCustomers tr, #payRecent, #payRecent tbody, #payRecent tr { display: block; }
+    #payCustomers tr, #payRecent tr { padding: 10px 0; border-bottom: 1px solid var(--line); }
+    #payCustomers td, #payRecent td { display: inline-block; border: 0; padding: 2px 10px 2px 0; max-width: none; }
+    #payCustomers td:first-child { display: block; font-weight: 600; }
   }
 </style>
 </head>
@@ -127,7 +139,18 @@
 
   <div id="notice"></div>
 
-  <div class="tiles" id="tiles"></div>
+  <h2>Payments from others</h2>
+  <div class="panel" id="payments">
+    <p class="headline" id="payHeadline">Loading payments…</p>
+    <p class="note" id="paySub" style="margin-top:0"></p>
+    <div class="tiles pay-tiles" id="payTiles"></div>
+    <details open><summary>Paying customers</summary><div class="scroll"><table id="payCustomers"></table></div></details>
+    <details><summary>All recent payments, ours included</summary><div class="scroll"><table id="payRecent"></table></div></details>
+    <p class="note">Counted over the whole range, also when the call list below is cut off. Our own wallets and workflows (spot-buy, index payment, delivery and buy checks) and known test payers come from <code>scripts/known.json</code> in the usage log; add a wallet there when you test with a new one. Service chips and the other filters don't apply here.</p>
+  </div>
+
+  <h2>All calls</h2>
+  <div class="tiles" id="tiles" style="margin-top:0"></div>
 
   <h2>Per service</h2>
   <div class="services" id="services"></div>
@@ -328,11 +351,15 @@
         'Set USAGE_LOG_TOKEN (and USAGE_LOG_REPO if the repo is not Fizzl13/usage-log) on this service and on each service that should be counted.'));
     }
     const warn = [];
-    if (d.truncated) warn.push('Showing the latest 20,000 calls only.');
+    if (d.truncated) {
+      const oldest = (d.events || []).length ? d.events[d.events.length - 1].t : null;
+      warn.push(`The call list holds the newest 20,000 calls only${oldest ? ` (since ${new Date(oldest).toLocaleString()})` : ''}; payments at the top cover the whole range.`);
+    }
     if (d.errors && d.errors.length) warn.push(`${d.errors.length} day file(s) could not be read.`);
     $('sub').textContent = `Every call to your services, from the private log ${d.repo}. Updated ${new Date().toLocaleTimeString()}.${warn.length ? ' ' + warn.join(' ') : ''}`;
 
     const events = filtered();
+    renderPayments(d.payments);
     renderTiles(events);
     renderServices(events);
     renderPackages();
@@ -348,6 +375,50 @@
     renderCalls(events);
   }
 
+  // Payments from others, over the whole range (server-side summary, lib/usage-payments.js).
+  function renderPayments(p) {
+    const tile = (k, v, dd, hl) => el('div', { className: 'tile' + (hl ? ' hl' : '') }, el('div', { className: 'k', textContent: k }), el('div', { className: 'v', textContent: v }), el('div', { className: 'd', textContent: dd }));
+    if (!p || p.error) {
+      $('payHeadline').textContent = 'Payments could not be counted';
+      $('paySub').textContent = p && p.error ? p.error : 'No payment summary in this answer.';
+      $('payTiles').replaceChildren(); $('payCustomers').replaceChildren(); $('payRecent').replaceChildren();
+      return;
+    }
+    const t = p.totals;
+    const n = (x) => `${x.payments.toLocaleString()} payment${x.payments === 1 ? '' : 's'}`;
+    const range = state.days === 1 ? 'last 24 h' : `last ${state.days} days`;
+    $('payHeadline').className = 'headline' + (t.today.outside.payments ? ' good' : '');
+    $('payHeadline').textContent = t.today.outside.payments
+      ? `Today: ${n(t.today.outside)} from others, ${usd(t.today.outside.usd)} (${t.today.outside.payers} payer${t.today.outside.payers === 1 ? '' : 's'})`
+      : `Today: no payment from anyone else${t.range.outside.payments ? `. Last one ${ago(p.customers[0].last)}.` : '.'}`;
+    $('paySub').textContent = `UTC day ${p.today}. Own and test payments today: ${n(t.today.own)}${t.today.test.payments ? `, ${n(t.today.test)} from test payers` : ''}.`;
+    $('payTiles').replaceChildren(
+      tile('Others, today', usd(t.today.outside.usd), n(t.today.outside), t.today.outside.payments > 0),
+      tile('Others, 7 days', usd(t.d7.outside.usd), `${n(t.d7.outside)} · ${t.d7.outside.payers} payers`),
+      tile(`Others, ${range}`, usd(t.range.outside.usd), `${n(t.range.outside)} · ${t.range.outside.payers} payers`),
+      tile(`Ours and tests, ${range}`, usd(t.range.own.usd + t.range.test.usd), `${n({ payments: t.range.own.payments + t.range.test.payments })}, not revenue`),
+    );
+    const th = (...cols) => el('thead', {}, el('tr', {}, ...cols.map(([c, num]) => el('th', { className: num ? 'num' : '', textContent: c }))));
+    const td = (text, cls = '') => el('td', { className: cls, textContent: text });
+    const svc = (id) => el('span', { className: 'svcname' }, swatch(id), NAME[id] || id);
+    // Any long address (EVM, Solana, XRPL, Stellar, Algorand): its first 6 and last 4 characters.
+    const short = (s) => { s = String(s || ''); return s.length > 16 && !/\s/.test(s) ? `${s.slice(0, 6)}…${s.slice(-4)}` : s; };
+    if (!p.customers.length) {
+      $('payCustomers').replaceChildren(el('tbody', {}, el('tr', {}, el('td', { className: 'empty', textContent: `No payments from others in the ${range}.` }))));
+    } else {
+      $('payCustomers').replaceChildren(th(['Payer'], ['Payments', 1], ['Paid', 1], ['Services'], ['Networks'], ['First'], ['Last'], ['Agent']),
+        el('tbody', {}, ...p.customers.map((c) => {
+          const s = el('td', {}); c.services.forEach((id, i) => { if (i) s.append(' '); s.append(svc(id)); });
+          return el('tr', {}, el('td', { className: 'mono', textContent: short(c.payer), title: c.payer }), td(`${c.payments}×`, 'num'), td(usd(c.usd), 'num paid'), s, td(c.networks.join(', ')), td(new Date(c.first).toLocaleDateString(), 'nowrap'), td(ago(c.last), 'nowrap'), td(c.agents.join(', '), 'mono'));
+        })));
+    }
+    $('payRecent').replaceChildren(th(['When'], ['Who'], ['Service'], ['Route'], ['Paid', 1], ['Network'], ['Payer'], ['Agent']),
+      el('tbody', {}, ...p.recent.map((r) => el('tr', {},
+        td(ago(r.t), 'nowrap'),
+        el('td', {}, el('span', { className: `kind ${r.kind}`, textContent: r.kind === 'outside' ? 'customer' : r.kind === 'own' ? 'ours' : 'test', title: r.why || '' })),
+        el('td', {}, svc(r.service)), td(r.route || ''), td(usd(r.usd), 'num'), td(r.network || (r.protocol || '')), el('td', { className: 'mono', textContent: short(r.payer || r.visitor || ''), title: r.payer || r.visitor || '' }), td(r.agent || '', 'mono')))));
+  }
+
   function renderTiles(events) {
     const paid = events.filter((e) => e.paid);
     const revenue = paid.reduce((s, e) => s + (Number(e.usd) || 0), 0);
@@ -357,8 +428,8 @@
     $('tiles').replaceChildren(
       tile('Calls', events.length.toLocaleString(), range),
       tile('Paid calls', paid.length.toLocaleString(), events.length ? `${Math.round((paid.length / events.length) * 100)}% of calls` : '–'),
-      tile('Revenue', usd(revenue), 'USDC, settled'),
-      tile('Paying wallets', payers.size.toLocaleString(), 'unique payers'),
+      tile('Paid, all', usd(revenue), 'ours and tests included'),
+      tile('Paying wallets', payers.size.toLocaleString(), 'ours and tests included'),
       // A bot's unpaid 402s are one line per hour with a count (usage-log.js, since 25 Oct 2026).
       tile('Price shown', quotes().reduce((n, e) => n + (e.count || 1), 0).toLocaleString(), `402s · ${quotes().filter((e) => e.payment_failed).length} refused payments`),
     );
