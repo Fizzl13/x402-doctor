@@ -3,7 +3,7 @@
 // x402 Doctor has seen paying out day after day at a fair price, fills in its input, buys it with its own wallet and
 // returns the answer, checked by TypeSafe Jev, with a signed receipt (lib/buy/*).
 //
-//   POST /v1/buy { need }  $0.02 (x402: USDC on Base, Solana, Algorand or Stellar, RLUSD on the XRP Ledger): buys a
+//   POST /v1/buy { need }  $0.02 (x402: USDC on Base, Solana, Monad, Algorand or Stellar, RLUSD on the XRP Ledger): buys a
 //                          service of at most $0.01 (the inkoper itself pays on Base). Nothing is charged
 //                          when no service delivers (the paywall settles only a 2xx answer).
 //   GET  /v1/pick?need=…   free (10 an hour per caller): which service the inkoper would buy, and why.
@@ -110,7 +110,7 @@ const OUTPUT_EXAMPLE = {
   tried: 1,
 };
 
-// The networks a route takes, in words: "USDC on Base or Solana", "USDC on Base, Solana, Algorand or Stellar, or RLUSD on
+// The networks a route takes, in words: "USDC on Base or Solana", "USDC on Base, Solana, Monad, Algorand or Stellar, or RLUSD on
 // the XRP Ledger".
 function networksText(accepts) {
   const names = { [BASE]: 'Base', [SOLANA]: 'Solana', [ALGORAND]: 'Algorand', [STELLAR]: 'Stellar', [MONAD]: 'Monad' };
