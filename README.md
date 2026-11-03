@@ -377,6 +377,12 @@ Space waits in `hf-mcp/`. Doctor's own MCP server is `https://x402-doctor.fizzl.
   (`payto_changed`) when the payout address on a network is not the one the last scan saw, or changed in a scan of the
   last 7 days, and `price_changed` when the price is higher than in the last scan (`info` when lower) or changed this
   week. The index keeps a short fingerprint of each payout address, not the address.
+- **Fizzl Buy buy-check.** [`buy-check.yml`](.github/workflows/buy-check.yml), started by hand only, buys through
+  Fizzl Buy (`POST https://buy.fizzl.eu/v1/buy`, $0.02) the way an agent would (`scripts/buy-check.js`): 1 to 20
+  everyday needs (prices, weather, search, news), each with whether a seller delivered, which one, what it was paid,
+  TypeSafe Jev's "what was paid for" and the time. It pays with the spot-buy wallet (`SPOT_BUY_KEY`); a dry run (the
+  default) only asks the price. These are our own purchases: the public Fizzl Buy counts in `GET /api/stats` leave
+  them out, by the `x402-doctor-buy-check` user agent and by the wallet, like our other workflows and test bots.
 - **Spot-buy sample: does "go" mean paid and delivered?** The scan only reads the 402 challenge. Once a week
   [`spot-buy.yml`](.github/workflows/spot-buy.yml) buys a small random sample of "go" endpoints (`lib/spot-buy.js`):
   x402 `exact` in USDC on Base only, one endpoint per host, never a fizzl.eu or test host, the seller's own declared

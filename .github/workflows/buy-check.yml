@@ -1,0 +1,53 @@
+name: Fizzl Buy buy-check
+
+# Started by hand only: buys through Fizzl Buy (buy.fizzl.eu) end to end, the way an agent would (scripts/buy-check.js),
+# and lists per need whether a seller delivered, which one, what it was paid and how long it took.
+#
+# Pays $0.02 a purchase with the secret SPOT_BUY_KEY (the spot-buy wallet); Fizzl Buy pays the sellers from its own
+# wallet. These are our own purchases, so lib/public-stats.js leaves them out of the public Fizzl Buy counts. A dry run
+# (the default) only asks for the price and pays nothing.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run: only ask the price, pay nothing"
+        type: boolean
+        default: true
+      count:
+        description: "Number of purchases (1 to 20)"
+        type: string
+        default: "10"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: spot-buy # the same wallet as the spot-buy, index payment and delivery check
+  cancel-in-progress: false
+
+jobs:
+  buy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60 # up to 20 purchases of at most 150 s each
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Buy through Fizzl Buy
+        run: |
+          if [ -z "$SPOT_BUY_KEY" ]; then echo "No SPOT_BUY_KEY secret: dry run." >> "$GITHUB_STEP_SUMMARY"; fi
+          dry=""
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then dry="--dry"; fi
+          node scripts/buy-check.js --n "$COUNT" $dry
+        env:
+          SPOT_BUY_KEY: ${{ secrets.SPOT_BUY_KEY }}
+          BASE_RPC_URL: ${{ secrets.BASE_RPC_URL }}
+          COUNT: ${{ github.event.inputs.count }}
+      - uses: actions/upload-artifact@v4
+        if: hashFiles('buy-check.json') != ''
+        with:
+          name: buy-check
+          path: buy-check.json
