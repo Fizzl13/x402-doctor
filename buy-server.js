@@ -47,7 +47,7 @@ const { createFacilitatorStart } = require('./lib/facilitator-start');
 const { onPublicHost } = require('./lib/public-host');
 const { postOnlyTerms } = require('./lib/post-only');
 const { fizzlCors } = require('./lib/fizzl-cors');
-const { mirrorChallengeIntoBody, onlyNetworks, xrplPayTo, algorandPayTo, stellarPayTo, xlayerPayTo, usdt0Amount, stellarFacilitator, ALGORAND, STELLAR, XLAYER, XLAYER_USDT0, DEFAULT_ALGORAND_FACILITATOR } = require('./lib/paid-api');
+const { mirrorChallengeIntoBody, onlyNetworks, xrplPayTo, algorandPayTo, stellarPayTo, xlayerPayTo, usdt0Amount, stellarFacilitator, monadPayTo, monadFacilitator, ALGORAND, STELLAR, XLAYER, XLAYER_USDT0, MONAD, DEFAULT_ALGORAND_FACILITATOR } = require('./lib/paid-api');
 const { merchantExtension, builderCodeExtension } = require('./lib/merchant');
 const { createPaymentRetry, paymentIdentifierExtension } = require('./lib/payment-retry');
 const { createSigner, signPaidResponses, paymentOf } = require('./lib/receipt');
@@ -113,7 +113,7 @@ const OUTPUT_EXAMPLE = {
 // The networks a route takes, in words: "USDC on Base or Solana", "USDC on Base, Solana, Algorand or Stellar, or RLUSD on
 // the XRP Ledger".
 function networksText(accepts) {
-  const names = { [BASE]: 'Base', [SOLANA]: 'Solana', [ALGORAND]: 'Algorand', [STELLAR]: 'Stellar' };
+  const names = { [BASE]: 'Base', [SOLANA]: 'Solana', [ALGORAND]: 'Algorand', [STELLAR]: 'Stellar', [MONAD]: 'Monad' };
   const usdc = accepts.map((a) => names[a.network]).filter(Boolean);
   const list = usdc.length > 1 ? `${usdc.slice(0, -1).join(', ')} or ${usdc.at(-1)}` : usdc[0];
   const other = [accepts.some((a) => a.network === XRPL) && 'RLUSD on the XRP Ledger', accepts.some((a) => a.network === XLAYER) && 'USD₮0 on X Layer'].filter(Boolean);
@@ -129,6 +129,7 @@ function routesFor(env) {
   const algorand = algorandPayTo(env);
   const stellar = stellarPayTo(env);
   const xlayer = xlayerPayTo(env);
+  const monad = monadPayTo(env);
   const accepts = [
     { scheme: 'exact', price, network: BASE, payTo: env.AGENT_PAYOUT_WALLET, maxTimeoutSeconds: 300 },
     ...(env.AGENT_PAYOUT_WALLET_SOLANA ? [{ scheme: 'exact', price, network: SOLANA, payTo: env.AGENT_PAYOUT_WALLET_SOLANA, maxTimeoutSeconds: 300 }] : []),
@@ -138,6 +139,8 @@ function routesFor(env) {
     ...(stellar ? [{ scheme: 'exact', price, network: STELLAR, payTo: stellar, maxTimeoutSeconds: 300 }] : []),
     // USD₮0 on X Layer (lib/paid-api.js), settled by PayAI.
     ...(xlayer ? [{ scheme: 'exact', price: { amount: usdt0Amount(price), asset: XLAYER_USDT0, extra: { name: 'USD₮0', version: '1' } }, network: XLAYER, payTo: xlayer, maxTimeoutSeconds: 300 }] : []),
+    // USDC on Monad (lib/paid-api.js), settled by CDP, or the facilitator in Monad's guide where CDP doesn't list it.
+    ...(monad ? [{ scheme: 'exact', price, network: MONAD, payTo: monad, maxTimeoutSeconds: 300 }] : []),
   ];
   return {
     [`POST ${BUY_ROUTE}`]: {
@@ -573,6 +576,7 @@ if (require.main === module) {
     ...(useCdp ? [new HTTPFacilitatorClient(createFacilitatorConfig(env.CDP_API_KEY_ID, env.CDP_API_KEY_SECRET))] : []),
     ...(algorandPayTo(env) ? [onlyNetworks(new HTTPFacilitatorClient({ url: env.ALGORAND_FACILITATOR_URL || DEFAULT_ALGORAND_FACILITATOR }), (network) => network.startsWith('algorand:'))] : []),
     ...(stellarPayTo(env) ? [onlyNetworks(stellarFacilitator(env), (network) => network.startsWith('stellar:'))] : []),
+    ...(monadFacilitator(env) ? [monadFacilitator(env)] : []),
     new HTTPFacilitatorClient({ url: env.FACILITATOR_URL || 'https://facilitator.payai.network' }),
     ...(xrplPayTo(env) ? [createXrplFacilitator({ wsUrl: env.XRPL_WS_URL || 'wss://xrplcluster.com' })] : []),
   ];
@@ -583,7 +587,8 @@ if (require.main === module) {
     .register(XRPL, new ExactXrplScheme())
     .register(ALGORAND, new ExactAvmScheme())
     .register(STELLAR, new ExactStellarScheme())
-    .register(XLAYER, new ExactEvmScheme());
+    .register(XLAYER, new ExactEvmScheme())
+    .register(MONAD, new ExactEvmScheme());
   const routes = routesFor(env);
   start.attach(resourceServer, [...new Set(routes[`POST ${BUY_ROUTE}`].accepts.map((a) => a.network))]);
   // The challenge names buy.fizzl.eu also when called on the Render address.
