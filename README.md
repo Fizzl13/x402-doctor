@@ -177,6 +177,19 @@ in `signals.price_check` (`comparable_median_usd`, `comparables`, `ratio`, `chea
 Not being listed in the CDP Bazaar is reported as `info` only. Results are cached for 10 minutes per URL, budget
 and network (`cached: true`), so checking before every payment stays fast.
 
+**What "go" covered: `checked` and `not_checked`.** "go" means nothing wrong was found in what was checked, never
+that the seller will deliver: a preflight reads the 402 and the seller's record, it doesn't pay or send your real
+request. So every answer (`lib/preflight-coverage.js`) lists `checked` (`[{ check, what }]`: the payment terms,
+sanctions, payout address, budget, advertised price, bait, price comparison, track record, on-chain payments,
+purchases, agent reports, HTTPS) and `not_checked` (`[{ check, because, why, send? }]`), where `because` is
+`unavailable` (a check that applies couldn't run: the sanctions list, the bait or price check), `no_data` (it ran,
+nothing on record yet: no track record, no purchases, no on-chain count), `not_sent` (`send` names the parameter:
+`max_usd`, or `body` for an endpoint that checks its input first) or `out_of_scope`. Two items are always out of
+scope: whether the seller answers your own request (the delivery check buys it once, `GET /api/v1/delivery-check`)
+and what your agent signs to pay (presign-guard's `/v1/check`, with the 402 as `x402`). `checks_complete` is
+`false` when anything was `unavailable`. The deep preflight carries the same fields; batch rows carry
+`checks_complete`. The same fields as presign-guard's answers.
+
 ### Several endpoints at once: `GET /api/v1/preflight/batch`
 
 `GET /api/v1/preflight/batch?url=<a>&url=<b>&max_usd=0.05`, **$0.005 USDC per call** for up to 10 endpoints (one
