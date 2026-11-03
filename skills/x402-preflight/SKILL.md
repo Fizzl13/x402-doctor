@@ -38,7 +38,7 @@ GET https://x402-doctor.fizzl.eu/api/v1/preflight?url=<endpoint>&max_usd=<your b
 ```
 
 - **Optional parameters:** `method=POST` when the endpoint is called with POST, `network=<CAIP-2 id>` to check one network only (for example `eip155:8453` for Base), and `client=gateway` when your agent pays with Circle's Gateway client (`@circle-fin/x402-batching`) from a Gateway balance: an endpoint with only Circle Gateway options is then not a caution, and a Gateway option is recommended first.
-- **Paying for it:** use the x402 client you already pay with. It costs $0.001 in USDC on Base, Solana or Algorand, RLUSD on the XRP Ledger, or MPP. For example, with Coinbase's Agentic Wallet:
+- **Paying for it:** use the x402 client you already pay with. It costs $0.001 in USDC on Base, Solana, Monad or Algorand, RLUSD on the XRP Ledger, or MPP. For example, with Coinbase's Agentic Wallet:
 
 ```bash
 npx awal@2.12.1 x402 pay "https://x402-doctor.fizzl.eu/api/v1/preflight?url=<endpoint, URL-encoded>&max_usd=0.05" --max-amount 1000

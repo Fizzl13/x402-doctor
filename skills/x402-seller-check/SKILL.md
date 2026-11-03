@@ -46,7 +46,7 @@ GET https://x402-doctor.fizzl.eu/api/v1/fix?url=<your endpoint>&method=GET&stack
 ```
 
 - **What you get:** for each problem, the concrete change for your stack, filled in with your own values.
-- **Paying for it:** use any x402 client. It costs $0.05 in USDC on Base, Solana or Algorand, RLUSD on the XRP Ledger, or MPP. With Coinbase's Agentic Wallet: `npx awal@2.12.1 x402 pay "<the URL above, endpoint URL-encoded>" --max-amount 50000`.
+- **Paying for it:** use any x402 client. It costs $0.05 in USDC on Base, Solana, Monad or Algorand, RLUSD on the XRP Ledger, or MPP. With Coinbase's Agentic Wallet: `npx awal@2.12.1 x402 pay "<the URL above, endpoint URL-encoded>" --max-amount 50000`.
 
 `GET /api/v1/diagnose?url=…` ($0.01) returns the same checks as the free one, with a signed receipt.
 
