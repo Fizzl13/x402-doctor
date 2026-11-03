@@ -54,6 +54,7 @@ The answer:
 | `summary` | One line to show the user. |
 | `reasons` | `[{ level, code, message }]`, for example `no_402`, `server_error` (it answers only with server errors: down or failing), `over_budget`, `payto_sanctioned` (the payout address is on the OFAC SDN list), `payto_burn` (an option pays out to the zero address or another burn address), `nevermined_plan` (only payable with a Nevermined account and plan, not with a standard x402 client), `custom_scheme_only` (only options in a scheme standard x402 clients don't pay), `gateway_only` (only Circle Gateway options: payable with Circle's client from a Gateway balance), `cloudflare_crawler_only` (only Cloudflare pay per crawl: payable by agents registered with Cloudflare), `testnet_only`, `price_above_advertised`, `price_far_above_advertised` (10 times the advertised price or more), `suspicious_amount`, or `payments_fail_after_preflight` (other buyers paid and it failed). |
 | `recommended_option` | The cheapest payment option that will settle. Pay that one. |
+| `checked`, `not_checked` | What the verdict covered and what it didn't. "go" never means the seller will deliver: Doctor doesn't pay. Each `not_checked` item has `because`: `unavailable` (a check couldn't run; `checks_complete` is then false), `no_data` (a new seller: no track record or purchases yet), `not_sent` (add the parameter in `send`, such as `max_usd`) or `out_of_scope` (your own request's answer, and what you sign: check the payment with presign-guard before signing). |
 | `receipt` | Signed by Doctor. Keep it: it proves which verdict you got, for example to explain later why you paid. |
 
 **Several endpoints at once:** `GET /api/v1/preflight/batch?url=<a>&url=<b>` checks up to 10 for $0.005.
@@ -62,7 +63,7 @@ The answer:
 
 ## 3. Decide
 
-- **go:** pay, with `recommended_option`.
+- **go:** pay, with `recommended_option`. With `checks_complete: false`, or a `no_data` track record and purchases (a seller nobody has paid yet), keep the first payment small.
 - **caution:** show the user the `summary` and the `reasons`. Pay only if they agree, or if the amount is within what they already approved.
 - **caution because the price is far above the advertised one:** don't pay, even within the budget, unless the user agrees after seeing both prices. This applies when a reason is `price_above_advertised` and the price is more than twice the advertised one; its message gives both. From 10 times the advertised price, Doctor says no_go (`price_far_above_advertised`). A small difference, such as $0.012 for an advertised $0.01, is the caution above.
 - **caution because the price is very high (`price_very_high`):** the endpoint asks more than $100 a call and you passed no max_usd. Don't pay unless the user agrees to that price; a hostile 402 can ask for the whole wallet. Pass max_usd to let the budget decide.
