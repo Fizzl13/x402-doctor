@@ -221,6 +221,19 @@ test('Fizzl Buy: purchases over 7 days from the day summaries, counts and totals
   assert.deepStrictEqual(SERVICES, ['doctor', 'presign', 'ichimoku', 'buy']);
 });
 
+test('Fizzl Buy: our own buy-check purchases and test bots are left out of the counts', () => {
+  const day = (date, list) => ({ service: 'buy', date, summary: daySummary(list.map((e) => ({ t: `${date}T10:00:00Z`, via: 'api', ...e })), { service: 'buy' }) });
+  const files = [day('2026-09-30', [
+    { route: 'buy', status: 200, paid: true, ms: 9000, input: { spent_usd: 0.002 }, result: { service: 'weather.example' }, payer: '0xabc' },
+    { route: 'buy', status: 200, paid: true, ms: 7000, input: { spent_usd: 0.001 }, result: { service: 'prices.example' }, agent: 'x402-doctor-buy-check/1.0 (+https://x402-doctor.fizzl.eu)' },
+    { route: 'buy', status: 200, paid: true, ms: 7000, input: { spent_usd: 0.001 }, result: { service: 'prices.example' }, payer: '0xA12871853F653f76Ec303B94Ac4fB6c46578a3F1' },
+    { route: 'buy', status: 502, input: { spent_usd: 0.003 }, agent: 'vet402-observatory/1' },
+    { route: 'pick', status: 200, agent: 'fizzl-monitor/1.0' },
+    { route: 'pick', status: 200 },
+  ])];
+  assert.deepStrictEqual(buyWeek(files, NOW), { days: 7, purchases: 1, not_delivered: 0, picks: 1, paid_to_sellers_usd: 0.002, sellers: 1, median_ms: 9000 });
+});
+
 test('x402 Doctor fix: sold over 7 days and in total, quotes and improvements; our own payments left out', () => {
   const day = (date, list) => ({ service: 'doctor', date, summary: daySummary(list.map((e) => ({ t: `${date}T10:00:00Z`, via: 'api', ...e })), { service: 'doctor' }) });
   const files = [
