@@ -94,3 +94,30 @@ test('changeReasons: a moved address bound to the seller\'s agent (ERC-8478) is 
   const recent = changeReasons({ record: { payto: { a: payToMap([opt('eip155:8453', B)]), s: '2026-10-30', c: ['eip155:8453'] } }, options: [opt('eip155:8453', B)], now, bound });
   assert.deepStrictEqual(recent.map((x) => x.code), ['payto_changed_bound']);
 });
+
+test('mergeIndex marks how many endpoints of a host moved their payout address that day (pt.m = [moved, of])', () => {
+  const res = (path, verdict, pay) => ({ key: `GET https://h.example/${path}`, url: `https://h.example/${path}`, method: 'GET', verdict, codes: [], price_usd: 0.01, networks: ['eip155:8453'], pt: payToMap([opt('eip155:8453', pay)]), ms: 1 });
+  const paths = ['a', 'b', 'c', 'd', 'e'];
+  let index = mergeIndex(null, paths.map((p) => res(p, 'go', A)), { date: '2026-11-01' });
+  assert.equal(index.resources['GET https://h.example/a'].pt.m, undefined, 'a first sighting is no move');
+  index = mergeIndex(index, paths.map((p) => res(p, 'go', p === 'a' ? B : A)), { date: '2026-11-02' });
+  assert.deepEqual(index.resources['GET https://h.example/a'].pt.m, [1, 5]);
+  assert.equal(index.resources['GET https://h.example/b'].pt.m, undefined);
+  index = mergeIndex(index, paths.map((p) => res(p, 'go', p === 'a' || p === 'b' || p === 'c' ? B : A)), { date: '2026-11-03' });
+  assert.deepEqual(index.resources['GET https://h.example/b'].pt.m, [2, 5], 'b and c moved together on 3 Nov');
+  assert.deepEqual(index.resources['GET https://h.example/a'].pt.m, [1, 5], 'a keeps its own day');
+});
+
+test('changeReasons: a change that was the only one of its host is payto_changed_alone; a host-wide move says so', () => {
+  const base = { a: payToMap([opt('eip155:8453', B)]), s: '2026-10-29', c: ['eip155:8453'] };
+  const reason = (m) => changeReasons({ record: { days: ['2026-10-31'], payto: { ...base, m } }, options: [opt('eip155:8453', B)], now })[0];
+  const alone = reason([1, 5]);
+  assert.equal(alone.code, 'payto_changed_alone');
+  assert.equal(alone.level, 'caution');
+  assert.match(alone.message, /only endpoint of its host that moved: its 4 other endpoints kept theirs/);
+  const together = reason([3, 5]);
+  assert.equal(together.code, 'payto_changed');
+  assert.match(together.message, /Together with 2 other endpoints of the same host/);
+  assert.equal(reason([1, 3]).code, 'payto_changed', 'with fewer than 3 others on the host, alone says little');
+  assert.equal(reason(undefined).code, 'payto_changed', 'an index from before the marking');
+});
