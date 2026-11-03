@@ -288,6 +288,19 @@ test('payTo is the zero or 0x…dEaD address: no_go on its own, caution next to 
   assert.ok(r.reasons.some((x) => x.code === 'payto_burn'));
 });
 
+test('a deliberate token burn as the price (0x…dEaD, not a dollar token) is info, and the USDC options decide', async () => {
+  const token = '0xFdA080f64d84C989Cfc50FF18253542CfE502Db3';
+  const burnOpt = { scheme: 'exact', network: 'eip155:4663', amount: '15534669000000000000', asset: token, payTo: '0x000000000000000000000000000000000000dEaD', resource: 'x', maxTimeoutSeconds: 60, extra: { name: 'WAFERMAP', version: '1' } };
+  const url = await seller({ accepts: [baseOption('10000'), burnOpt] });
+  const r = await run(url);
+  assert.ok(!r.reasons.some((x) => x.code === 'payto_burn'), JSON.stringify(r.reasons));
+  const line = r.reasons.find((x) => x.code === 'payment_burns_token');
+  assert.equal(line.level, 'info');
+  assert.match(line.message, /paid by burning a token .* nobody receives it/);
+  assert.notEqual(r.verdict, 'no_go');
+  assert.equal(r.recommended_option, 0);
+});
+
 test('on-chain payments: how many wallets paid the Base payout address shows as info and in signals, never changes the verdict', async () => {
   const url = await seller({ accepts: [baseOption('20000'), solanaOption('15000')] });
   const asked = [];

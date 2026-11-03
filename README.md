@@ -427,6 +427,9 @@ Space waits in `hf-mcp/`. Doctor's own MCP server is `https://x402-doctor.fizzl.
   Solana the System Program or the incinerator. The pre-payment check says `payto_burn`: `no_go` when no other option
   is payable, `caution` otherwise (a client that signs the first option it can would pay the broken one).
   `summary.json` counts them (`payto_burn`).
+  One exception: an option that pays a token other than a dollar token to `0x…dEaD` or Solana's incinerator is a
+  deliberate burn as the price (wafermap.xyz burns its own WAFERMAP token on Robinhood Chain), not a placeholder. It
+  is an `info` line (`payment_burns_token`) and leaves the verdict to the other options.
 - **Real payments on chain.** Every hour [`onchain-payments.yml`](.github/workflows/onchain-payments.yml) reads the
   new Base blocks (`scripts/onchain-payments.js`, `lib/onchain-payments.js`) and counts, per payout address the daily
   scan saw (`paytos.json` on `trust-data`), the USDC payments the payer signed with EIP-3009
