@@ -9,11 +9,13 @@
 // 2. A copycat: Doctor's card, badge and all, copied to another server that wants to be paid.
 // 3. A swapped payTo: Doctor's own origin and card, but the 402 asks to pay someone else.
 // 4. A revoked agent: a card that shows the badge of an agent its owner revoked.
+// Each case also prints what x402 Doctor's paid preflight adds to its verdict (info or caution, with its code).
 import { createRequire } from 'node:module';
 import crypto from 'node:crypto';
 
 const require = createRequire(import.meta.url);
 const { verifyConcordiumPayees } = require('../lib/concordium-agent');
+const { concordiumReasons } = require('../lib/preflight');
 const { base58Decode } = require('../lib/networks');
 
 const DOCTOR = 'https://x402-doctor.fizzl.eu';
@@ -53,7 +55,8 @@ const color = (o) => (o.startsWith('verified-') ? c.green : ['mismatch', 'revoke
 
 async function show(title, accepted, opts) {
   console.log(`\n${c.bold}${title}${c.off}`);
-  const { agent, results } = await verifyConcordiumPayees(accepted, opts);
+  const found = await verifyConcordiumPayees(accepted, opts);
+  const { agent, results } = found;
   if (!agent) { console.log(`  ${c.dim}no Concordium badge on this server${c.off}`); return 'none'; }
   if (agent.network) console.log(`  ${c.dim}badge ${agent.tokenAddress} → agent #${agent.tokenId} on ${agent.network}, owner ${short(agent.owner)} (identity-verified account), status ${agent.status}${c.off}`);
   for (const r of results) console.log(`  ${(r.network || '').padEnd(42)} ${short(r.payTo).padEnd(14)} ${color(r.outcome)}${r.outcome}${c.off}${r.reason && !r.outcome.startsWith('verified-') ? ` ${c.dim}(${r.reason})${c.off}` : ''}`);
@@ -61,6 +64,10 @@ async function show(title, accepted, opts) {
   const ok = results.filter((r) => r.outcome.startsWith('verified-'));
   const verdict = bad ? `${c.red}refuses to pay${c.off}` : ok.length ? `${c.green}pays on ${ok.map((r) => r.network).join(' or ')}${c.off}` : `${c.orange}asks its owner first${c.off}`;
   console.log(`  agent: ${verdict}`);
+  // What x402 Doctor's paid preflight adds to its verdict for this (lib/preflight.js).
+  for (const r of concordiumReasons(found, accepted.map((a) => ({ network: a.network })))) {
+    console.log(`  ${c.dim}preflight:${c.off} ${r.level === 'info' ? c.green : c.orange}${r.level} ${r.code}${c.off} ${c.dim}${r.message}${c.off}`);
+  }
   return bad ? 'refused' : ok.length ? 'paid' : 'asked';
 }
 
