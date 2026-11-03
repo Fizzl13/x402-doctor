@@ -476,6 +476,21 @@ test("the weekly spot-buy: a signal always; money taken for the seller's own exa
   assert.equal(fine.reasons.find((r) => r.code === 'slow_after_payment'), undefined, 'no answer time: nothing to say');
 });
 
+test('the spot-buy answer check: not what was paid for, or text aimed at agents, is information for the example request only', async () => {
+  const url = await seller({ accepts: [baseOption('20000')] });
+  const spotOf = (request, answer_check) => ({ forUrl: async () => ({ url, date: '2026-11-03', result: 'delivered', request, price_usd: 0.02, charged_usd: 0.02, status: 200, answer_check }) });
+  const off = await run(url, { spot: spotOf('example', { delivered: 'no', injection: false }) });
+  assert.equal(off.verdict, 'go', 'one purchase: never the verdict');
+  assert.match(off.reasons.find((r) => r.code === 'answer_not_what_was_paid_for').message, /spot-buy of 2026-11-03 .* not what was paid for/);
+  assert.deepEqual(off.signals.spot_buy.answer_check, { delivered: 'no', injection: false });
+  const trap = await run(url, { spot: spotOf('example', { delivered: 'yes', injection: true }) });
+  assert.ok(trap.reasons.some((r) => r.code === 'answer_carried_instructions' && r.level === 'info'));
+  assert.ok(!trap.reasons.some((r) => r.code === 'answer_not_what_was_paid_for'));
+  const plain = await run(url, { spot: spotOf('plain', { delivered: 'no', injection: false }) });
+  assert.ok(!plain.reasons.some((r) => r.code === 'answer_not_what_was_paid_for'), 'a plain request may have been our input');
+  assert.equal(plain.signals.spot_buy.answer_check.delivered, 'no');
+});
+
 const USD1_BNB = '0x8d0D000Ee44948FC98c9B98A4FA4921476f08B0d';
 const USDT_BNB = '0x55d398326f99059fF775485246999027B3197955';
 const bnbOption = (amount, asset = USD1_BNB, extra = { name: 'World Liberty Financial USD', version: '1' }) => ({ scheme: 'exact', network: 'eip155:56', amount, asset, payTo: PAY_TO_BASE, maxTimeoutSeconds: 60, extra });
