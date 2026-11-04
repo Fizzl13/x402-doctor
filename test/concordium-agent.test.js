@@ -244,3 +244,43 @@ test('the pin page module is served as JavaScript', async () => {
     assert.match(res.headers.get('content-type'), /javascript/);
   } finally { server.close(); }
 });
+
+test('lookupBadge: a badge on its own, from its short form or the registry app\'s Agent ID', async () => {
+  const { lookupBadge, normalizeBadge } = require('../lib/concordium-agent');
+  // x402 Doctor's mainnet agent #5120: the registry app shows the long Agent ID.
+  assert.equal(normalizeBadge('7Gz3BSpvyFCRabuUYHfPMWAKAeCqwBXU2eKFxsv'), 'Mf22oVsbu3vf4Jb1cga49');
+  assert.equal(normalizeBadge(`${TESTNET}/cis-2:${BADGE}`), BADGE);
+  assert.equal(normalizeBadge('Mf22oVsbu3vf4Jb1cga48'), null, 'a typo fails the checksum');
+  assert.equal(normalizeBadge('not a badge'), null);
+
+  const text = card();
+  const key = { namespace: 'eip155:8453', key_type: 'secp256k1-uncompressed', public_key_hex: privateKeyToAccount(`0x${'11'.repeat(32)}`).publicKey.slice(4) };
+  const r = registry({ agent_by_token_address: agent(text, { external_reference: { key } }), owner_of_key: { owner_account: OWNER, status: 'Active' } });
+  const ok = await lookupBadge(BADGE, { fetchImpl: r.fetchImpl, safeFetch: pages({ [CARD_URL]: text }) });
+  assert.equal(ok.valid, true, JSON.stringify(ok.issues));
+  assert.equal(ok.network, 'testnet');
+  assert.equal(ok.owner, OWNER);
+  assert.deepEqual(ok.card_origins, [SELLER]);
+  assert.equal(ok.external_key.address, privateKeyToAccount(`0x${'11'.repeat(32)}`).address.toLowerCase());
+  assert.equal(ok.external_key.still_bound, true);
+  assert.equal(ok.anchoredCard, undefined, 'the card itself is not echoed');
+
+  clearConcordiumCache();
+  const changed = await lookupBadge(BADGE, { fetchImpl: registry({ agent_by_token_address: agent(text) }).fetchImpl, safeFetch: pages({ [CARD_URL]: card({ name: 'Changed' }) }) });
+  assert.equal(changed.valid, false);
+  assert.match(changed.issues[0], /does not hash/);
+
+  clearConcordiumCache();
+  const other = card({ capabilities: { extensions: [{ uri: 'https://docs.concordium.com/a2a-extensions/concordium-badge/v1', params: { tokenAddress: tokenAddress(12802, 5) } }] } });
+  const wrongBadge = await lookupBadge(BADGE, { fetchImpl: registry({ agent_by_token_address: agent(other) }).fetchImpl, safeFetch: pages({ [CARD_URL]: other }) });
+  assert.match(wrongBadge.issues.join(' '), /does not carry this badge/);
+
+  clearConcordiumCache();
+  const revoked = await lookupBadge(BADGE, { fetchImpl: registry({ agent_by_token_address: agent(text, { status: 'Revoked' }) }).fetchImpl, safeFetch: pages({ [CARD_URL]: text }) });
+  assert.match(revoked.issues.join(' '), /Revoked/);
+
+  assert.deepEqual((await lookupBadge('nonsense!')).valid, false);
+  assert.match((await lookupBadge(tokenAddress(999))).issues[0], /not a token of the official/);
+  clearConcordiumCache();
+  assert.match((await lookupBadge(BADGE, { fetchImpl: registry({ agent_by_token_address: null }).fetchImpl })).issues[0], /no agent/);
+});
