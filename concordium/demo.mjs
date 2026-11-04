@@ -3,12 +3,12 @@
 //
 //   node concordium/demo.mjs
 //
-// Read-only and nothing is paid. Every case reads Concordium's Agent Registry on testnet live (through Concordium's
+// Read-only and nothing is paid. Every case reads Concordium's Agent Registry live (through Concordium's
 // hosted registry service) and fetches the agent's card from its on-chain agent_uri:
-// 1. x402 Doctor itself (agent #993): its real 402, its real Agent Card.
+// 1. x402 Doctor itself (agent #5120 on mainnet): its real 402, its real Agent Card.
 // 2. A copycat: Doctor's card, badge and all, copied to another server that wants to be paid.
 // 3. A swapped payTo: Doctor's own origin and card, but the 402 asks to pay someone else.
-// 4. A revoked agent: a card that shows the badge of an agent its owner revoked.
+// 4. A revoked agent (testnet): a card that shows the badge of an agent its owner revoked.
 // Each case also prints what x402 Doctor's paid preflight adds to its verdict (info or caution, with its code).
 import { createRequire } from 'node:module';
 import crypto from 'node:crypto';
@@ -76,7 +76,7 @@ const card = (await realFetch(`${DOCTOR}/.well-known/agent-card.json`)).text;
 console.log(`x402 Doctor's paid route answers 402 with ${doctorAccepts.length} payment options. Nothing is paid.`);
 
 const out = [];
-out.push(await show('1. x402 Doctor itself (Concordium agent #993)', doctorAccepts, { url: PAID, safeFetch: realFetch }));
+out.push(await show('1. x402 Doctor itself (Concordium agent #5120, mainnet)', doctorAccepts, { url: PAID, safeFetch: realFetch }));
 out.push(await show('2. A copycat server shows the same card and badge', doctorAccepts.map((a) => ({ ...a, payTo: a.network.startsWith('eip155:') ? ATTACKER : a.payTo })), {
   url: 'https://x402-doct0r.example/api/v1/diagnose',
   safeFetch: withPages({ 'https://x402-doct0r.example/.well-known/agent-card.json': card }),

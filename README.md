@@ -697,14 +697,14 @@ as for ERC-8004. No badge, no key for that chain, or a registry that didn't answ
 
 ### Concordium Trusted Agents Hackathon
 
-x402 Doctor is itself a Concordium agent: **#993** in the Agent Registry on testnet, badge
-[`JyP9Y8gHmf4U8QPMm1TkT`](https://agent-registry-mcp.concordium.com/v1/check-badge/JyP9Y8gHmf4U8QPMm1TkT) (Concordium's
-own check: `badge_valid: true`). Its Agent Card is at
-[`/.well-known/agent-card.json`](https://x402-doctor.fizzl.eu/.well-known/agent-card.json), and its Base payTo
-`0x6B0F…5F25` is bound to the agent with CIS-8. Its own payee check therefore says `verified-external-key` on Base and
-X Layer.
+x402 Doctor is itself a Concordium agent: **#5120** in the Agent Registry on mainnet (contract `<10082,0>`), badge
+[`Mf22oVsbu3vf4Jb1cga49`](https://agent-registry-mcp.concordium.com/v1/check-badge/Mf22oVsbu3vf4Jb1cga49), registered
+4 Nov 2026 by an identity-verified mainnet account. Its Agent Card is at
+[`/.well-known/agent-card.json`](https://x402-doctor.fizzl.eu/.well-known/agent-card.json); the card's SHA-256 is pinned
+on chain and its Base payTo `0x6B0F…5F25` is bound to the agent with CIS-8, so its own payee check says
+`verified-external-key` on Base and X Layer.
 
-On chain (CCDScan, testnet):
+It was first built and tested as agent **#993** on testnet (badge `JyP9Y8gHmf4U8QPMm1TkT`). On chain (CCDScan, testnet):
 
 - [Registered](https://testnet.ccdscan.io/?dcount=1&dentity=transaction&dhash=d9c63c8932fecdcb2c9011d3d40918e18f1d8b87e09e3a4b34f973b97f663b9b):
   minted agent #993, with the owner account as agent wallet.
@@ -712,6 +712,8 @@ On chain (CCDScan, testnet):
   `setAgentURI` with the card's SHA-256.
 - [Base key bound](https://testnet.ccdscan.io/?dcount=1&dentity=transaction&dhash=dffcf331a85afeafbf472b4a7809ab0e36855f5e1aee79078b5cd8995701f004):
   `setExternalReference`, CIS-8, `eip155:8453`.
+
+The card now carries the mainnet badge (a card shows one badge), so #993's pinned hash no longer matches it.
 
 `node concordium/demo.mjs` reads the registry live and pays nothing. It shows x402 Doctor verified, and three things
 an agent must not pay, all refused:
@@ -738,7 +740,7 @@ Path to production:
 1. The check is live today in the free web check, the free MCP tool `x402_payee_check` and the paid preflight, whose
    verdict uses the outcome (x402-doctor#509): `payto_changed` trusts a move that the agent's CIS-8 key covers, as it
    does for ERC-8004. It needs no setup from sellers beyond the badge.
-2. Register x402 Doctor on mainnet (contract `<10082,0>`). The same module serves both registries.
+2. x402 Doctor is registered on mainnet (agent #5120, contract `<10082,0>`). The same module serves both registries.
 3. Offer x402 on Concordium itself (CCD or PLT), as soon as a facilitator settles it.
 
 ## Feedback
