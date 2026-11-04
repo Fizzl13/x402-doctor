@@ -178,3 +178,21 @@ test('scan merge: shares become one index in parts; a share that did not finish 
   assert.ok(logs.some((l) => l.includes('h1.example: 2 (404 x2)')));
   assert.ok(fs.existsSync(path.join(dir, 'paytos.json')));
 });
+
+test('compacter: shares repeated values without changing the data, and shared lists cannot be changed', () => {
+  const { compacter } = require('../lib/index-files');
+  const compact = compacter();
+  const a = compact('https://a.example/x', JSON.parse('{"url":"https://a.example/x","h":"n----","last":{"verdict":"no_go","codes":["no_402"],"networks":[]}}'));
+  const b = compact('https://b.example/y', JSON.parse('{"url":"https://b.example/y","h":"n----","last":{"verdict":"no_go","codes":["no_402"],"networks":[]},"d":"desc"}'));
+  assert.deepEqual(a, { url: 'https://a.example/x', h: 'n----', last: { verdict: 'no_go', codes: ['no_402'], networks: [] } });
+  assert.equal(b.d, 'desc');
+  assert.equal(a.last.codes, b.last.codes, 'one shared codes list');
+  assert.equal(a.last.networks, b.last.networks);
+  assert.ok(Object.isFrozen(a.last.codes));
+  assert.throws(() => { 'use strict'; a.last.codes.push('x'); }, TypeError);
+  assert.deepEqual(b.last.codes, ['no_402']);
+  const odd = compact('k', { url: 'other', last: { codes: [1, 2] } });
+  assert.equal(odd.url, 'other', 'a url that differs from the key is kept');
+  assert.deepEqual(odd.last.codes, [1, 2], 'non-string lists are left alone');
+  assert.equal(compact('k', null), null);
+});
