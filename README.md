@@ -704,6 +704,18 @@ x402 Doctor is itself a Concordium agent: **#5120** in the Agent Registry on mai
 on chain and its Base payTo `0x6B0F…5F25` is bound to the agent with CIS-8, so its own payee check says
 `verified-external-key` on Base and X Layer.
 
+On chain (CCDScan, mainnet):
+
+- [Registered](https://ccdscan.io/?dcount=1&dentity=transaction&dhash=e86da1f3f49daf1898a488b7f2532b00793b5990f3b6bc826f339959015234d6): minted agent #5120.
+- [Card pinned](https://ccdscan.io/?dcount=1&dentity=transaction&dhash=c900d51b95be9808466009462462558218f3468d17f536b4b0a57f5750b4ee00):
+  `setAgentURI` with the card's SHA-256.
+- [Base key linked](https://ccdscan.io/?dcount=1&dentity=transaction&dhash=04459a1b1b0e66b1a5c91830b1ce6263705eb84688802e574747b03e5b47aa0c) with CIS-8 in Concordium's
+  registry app, then [bound to the agent](https://ccdscan.io/?dcount=1&dentity=transaction&dhash=6ba997caf1691b4511d254cead6461f2fae5f011f93155315ae8758052ea4ae3):
+  `setExternalReference`, `eip155:8453`.
+
+The pin page ([`/concordium-agent.html`](https://x402-doctor.fizzl.eu/concordium-agent.html)) takes the badge or the
+"Agent ID" that Concordium's registry app shows, and turns the latter into the badge.
+
 It was first built and tested as agent **#993** on testnet (badge `JyP9Y8gHmf4U8QPMm1TkT`). On chain (CCDScan, testnet):
 
 - [Registered](https://testnet.ccdscan.io/?dcount=1&dentity=transaction&dhash=d9c63c8932fecdcb2c9011d3d40918e18f1d8b87e09e3a4b34f973b97f663b9b):
