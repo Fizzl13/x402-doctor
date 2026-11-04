@@ -17,6 +17,7 @@ Add the remote MCP server `https://x402-doctor.fizzl.eu/mcp` (Streamable HTTP) t
 |---|---|---|
 | `x402_quick_check` | free, 10/hour | pass/warn/fail, the number of problems and the top three |
 | `x402_payee_check` | free, same limit | Per payment option: is the payTo really the seller's ERC-8004 agent (its agent wallet, or a payee delegation it signed)? |
+| `concordium_badge_check` | free, same limit | Look up a Concordium Agent Registry badge (or the registry app's Agent ID): valid or not, owner, agent wallet, the origins its card lists, and the CIS-8 key it binds |
 | `x402_preflight` | $0.001 | go/caution/no_go before paying an endpoint |
 | `x402_preflight_batch` | $0.005 | The preflight for up to 10 endpoints |
 | `x402_preflight_deep` | $0.01 | The preflight plus diagnosis, history, seller and domain checks |
