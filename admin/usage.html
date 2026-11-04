@@ -149,6 +149,15 @@
     <p class="note">Counted over the whole range, also when the call list below is cut off. Our own wallets and workflows (spot-buy, index payment, delivery and buy checks) and known test payers come from <code>scripts/known.json</code> in the usage log; add a wallet there when you test with a new one. Service chips and the other filters don't apply here.</p>
   </div>
 
+  <h2>Who saw a price, who paid</h2>
+  <div class="panel" id="priceFunnel">
+    <p class="headline" id="pfHeadline">Loading…</p>
+    <div class="tiles pay-tiles" id="pfTiles"></div>
+    <details open><summary>Saw a price, never paid (most 402s first)</summary><div class="scroll"><table id="pfLookers"></table></div></details>
+    <details><summary>What clients were quoted</summary><div class="scroll"><table id="pfRoutes"></table></div></details>
+    <p class="note">Every caller that got a 402 in the range, per visitor (a keyed hash of the IP, so one agent on two machines counts twice). <b>Checkers</b> are indexers, directories, monitors and testers (the <code>monitor_agents</code> and <code>test_agents</code> lists in <code>scripts/known.json</code>): they read every price and almost never buy. <b>Browsers</b> are people opening a paid URL. <b>Clients</b> are the rest: code that could be a buying agent, though plain user agents such as <code>node</code> or <code>undici</code> are often scanners too. Our own workflows are left out. Counted over the whole range; the filters don't apply.</p>
+  </div>
+
   <h2>All calls</h2>
   <div class="tiles" id="tiles" style="margin-top:0"></div>
 
@@ -360,6 +369,7 @@
 
     const events = filtered();
     renderPayments(d.payments);
+    renderPriceFunnel(d.price_funnel);
     renderTiles(events);
     renderServices(events);
     renderPackages();
@@ -417,6 +427,33 @@
         td(ago(r.t), 'nowrap'),
         el('td', {}, el('span', { className: `kind ${r.kind}`, textContent: r.kind === 'outside' ? 'customer' : r.kind === 'own' ? 'ours' : 'test', title: r.why || '' })),
         el('td', {}, svc(r.service)), td(r.route || ''), td(usd(r.usd), 'num'), td(r.network || (r.protocol || '')), el('td', { className: 'mono', textContent: short(r.payer || r.visitor || ''), title: r.payer || r.visitor || '' }), td(r.agent || '', 'mono')))));
+  }
+
+  // Who saw a price and who paid (server-side summary, lib/price-funnel.js).
+  function renderPriceFunnel(f) {
+    const tile = (k, v, dd, hl) => el('div', { className: 'tile' + (hl ? ' hl' : '') }, el('div', { className: 'k', textContent: k }), el('div', { className: 'v', textContent: v }), el('div', { className: 'd', textContent: dd }));
+    const td = (text, cls = '') => el('td', { className: cls, textContent: text });
+    const th = (...cols) => el('thead', {}, el('tr', {}, ...cols.map(([c, num]) => el('th', { className: num ? 'num' : '', textContent: c }))));
+    if (!f || f.error) {
+      $('pfHeadline').textContent = 'Could not be counted';
+      $('pfTiles').replaceChildren(el('p', { className: 'note', textContent: f && f.error ? f.error : 'No summary in this answer.' }));
+      $('pfLookers').replaceChildren(); $('pfRoutes').replaceChildren();
+      return;
+    }
+    const k = f.kinds;
+    const range = state.days === 1 ? 'last 24 h' : `last ${state.days} days`;
+    const all = k.client.visitors + k.browser.visitors + k.checker.visitors;
+    const paid = k.client.paid_visitors + k.browser.paid_visitors + k.checker.paid_visitors;
+    $('pfHeadline').textContent = `${all.toLocaleString()} callers saw a price in the ${range}; ${paid.toLocaleString()} of them paid (${all ? Math.round((paid / all) * 1000) / 10 : 0}%).`;
+    const label = { client: 'Clients (possible agents)', browser: 'Browsers (people)', checker: 'Checkers (indexers, monitors)' };
+    $('pfTiles').replaceChildren(...['client', 'browser', 'checker'].map((x) =>
+      tile(label[x], `${k[x].paid_visitors.toLocaleString()} / ${k[x].visitors.toLocaleString()} paid`, `${k[x].paid_pct}% · ${k[x].quotes.toLocaleString()} 402s seen`, x === 'client' && k[x].paid_visitors > 0)));
+    const kindName = { client: 'client', browser: 'browser', checker: 'checker' };
+    const SHORT = { doctor: 'Doctor', presign: 'presign-guard', ichimoku: 'Ichimoku', buy: 'Buy' };
+    $('pfLookers').replaceChildren(th(['Agent'], ['Kind'], ['Callers', 1], ['402s seen', 1], ['Services']),
+      el('tbody', {}, ...f.lookers.map((l) => el('tr', {}, td(l.agent, 'mono nowrap'), td(kindName[l.kind] || l.kind), td(l.visitors.toLocaleString(), 'num'), td(l.quotes.toLocaleString(), 'num'), td(l.services.map((s) => SHORT[s] || s).join(', '), 'nowrap')))));
+    $('pfRoutes').replaceChildren(th(['Route (clients only)'], ['402s', 1]),
+      el('tbody', {}, ...f.client_routes.map((r) => el('tr', {}, td(r.route, 'mono'), td(r.quotes.toLocaleString(), 'num')))));
   }
 
   function renderTiles(events) {

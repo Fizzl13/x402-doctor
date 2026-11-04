@@ -43,6 +43,7 @@ const { createPublicStats, statsCors } = require('./lib/public-stats');
 const { marketSummary } = require('./lib/market-summary');
 const { setupsFunnel } = require('./lib/usage-funnel');
 const { paidOf, parseKnown, summarizePayments } = require('./lib/usage-payments');
+const priceFunnel = require('./lib/price-funnel');
 const { checkSettlement } = require('./lib/settlement');
 const { createStatus } = require('./lib/status');
 const { renderBadge, badgeFor } = require('./lib/badge');
@@ -365,22 +366,28 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
       // Payments over the whole range, from small per-file summaries: the event list above stops at the newest
       // 20,000 calls (about a day), and payments must not be cut off with it.
       let payments = null;
+      let priceFunnelSummary = null;
+      const fromIso = new Date(Date.now() - days * 86400000).toISOString();
+      const knownText = await Promise.resolve().then(() => usageReader.readText('scripts/known.json')).catch(() => null);
       try {
-        const fromIso = new Date(Date.now() - days * 86400000).toISOString();
-        const [{ files }, knownText] = await Promise.all([
-          usageReader.summarizeAll(paidOf, { key: 'paid', from: fromIso.slice(0, 10) }),
-          usageReader.readText('scripts/known.json').catch(() => null),
-        ]);
+        const { files } = await usageReader.summarizeAll(paidOf, { key: 'paid', from: fromIso.slice(0, 10) });
         payments = summarizePayments(files, { known: parseKnown(knownText), fromIso });
       } catch (err) {
         payments = { error: err.message };
+      }
+      // Who saw a price (a 402) and who paid afterwards, per visitor, over the whole range (lib/price-funnel.js).
+      try {
+        const { files } = await usageReader.summarizeAll(priceFunnel.visitorsOf, { key: 'funnel', from: fromIso.slice(0, 10) });
+        priceFunnelSummary = priceFunnel.summarizeFunnel(files, { known: priceFunnel.parseKnownAgents(knownText), fromIso });
+      } catch (err) {
+        priceFunnelSummary = { error: err.message };
       }
       let trust = null;
       try { trust = trustIndex.summary(); } catch { /* not loaded yet */ }
       const events = data.events || [];
       const languages = {};
       for (const e of events) if (e.agent && !languages[e.agent]) languages[e.agent] = languageOf(e.agent);
-      res.json({ ...data, payments, funnel: setupsFunnel(events), trust: trust && trust.by_protocol ? { by_protocol: trust.by_protocol } : null, languages, agent_kinds: agentKinds.kindsFor(events), agent_kinds_by_jev: agentKinds.enabled });
+      res.json({ ...data, payments, price_funnel: priceFunnelSummary, funnel: setupsFunnel(events), trust: trust && trust.by_protocol ? { by_protocol: trust.by_protocol } : null, languages, agent_kinds: agentKinds.kindsFor(events), agent_kinds_by_jev: agentKinds.enabled });
     } catch (err) {
       res.status(502).json({ error: err.message });
     }
