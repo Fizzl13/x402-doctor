@@ -58,3 +58,12 @@ test('the web limit: a pass holder gets the tier\'s factor, counted per pass, no
   assert.equal(await hit({ 'x-fizzl-pass': token }), 429, 'the pass has its own, higher limit');
   assert.equal(await hit({ 'x-fizzl-pass': 'fzp1.forged.proof' }), 429, 'a broken proof counts as no pass');
 });
+
+test('a pass the owner gave away and took back (its gid in the revoked list) is ignored; others still count', () => {
+  const given = good({ tier: 'gold', until: Date.UTC(2100, 0, 1), gid: 'g_abc' });
+  assert.equal(createPassVerifier({ keys: jwks }).verify(given).tier, 'gold', 'no end date, not revoked');
+  const v = createPassVerifier({ keys: { ...jwks, revoked: ['g_abc', 42] } });
+  assert.equal(v.verify(given), null);
+  assert.equal(v.verify(good({ tier: 'gold', until: Date.UTC(2100, 0, 1), gid: 'g_other' })).tier, 'gold');
+  assert.equal(v.verify(good()).tier, 'bronze', 'a bought pass has no gid');
+});
