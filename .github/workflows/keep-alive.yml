@@ -1,15 +1,135 @@
-name: Keep Render instance alive
+name: Keep alive and uptime watch
 
+# Every 10 minutes: keeps Doctor's Render instance warm and checks, from outside,
+# that every Fizzl service answers. Each /health must give 200 and each paid
+# route a 402 whose PAYMENT-REQUIRED header decodes to an x402 challenge with
+# Base USDC in it. Nothing is paid. A check that still fails 60 s later opens
+# one issue labelled "uptime" (GitHub emails the owner); while it stays down the
+# issue body is updated quietly (no mail every 10 minutes); the first all-green
+# run closes it. The daily health check (health.yml) goes deeper.
 on:
   schedule:
-    # Render's free tier spins down after ~15 min of inactivity; ping every 10
-    # so agents (and registry probes) don't hit a ~50 s cold start.
     - cron: "*/10 * * * *"
   workflow_dispatch: {}
+  push:
+    branches: ['claude/**']
+    paths: ['.github/workflows/keep-alive.yml']
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: uptime-watch
+  cancel-in-progress: false
 
 jobs:
-  ping:
+  watch:
     runs-on: ubuntu-latest
+    timeout-minutes: 8
     steps:
-      - name: Ping health endpoint
-        run: curl -sf -o /dev/null --max-time 90 -w "HTTP %{http_code}\n" https://x402-doctor.fizzl.eu/api/health
+      - name: Check every service (retry failures once after 60 s)
+        id: check
+        shell: bash
+        run: |
+          set -u
+          HEALTH=(
+            "x402 Doctor|https://x402-doctor.fizzl.eu/api/health"
+            "presign-guard|https://presign-guard.fizzl.eu/health"
+            "Ichimoku Signal|https://ichimoku-signal.fizzl.eu/health"
+            "Fizzl Buy|https://buy.fizzl.eu/health"
+            "Agent Wallet|https://wallet.fizzl.eu/health"
+          )
+          PAID=(
+            "x402 Doctor paid route|GET|https://x402-doctor.fizzl.eu/api/v1/diagnose?url=https://example.com"
+            "presign-guard paid route|GET|https://presign-guard.fizzl.eu/v1/token?chain=base&address=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+            "Ichimoku Signal paid route|GET|https://ichimoku-signal.fizzl.eu/signal/BTC-USDT"
+            "Fizzl Buy paid route|POST|https://buy.fizzl.eu/v1/buy"
+          )
+          UA="fizzl-monitor/uptime-watch (+https://github.com/Fizzl13/x402-doctor)"
+
+          check_health() { # url -> nothing when fine, else the problem
+            local code
+            code=$(curl -s -o /dev/null --max-time 90 -A "$UA" -w "%{http_code}" "$1") || code="no answer"
+            [ "$code" = "200" ] && return 0
+            echo "HTTP $code"
+          }
+          check_paid() { # method url -> nothing when fine, else the problem
+            local hdr code pr json
+            hdr=$(mktemp)
+            if [ "$1" = "POST" ]; then
+              code=$(curl -s -o /dev/null -D "$hdr" --max-time 90 -A "$UA" -X POST -H 'content-type: application/json' --data '{"need":"monitor"}' -w "%{http_code}" "$2") || code="no answer"
+            else
+              code=$(curl -s -o /dev/null -D "$hdr" --max-time 90 -A "$UA" -w "%{http_code}" "$2") || code="no answer"
+            fi
+            if [ "$code" != "402" ]; then echo "HTTP $code instead of 402"; return 0; fi
+            pr=$(grep -i '^payment-required:' "$hdr" | head -1 | cut -d' ' -f2- | tr -d '\r')
+            if [ -z "$pr" ]; then echo "402 without a PAYMENT-REQUIRED header"; return 0; fi
+            json=$(printf '%s' "$pr" | base64 -d 2>/dev/null) || { echo "PAYMENT-REQUIRED is not base64"; return 0; }
+            if ! printf '%s' "$json" | jq -e '.accepts | type == "array" and length > 0' >/dev/null 2>&1; then
+              echo "PAYMENT-REQUIRED has no accepts list"; return 0
+            fi
+            if ! printf '%s' "$json" | jq -e '[.accepts[] | select(.network == "eip155:8453")] | length > 0' >/dev/null 2>&1; then
+              echo "the 402 no longer offers Base (eip155:8453)"; return 0
+            fi
+          }
+
+          run_all() { # prints "name (url): problem" per failing check
+            local item name url method rest p
+            for item in "${HEALTH[@]}"; do
+              name=${item%%|*}; url=${item#*|}
+              p=$(check_health "$url"); [ -n "$p" ] && echo "$name ($url): $p"
+            done
+            for item in "${PAID[@]}"; do
+              name=${item%%|*}; rest=${item#*|}; method=${rest%%|*}; url=${rest#*|}
+              p=$(check_paid "$method" "$url"); [ -n "$p" ] && echo "$name ($url): $p"
+            done
+            return 0
+          }
+
+          first=$(run_all)
+          second=""
+          if [ -n "$first" ]; then
+            echo "First pass:"; echo "$first"
+            sleep 60
+            second=$(run_all)
+          fi
+          # Only what failed twice counts.
+          down=""
+          if [ -n "$second" ]; then
+            while IFS= read -r line; do
+              name=${line%% (*}
+              grep -q "^$name (" <<<"$first" && down+="$line"$'\n'
+            done <<<"$second"
+          fi
+          {
+            echo "## Uptime watch $(date -u '+%F %H:%M UTC')"
+            if [ -n "$down" ]; then echo "Down (failed twice, 60 s apart):"; printf '%s' "$down" | sed 's/^/- /'; else echo "All services up."; fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          printf '%s' "$down" > down.txt
+          if [ -n "$down" ]; then echo "down=1" >> "$GITHUB_OUTPUT"; else echo "down=0" >> "$GITHUB_OUTPUT"; fi
+          # On a test push, show a red run instead of touching issues.
+          if [ -n "$down" ] && [ "$GITHUB_EVENT_NAME" = "push" ]; then cat down.txt; exit 1; fi
+          exit 0
+
+      - name: Open, update or close the uptime issue
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DOWN: ${{ steps.check.outputs.down }}
+        shell: bash
+        run: |
+          set -u
+          gh label create uptime --color B60205 --description "A Fizzl service is down (keep-alive.yml)" --repo "$GITHUB_REPOSITORY" 2>/dev/null || true
+          open=$(gh issue list --repo "$GITHUB_REPOSITORY" --label uptime --state open --json number --jq '.[0].number // empty')
+          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          if [ "$DOWN" = "1" ]; then
+            body=$(printf 'Checked from GitHub Actions every 10 minutes; each check below failed twice, 60 s apart.\n\n%s\n\nLast check: %s (%s)\n\nThis issue closes itself on the first run where everything answers again.\n' "$(sed 's/^/- /' down.txt)" "$(date -u '+%F %H:%M UTC')" "$run_url")
+            if [ -z "$open" ]; then
+              gh issue create --repo "$GITHUB_REPOSITORY" --label uptime --title "Uptime: a Fizzl service is down" --body "$body"
+            else
+              gh issue edit "$open" --repo "$GITHUB_REPOSITORY" --body "$body"
+            fi
+          elif [ -n "$open" ]; then
+            gh issue close "$open" --repo "$GITHUB_REPOSITORY" --comment "Everything answers again ($(date -u '+%F %H:%M UTC'), $run_url)."
+          fi
