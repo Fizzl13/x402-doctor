@@ -220,3 +220,27 @@ test('the CIS-8004 module schema served for the pin page is the registry module 
   assert.equal(schema.subarray(0, 2).toString('hex'), 'ffff', 'a versioned module schema');
   assert.ok(schema.includes(Buffer.from('CIS-8004')) && schema.includes(Buffer.from('setAgentURI')));
 });
+
+test('the pin page turns what an owner pastes into the badge short form', async () => {
+  const { normalizeBadge } = await import('../public/concordium/badge.mjs');
+  // The registry app's "Agent ID" of x402 Doctor's mainnet agent #5120 (index, subindex and token id as u64s).
+  assert.equal(await normalizeBadge(' 7Gz3BSpvyFCRabuUYHfPMWAKAeCqwBXU2eKFxsv '), 'Mf22oVsbu3vf4Jb1cga49');
+  assert.equal(badgeNetwork('Mf22oVsbu3vf4Jb1cga49'), 'mainnet');
+  assert.equal(await normalizeBadge('Mf22oVsbu3vf4Jb1cga49'), 'Mf22oVsbu3vf4Jb1cga49');
+  assert.equal(await normalizeBadge(`${TESTNET}/cis-2:JyP9Y8gHmf4U8QPMm1TkT`), 'JyP9Y8gHmf4U8QPMm1TkT');
+  await assert.rejects(normalizeBadge(''), /Fill in the badge first/);
+  await assert.rejects(normalizeBadge('Mf22oVsbu3vf4Jb1cga48'), /typo/);
+  await assert.rejects(normalizeBadge('not a badge!'), /not a badge/);
+});
+
+test('the pin page module is served as JavaScript', async () => {
+  const { createApp } = require('../server');
+  const trustIndex = { lookup: async () => null, refresh: () => Promise.resolve(), summary: () => null };
+  const app = createApp({ allowPrivate: true, env: {}, trustIndex });
+  const server = await new Promise((resolve) => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
+  try {
+    const res = await fetch(`http://127.0.0.1:${server.address().port}/concordium/badge.mjs`);
+    assert.equal(res.status, 200);
+    assert.match(res.headers.get('content-type'), /javascript/);
+  } finally { server.close(); }
+});

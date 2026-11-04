@@ -42,7 +42,7 @@
 
   <div class="step">
     <h2>1. Your badge and card</h2>
-    <label for="badge">Badge (the CIS-2 token address of your agent)</label>
+    <label for="badge">Badge (the CIS-2 token address of your agent, or the Agent ID the registry shows)</label>
     <input id="badge" autocomplete="off" spellcheck="false">
     <label for="uri">Agent Card URL</label>
     <input id="uri" autocomplete="off" spellcheck="false">
@@ -66,6 +66,7 @@
 </div>
 
 <script type="module">
+import { normalizeBadge } from '/concordium/badge.mjs';
 const REGISTRY = 'https://agent-registry-mcp.concordium.com';
 // CIS-8004's module schema (the same module on testnet and mainnet: 142462ff…a5c6), from Concordium's registry app.
 const SCHEMA_URL = '/concordium/cis8004-schema.b64';
@@ -90,10 +91,12 @@ async function sha256Hex(buf) {
 $('check').onclick = async () => {
   $('sign').disabled = true;
   state = null;
-  const badge = $('badge').value.trim();
+  let badge = '';
   const uri = $('uri').value.trim();
   const rows = [];
   try {
+    badge = await normalizeBadge($('badge').value);
+    $('badge').value = badge;
     const res = await fetch(uri, { cache: 'no-store' });
     if (!res.ok) throw new Error(`the card answered HTTP ${res.status}`);
     const bytes = await res.arrayBuffer();
@@ -102,7 +105,9 @@ $('check').onclick = async () => {
     try { card = JSON.parse(new TextDecoder().decode(bytes)); } catch { /* not JSON */ }
     const ext = (card?.capabilities?.extensions || []).find((e) => String(e?.uri || '').includes('concordium-badge/v1'));
     const inCard = String(ext?.params?.tokenAddress || '').split('/cis-2:').pop();
-    const chain = await (await fetch(`${REGISTRY}/v1/check-badge/${encodeURIComponent(badge)}`)).json();
+    const answer = await fetch(`${REGISTRY}/v1/check-badge/${encodeURIComponent(badge)}`);
+    const chain = await answer.json().catch(() => { throw new Error(`Concordium's badge check answered HTTP ${answer.status} without JSON; try again in a minute.`); });
+    if (chain.error) throw new Error(`Concordium's badge check: ${chain.message || chain.error}`);
     const on = chain.on_chain || {};
     const network = chain.network;
     rows.push(['Network', esc(network || '?')]);
