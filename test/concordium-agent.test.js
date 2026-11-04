@@ -190,7 +190,7 @@ test('checkConcordiumAgent: a pass with the agent, a warn with a fix, and no che
   assert.equal(none.length, 0);
 });
 
-test("x402 Doctor's own Agent Card: served byte for byte, with the badge of agent #993 on testnet and this origin listed", async () => {
+test("x402 Doctor's own Agent Card: served byte for byte, with the badge of agent #5120 on mainnet and this origin listed", async () => {
   const fs = require('node:fs');
   const path = require('node:path');
   const { cardOrigins } = require('../lib/concordium-agent');
@@ -206,7 +206,8 @@ test("x402 Doctor's own Agent Card: served byte for byte, with the badge of agen
     const body = Buffer.from(await res.arrayBuffer());
     assert.equal(sha256Hex(body.toString('utf8')), crypto.createHash('sha256').update(file).digest('hex'), 'the served bytes are the file: its hash is pinned on chain');
     const card = JSON.parse(body);
-    assert.deepEqual(cardBadge(card), { tokenAddress: 'JyP9Y8gHmf4U8QPMm1TkT', chain: TESTNET });
+    assert.deepEqual(cardBadge(card), { tokenAddress: 'Mf22oVsbu3vf4Jb1cga49', chain: MAINNET });
+    assert.equal(badgeNetwork('Mf22oVsbu3vf4Jb1cga49'), 'mainnet');
     assert.equal(badgeNetwork('JyP9Y8gHmf4U8QPMm1TkT'), 'testnet');
     assert.ok(cardOrigins(card).has('https://x402-doctor.fizzl.eu'));
   } finally { server.close(); }

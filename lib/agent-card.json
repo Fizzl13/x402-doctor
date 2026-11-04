@@ -17,17 +17,17 @@
         "description": "Verified by Concordium badge — on-chain agent identity in a CIS-8004 registry",
         "required": false,
         "params": {
-          "tokenAddress": "ccd:4221332d34e1694168c2a0c0b3fd0f27/cis-2:JyP9Y8gHmf4U8QPMm1TkT",
-          "owner": { "account": "ccd:4221332d34e1694168c2a0c0b3fd0f27:3HFbRLEGSVUsebprTBmTvpdbTkHg4ncutEYWf4EEaQfgQae9v3" },
-          "agentWallet": "ccd:4221332d34e1694168c2a0c0b3fd0f27:3HFbRLEGSVUsebprTBmTvpdbTkHg4ncutEYWf4EEaQfgQae9v3",
+          "tokenAddress": "ccd:9dd9ca4d19e9393877d2c44b70f89acb/cis-2:Mf22oVsbu3vf4Jb1cga49",
+          "owner": { "account": "ccd:9dd9ca4d19e9393877d2c44b70f89acb:45R4vB9JnXDUkYVNBrQE8yyg6o2qH32g7fX5N7i9yWxHxnFP7J" },
+          "agentWallet": "ccd:9dd9ca4d19e9393877d2c44b70f89acb:45R4vB9JnXDUkYVNBrQE8yyg6o2qH32g7fX5N7i9yWxHxnFP7J",
           "contracts": {
-            "cis8004": "ccd:4221332d34e1694168c2a0c0b3fd0f27:12802.0",
-            "cis8": "ccd:4221332d34e1694168c2a0c0b3fd0f27:12801.0"
+            "cis8004": "ccd:9dd9ca4d19e9393877d2c44b70f89acb:10082.0",
+            "cis8": "ccd:9dd9ca4d19e9393877d2c44b70f89acb:10081.0"
           },
           "verify": "Resolve tokenAddress via CIS-8004 agent_of; confirm owner + status=Active + card SHA-256 == metadata_hash.",
           "verification": {
             "service": "Concordium Agent Registry",
-            "verifyUrl": "https://agent-registry-mcp.concordium.com/v1/badge-check/JyP9Y8gHmf4U8QPMm1TkT",
+            "verifyUrl": "https://agent-registry-mcp.concordium.com/v1/badge-check/Mf22oVsbu3vf4Jb1cga49",
             "mcp": "https://agent-registry-mcp.concordium.com/mcp",
             "docs": "https://docs.concordium.com/en/mainnet/technical-reference/agent-registry/concordium-badge.html"
           }
@@ -50,6 +50,7 @@
   "active": true,
   "x402Support": true,
   "registrations": [
+    { "agentId": 5120, "agentRegistry": "ccd:9dd9ca4d19e9393877d2c44b70f89acb:10082.0" },
     { "agentId": 993, "agentRegistry": "ccd:4221332d34e1694168c2a0c0b3fd0f27:12802.0" },
     { "agentId": 97519, "agentRegistry": "eip155:8453:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432" }
   ]
