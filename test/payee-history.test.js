@@ -114,10 +114,23 @@ test('changeReasons: a change that was the only one of its host is payto_changed
   const alone = reason([1, 5]);
   assert.equal(alone.code, 'payto_changed_alone');
   assert.equal(alone.level, 'caution');
-  assert.match(alone.message, /only endpoint of its host that moved: its 4 other endpoints kept theirs/);
+  assert.match(alone.message, /only endpoint of its site that moved: its 4 other endpoints kept theirs/);
   const together = reason([3, 5]);
   assert.equal(together.code, 'payto_changed');
-  assert.match(together.message, /Together with 2 other endpoints of the same host/);
+  assert.match(together.message, /Together with 2 other endpoints of the same site/);
   assert.equal(reason([1, 3]).code, 'payto_changed', 'with fewer than 3 others on the host, alone says little');
   assert.equal(reason(undefined).code, 'payto_changed', 'an index from before the marking');
+});
+
+test('mergeIndex groups payout moves by site: subdomains of one seller move together, separate sellers on co.uk do not', () => {
+  const res = (url, pay) => ({ key: `GET ${url}`, url, method: 'GET', verdict: 'go', codes: [], price_usd: 0.01, networks: ['eip155:8453'], pt: payToMap([opt('eip155:8453', pay)]), ms: 1 });
+  // One seller on many subdomains, one endpoint each (as x402atlas.com on 2 Nov 2026), plus a co.uk seller with 5 routes.
+  const subs = ['a', 'b', 'c', 'd', 'e'].map((s) => `https://${s}.use.seller.example/x`);
+  const uk = ['p', 'q', 'r', 's', 't'].map((p) => `https://one.co.uk/${p}`);
+  const other = 'https://two.co.uk/x';
+  let index = mergeIndex(null, [...subs.map((u) => res(u, A)), ...uk.map((u) => res(u, A)), res(other, A)], { date: '2026-11-01' });
+  index = mergeIndex(index, [...subs.map((u) => res(u, B)), ...uk.map((u, i) => res(u, i === 0 ? B : A)), res(other, B)], { date: '2026-11-02' });
+  assert.deepEqual(index.resources[`GET ${subs[0]}`].pt.m, [5, 5], 'five subdomains of one site moved together');
+  assert.deepEqual(index.resources[`GET ${uk[0]}`].pt.m, [1, 5], 'one.co.uk: one of its own five moved, alone');
+  assert.deepEqual(index.resources[`GET ${other}`].pt.m, [1, 1], 'two.co.uk is its own site, not part of co.uk');
 });
