@@ -3,7 +3,7 @@
 // x402 Doctor has seen paying out day after day at a fair price, fills in its input, buys it with its own wallet and
 // returns the answer, checked by TypeSafe Jev, with a signed receipt (lib/buy/*).
 //
-//   POST /v1/buy { need }  $0.02 (x402: USDC on Base, Solana, Monad, Algorand or Stellar, RLUSD on the XRP Ledger): buys a
+//   POST /v1/buy { need }  $0.02 (x402: USDC on Base, Solana, Monad, Polygon, Arbitrum, Avalanche, Algorand or Stellar, RLUSD on the XRP Ledger): buys a
 //                          service of at most $0.01 (the inkoper itself pays on Base). Nothing is charged
 //                          when no service delivers (the paywall settles only a 2xx answer).
 //   GET  /v1/pick?need=…   free (10 an hour per caller): which service the inkoper would buy, and why.
@@ -47,7 +47,7 @@ const { createFacilitatorStart } = require('./lib/facilitator-start');
 const { onPublicHost } = require('./lib/public-host');
 const { postOnlyTerms } = require('./lib/post-only');
 const { fizzlCors } = require('./lib/fizzl-cors');
-const { mirrorChallengeIntoBody, onlyNetworks, xrplPayTo, algorandPayTo, stellarPayTo, xlayerPayTo, usdt0Amount, stellarFacilitator, monadPayTo, monadFacilitator, ALGORAND, STELLAR, XLAYER, XLAYER_USDT0, MONAD, DEFAULT_ALGORAND_FACILITATOR } = require('./lib/paid-api');
+const { mirrorChallengeIntoBody, onlyNetworks, xrplPayTo, algorandPayTo, stellarPayTo, xlayerPayTo, usdt0Amount, stellarFacilitator, monadPayTo, monadFacilitator, extraEvmAccepts, EXTRA_EVM, EXTRA_EVM_NAMES, ALGORAND, STELLAR, XLAYER, XLAYER_USDT0, MONAD, DEFAULT_ALGORAND_FACILITATOR } = require('./lib/paid-api');
 const { merchantExtension, builderCodeExtension } = require('./lib/merchant');
 const { createPaymentRetry, paymentIdentifierExtension } = require('./lib/payment-retry');
 const { createSigner, signPaidResponses, paymentOf } = require('./lib/receipt');
@@ -110,10 +110,10 @@ const OUTPUT_EXAMPLE = {
   tried: 1,
 };
 
-// The networks a route takes, in words: "USDC on Base or Solana", "USDC on Base, Solana, Monad, Algorand or Stellar, or RLUSD on
+// The networks a route takes, in words: "USDC on Base or Solana", "USDC on Base, Solana, Monad, Polygon, Arbitrum, Avalanche, Algorand or Stellar, or RLUSD on
 // the XRP Ledger".
 function networksText(accepts) {
-  const names = { [BASE]: 'Base', [SOLANA]: 'Solana', [ALGORAND]: 'Algorand', [STELLAR]: 'Stellar', [MONAD]: 'Monad' };
+  const names = { [BASE]: 'Base', [SOLANA]: 'Solana', [MONAD]: 'Monad', ...EXTRA_EVM_NAMES, [ALGORAND]: 'Algorand', [STELLAR]: 'Stellar' };
   const usdc = accepts.map((a) => names[a.network]).filter(Boolean);
   const list = usdc.length > 1 ? `${usdc.slice(0, -1).join(', ')} or ${usdc.at(-1)}` : usdc[0];
   const other = [accepts.some((a) => a.network === XRPL) && 'RLUSD on the XRP Ledger', accepts.some((a) => a.network === XLAYER) && 'USD₮0 on X Layer'].filter(Boolean);
@@ -141,6 +141,8 @@ function routesFor(env) {
     ...(xlayer ? [{ scheme: 'exact', price: { amount: usdt0Amount(price), asset: XLAYER_USDT0, extra: { name: 'USD₮0', version: '1' } }, network: XLAYER, payTo: xlayer, maxTimeoutSeconds: 300 }] : []),
     // USDC on Monad (lib/paid-api.js), settled by CDP, or the facilitator in Monad's guide where CDP doesn't list it.
     ...(monad ? [{ scheme: 'exact', price, network: MONAD, payTo: monad, maxTimeoutSeconds: 300 }] : []),
+    // USDC on Polygon, Arbitrum and Avalanche (lib/paid-api.js), settled by CDP or PayAI.
+    ...extraEvmAccepts(env, price, { maxTimeoutSeconds: 300 }),
   ];
   return {
     [`POST ${BUY_ROUTE}`]: {
@@ -589,6 +591,7 @@ if (require.main === module) {
     .register(STELLAR, new ExactStellarScheme())
     .register(XLAYER, new ExactEvmScheme())
     .register(MONAD, new ExactEvmScheme());
+  for (const network of Object.values(EXTRA_EVM)) resourceServer.register(network, new ExactEvmScheme());
   const routes = routesFor(env);
   start.attach(resourceServer, [...new Set(routes[`POST ${BUY_ROUTE}`].accepts.map((a) => a.network))]);
   // The challenge names buy.fizzl.eu also when called on the Render address.
