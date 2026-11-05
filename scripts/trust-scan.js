@@ -30,6 +30,7 @@ const { mergeStellarPayTos } = require('../lib/onchain-payments-stellar');
 const { mergeAlgorandPayTos } = require('../lib/onchain-payments-algorand');
 const { mergeXlayerPayTos } = require('../lib/onchain-payments-xlayer');
 const { mergeMonadPayTos } = require('../lib/onchain-payments-monad');
+const { KEYS: EVM_KEYS, CHAINS: EVM_CHAINS, mergeEvmPayTos } = require('../lib/onchain-payments-evm');
 const { createSanctions } = require('../lib/sanctions');
 const { readIndexDir, writeIndexDir } = require('../lib/index-files');
 
@@ -224,6 +225,13 @@ function merge(todo, done, { out }) {
   const monadPayTos = mergeMonadPayTos(read(monadPath), all, todo.date);
   fs.writeFileSync(monadPath, JSON.stringify(monadPayTos));
   console.log(`payout addresses on Monad: ${Object.keys(monadPayTos.pay_tos).length}`);
+  // And for Polygon and Arbitrum: USDC payout addresses (lib/onchain-payments-evm.js).
+  for (const key of EVM_KEYS) {
+    const p = path.join(out, `paytos-${key}.json`);
+    const merged = mergeEvmPayTos(key, read(p), all, todo.date);
+    fs.writeFileSync(p, JSON.stringify(merged));
+    console.log(`payout addresses on ${EVM_CHAINS[key].name}: ${Object.keys(merged.pay_tos).length}`);
+  }
   // Delivery evidence from nohumans.directory and PayAPI Market (lib/delivery-elsewhere.js). A source not read today
   // keeps yesterday's file.
   for (const [file, source, evidence, extra] of [

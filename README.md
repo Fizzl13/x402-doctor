@@ -519,6 +519,13 @@ Space waits in `hf-mcp/`. Doctor's own MCP server is `https://x402-doctor.fizzl.
   calls an hour at 0.3-second blocks; `lib/onchain-payments-monad.js`). The result is `payments-monad.json` on
   `payments-data`; `/api/trust/summary` adds `onchain_payments_monad` and `GET /api/trust/payments?network=monad` lists
   who got paid. `MONAD_RPC_URL` is asked before rpc.monad.xyz.
+- **Polygon and Arbitrum** (since 5 Nov 2026): the same count for USDC payout addresses on Polygon (eip155:137) and
+  Arbitrum (eip155:42161), the two biggest networks in the Trust Index that weren't counted (443 and 396 sellers on
+  5 Nov). The scan writes `paytos-polygon.json` and `paytos-arbitrum.json`; the hourly run reads the public nodes
+  (polygon-bor-rpc.publicnode.com, arb1.arbitrum.io; 10,000 blocks per call when the call names the USDC contract) and
+  writes `payments-polygon.json` and `payments-arbitrum.json` (`lib/onchain-payments-evm.js`). `/api/trust/summary`
+  adds `onchain_payments_polygon` and `onchain_payments_arbitrum`; `GET /api/trust/payments?network=polygon` (or
+  `arbitrum`) lists who got paid. `POLYGON_RPC_URL` and `ARBITRUM_RPC_URL` are asked before the public nodes.
 - **The daily scan, when GitHub skips it.** The scan's schedule fires four times a day and the first run does the day,
   but GitHub drops scheduled runs when it is busy (on 21 Oct the 03:17 run never started). From 04:15 UTC, every half
   hour, the Doctor checks the scan it serves; while that is the day before's, it starts `trust-scan.yml` with

@@ -157,6 +157,8 @@
   <p class="note" id="onchainAlgorandLine" hidden></p>
   <p class="note" id="onchainXlayerLine" hidden></p>
   <p class="note" id="onchainMonadLine" hidden></p>
+  <p class="note" id="onchainPolygonLine" hidden></p>
+  <p class="note" id="onchainArbitrumLine" hidden></p>
 
   <h2>Paid and delivered?</h2>
   <p class="note" id="spotLine" aria-live="polite">Loading the latest spot-buy…</p>
@@ -407,6 +409,16 @@
       const usdM = om.usd < 10 ? om.usd.toFixed(2) : fmt(Math.round(om.usd));
       $('onchainMonadLine').textContent = `On Monad: ${periodM}, ${fmt(om.payers)} different wallets made ${fmt(om.payments)} signed USDC payments ($${usdM}) to ${fmt(om.pay_tos_paid)} of the ${fmt(om.watched)} Monad payout addresses here.${om.pay_tos_paid_only_wide ? ` ${fmt(om.pay_tos_paid_only_wide)} of those were paid only by wallets that pay ${om.wide_sellers} or more of them, as checkers and scanners do.` : ''}${om.pay_tos_closed_loop ? ` ${fmt(om.pay_tos_closed_loop)} ${om.pay_tos_closed_loop === 1 ? 'looks' : 'look'} like a closed loop: every ordinary payer received the money back from the payout address.` : ''}`;
       $('onchainMonadLine').hidden = false;
+    }
+    // And on Polygon and Arbitrum: USDC payments the payer signed with EIP-3009, as on Base (lib/onchain-payments-evm.js).
+    for (const [key, name] of [['polygon', 'Polygon'], ['arbitrum', 'Arbitrum']]) {
+      const oe = s[`onchain_payments_${key}`];
+      if (!oe || !oe.payments) continue;
+      const periodE = oe.days === 1 ? 'yesterday' : `in the last ${oe.days} days`;
+      const usdE = oe.usd < 10 ? oe.usd.toFixed(2) : fmt(Math.round(oe.usd));
+      const lineE = $(`onchain${name}Line`);
+      lineE.textContent = `On ${name}: ${periodE}, ${fmt(oe.payers)} different wallets made ${fmt(oe.payments)} signed USDC payments ($${usdE}) to ${fmt(oe.pay_tos_paid)} of the ${fmt(oe.watched)} ${name} payout addresses here.${oe.pay_tos_paid_only_wide ? ` ${fmt(oe.pay_tos_paid_only_wide)} of those were paid only by wallets that pay ${oe.wide_sellers} or more of them, as checkers and scanners do.` : ''}`;
+      lineE.hidden = false;
     }
     renderReasons(s);
     renderServices(s.services);

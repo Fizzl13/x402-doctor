@@ -31,6 +31,7 @@ const { collectStellar, PUBLIC_HORIZON } = require('../lib/onchain-payments-stel
 const { collectAlgorand, PUBLIC_INDEXER } = require('../lib/onchain-payments-algorand');
 const { collectXlayer, PUBLIC_RPC: XLAYER_PUBLIC_RPC } = require('../lib/onchain-payments-xlayer');
 const { collectMonad, PUBLIC_RPC: MONAD_PUBLIC_RPC } = require('../lib/onchain-payments-monad');
+const { KEYS: EVM_KEYS, CHAINS: EVM_CHAINS, collectEvm } = require('../lib/onchain-payments-evm');
 
 function arg(name, fallback) {
   const i = process.argv.indexOf(`--${name}`);
@@ -142,6 +143,24 @@ async function monad() {
   console.log(`Monad: ${payTos.length} payout addresses watched; last 7 days: ${JSON.stringify(totalsOf(state))}`);
 }
 
+// Polygon and Arbitrum (lib/onchain-payments-evm.js): --polygon-paytos / --polygon-state, --arbitrum-paytos /
+// --arbitrum-state; POLYGON_RPC_URL and ARBITRUM_RPC_URL (optional) are asked before the public node.
+async function evm(key) {
+  const c = EVM_CHAINS[key];
+  const listPath = arg(`${key}-paytos`, null);
+  if (!listPath) return;
+  const statePath = arg(`${key}-state`, `payments-data/payments-${key}.json`);
+  const payTos = Object.keys(read(listPath)?.pay_tos || {});
+  if (!payTos.length) {
+    console.log(`no payout addresses on ${c.name} yet (paytos-${key}.json comes with the next Trust Index scan); nothing to do`);
+    return;
+  }
+  const nodes = [process.env[c.env]?.trim(), c.rpc].filter(Boolean);
+  const state = await collectEvm(key, read(statePath), { payTos, nodes, log: (line) => console.log(`${c.name}: ${line}`) });
+  fs.writeFileSync(statePath, JSON.stringify(state));
+  console.log(`${c.name}: ${payTos.length} payout addresses watched; last 7 days: ${JSON.stringify(totalsOf(state))}`);
+}
+
 async function main() {
   // Base first: it is the established count, and a Solana, XRPL, Stellar, Algorand, X Layer or Monad problem must not hold it up.
   await base();
@@ -151,6 +170,7 @@ async function main() {
   await algorand().catch((err) => console.error('Algorand:', err));
   await xlayer().catch((err) => console.error('X Layer:', err));
   await monad().catch((err) => console.error('Monad:', err));
+  for (const key of EVM_KEYS) await evm(key).catch((err) => console.error(`${EVM_CHAINS[key].name}:`, err));
 }
 
 main().catch((err) => {
