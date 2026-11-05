@@ -527,6 +527,13 @@ Space waits in `hf-mcp/`. Doctor's own MCP server is `https://x402-doctor.fizzl.
   writes `payments-polygon.json` and `payments-arbitrum.json` (`lib/onchain-payments-evm.js`). `/api/trust/summary`
   adds `onchain_payments_polygon` and `onchain_payments_arbitrum`; `GET /api/trust/payments?network=polygon` (or
   `arbitrum`) lists who got paid. `POLYGON_RPC_URL` and `ARBITRUM_RPC_URL` are asked before the public nodes.
+- **Avalanche and Optimism** (since 5 Nov 2026): the same count on Avalanche C-Chain (eip155:43114, 62 sellers)
+  and Optimism (eip155:10, 46 sellers), through avalanche-c-chain-rpc.publicnode.com and
+  optimism-rpc.publicnode.com (10,000 blocks per call). Files `paytos-avalanche.json`, `paytos-optimism.json`,
+  `payments-avalanche.json` and `payments-optimism.json`; `onchain_payments_avalanche` and
+  `onchain_payments_optimism` in the summary; `?network=avalanche` or `optimism` on `/api/trust/payments`.
+  `AVALANCHE_RPC_URL` and `OPTIMISM_RPC_URL` are asked first. World Chain, Arc and HyperEVM are not counted yet: their
+  free nodes serve only 100 to 1,000 blocks per call, or not reliably.
 - **The daily scan, when GitHub skips it.** The scan's schedule fires four times a day and the first run does the day,
   but GitHub drops scheduled runs when it is busy (on 21 Oct the 03:17 run never started). From 04:15 UTC, every half
   hour, the Doctor checks the scan it serves; while that is the day before's, it starts `trust-scan.yml` with
