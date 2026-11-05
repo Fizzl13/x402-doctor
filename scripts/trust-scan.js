@@ -225,7 +225,7 @@ function merge(todo, done, { out }) {
   const monadPayTos = mergeMonadPayTos(read(monadPath), all, todo.date);
   fs.writeFileSync(monadPath, JSON.stringify(monadPayTos));
   console.log(`payout addresses on Monad: ${Object.keys(monadPayTos.pay_tos).length}`);
-  // And for Polygon and Arbitrum: USDC payout addresses (lib/onchain-payments-evm.js).
+  // And for Polygon, Arbitrum, Avalanche and Optimism: USDC payout addresses (lib/onchain-payments-evm.js).
   for (const key of EVM_KEYS) {
     const p = path.join(out, `paytos-${key}.json`);
     const merged = mergeEvmPayTos(key, read(p), all, todo.date);

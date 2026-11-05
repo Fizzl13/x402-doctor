@@ -143,8 +143,8 @@ async function monad() {
   console.log(`Monad: ${payTos.length} payout addresses watched; last 7 days: ${JSON.stringify(totalsOf(state))}`);
 }
 
-// Polygon and Arbitrum (lib/onchain-payments-evm.js): --polygon-paytos / --polygon-state, --arbitrum-paytos /
-// --arbitrum-state; POLYGON_RPC_URL and ARBITRUM_RPC_URL (optional) are asked before the public node.
+// Polygon, Arbitrum, Avalanche and Optimism (lib/onchain-payments-evm.js): --<key>-paytos / --<key>-state, with
+// <key> polygon, arbitrum, avalanche or optimism; <NAME>_RPC_URL (optional, e.g. AVALANCHE_RPC_URL) is asked first.
 async function evm(key) {
   const c = EVM_CHAINS[key];
   const listPath = arg(`${key}-paytos`, null);

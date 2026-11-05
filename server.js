@@ -747,12 +747,12 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
       typeof onchainPayments.totalsXlayer === 'function' ? onchainPayments.totalsXlayer().catch(() => null) : null,
       typeof onchainPayments.totalsMonad === 'function' ? onchainPayments.totalsMonad().catch(() => null) : null,
     ]);
-    // Polygon and Arbitrum (lib/onchain-payments-evm.js): onchain_payments_polygon, onchain_payments_arbitrum.
+    // Polygon, Arbitrum, Avalanche and Optimism (lib/onchain-payments-evm.js): onchain_payments_<key>.
     const evmTotals = typeof onchainPayments.totalsEvm === 'function' ? await Promise.all(EVM_KEYS.map((k) => onchainPayments.totalsEvm(k).catch(() => null))) : [];
     const evmPart = Object.fromEntries(EVM_KEYS.map((k, i) => [`onchain_payments_${k}`, evmTotals[i]]).filter(([, v]) => v));
     res.json({ ...summary, onchain_payments: onchain, ...(onchainSolana ? { onchain_payments_solana: onchainSolana } : {}), ...(onchainXrpl ? { onchain_payments_xrpl: onchainXrpl } : {}), ...(onchainStellar ? { onchain_payments_stellar: onchainStellar } : {}), ...(onchainAlgorand ? { onchain_payments_algorand: onchainAlgorand } : {}), ...(onchainXlayer ? { onchain_payments_xlayer: onchainXlayer } : {}), ...(onchainMonad ? { onchain_payments_monad: onchainMonad } : {}) , ...evmPart });
   });
-  // Who gets paid on the XRP Ledger, Stellar, Algorand, X Layer, Monad, Polygon or Arbitrum (free, public data): every watched payout address that received
+  // Who gets paid on the XRP Ledger, Stellar, Algorand, X Layer, Monad, Polygon, Arbitrum, Avalanche or Optimism (free, public data): every watched payout address that received
   // x402 payments in the last 7 complete days (Base and Solana: the 100 paid most), with its XRPL AI Hub name or its endpoints' hosts, and
   // how many of its payers pay ten or more sellers (fleets, checkers). The /xrpl, /stellar and /algorand pages read it.
   const SELLER_LISTS = {

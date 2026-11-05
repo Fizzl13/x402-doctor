@@ -19,7 +19,15 @@ const pad = (a) => `0x${a.toLowerCase().slice(2).padStart(64, '0')}`;
 const hex = (n) => `0x${n.toString(16)}`;
 
 test('Polygon and Arbitrum: Circle\'s USDC, their CAIP-2 ids and public nodes', () => {
-  assert.deepEqual(KEYS, ['polygon', 'arbitrum']);
+  assert.deepEqual(KEYS, ['polygon', 'arbitrum', 'avalanche', 'optimism']);
+  assert.equal(keyOf('eip155:43114'), 'avalanche');
+  assert.equal(keyOf('eip155:10'), 'optimism');
+  assert.equal(CHAINS.avalanche.usdc, '0xb97ef9ef8734c71904d8002f8b6bc66dd9c48a6e');
+  assert.equal(CHAINS.optimism.usdc, '0x0b2c639c533813f4aa9d7837caf62653d097ff85');
+  // The reader's own list (lib/onchain-payments.js can't require this file) must name the same chains.
+  const { EVM_KEYS, EVM_NETWORKS } = require('../lib/onchain-payments');
+  assert.deepEqual(EVM_KEYS, KEYS);
+  for (const k of KEYS) assert.equal(EVM_NETWORKS[k], CHAINS[k].network, k);
   assert.equal(CHAINS.polygon.network, 'eip155:137');
   assert.equal(POLY_USDC, '0x3c499c542cef5e3811e1192ce70d8cc03d5c3359');
   assert.equal(CHAINS.arbitrum.network, 'eip155:42161');
