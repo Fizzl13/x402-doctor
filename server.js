@@ -25,6 +25,7 @@ const { createTrustReader } = require('./lib/trust-reader');
 const { Readable } = require('node:stream');
 const { createTrustSubmissions } = require('./lib/trust-submissions');
 const { createOnchainPayments } = require('./lib/onchain-payments');
+const { KEYS: EVM_KEYS, CHAINS: EVM_CHAINS } = require('./lib/onchain-payments-evm');
 const { createDemand } = require('./lib/jev-demand');
 const { createSpotResults } = require('./lib/spot-results');
 const { createDeliveryElsewhere } = require('./lib/delivery-elsewhere');
@@ -746,9 +747,12 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
       typeof onchainPayments.totalsXlayer === 'function' ? onchainPayments.totalsXlayer().catch(() => null) : null,
       typeof onchainPayments.totalsMonad === 'function' ? onchainPayments.totalsMonad().catch(() => null) : null,
     ]);
-    res.json({ ...summary, onchain_payments: onchain, ...(onchainSolana ? { onchain_payments_solana: onchainSolana } : {}), ...(onchainXrpl ? { onchain_payments_xrpl: onchainXrpl } : {}), ...(onchainStellar ? { onchain_payments_stellar: onchainStellar } : {}), ...(onchainAlgorand ? { onchain_payments_algorand: onchainAlgorand } : {}), ...(onchainXlayer ? { onchain_payments_xlayer: onchainXlayer } : {}), ...(onchainMonad ? { onchain_payments_monad: onchainMonad } : {}) });
+    // Polygon and Arbitrum (lib/onchain-payments-evm.js): onchain_payments_polygon, onchain_payments_arbitrum.
+    const evmTotals = typeof onchainPayments.totalsEvm === 'function' ? await Promise.all(EVM_KEYS.map((k) => onchainPayments.totalsEvm(k).catch(() => null))) : [];
+    const evmPart = Object.fromEntries(EVM_KEYS.map((k, i) => [`onchain_payments_${k}`, evmTotals[i]]).filter(([, v]) => v));
+    res.json({ ...summary, onchain_payments: onchain, ...(onchainSolana ? { onchain_payments_solana: onchainSolana } : {}), ...(onchainXrpl ? { onchain_payments_xrpl: onchainXrpl } : {}), ...(onchainStellar ? { onchain_payments_stellar: onchainStellar } : {}), ...(onchainAlgorand ? { onchain_payments_algorand: onchainAlgorand } : {}), ...(onchainXlayer ? { onchain_payments_xlayer: onchainXlayer } : {}), ...(onchainMonad ? { onchain_payments_monad: onchainMonad } : {}) , ...evmPart });
   });
-  // Who gets paid on the XRP Ledger, Stellar, Algorand, X Layer or Monad (free, public data): every watched payout address that received
+  // Who gets paid on the XRP Ledger, Stellar, Algorand, X Layer, Monad, Polygon or Arbitrum (free, public data): every watched payout address that received
   // x402 payments in the last 7 complete days (Base and Solana: the 100 paid most), with its XRPL AI Hub name or its endpoints' hosts, and
   // how many of its payers pay ten or more sellers (fleets, checkers). The /xrpl, /stellar and /algorand pages read it.
   const SELLER_LISTS = {
@@ -759,13 +763,16 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     algorand: { fn: 'sellersAlgorand', none: 'no complete day of Algorand payments yet (counting started on 27 Oct 2026); try again later' },
     xlayer: { fn: 'sellersXlayer', none: 'no complete day of X Layer payments yet (counting starts the day after the next Trust Index scan); try again later' },
     monad: { fn: 'sellersMonad', none: 'no complete day of Monad payments yet (counting starts the day after the next Trust Index scan); try again later' },
+    ...Object.fromEntries(EVM_KEYS.map((k) => [k, { evm: k, none: `no complete day of ${EVM_CHAINS[k].name} payments yet (counting starts the day after the next Trust Index scan); try again later` }])),
   };
   app.get('/api/trust/payments', trustLimit, async (req, res) => {
     const network = String(req.query.network || '').trim().toLowerCase();
     const which = Object.hasOwn(SELLER_LISTS, network) ? SELLER_LISTS[network] : null;
-    if (!which) return res.status(400).json({ error: 'network is required; supported: base, solana, xrpl, stellar, algorand, xlayer, monad (/api/trust/payments?network=xrpl)' });
+    if (!which) return res.status(400).json({ error: `network is required; supported: ${Object.keys(SELLER_LISTS).join(', ')} (/api/trust/payments?network=xrpl)` });
     res.set('Cache-Control', 'public, max-age=600').set('Access-Control-Allow-Origin', '*');
-    const list = typeof onchainPayments[which.fn] === 'function' ? await onchainPayments[which.fn]({ waitMs: 3000, ...(which.limit ? { limit: which.limit } : {}) }).catch(() => null) : null;
+    const list = which.evm
+      ? (typeof onchainPayments.sellersEvm === 'function' ? await onchainPayments.sellersEvm(which.evm, { waitMs: 3000 }).catch(() => null) : null)
+      : typeof onchainPayments[which.fn] === 'function' ? await onchainPayments[which.fn]({ waitMs: 3000, ...(which.limit ? { limit: which.limit } : {}) }).catch(() => null) : null;
     if (!list) return res.status(503).json({ error: which.none });
     res.json(list);
   });
