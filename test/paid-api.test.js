@@ -650,3 +650,20 @@ test('delivery check: the bare route gives the 402; without a job store an order
   assert.match(home, /\/api\/v1\/delivery-check\?\$\{q\}/);
   assert.match(home, /\/api\/v1\/delivery-check\/\$\{id\}/);
 });
+
+test('the 402 header carries the Bazaar output schemas without descriptions; openapi.json keeps them', async () => {
+  const { headerSchema, DEEP_SCHEMA } = require('../lib/paid-api');
+  const descriptions = (s) => JSON.stringify(s).match(/"description":"/g)?.length || 0;
+  assert.ok(descriptions(DEEP_SCHEMA) > 0);
+  assert.equal(descriptions(headerSchema(DEEP_SCHEMA)), 0);
+  // Shape kept: a property that is itself named "description" stays, and so do types, enums and required.
+  assert.deepEqual(headerSchema({ type: 'object', description: 'x', properties: { description: { type: 'string', description: 'y' } }, required: ['description'] }), { type: 'object', properties: { description: { type: 'string' } }, required: ['description'] });
+  const res = await fetch(`${api}/api/v1/preflight/deep?url=${encodeURIComponent(targetUrl)}`);
+  assert.equal(res.status, 402);
+  const header = JSON.parse(Buffer.from(res.headers.get('payment-required'), 'base64').toString());
+  const output = header.extensions.bazaar.schema.properties.output;
+  assert.equal(descriptions(output), 0);
+  assert.ok(JSON.stringify(output).includes('"not_checked"'));
+  const openapi = await (await fetch(`${api}/openapi.json`)).json();
+  assert.ok(descriptions(openapi.paths['/api/v1/preflight/deep']) > 0, 'openapi.json keeps the descriptions');
+});
