@@ -3,7 +3,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const { privateKeyToAccount } = require('viem/accounts');
-const { verifyConcordiumPayees, badgeNetwork, cardBadge, registryCall, sha256Hex, clearConcordiumCache } = require('../lib/concordium-agent');
+const { verifyConcordiumPayees, badgeNetwork, cardBadge, registryCall, sha256Hex, clearConcordiumCache, externalKeyAddress } = require('../lib/concordium-agent');
 const { checkConcordiumAgent } = require('../lib/diagnose');
 
 const TESTNET = 'ccd:4221332d34e1694168c2a0c0b3fd0f27';
@@ -283,4 +283,21 @@ test('lookupBadge: a badge on its own, from its short form or the registry app\'
   assert.match((await lookupBadge(tokenAddress(999))).issues[0], /not a token of the official/);
   clearConcordiumCache();
   assert.match((await lookupBadge(BADGE, { fetchImpl: registry({ agent_by_token_address: null }).fetchImpl })).issues[0], /no agent/);
+});
+
+test('externalKeyAddress: a compressed secp256k1 key gives the same EVM address as the uncompressed one', () => {
+  for (const pk of [`0x${'11'.repeat(32)}`, `0x${'2a'.repeat(32)}`, `0x${'7f'.repeat(31)}01`]) {
+    const acct = privateKeyToAccount(pk);
+    const full = acct.publicKey.slice(2); // 04||x||y
+    const x = full.slice(2, 66);
+    const yOdd = BigInt(`0x${full.slice(66)}`) & 1n;
+    const compressed = `${yOdd ? '03' : '02'}${x}`;
+    const want = acct.address.toLowerCase();
+    assert.equal(externalKeyAddress({ key_type: 'secp256k1-uncompressed', public_key_hex: full }), want);
+    assert.equal(externalKeyAddress({ key_type: 'secp256k1-compressed', public_key_hex: compressed }), want);
+  }
+  // A key an XDC agent bound on Concordium mainnet (token 3175), against @noble/curves.
+  assert.equal(externalKeyAddress({ key_type: 'secp256k1-compressed', public_key_hex: '03772c30dde9ad7a9a5a23e1db44ef772f0b10a9275417b147c1fab380dc9db4cb' }), '0x23d9a42da5536038481849ac06233ebd6fba775b');
+  assert.equal(externalKeyAddress({ key_type: 'secp256k1-compressed', public_key_hex: `02${'ff'.repeat(32)}` }), null, 'x beyond the field');
+  assert.equal(externalKeyAddress({ key_type: 'secp256k1-compressed', public_key_hex: `04${'11'.repeat(32)}` }), null, 'wrong prefix');
 });
