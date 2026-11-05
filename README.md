@@ -746,14 +746,17 @@ an agent must not pay, all refused:
 app can't do after registration, for any agent, signed in the owner's own wallets. It pins the card's hash, and it binds
 an EVM payTo (MetaMask signs one message, the Concordium wallet signs `setExternalReference`).
 
-The registry today (2 Nov 2026, read through Concordium's service):
+The registry on 5 Nov 2026 (every agent and every card, read through Concordium's service):
 
-- Mainnet has 5,118 agents from 107 owners. One owner holds 1,419 of them.
-- 4,007 have an agent wallet, and every one of those wallets is the owner's own account.
-- In a random sample of 200 Active cards, 161 could be fetched and 159 matched their on-chain hash.
-- None of those 161 cards declares `x402Support`.
+- Mainnet has 5,121 agents from 108 owners. Every agent wallet that is set is the owner's own account.
+- 2,429 agents bind a key on another chain with CIS-8 (NEAR, Ethereum, Solana, Fetch.ai, XDC, Celo, Base), most of
+  them in a few large fleets.
+- 22 of the cards that could be fetched mention x402. Some x402 sellers bind a key on their payment chain, for example
+  as one of the owners of the agent's wallet on XDC.
+- x402 Doctor (agent #5120) is the only one whose x402 payTo is itself the key bound to its badge.
 
-So nothing links a Concordium agent to the wallet it is paid at on another chain yet. That link is what this check reads.
+That link, from the badge to the address a buyer is about to pay, is what this check reads. Keys bound uncompressed
+or compressed are both read.
 
 Path to production:
 
