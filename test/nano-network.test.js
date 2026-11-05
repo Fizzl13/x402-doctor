@@ -7,7 +7,8 @@ const http = require('node:http');
 const { preflight } = require('../lib/preflight');
 const { diagnose } = require('../lib/diagnose');
 const { createSafeFetch } = require('../lib/safe-fetch');
-const { isNanoAddress, familyOf } = require('../lib/networks');
+const { isNanoAddress, isNanoFormat, nanoPublicKey, familyOf } = require('../lib/networks');
+const { blake2b } = require('../lib/blake2b');
 
 const PAY_TO = 'nano_1xug1q5t7nxoj3ywwzokiea9jz8fq8qfgzp8pbyfr3co3e5xgj755uofu8ue';
 function seller(accept) {
@@ -64,4 +65,32 @@ test('preflight: a network x402 Doctor does not know is unknown_network, not tes
   // A known testnet is still testnet_only.
   const t = await preflight(await seller({ network: 'eip155:84532', asset: '0x036CbD53842c5426634e7929541eC2318f3dCF7e', amount: '10000', payTo: '0x1111111111111111111111111111111111111111', extra: { name: 'USDC', version: '2' } }), { safeFetch });
   assert.ok(t.reasons.some((x) => x.code === 'testnet_only'), JSON.stringify(t.reasons));
+});
+
+test('Nano account checksum: the spec\'s accounts pass, a one-character typo fails (pursekeeper.dev, 5 Nov 2026)', () => {
+  // From the test vectors of the exact scheme on Nano (x402-foundation/x402#3432): payTo decodes to this key.
+  assert.equal(nanoPublicKey(PAY_TO), '776E05C7A2D3B5887DCE7EB2831078FCCDB9AED77EC6B27CDC05550B07D744A3');
+  for (const a of ['nano_3ah94brzdm3e5nzzpstzcyxgkddt3ydgzi4478jshawrh7gtof5sb8twxqxt', 'nano_3qgmh14nwztqw4wmcdzy4xpqeejey68chx6nciczwn9abji7ihhum9qtpmdr', 'nano_1i3y944esngqw6wb6ia68dotj4yuqctch9kx8ct65twt8ewi4rdcfgax7ggf', 'nano_3t6k35gi95xu6tergt6p69ck76ogmitsa8mnijtpxm9fkcm736xtoncuohr3']) {
+    assert.equal(isNanoAddress(a), true, a);
+  }
+  const typo = `${PAY_TO.slice(0, 20)}${PAY_TO[20] === 'a' ? 'b' : 'a'}${PAY_TO.slice(21)}`;
+  assert.equal(isNanoFormat(typo), true);
+  assert.equal(isNanoAddress(typo), false);
+  const badCheck = `${PAY_TO.slice(0, -1)}${PAY_TO.endsWith('1') ? '3' : '1'}`;
+  assert.equal(isNanoAddress(badCheck), false, 'last character changed');
+  // BLAKE2b (RFC 7693, appendix A): "abc" with a 64-byte digest.
+  assert.equal(blake2b(Buffer.from('abc'), 64).toString('hex').slice(0, 32), 'ba80a53f981c4d0d6a2797b69f12f6e9');
+});
+
+test('diagnose: a Nano payTo with a bad checksum, and amounts that are not a decimal integer string, fail', async () => {
+  const by = (r, id) => r.checks.find((c) => c.id === id);
+  const typo = `${PAY_TO.slice(0, 20)}${PAY_TO[20] === 'a' ? 'b' : 'a'}${PAY_TO.slice(21)}`;
+  const r = await diagnose(await seller(nano({ payTo: typo })), { safeFetch });
+  assert.equal(by(r, 'accepts[0]-payto').status, 'fail');
+  assert.match(by(r, 'accepts[0]-payto').message, /checksum/);
+  for (const [amount, why] of [[1e27, /JSON number/], ['1e27', /no exponent or decimal point/], ['1000.5', /no exponent or decimal point/], ['0', /positive integer/], ['-5', /positive integer/]]) {
+    const x = await diagnose(await seller(nano({ amount })), { safeFetch });
+    assert.equal(by(x, 'accepts[0]-amount').status, 'fail', String(amount));
+    assert.match(by(x, 'accepts[0]-amount').message, why, String(amount));
+  }
 });
