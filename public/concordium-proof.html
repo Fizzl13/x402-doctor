@@ -6,7 +6,7 @@
 <link rel="canonical" href="https://x402-doctor.fizzl.eu/concordium-proof.html">
 <link rel="icon" href="/favicon.ico">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Make a zero-knowledge proof with your Concordium wallet that a verified adult (or an EU resident) stands behind your x402 seller, tied to its payTo and its site. Nothing else about you is revealed.">
+<meta name="description" content="Make a zero-knowledge proof with your Concordium wallet that a verified adult (or an EU resident) stands behind your x402 seller, tied to its payTo and its site, or behind your paying agent, tied to the account it pays from. Nothing else about you is revealed.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700&family=Unbounded:wght@600;700&display=swap">
@@ -40,14 +40,19 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>Prove who stands behind your seller</h1>
-  <p class="sub">Every Concordium account comes from an identity a regulated identity provider verified. With your Concordium wallet you can prove facts about that identity, such as "an adult" or "lives in the EU", as a zero-knowledge proof: the buyer learns that the fact holds, and nothing else about you. This page ties the proof to your x402 seller's payTo and site, so it can't be copied to another one. x402 Doctor never sees your identity or a key.</p>
+  <h1 id="title">Prove who stands behind your seller</h1>
+  <p class="sub">Every Concordium account comes from an identity a regulated identity provider verified. With your Concordium wallet you can prove facts about that identity, such as "an adult" or "lives in the EU", as a zero-knowledge proof: the other side learns that the fact holds, and nothing else about you. x402 Doctor never sees your identity or a key.</p>
 
   <div class="step">
-    <h2>1. Your seller</h2>
+    <h2>1. Who proves</h2>
+    <label for="role">Prove it for</label>
+    <select id="role"><option value="seller">My x402 seller (the account buyers pay)</option><option value="buyer">My paying agent (the account it pays from)</option></select>
+    <p id="role-note"></p>
+    <div id="seller-only">
     <label for="url">The paid endpoint (its site is what the proof is tied to)</label>
     <input id="url" autocomplete="off" spellcheck="false" placeholder="https://your-site.example/paid">
-    <label for="payTo">payTo: the Concordium account buyers pay (the proof must come from this account)</label>
+    </div>
+    <label for="payTo" id="account-label">payTo: the Concordium account buyers pay (the proof must come from this account)</label>
     <input id="payTo" autocomplete="off" spellcheck="false">
     <label for="network">Network</label>
     <select id="network"><option value="testnet">Concordium testnet</option><option value="mainnet">Concordium mainnet</option></select>
@@ -64,16 +69,17 @@
 
   <div class="step">
     <h2>3. Prove it with your Concordium wallet</h2>
-    <p>Uses the Concordium Wallet for Web (Chrome or Brave). Choose the payTo account when the wallet asks. The proof is then checked with Concordium's verifier.</p>
+    <p>Uses the Concordium Wallet for Web (Chrome or Brave). Choose <span id="which">the payTo account</span> when the wallet asks. The proof is then checked with Concordium's verifier.</p>
     <button id="prove">Connect and prove</button>
     <div id="log"></div>
     <table id="table" hidden><tbody></tbody></table>
   </div>
 
   <div class="step" id="out" hidden>
-    <h2>4. Publish it on your site</h2>
-    <p>Serve this file at <code id="where"></code>. Concordium x402 facilitators that check sellers (<a href="https://concordium-facilitator.onrender.com" target="_blank" rel="noopener">this one</a>) read it before they sponsor a payment to your payTo. It is public: it holds the proof and the facts proved, nothing else.</p>
-    <button id="download">Download concordium-proof.json</button>
+    <h2 id="out-title">4. Publish it on your site</h2>
+    <p id="out-seller">Serve this file at <code id="where"></code>. Concordium x402 facilitators that check sellers (<a href="https://concordium-facilitator.onrender.com" target="_blank" rel="noopener">this one</a>) read it before they sponsor a payment to your payTo. It is public: it holds the proof and the facts proved, nothing else.</p>
+    <p id="out-buyer" hidden>Give this file to your agent. It sends it with a payment, as <code>extensions["concordium-buyer-proof"]</code> in the x402 payment payload, to sellers that ask for it (their 402 names the facts in <code>extra.buyerProof</code>). <a href="https://concordium-facilitator.onrender.com" target="_blank" rel="noopener">This facilitator</a> checks it before it sponsors the payment: it must come from the account that pays. It is not a secret: it holds the proof and the facts proved, nothing else, and is worthless from any other account.</p>
+    <button id="download">Download <span id="file-name">concordium-proof.json</span></button>
     <button id="copy">Copy</button>
   </div>
 </div>
@@ -86,8 +92,32 @@ const ISSUERS = Array.from({ length: 16 }, (_, i) => i);
 const $ = (id) => document.getElementById(id);
 const q = new URLSearchParams(location.search);
 $('url').value = q.get('url') || '';
-$('payTo').value = q.get('payTo') || '';
+$('payTo').value = q.get('payTo') || q.get('account') || '';
 if (q.get('network') === 'mainnet') $('network').value = 'mainnet';
+if (q.get('role') === 'buyer') $('role').value = 'buyer';
+// Seller: the proof is tied to one site and one payTo, served at /.well-known/concordium-proof.json. Buyer: tied to the
+// account the agent pays from, sent along with its payments.
+const ROLE = {
+  seller: { title: 'Prove who stands behind your seller', note: 'The proof is tied to your seller\'s payTo and site, so it can\'t be copied to another one.', label: 'payTo: the Concordium account buyers pay (the proof must come from this account)', which: 'the payTo account', name: 'concordium-proof.json' },
+  buyer: { title: 'Prove who stands behind your paying agent', note: 'For sellers that only sell to, say, adults or EU residents: the proof is tied to the account your agent pays from, so it is worthless from any other account.', label: 'The Concordium account your agent pays from (the proof must come from this account)', which: 'that account', name: 'concordium-buyer-proof.json' },
+};
+function showRole() {
+  const r = ROLE[$('role').value];
+  const buyer = $('role').value === 'buyer';
+  $('title').textContent = r.title;
+  document.title = r.title;
+  $('role-note').textContent = r.note;
+  $('account-label').textContent = r.label;
+  $('which').textContent = r.which;
+  $('file-name').textContent = r.name;
+  $('seller-only').hidden = buyer;
+  $('out-title').textContent = buyer ? '4. Give it to your agent' : '4. Publish it on your site';
+  $('out-seller').hidden = buyer;
+  $('out-buyer').hidden = !buyer;
+  $('out').hidden = true;
+}
+$('role').onchange = showRole;
+showRole();
 const log = (m, cls) => { const d = document.createElement('div'); if (cls) d.className = cls; d.textContent = m; $('log').appendChild(d); };
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 let file = null;
@@ -96,8 +126,10 @@ async function sha256Hex(text) {
   const h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return [...new Uint8Array(h)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
-// The challenge ties the proof to one network, one site and one payTo (the facilitator recomputes it).
+// The challenge ties the proof to one network, one site and one payTo (the facilitator recomputes it); a buyer's to
+// one network and the account it pays from.
 const challengeFor = (network, origin, payTo) => sha256Hex(`concordium-x402-seller-proof:v1|${network}|${origin}|${payTo}`);
+const buyerChallengeFor = (network, account) => sha256Hex(`concordium-x402-buyer-proof:v1|${network}|${account}`);
 const today = () => new Date().toISOString().slice(0, 10).replace(/-/g, '');
 
 $('prove').onclick = async () => {
@@ -108,10 +140,13 @@ $('prove').onclick = async () => {
   file = null;
   try {
     const network = $('network').value;
-    let origin;
-    try { const u = new URL($('url').value.trim()); if (u.protocol !== 'https:') throw new Error(); origin = u.origin.toLowerCase(); } catch { throw new Error('Give the paid endpoint as an https URL.'); }
+    const buyer = $('role').value === 'buyer';
+    let origin = null;
+    if (!buyer) {
+      try { const u = new URL($('url').value.trim()); if (u.protocol !== 'https:') throw new Error(); origin = u.origin.toLowerCase(); } catch { throw new Error('Give the paid endpoint as an https URL.'); }
+    }
     const payTo = $('payTo').value.trim();
-    if (!/^[1-9A-HJ-NP-Za-km-z]{50}$/.test(payTo)) throw new Error('payTo must be a Concordium account address.');
+    if (!/^[1-9A-HJ-NP-Za-km-z]{50}$/.test(payTo)) throw new Error(buyer ? 'Give the account your agent pays from (a Concordium account address).' : 'payTo must be a Concordium account address.');
     const proves = [['p-age', 'adult'], ['p-eu-res', 'eu-residence'], ['p-eu-nat', 'eu-nationality'], ['p-doc', 'id-document-valid']].filter(([id]) => $(id).checked).map(([, k]) => k);
     if (!proves.length) throw new Error('Pick at least one fact to prove.');
     const provider = window.concordium;
@@ -127,7 +162,7 @@ $('prove').onclick = async () => {
       if (proves.includes('eu-nationality')) b.addEUNationality();
       if (proves.includes('id-document-valid')) b.addRange('idDocExpiresAt', today(), '99991231');
     }).getStatements();
-    const challenge = await challengeFor(network, origin, payTo);
+    const challenge = buyer ? await buyerChallengeFor(network, payTo) : await challengeFor(network, origin, payTo);
     log('Confirm the proof in your wallet…');
     const vp = await provider.requestVerifiablePresentation(challenge, statements);
     const presentation = JSON.parse(typeof vp === 'string' ? vp : typeof vp?.toString === 'function' && vp.toString() !== '[object Object]' ? vp.toString() : JSON.stringify(vp));
@@ -137,23 +172,25 @@ $('prove').onclick = async () => {
     if (res.status !== 200) throw new Error(`Concordium's verifier refused the proof (${res.status}): ${text.slice(0, 200)}`);
     const verified = JSON.parse(text);
     // The proof is bound to presentationContext (the challenge the wallet proved for). The verifier checked the proofs
-    // against it; here we check it is ours, so the proof is tied to this network, site and payTo.
+    // against it; here we check it is ours, so the proof is tied to this network, site and payTo (or paying account).
     if (String(presentation.presentationContext || '').toLowerCase() !== challenge) throw new Error(`The wallet proved for another challenge (${presentation.presentationContext}).`);
     const echoed = verified?.request?.challenge ?? verified?.challenge;
     if (echoed && String(echoed).toLowerCase() !== challenge) throw new Error(`The verifier answered for another challenge (${echoed}).`);
     const cred = (presentation.verifiableCredential || [])[0]?.credentialSubject?.id || '';
-    file = { type: 'concordium-x402-seller-proof', version: 1, network, origin, payTo, proves, challenge, created: new Date().toISOString(), presentation };
+    file = buyer
+      ? { type: 'concordium-x402-buyer-proof', version: 1, network, account: payTo, proves, challenge, created: new Date().toISOString(), presentation }
+      : { type: 'concordium-x402-seller-proof', version: 1, network, origin, payTo, proves, challenge, created: new Date().toISOString(), presentation };
     $('table').hidden = false;
     $('table').querySelector('tbody').innerHTML = [
       ['Proof', '<span class="ok">valid (Concordium verifier) ✓</span>'],
       ['Proves', esc(proves.join(', '))],
-      ['Tied to', `${esc(origin)}<br>${esc(payTo)}`],
+      ['Tied to', buyer ? `payments from ${esc(payTo)}` : `${esc(origin)}<br>${esc(payTo)}`],
       ['Credential', esc(cred)],
       ['Verified in block', esc(verified.block || '')],
     ].map(([k, v]) => `<tr><th>${k}</th><td>${v}</td></tr>`).join('');
-    $('where').textContent = `${origin}/.well-known/concordium-proof.json`;
+    if (!buyer) $('where').textContent = `${origin}/.well-known/concordium-proof.json`;
     $('out').hidden = false;
-    log('Done: the proof is valid. Publish it (step 4).', 'ok');
+    log(buyer ? 'Done: the proof is valid. Give it to your agent (step 4).' : 'Done: the proof is valid. Publish it (step 4).', 'ok');
   } catch (err) {
     log(err?.message || String(err), 'bad');
   } finally {
@@ -164,7 +201,7 @@ $('download').onclick = () => {
   if (!file) return;
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' }));
-  a.download = 'concordium-proof.json';
+  a.download = ROLE[$('role').value].name;
   a.click();
 };
 $('copy').onclick = async () => { if (file) { await navigator.clipboard.writeText(JSON.stringify(file, null, 2)); $('copy').textContent = 'Copied'; } };

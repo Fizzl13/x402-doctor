@@ -762,6 +762,10 @@ Fizzl13/x402-examples reads it before it sponsors a payment. Nothing else about 
 x402 Doctor's web check reads it too: when a seller serves one for a Concordium payTo in its 402, the check
 `concordium-proof` says what is proven (pass), or why the proof doesn't hold (warn: another site or payTo, a proof that
 doesn't verify with Concordium's verifier, or a credential that isn't the payTo account's own).
+The same page in buyer mode ([`?role=buyer`](https://x402-doctor.fizzl.eu/concordium-proof.html?role=buyer)) makes
+the other side's proof: facts about the person behind the account a paying agent pays from, tied to that account. The
+agent sends it with its payments (`extensions["concordium-buyer-proof"]`) to sellers that ask for it
+(`extra.buyerProof` in their 402, e.g. `["adult"]`), and the facilitator checks it before it sponsors the payment.
 
 The registry on 5 Nov 2026 (every agent and every card, read through Concordium's service):
 
