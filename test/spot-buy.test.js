@@ -10,7 +10,7 @@ const { ExactEvmScheme } = require('@x402/evm/exact/client');
 const { createSafeFetch } = require('../lib/safe-fetch');
 const { createSanctions } = require('../lib/sanctions');
 const { recordPayments } = require('../lib/spot-wallet');
-const { selectCandidates, runSpotBuy, classify, summarize, reasonOf, cacheRisk, exampleRequest, isoWeek, ownTarget, INDEX_PAYMENT, indexCapFor, staleRoutes, LIMITS, USER_AGENT } = require('../lib/spot-buy');
+const { selectCandidates, selectRetests, summarizeRetests, runSpotBuy, classify, summarize, reasonOf, cacheRisk, exampleRequest, isoWeek, ownTarget, INDEX_PAYMENT, indexCapFor, staleRoutes, LIMITS, USER_AGENT } = require('../lib/spot-buy');
 
 const BASE = 'eip155:8453';
 const USDC = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
@@ -38,6 +38,52 @@ test('selection: go x402 resources on Base under the cap, https, not ours or tes
   assert.deepEqual(selectCandidates(index, { n: 10, capUsd: 0.05, seed: 'w1' }).picks, one.picks, 'same seed, same sample');
   assert.equal(selectCandidates(index, { n: 1, capUsd: 0.05, seed: 'w1' }).picks.length, 1);
   assert.match(isoWeek(new Date('2026-10-12T00:00:00Z')), /^2026-W42$/);
+});
+
+test('re-checks: sellers whose last purchase failed on their side, still eligible, once per failure, apart from the sample', () => {
+  const r = (h, price) => ({ h, last: { verdict: 'go', price_usd: price, networks: [BASE] } });
+  const index = { days: ['2026-11-06'], resources: {
+    'https://lost.example/x': r('ggg', 0.01),
+    'https://refused.example/x': r('ggg', 0.01),
+    'https://fine.example/x': r('ggg', 0.01),
+    'https://plain.example/x': r('ggg', 0.01),
+    'https://example-err.example/x': r('ggg', 0.01),
+    'https://gone.example/y': r('ggg', 0.01),
+    'https://nowcaution.example/x': r('ggc', 0.01),
+    'https://again.example/x': r('ggg', 0.01),
+    'https://old.example/x': r('ggg', 0.01),
+    'https://sampled.example/x': r('ggg', 0.01),
+  } };
+  const res = (host, result, extra = {}) => ({ url: `https://${host}/x`, host, result, ...extra });
+  const history = [
+    { date: '2026-08-30', results: [res('old.example', 'payment_rejected')] }, // older than 56 days
+    { date: '2026-10-25', results: [res('again.example', 'payment_rejected'), res('fine.example', 'charged_not_delivered')] },
+    { date: '2026-11-01', results: [
+      res('lost.example', 'charged_not_delivered'),
+      res('refused.example', 'payment_rejected', { reason: 'settlement failed: invalid_payload' }),
+      res('fine.example', 'delivered'), // fixed since: its latest purchase counts
+      res('plain.example', 'error_not_charged', { request: { source: 'plain' } }), // likely our input, not their fault
+      res('example-err.example', 'error_not_charged', { request: { source: 'example' } }),
+      res('gone.example', 'empty'), // that URL is no longer in the index
+      res('nowcaution.example', 'off_schema'), // not go today
+      res('sampled.example', 'empty'), // in this week's random sample already
+    ], retests: { results: [res('again.example', 'payment_rejected')] } }, // re-checked once already: no loop
+  ];
+  const now = Date.parse('2026-11-08T12:00:00Z');
+  const picks = selectRetests(history, index, { n: 10, capUsd: 0.05, exclude: new Set(['sampled.example']), now });
+  assert.deepEqual(picks.map((p) => p.host), ['lost.example', 'refused.example', 'example-err.example'], 'money lost first, then a refused payment');
+  assert.deepEqual(picks.find((p) => p.host === 'refused.example').previous, { date: '2026-11-01', result: 'payment_rejected', reason: 'settlement failed: invalid_payload' });
+  assert.equal(selectRetests(history, index, { n: 2, capUsd: 0.05, now }).length, 2);
+  assert.deepEqual(selectRetests([], index, { now }), []);
+
+  const sum = summarizeRetests([
+    { host: 'lost.example', step: 'paid', result: 'delivered', previous: { result: 'charged_not_delivered' } },
+    { host: 'refused.example', step: 'paid', result: 'payment_rejected' },
+    { host: 'example-err.example', step: 'preflight', result: 'not_go_now' },
+  ], picks);
+  assert.deepEqual([sum.rechecked, sum.fixed, sum.still_failing, sum.not_bought], [2, 1, 1, 1]);
+  assert.deepEqual(sum.hosts[1], { host: 'refused.example', before: 'payment_rejected', now: 'payment_rejected' });
+  assert.equal(sum.hosts[2].before, 'error_not_charged', 'before taken from the candidate when the result has none');
 });
 
 test('classify: 2xx with content, schema, empty, 402 again, errors with and without a charge', () => {

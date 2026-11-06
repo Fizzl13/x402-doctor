@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 // Weekly spot-buy sample (run by .github/workflows/spot-buy.yml). See lib/spot-buy.js.
 //
-//   node scripts/spot-buy.js --index trust-data/index.json --out spot-data [--n 30] [--cap 0.05] [--budget 2] [--seed 2026-10-18] [--dry]
+//   node scripts/spot-buy.js --index trust-data/index.json --out spot-data [--history spot-history/results] [--retest 3]
+//     [--n 30] [--cap 0.05] [--budget 2] [--seed 2026-10-18] [--dry]
+//
+// --history: the earlier run reports (the spot-data branch's results/). After the random sample, up to --retest sellers
+// whose last purchase failed on their side are bought again, within the same budget, and reported apart (retests).
 //
 // Pays only with the key in SPOT_BUY_KEY: a dedicated wallet holding a few USDC on Base, never a payout or
 // personal wallet. Without the key (or with --dry) it does everything up to the payment and pays nothing.
@@ -13,7 +17,7 @@ const { createSafeFetch } = require('../lib/safe-fetch');
 const { createSanctions } = require('../lib/sanctions');
 const { checkSettlement } = require('../lib/settlement');
 const { createSpotWallet } = require('../lib/spot-wallet');
-const { selectCandidates, runSpotBuy, DEFAULTS, LIMITS, OUTCOMES, BASE } = require('../lib/spot-buy');
+const { selectCandidates, selectRetests, summarizeRetests, runSpotBuy, RETEST, DEFAULTS, LIMITS, OUTCOMES, BASE } = require('../lib/spot-buy');
 const { readIndexFile } = require('../lib/index-files');
 const { createAnswerCheck } = require('../lib/jev-answer');
 
@@ -35,6 +39,13 @@ async function main() {
 
   const index = readIndexFile(indexPath);
   const { pool, picks } = selectCandidates(index, { n, capUsd, seed });
+  const historyDir = arg('history', null);
+  const retestN = Math.max(0, Math.min(num(arg('retest', process.env.SPOT_BUY_RETEST), RETEST.n), 10));
+  const history = historyDir && fs.existsSync(historyDir)
+    ? fs.readdirSync(historyDir).filter((f) => /^\d{4}-\d{2}-\d{2}(-\d+)?\.json$/.test(f)).map((f) => { try { return JSON.parse(fs.readFileSync(path.join(historyDir, f), 'utf8')); } catch { return null; } }).filter(Boolean)
+    : [];
+  const retests = selectRetests(history, index, { n: retestN, capUsd, exclude: new Set(picks.map((p) => p.host)) });
+  console.log(`re-checks: ${retests.length} of ${history.length} earlier runs (${retests.map((r) => `${r.host} ${r.previous.result}`).join(', ') || 'none due'})`);
   console.log(`index ${index.days?.at(-1)}: ${pool.resources} candidates on ${pool.hosts} hosts; sample ${picks.length} (seed ${seed}), cap $${capUsd}, budget $${budgetUsd}, ${dry ? 'DRY RUN' : 'LIVE'}`);
 
   const sanctions = createSanctions();
@@ -50,7 +61,7 @@ async function main() {
   }
 
   const startedAt = new Date().toISOString();
-  const { results, summary } = await runSpotBuy(picks, {
+  const deps = {
     safeFetch: createSafeFetch({ allowPrivate: false, timeoutMs: 15000 }),
     payFetch,
     sanctions,
@@ -61,7 +72,12 @@ async function main() {
     log: (line) => console.log(line),
     // Is each answer what was paid for (TypeSafe's Jev, with TYPESAFE_API_KEY)? No hurry here: a longer wait than live.
     answer: createAnswerCheck({ timeoutMs: 10000 }),
-  });
+  };
+  const { results, summary } = await runSpotBuy(picks, deps);
+  // The re-checks, within what is left of the same budget, reported apart so the sample stays random.
+  const left = Math.max(0, budgetUsd - (summary.spent_usd || 0));
+  const re = retests.length && left > 0 ? await runSpotBuy(retests, { ...deps, budgetUsd: left }) : null;
+  const retest = re ? { rules: { n: retestN, max_age_days: RETEST.maxAgeDays }, summary: { ...summarizeRetests(re.results, retests), spent_usd: re.summary.spent_usd }, results: re.results } : null;
 
   const date = startedAt.slice(0, 10);
   const report = {
@@ -77,8 +93,10 @@ async function main() {
     summary,
     outcomes_legend: OUTCOMES,
     results,
+    ...(retest ? { retests: retest } : {}),
   };
   console.log(JSON.stringify(summary, null, 2));
+  if (retest) console.log('re-checks', JSON.stringify(retest.summary, null, 2));
   if (!dry) {
     fs.mkdirSync(out, { recursive: true });
     fs.writeFileSync(path.join(out, `${date}.json`), JSON.stringify(report, null, 2));
@@ -86,6 +104,7 @@ async function main() {
   }
   if (process.env.GITHUB_STEP_SUMMARY) {
     const lines = [`## Spot-buy ${date} (${dry ? 'dry run, nothing paid' : 'live'})`, '', `Sample ${picks.length} of ${pool.resources} "go" endpoints on ${pool.hosts} hosts (seed ${seed}); cap $${capUsd} per call, budget $${budgetUsd}.`, '', '```json', JSON.stringify(summary, null, 2), '```', '', '| Result | Price | Endpoint |', '|---|---|---|', ...results.map((r) => `| ${r.result} | ${r.price_usd ?? ''} | ${r.url} |`)];
+    if (retest) lines.push('', `### Re-checks (${retest.summary.rechecked} bought again, ${retest.summary.fixed} fixed)`, '', '| Before | Now | Endpoint |', '|---|---|---|', ...retest.results.map((r) => `| ${r.previous?.result ?? ''} | ${r.result} | ${r.url} |`));
     fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join('\n') + '\n');
   }
 }
