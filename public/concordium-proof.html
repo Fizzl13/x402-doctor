@@ -69,7 +69,7 @@
 
   <div class="step">
     <h2>3. Prove it with your Concordium wallet</h2>
-    <p>Uses the Concordium Wallet for Web (Chrome or Brave). Choose <span id="which">the payTo account</span> when the wallet asks. The proof is then checked with Concordium's verifier.</p>
+    <p>Uses the Concordium Wallet for Web (Chrome or Brave). Make <span id="which">the payTo account</span> the active account in the wallet first: the wallet proves with the active account. The proof is then checked with Concordium's verifier.</p>
     <button id="prove">Connect and prove</button>
     <div id="log"></div>
     <table id="table" hidden><tbody></tbody></table>
@@ -87,6 +87,9 @@
 <script type="module">
 const GENESIS = { testnet: '4221332d34e1694168c2a0c0b3fd0f27', mainnet: '9dd9ca4d19e9393877d2c44b70f89acb' };
 const VERIFIER = { testnet: 'https://web3id-verifier.testnet.concordium.com/v0/verify', mainnet: 'https://web3id-verifier.mainnet.concordium.software/v0/verify' };
+// An account's encryption key ends with the registration id of its first credential: how the page (like x402 Doctor's
+// check and the facilitator) knows which account a proof's credential belongs to.
+const WALLET_PROXY = { testnet: 'https://wallet-proxy.testnet.concordium.com', mainnet: 'https://wallet-proxy.mainnet.concordium.software' };
 // Any identity provider on the network: the proof says which one issued the identity.
 const ISSUERS = Array.from({ length: 16 }, (_, i) => i);
 const $ = (id) => document.getElementById(id);
@@ -154,7 +157,7 @@ $('prove').onclick = async () => {
     const [account] = await provider.requestAccounts();
     const chain = String(await provider.getSelectedChain() || '');
     if (!chain.startsWith(GENESIS[network])) throw new Error(`Switch the wallet to ${network} and try again.`);
-    if (account !== payTo) log(`The wallet's selected account is ${account}; choose ${payTo} when it asks which account proves.`, 'warn');
+    if (account !== payTo) log(`The wallet's active account is ${account}, not ${payTo}. The proof will only hold if it comes from ${payTo}: switch to it in the wallet if the proof fails.`, 'warn');
     const sdk = await import('https://esm.sh/@concordium/web-sdk@12.0.2');
     const statements = new sdk.Web3StatementBuilder().addForIdentityCredentials(ISSUERS, (b) => {
       if (proves.includes('adult')) b.addMinimumAge(18);
@@ -177,6 +180,13 @@ $('prove').onclick = async () => {
     const echoed = verified?.request?.challenge ?? verified?.challenge;
     if (echoed && String(echoed).toLowerCase() !== challenge) throw new Error(`The verifier answered for another challenge (${echoed}).`);
     const cred = (presentation.verifiableCredential || [])[0]?.credentialSubject?.id || '';
+    // The wallet proves with the account that is active in it, whichever one this page names: check that the credential
+    // is the named account's own, or the file would be refused everywhere.
+    const credId = String(cred.split(':cred:')[1] || '').toLowerCase();
+    let key = '';
+    try { key = String((await (await fetch(`${WALLET_PROXY[network]}/v0/accEncryptionKey/${payTo}`)).json())?.accountEncryptionKey || '').toLowerCase(); } catch { key = ''; }
+    if (!key) log(`Could not read account ${payTo} to check that the proof came from it.`, 'warn');
+    else if (!credId || !key.endsWith(credId)) throw new Error(`The wallet proved with another account's credential (${credId.slice(0, 12)}…), not ${payTo}'s. In the wallet, make ${payTo.slice(0, 8)}… the active account first, then try again.`);
     file = buyer
       ? { type: 'concordium-x402-buyer-proof', version: 1, network, account: payTo, proves, challenge, created: new Date().toISOString(), presentation }
       : { type: 'concordium-x402-seller-proof', version: 1, network, origin, payTo, proves, challenge, created: new Date().toISOString(), presentation };
