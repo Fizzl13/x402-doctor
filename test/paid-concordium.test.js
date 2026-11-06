@@ -61,17 +61,19 @@ test('the scheme copies the facilitator\'s sponsor into extra.feePayer, and take
   await assert.rejects(s.parsePrice('$0.05', CONCORDIUM_MAINNET));
   const r = await s.enhancePaymentRequirements({ amount: '50000', asset: 'USDR', extra: { decimals: 6 } }, { extra: { feePayer: SPONSOR } });
   assert.deepEqual(r.extra, { decimals: 6, feePayer: SPONSOR });
-  assert.deepEqual((await s.enhancePaymentRequirements({ extra: {} }, { extra: { feePayer: 'nope' } })).extra, {});
+  assert.deepEqual((await s.enhancePaymentRequirements({ extra: {} }, { extra: { feePayer: 'nope', prepare: 'http://ccd.example/prepare' } })).extra, {}, 'no plain-http prepare endpoint');
+  assert.equal((await s.enhancePaymentRequirements({ extra: {} }, { extra: { feePayer: SPONSOR, prepare: 'https://ccd.example/prepare' } })).extra.prepare, 'https://ccd.example/prepare', 'the sponsor-first endpoint rides along');
 });
 
 test('402: the fix route offers USDR on Concordium with the sponsor as fee payer; x402 Doctor\'s own check passes it', async () => {
   const payai = await facilitator([{ x402Version: 2, scheme: 'exact', network: BASE }]);
-  const ccd = await facilitator([{ x402Version: 2, scheme: 'exact', network: CONCORDIUM_MAINNET, extra: { feePayer: SPONSOR } }]);
+  const ccd = await facilitator([{ x402Version: 2, scheme: 'exact', network: CONCORDIUM_MAINNET, extra: { feePayer: SPONSOR, prepare: 'https://ccd.example/prepare' } }]);
   const env = { AGENT_PAYOUT_WALLET: PAY_TO_BASE, FACILITATOR_URL: payai, CONCORDIUM_PAY_TO: OWNER, CONCORDIUM_FACILITATOR_URL: ccd };
   const challenge = await challengeFor(env, `/api/v1/fix?url=${encodeURIComponent('https://example.com/')}`);
   const c = challenge.accepts.find((a) => a.network === CONCORDIUM_MAINNET);
   assert.ok(c, JSON.stringify(challenge.accepts.map((a) => a.network)));
   assert.deepEqual([c.scheme, c.amount, c.asset, c.payTo, c.extra.feePayer, c.extra.decimals], ['exact', '50000', 'USDR', OWNER, SPONSOR, 6]);
+  assert.equal(c.extra.prepare, 'https://ccd.example/prepare', 'where a browser wallet asks for a sponsor-first transaction');
   assert.ok(challenge.accepts.some((a) => a.network === BASE), 'Base stays');
   // The cheap preflight has no Concordium option.
   const cheap = await challengeFor(env, `/api/v1/preflight?url=${encodeURIComponent('https://example.com/')}`);
