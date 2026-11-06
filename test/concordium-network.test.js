@@ -92,3 +92,47 @@ test('preflight: a Concordium option is priced_on_concordium on a known mainnet,
   assert.deepEqual([r.options[0].network_name, r.options[0].testnet], ['Concordium', false]);
   assert.equal(r.verdict, 'caution');
 });
+
+// Zero-knowledge proofs on both sides (lib/concordium-proof.js): a seller that sells only to buyers who prove a fact
+// (extra.buyerProof), and the seller's own proof about who stands behind its payTo, in the web check and the preflight.
+test('diagnose: extra.buyerProof is an info line (what the buyer must prove, and how); unknown facts warn, with a recipe', async () => {
+  const r = await diagnose(await seller(ccd({ network: TESTNET, extra: { feePayer: FEE_PAYER, buyerProof: ['adult'] } })), { safeFetch });
+  const c = by(r, 'accepts[0]-buyer-proof');
+  assert.equal(c.status, 'info');
+  assert.match(c.message, /an adult \(18 or older\).*role=buyer.*concordium-buyer-proof/);
+  const bad = await diagnose(await seller(ccd({ network: TESTNET, extra: { feePayer: FEE_PAYER, buyerProof: ['rich'] } })), { safeFetch });
+  const w = by(bad, 'accepts[0]-buyer-proof');
+  assert.equal(w.status, 'warn');
+  assert.ok(RECIPES.some((x) => x.match(w)), 'has a fix recipe');
+  const plain = await diagnose(await seller(ccd()), { safeFetch });
+  assert.equal(by(plain, 'accepts[0]-buyer-proof'), undefined);
+});
+
+test('preflight: the seller\'s proof (verified is info, broken is caution) and the buyer proof a seller asks for', async () => {
+  const proven = { status: 'verified', network: 'testnet', payTo: PAY_TO, facts: ['adult', 'eu-residence'], issuer: 0, credential: 'a174', created: '2026-11-06T16:17:59.762Z' };
+  const url = await seller(ccd({ network: TESTNET, extra: { feePayer: FEE_PAYER, buyerProof: ['adult'] } }));
+  const r = await preflight(url, { safeFetch, concordiumProof: async () => proven });
+  const line = r.reasons.find((x) => x.code === 'concordium_seller_proof');
+  assert.equal(line.level, 'info');
+  assert.match(line.message, /proved with zero knowledge that they are an adult \(18 or older\) and lives in the EU/);
+  const ask = r.reasons.find((x) => x.code === 'concordium_buyer_proof_required');
+  assert.equal(ask.level, 'info');
+  assert.match(ask.message, /an adult \(18 or older\).*role=buyer/);
+  assert.equal(r.signals.concordium_proof.seller.status, 'verified');
+  assert.deepEqual(r.signals.concordium_proof.buyer_proof_required, [{ network: 'testnet', payTo: PAY_TO, facts: ['adult'], unknown: [] }]);
+  // A proof that doesn't hold (copied from another site) is caution, as a copied badge is.
+  const copied = await preflight(await seller(ccd()), { safeFetch, concordiumProof: async () => ({ status: 'invalid', reason: 'the proof is tied to https://other.example, not http://127.0.0.1' }) });
+  assert.ok(copied.reasons.some((x) => x.code === 'concordium_seller_proof_invalid' && x.level === 'caution' && /tied to https:\/\/other\.example/.test(x.message)), JSON.stringify(copied.reasons));
+  // Facts no facilitator checks: caution.
+  const odd = await preflight(await seller(ccd({ extra: { feePayer: FEE_PAYER, buyerProof: ['rich'] } })), { safeFetch });
+  assert.ok(odd.reasons.some((x) => x.code === 'concordium_buyer_proof_unknown' && x.level === 'caution'));
+  // No proof served, Concordium's services unreachable, or no Concordium option: nothing added.
+  for (const p of [null, { status: 'not-read', reason: 'verifier down' }]) {
+    const q = await preflight(await seller(ccd()), { safeFetch, concordiumProof: async () => p });
+    assert.ok(!q.reasons.some((x) => x.code.startsWith('concordium_')), JSON.stringify(q.reasons));
+    assert.equal(q.signals.concordium_proof, undefined);
+  }
+  // The real check against a seller that serves no proof: nothing changes.
+  const real = await preflight(await seller(ccd()), { safeFetch, concordium: true });
+  assert.ok(!real.reasons.some((x) => x.code.startsWith('concordium_seller')), JSON.stringify(real.reasons));
+});

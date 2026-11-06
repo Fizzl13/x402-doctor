@@ -866,6 +866,13 @@ the other side's proof: facts about the person behind the account a paying agent
 agent sends it with its payments (`extensions["concordium-buyer-proof"]`) to sellers that ask for it
 (`extra.buyerProof` in their 402, e.g. `["adult"]`), and the facilitator checks it before it sponsors the payment.
 
+The paid preflight tells an agent both before it pays. The seller's proof is an info line (`concordium_seller_proof`:
+what the person behind the payTo proved), or caution when it doesn't hold (`concordium_seller_proof_invalid`, as a
+copied badge is). A seller that asks for a buyer proof is an info line (`concordium_buyer_proof_required`: which facts,
+where to make the proof, how to send it; without it the facilitator refuses before anything is signed); facts no
+facilitator checks are caution (`concordium_buyer_proof_unknown`). Both are in `signals.concordium_proof`. The web check
+shows the buyer-proof requirement per option (`accepts[i]-buyer-proof`).
+
 The registry on 5 Nov 2026 (every agent and every card, read through Concordium's service):
 
 - Mainnet has 5,121 agents from 108 owners. Every agent wallet that is set is the owner's own account.
