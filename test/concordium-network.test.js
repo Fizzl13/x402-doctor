@@ -1,7 +1,7 @@
-// Concordium payment options (ccd:): a known network with a Concordium account as payTo, CCD or a protocol-level
-// token as asset and an atomic amount. No x402 scheme or facilitator settles Concordium payments yet (Nov 2026), so
-// Doctor checks the shape and says so (preflight no_settlement_yet), instead of "unknown network" (a seller building a
-// Concordium x402 challenge asked for this on 6 Nov 2026).
+// Concordium payment options (ccd:): x402's exact scheme on Concordium (specs/schemes/exact/scheme_exact_concordium.md,
+// @x402/concordium). A known network with a Concordium account as payTo, CCD or a protocol-level token as asset, an
+// atomic amount and the facilitator's sponsor account in extra.feePayer. Not a dollar stablecoin, so the preflight
+// says priced_on_concordium (max_usd unchecked) instead of "unknown network".
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
@@ -14,6 +14,7 @@ const { RECIPES } = require('../lib/recipes');
 const MAINNET = 'ccd:9dd9ca4d19e9393877d2c44b70f89acb';
 const TESTNET = 'ccd:4221332d34e1694168c2a0c0b3fd0f27';
 const PAY_TO = '3dt3UMPzRASZndjmKpSWgCP2HhmoxZrgs8FDPtZjNHZzj13hhB'; // a real mainnet account (checksum OK)
+const FEE_PAYER = '4nkWEqH5534jL4LkSQAuL6zZdZugaU171DXqVvWB7uHbecuYS6'; // a facilitator's sponsor account
 function seller(accept) {
   return new Promise((resolve) => {
     const server = http.createServer((req, res) => {
@@ -29,7 +30,7 @@ function seller(accept) {
   });
 }
 const safeFetch = createSafeFetch({ allowPrivate: true });
-const ccd = (over = {}) => ({ network: MAINNET, asset: 'CCD', amount: '10000', payTo: PAY_TO, ...over });
+const ccd = (over = {}) => ({ network: MAINNET, asset: 'CCD', amount: '10000', payTo: PAY_TO, extra: { feePayer: FEE_PAYER }, ...over });
 const by = (r, id) => r.checks.find((c) => c.id === id);
 
 test('Concordium accounts and the concordium family', () => {
@@ -48,11 +49,25 @@ test('diagnose: a CCD option is checked as Concordium, with the settlement note'
   assert.equal(by(r, 'accepts[0]-payto').status, 'pass');
   assert.match(by(r, 'accepts[0]-amount').message, /0\.01 CCD, 6 decimals/);
   assert.equal(by(r, 'accepts[0]-settlement').status, 'info');
+  assert.match(by(r, 'accepts[0]-settlement').message, /@x402\/concordium/);
+  assert.doesNotMatch(by(r, 'accepts[0]-settlement').message, /no x402 scheme|exists yet/);
+  assert.equal(by(r, 'accepts[0]-feepayer').status, 'pass');
   assert.deepEqual(r.checks.filter((c) => c.id.startsWith('accepts[0]') && (c.status === 'fail' || c.status === 'warn')).map((c) => c.message), []);
 });
 
+test('diagnose: extra.feePayer missing (warn), not a Concordium account or the payTo itself (fail), with a recipe', async () => {
+  const none = await diagnose(await seller(ccd({ extra: {} })), { safeFetch });
+  assert.equal(by(none, 'accepts[0]-feepayer').status, 'warn');
+  assert.equal(RECIPES.find((x) => x.match({ ...by(none, 'accepts[0]-feepayer'), option: 0 })).key, 'concordium-feepayer');
+  const evm = await diagnose(await seller(ccd({ extra: { feePayer: '0x1111111111111111111111111111111111111111' } })), { safeFetch });
+  assert.equal(by(evm, 'accepts[0]-feepayer').status, 'fail');
+  assert.equal(RECIPES.find((x) => x.match({ ...by(evm, 'accepts[0]-feepayer'), option: 0 })).key, 'concordium-feepayer');
+  const self = await diagnose(await seller(ccd({ extra: { feePayer: PAY_TO } })), { safeFetch });
+  assert.match(by(self, 'accepts[0]-feepayer').message, /equals payTo/);
+});
+
 test('diagnose: a PLT option shows its amount with extra.decimals; mistakes fail', async () => {
-  const plt = await diagnose(await seller(ccd({ asset: 'EURR', amount: '2500000', extra: { decimals: 6 } })), { safeFetch });
+  const plt = await diagnose(await seller(ccd({ asset: 'EURR', amount: '2500000', extra: { feePayer: FEE_PAYER, decimals: 6 } })), { safeFetch });
   assert.match(by(plt, 'accepts[0]-amount').message, /2\.5 EURR, 6 decimals/);
   const noDecimals = await diagnose(await seller(ccd({ asset: 'EURR', amount: '2500000' })), { safeFetch });
   assert.equal(by(noDecimals, 'accepts[0]-amount').status, 'pass');
@@ -68,10 +83,11 @@ test('diagnose: a PLT option shows its amount with extra.decimals; mistakes fail
   assert.equal(by(amount, 'accepts[0]-amount').status, 'fail');
 });
 
-test('preflight: a Concordium option is no_settlement_yet on a known mainnet, not unknown_network', async () => {
+test('preflight: a Concordium option is priced_on_concordium on a known mainnet, not unknown_network', async () => {
   const r = await preflight(await seller(ccd()), { safeFetch });
   const codes = r.reasons.map((x) => x.code);
-  assert.ok(codes.includes('no_settlement_yet'), JSON.stringify(r.reasons));
+  assert.ok(codes.includes('priced_on_concordium'), JSON.stringify(r.reasons));
+  assert.ok(!codes.includes('no_settlement_yet'));
   assert.ok(!codes.includes('unknown_network') && !codes.includes('unknown_asset'), JSON.stringify(r.reasons));
   assert.deepEqual([r.options[0].network_name, r.options[0].testnet], ['Concordium', false]);
   assert.equal(r.verdict, 'caution');
