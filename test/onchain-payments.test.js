@@ -16,7 +16,7 @@ const hex = (n) => `0x${n.toString(16)}`;
 
 // A node whose chain tip is `tip` (2-second blocks, tip at headIso). transfers: [block, from, to, micro-USDC, signed].
 // limits: { maxSpan } refuses wider getLogs ranges; { archiveBelow } refuses blocks older than that.
-function fakeNode({ tip, headIso, transfers, maxSpan = Infinity, archiveBelow = 0 }) {
+function fakeNode({ tip, headIso, transfers, maxSpan = Infinity, archiveBelow = 0, blockSeconds = 2 }) {
   const calls = [];
   const logs = transfers.map(([block, from, to, value, signed], i) => ({ block, from: from.toLowerCase(), to: to.toLowerCase(), value, signed, tx: `0x${String(i + 1).padStart(64, '0')}` }));
   const reply = (result) => ({ ok: true, status: 200, json: async () => ({ jsonrpc: '2.0', id: 1, result }) });
@@ -27,7 +27,7 @@ function fakeNode({ tip, headIso, transfers, maxSpan = Infinity, archiveBelow = 
     if (method === 'eth_blockNumber') return reply(hex(tip));
     if (method === 'eth_getBlockByNumber') {
       const b = parseInt(params[0], 16);
-      return reply({ number: params[0], timestamp: hex(Date.parse(headIso) / 1000 - 2 * (tip - b)) });
+      return reply({ number: params[0], timestamp: hex(Math.round(Date.parse(headIso) / 1000 - blockSeconds * (tip - b))) });
     }
     if (method === 'eth_getLogs') {
       const f = params[0];
@@ -83,7 +83,7 @@ test('collect: signed USDC payments per payout address per day; unsigned transfe
   assert.deepEqual(state.pay_tos[P2].d['2026-10-19'], [1, 40000, [B.slice(2, 12)]]);
   assert.equal(state.pay_tos[P1].since, '2026-10-19');
   // First run: the last 9,000 blocks, split at midnight.
-  assert.deepEqual(state.days, { '2026-10-18': { covered: 8700 }, '2026-10-19': { covered: 301 } });
+  assert.deepEqual(state.days, { '2026-10-18': { covered: 8700, seconds: 17400 }, '2026-10-19': { covered: 301, seconds: 602 } });
   assert.match(lines.at(-1), /3 signed payments and 0 outgoing transfers added, up to block 100000/);
 
   // A day later: the window is the complete days before today that were read.
@@ -93,6 +93,33 @@ test('collect: signed USDC payments per payout address per day; unsigned transfe
   assert.deepEqual({ ...w, as_of: undefined }, { network: 'eip155:8453', pay_to: P1, days: 1, payments: 2, payers: 1, payers_wide: 0, payers_paid_back: 0, usd_paid_back: 0, usd: 0.03, coverage: 0.201, as_of: undefined });
   const t = totalsOf(later);
   assert.deepEqual([t.days, t.watched, t.pay_tos_paid, t.payments, t.payers, t.usd], [1, 2, 1, 2, 1, 0.03]);
+});
+
+test('collect: the block time is measured, so 0.2-second blocks (Base since 5 Nov 2026) land on the right day', async () => {
+  // Tip after 10 confirmations: block 100000 at 00:10:00 UTC on 19 Oct, 0.2 s blocks, so 19 Oct starts at block 97000.
+  const node = fakeNode({
+    tip: 100010,
+    headIso: '2026-10-19T00:10:02Z',
+    blockSeconds: 0.2,
+    transfers: [
+      [96000, A, P1, 10000, true], // 18 Oct, 23:56:40
+      [99000, A, P1, 20000, true], // 19 Oct, 00:06:40 (with 2-second blocks it would have counted as 18 Oct, 23:36)
+    ],
+  });
+  const state = await collect(null, { payTos: [P1], nodes: ['https://node.test'], fetchImpl: node.fetchImpl, now: () => Date.parse('2026-10-19T00:11:00Z') });
+  assert.deepEqual(state.pay_tos[P1].d['2026-10-18'], [1, 10000, [A.slice(2, 12)]]);
+  assert.deepEqual(state.pay_tos[P1].d['2026-10-19'], [1, 20000, [A.slice(2, 12)]]);
+  // 9,000 blocks of 0.2 s: 30 minutes, 20 of them before midnight.
+  assert.deepEqual(state.days, { '2026-10-18': { covered: 6000, seconds: 1200 }, '2026-10-19': { covered: 3001, seconds: 600 } });
+});
+
+test('coverage: seconds of the day read; days stored before 6 Nov 2026 count 43,200 blocks a day, marked days 1 of 1', () => {
+  const { dayCoverage } = require('../lib/onchain-payments');
+  assert.equal(dayCoverage({ days: { d: { covered: 21600 } } }, 'd'), 0.5, 'old Base day: blocks of 2 s');
+  assert.equal(dayCoverage({ days: { d: { covered: 432000, seconds: 86400 } } }, 'd'), 1, '0.2 s blocks, a full day');
+  assert.equal(dayCoverage({ days: { d: { covered: 201996, seconds: 90000 } } }, 'd'), 1, 'never above 1');
+  assert.equal(dayCoverage({ per_day: 1, days: { d: { covered: 1 } } }, 'd'), 1, 'Solana and the others mark a day read');
+  assert.equal(dayCoverage({ days: {} }, 'd'), 0);
 });
 
 test('wallets that pay 10 or more payout addresses (checkers, scanners) are counted apart, per address and in total', () => {

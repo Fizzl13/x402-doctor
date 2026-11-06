@@ -99,7 +99,7 @@ test('collectXlayer: signed USD₮0 and USDC payments per payout address per day
   assert.deepEqual(state.pay_tos[P1].d['2026-10-27'], [2, 30000, [A.slice(2, 12)]]);
   assert.deepEqual(state.pay_tos[P2].d['2026-10-28'], [1, 40000, [B.slice(2, 12)]]);
   // First run: the last 9,000 blocks (2.5 hours of 1-second blocks), split at midnight.
-  assert.deepEqual(state.days, { '2026-10-27': { covered: 8400 }, '2026-10-28': { covered: 601 } });
+  assert.deepEqual(state.days, { '2026-10-27': { covered: 8400, seconds: 8400 }, '2026-10-28': { covered: 601, seconds: 601 } });
   assert.match(lines.at(-1), /3 signed payments and 0 outgoing transfers added, up to block 50000/);
 
   // A Base file is never continued as X Layer's (another chain's block numbers).

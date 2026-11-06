@@ -18,6 +18,7 @@ const { groupServices, categoryOf, guessCategory, CATEGORIES } = require('../lib
 const { trackRecord } = require('../lib/trust-scan');
 const { readIndexFile } = require('../lib/index-files');
 const { viewOf } = require('../lib/spot-results');
+const { dayCoverage } = require('../lib/onchain-payments');
 
 const arg = (name, fallback) => { const i = process.argv.indexOf(`--${name}`); return i > 0 ? process.argv[i + 1] : fallback; };
 const readJson = (file) => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; } };
@@ -82,18 +83,17 @@ function spotRows(dir) {
 }
 
 // x402 payments per payout address and day (lib/onchain-payments.js and its Solana, XRP Ledger, Stellar and Algorand
-// counterparts, all the same shape), with how much of the day was read: Base counts blocks (43,200 a day), the others
-// mark a day read (per_day 1). Base's file names no network.
+// counterparts, all the same shape), with how much of the day was read (dayCoverage: the seconds of the day the blocks
+// read span on Base and the other EVM chains; the others mark a day read). Base's file names no network.
 function paymentRows(...states) {
   const rows = [];
   for (const state of states) {
     if (state?.version !== 1) continue;
     const network = state.network || 'eip155:8453';
-    const perDay = state.per_day || 43200;
     for (const [payTo, entry] of Object.entries(state.pay_tos || {})) {
       for (const [date, d] of Object.entries(entry.d || {})) {
         if (!d[0]) continue; // a day with only USDC sent out (closed-loop check), no payment in
-        rows.push({ date, pay_to: payTo, payments: d[0], usd: Math.round(d[1] / 1e4) / 100, payers: d[2].length, day_coverage: Math.min(1, Math.round(((state.days?.[date]?.covered || 0) / perDay) * 1000) / 1000), network });
+        rows.push({ date, pay_to: payTo, payments: d[0], usd: Math.round(d[1] / 1e4) / 100, payers: d[2].length, day_coverage: Math.round(dayCoverage(state, date) * 1000) / 1000, network });
       }
     }
   }
