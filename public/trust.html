@@ -166,7 +166,7 @@
   <p class="note" id="spotLine" aria-live="polite">Loading the latest spot-buy…</p>
   <div class="share-legend" id="spotTiles" hidden></div>
   <details id="spotDetails" hidden><summary>Every purchase in the latest run</summary><table id="spotTable"><thead><tr><th>Endpoint, and what happened</th><th class="num">Price</th></tr></thead><tbody></tbody></table></details>
-  <p class="note">Reading the 402 shows that a payment would settle, not what comes back for it. So every Sunday x402 Doctor buys a random sample of up to 30 endpoints that are "go" here (one per seller, at most $0.05 each, x402 in USDC on Base, from a dedicated wallet), sends the example input the seller declares in its listing, and measures on-chain whether money left the wallet. A small sample: read it as a signal, not a score. Data: <a href="/api/trust/spot">/api/trust/spot</a> · <a href="https://github.com/Fizzl13/x402-doctor/tree/spot-data">every run</a>.</p>
+  <p class="note">Reading the 402 shows that a payment would settle, not what comes back for it. So every Sunday x402 Doctor buys a random sample of up to 30 endpoints that are "go" here (one per seller, at most $0.05 each, x402 in USDC on Base, from a dedicated wallet), sends the example input the seller declares in its listing, and measures on-chain whether money left the wallet. Up to 3 sellers whose last purchase failed on their side are also bought once more, to see whether they fixed it; those re-checks are reported apart and don't count in the sample. A small sample: read it as a signal, not a score. Data: <a href="/api/trust/spot">/api/trust/spot</a> · <a href="https://github.com/Fizzl13/x402-doctor/tree/spot-data">every run</a>.</p>
 
   <h2>What goes wrong</h2>
   <div class="reasons" id="reasons"></div>
