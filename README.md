@@ -759,6 +759,9 @@ the identity behind a Concordium payTo as a zero-knowledge proof from their own 
 national, an identity document still valid), tied to that payTo and the seller's site, and checked with Concordium's
 verifier. The seller serves it at `/.well-known/concordium-proof.json`; the Concordium x402 facilitator in
 Fizzl13/x402-examples reads it before it sponsors a payment. Nothing else about the person is revealed.
+x402 Doctor's web check reads it too: when a seller serves one for a Concordium payTo in its 402, the check
+`concordium-proof` says what is proven (pass), or why the proof doesn't hold (warn: another site or payTo, a proof that
+doesn't verify with Concordium's verifier, or a credential that isn't the payTo account's own).
 
 The registry on 5 Nov 2026 (every agent and every card, read through Concordium's service):
 
