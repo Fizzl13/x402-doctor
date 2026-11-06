@@ -1,0 +1,89 @@
+{
+  "type": "concordium-x402-seller-proof",
+  "version": 1,
+  "network": "testnet",
+  "origin": "https://concordium-facilitator.onrender.com",
+  "payTo": "3HFbRLEGSVUsebprTBmTvpdbTkHg4ncutEYWf4EEaQfgQae9v3",
+  "proves": [
+    "adult",
+    "eu-residence"
+  ],
+  "challenge": "55891dc328153cc25ef455348ac3682b814f7490b406872fe37dcb529a6eace8",
+  "created": "2026-11-06T16:18:00.774Z",
+  "presentation": {
+    "presentationContext": "55891dc328153cc25ef455348ac3682b814f7490b406872fe37dcb529a6eace8",
+    "proof": {
+      "created": "2026-11-06T16:17:59.762Z",
+      "proofValue": [],
+      "type": "ConcordiumWeakLinkingProofV1"
+    },
+    "type": "VerifiablePresentation",
+    "verifiableCredential": [
+      {
+        "credentialSubject": {
+          "id": "did:ccd:testnet:cred:a17447d81b7c1cc5114ec4b76788cca95bba4d16641d8af292002fe8d37a001b5604329102a5fa1f82a1eacbbfa002d5",
+          "proof": {
+            "created": "2026-11-06T16:17:59.762Z",
+            "proofValue": [
+              {
+                "proof": "97a99ef1e9654b1f14270bde3b8eb89a007417a6927309d4cb9a59478c81d959fb9bb06976152defd9953b3e0a3d99cba7267bef8a0d0d9b57b3eb2f3573e3ad4a6d580ed776127225d64b8445a9c1ae4e5ede1896bd687f330c2c93eec6c0f3b22bf0de3a0e74f6cf6e2871360e0f2c7734f794153a6a67ed050c4610bca2e26b6dea9770c293c2faf43c17fbd4665cb3c37a87986c363b97479975f1c26cc293765278d8316da6cbab650abf5bf02d124f1b3f154d627c62ee5ec1360db83b15c4a199b4b55fa8eab6e22f07af534c308f9abb991a531d88dd5a8dd4dad81c0ff470adfb814c3bed8dd8bfa8267e9f0263faaf9ba89bb5f0e81eddd61bdac373929b5a7d6bbb645eaafec7c0ab3ef8bf8c66723aa1ae075e8e8c26b140fe20000000078f7778fc16db71f02281a9c3e509acc67e9670a9028e0edebb655403cdda4ca815d70f99c66ffac6c40d3e7c1cd92b1386fd5172cb548f28b1c799e85de559a9cfc0eb50d60d23918b60c7af3c05b72f750ad38d26a682e62489442785bde947b60035db07966dd33b3f8949ece117bd8d0c2086a2cf2fcbdbb91f768d230327359e5db998574a07ff45a1baebf1d964aef4aa962c45c7197a91d8d415c4f4ba9bce488086c168ef65f83affb4e00937d7092e32c472dbda8337f7cfb1c97c32add4e0e6e27ea977935c1dfa69731c9eb8a23e7539a6982e8a52dce852245a3d48371f56ff72bf42bb22fa053bcf1ba697212d41b4ae152168e127f5cd0cd1b8b44e2c4a433ddc97bd87528803e1a6f6b56564a51a6386e745d9c7e4308d95d7acaf3208acba74ddd9f083b2ae236367ed8f4a1a7b0e901b2782fdedbcc2079cd5d0b0bb4713f5f3fc9896968775dc7aa13b724ea2e25510b1025ca51a69f774f187d061c681ee1ec8dc87649710e63e26b26e8d243873914552abe979fbabbaad7ef332cf0ef386f7d2498a71044f38ad95fd1d18618c5fcab411110ddbafd4a2ce1d37052d6dcac3654cfe490e37469925f5ae867e60eec8ca7687d1a6ac80a1c37ad050a5f34db3f20cbb83b6b77d17cfd5971bcb24d572b73b5914911d108493af2ce7cba968ef260bae67b2169842d89f1e9da01109114a3ca2bb2f403eb041686eef64c5b116bf923dba3c7678b29224a302a95748657b1540d2d82c35d82ea2e6574ad9fe1d66d240a5303317fac1d3717924b8ad179b46d87d6d3c7d8a3562f707868e1ab9859df23d2e275e1e92cd6f0ecb81dfa1bce4dd1f101d9616fd0eabf84ae4463ffa2d06dc539c43865017bb3d490f9595584f650a2beaddf1b584f0b7a4878548f549666c55f9894a13f9a2ce003b90be6cca35b67460361060f6119aa989c21f5b56ff814823eab430230e8c2da9a1b505788a3670db674d39efedc3e48e74c27a81106b4fed850987f748180e235d1e20fb3221d1b291",
+                "type": "AttributeInRange"
+              },
+              {
+                "proof": "822fab71f516d2ef67ed014d49f1e3404b7f7a87dc40a8c8779f97d359be5080822a93e36dbac5f365e88e12612b0719ac28f709342941a8d15fe4e097675b751ab629496a1125a9c4500225af7295e25153ee692c40d9612f6b39f93280aa9c843b27b1be341dfb71eb9948bed526e2d1fbf89b2bfa8f5341d24bbede178e62018e37c997467d41cbe35542f32460889558f75cbce6b5bb748651a14b5cdf57e9cc254b6c517b748534e3d3e70f5a264f1168a5f2af3e77f68f9f22baa2bfe046940515f3f87e419dc3f04945da62dc87fd666b16627f82992190c6c98be5bb54b851dd153de5da29698e0309caafd3b9b07a42177d4b0c16921ea0b011434d0c5ff5775b7fa0fdacd91aeaeb58b9ffb139f319c4c5f787b206a9cbc256c1c200000005af8f7771c86e717fecc796a92d68542dd470376b744dacb2ca8d27bbd3cbcaab5ac08ae45d93b4695a1fa0ad312739edb998d64050ed65852cf0c58478ff88c3bda52de96eb72961bb9ac1f639efc547c7aa4b7a19a92393b09dddf5a24c865fa4de4c36172677dbebe99f4eb25b4e42fd96ef6b74cb86a45500779a09dedd22eb4ca95b99af856b53a9f56d02633fdfb4eaafaa4d12bf515706a201a3cbb42a76ea80274a441858ed44407347e445593dc85387ed2ace07427b25fedb602ad58cdb703b6aa767191f91eeca7d0cc9812da3c6ec881bb6833fc07558d846a8c24921f1a357b429fe602d0d60b3877dde81d61e3e541b7e5eb0af955786f531d459868fb2f2cec1c79fc2f3c95baff632ebff9527f720b36ba5cf2fba5f92cae3a3983ebce1b2b1c1bde1088ef55644cedc69b722b7d4daa3868f9e09141f42c2d3260563fb1c2ba7f0cc4846a70f21d38023ae288d58701f8a1184d3848dc7a11ed3c046b7c84011d37dc018dd2c79eeea50e31b8265aa5b42f940a17fbd334f9803cb2b672c7f2ad5d7efc7570c55ff2323dec21bd9ec69f41228f64bb3e7c4f49693fb9efb30aea1422ada86b83dc784944f12c14d369e2d777c432c6a748980b55a2b4efc4ca75f376b9f58a25f103fc3365e8d0835ce3e82842b86a92ba007e63eadcfe2157a52b4c9f03bfc56600ab67e85075d7012baa91eeadc16b0fc4ef723ace49f041ca4fbe6862a273ce875694d8cc79a8f527a7345ec7810b8fd",
+                "type": "AttributeInSet"
+              }
+            ],
+            "type": "ConcordiumZKProofV3"
+          },
+          "statement": [
+            {
+              "attributeTag": "dob",
+              "lower": "18000101",
+              "type": "AttributeInRange",
+              "upper": "20081107"
+            },
+            {
+              "attributeTag": "countryOfResidence",
+              "set": [
+                "AT",
+                "BE",
+                "BG",
+                "CY",
+                "CZ",
+                "DE",
+                "DK",
+                "EE",
+                "ES",
+                "FI",
+                "FR",
+                "GR",
+                "HR",
+                "HU",
+                "IE",
+                "IT",
+                "LT",
+                "LU",
+                "LV",
+                "MT",
+                "NL",
+                "PL",
+                "PT",
+                "RO",
+                "SE",
+                "SI",
+                "SK"
+              ],
+              "type": "AttributeInSet"
+            }
+          ]
+        },
+        "issuer": "did:ccd:testnet:idp:0",
+        "type": [
+          "VerifiableCredential",
+          "ConcordiumVerifiableCredential"
+        ]
+      }
+    ]
+  }
+}
