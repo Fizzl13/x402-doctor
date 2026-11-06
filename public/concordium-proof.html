@@ -136,7 +136,11 @@ $('prove').onclick = async () => {
     const text = await res.text();
     if (res.status !== 200) throw new Error(`Concordium's verifier refused the proof (${res.status}): ${text.slice(0, 200)}`);
     const verified = JSON.parse(text);
-    if (String(verified?.request?.challenge || '').toLowerCase() !== challenge) throw new Error('The verifier answered for another challenge.');
+    // The proof is bound to presentationContext (the challenge the wallet proved for). The verifier checked the proofs
+    // against it; here we check it is ours, so the proof is tied to this network, site and payTo.
+    if (String(presentation.presentationContext || '').toLowerCase() !== challenge) throw new Error(`The wallet proved for another challenge (${presentation.presentationContext}).`);
+    const echoed = verified?.request?.challenge ?? verified?.challenge;
+    if (echoed && String(echoed).toLowerCase() !== challenge) throw new Error(`The verifier answered for another challenge (${echoed}).`);
     const cred = (presentation.verifiableCredential || [])[0]?.credentialSubject?.id || '';
     file = { type: 'concordium-x402-seller-proof', version: 1, network, origin, payTo, proves, challenge, created: new Date().toISOString(), presentation };
     $('table').hidden = false;
