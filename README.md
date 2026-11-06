@@ -754,6 +754,12 @@ an agent must not pay, all refused:
 app can't do after registration, for any agent, signed in the owner's own wallets. It pins the card's hash, and it binds
 an EVM payTo (MetaMask signs one message, the Concordium wallet signs `setExternalReference`).
 
+[`/concordium-proof.html`](https://x402-doctor.fizzl.eu/concordium-proof.html) lets a seller's owner prove facts about
+the identity behind a Concordium payTo as a zero-knowledge proof from their own wallet (an adult, an EU resident or
+national, an identity document still valid), tied to that payTo and the seller's site, and checked with Concordium's
+verifier. The seller serves it at `/.well-known/concordium-proof.json`; the Concordium x402 facilitator in
+Fizzl13/x402-examples reads it before it sponsors a payment. Nothing else about the person is revealed.
+
 The registry on 5 Nov 2026 (every agent and every card, read through Concordium's service):
 
 - Mainnet has 5,121 agents from 108 owners. Every agent wallet that is set is the owner's own account.
