@@ -348,7 +348,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     if (pack) return { route: 'credits pack', via: 'api', input: { pack: Number(pack[1]) }, result: { status: res.statusCode, error: body && body.error } };
     if (req.method === 'POST' && req.path === REFUSAL_PATH) return { route: 'refusal received', via: 'api', input: res.locals.refusal || {}, result: { status: res.statusCode, error: body && body.error } };
     const d = describeDoctorCall(req, res, body);
-    return d && req.fizzlCredits ? (req.fizzlCredits.vault ? { ...d, via: 'vault', vault_usd: req.fizzlCredits.vault / 1e6 } : req.fizzlCredits.perk ? { ...d, via: 'pass', perk: req.fizzlCredits.perk, tier: req.fizzlCredits.tier } : { ...d, via: 'credits', credits: req.fizzlCredits.cost }) : d;
+    return d && req.fizzlCredits ? (req.fizzlCredits.holder ? { ...d, via: 'holder', tier: req.fizzlCredits.holder, payer: req.fizzlCredits.wallet } : req.fizzlCredits.vault ? { ...d, via: 'vault', vault_usd: req.fizzlCredits.vault / 1e6 } : req.fizzlCredits.perk ? { ...d, via: 'pass', perk: req.fizzlCredits.perk, tier: req.fizzlCredits.tier } : { ...d, via: 'credits', credits: req.fizzlCredits.cost }) : d;
   }));
 
   app.post(REFUSAL_PATH, (req, res) => { res.set('Access-Control-Allow-Origin', '*'); return refusals.post(req, res); });
@@ -844,7 +844,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     const mb = (n) => Math.round(n / 1048576);
     // heap_limit_mb is where V8 stops with "heap out of memory" (exit 134), which can sit well below Render's 512 MB.
     const memory = { rss_mb: mb(rss), heap_mb: mb(heapUsed), heap_total_mb: mb(heapTotal), heap_limit_mb: mb(require('node:v8').getHeapStatistics().heap_size_limit), external_mb: mb(external) };
-    res.json({ ok: true, paid: paidApi.paymentInfo, sanctions: paidApi.sanctions?.status() ?? null, afuel: paidApi.afuel?.status() ?? null, memory, uptime_s: Math.round(process.uptime()) });
+    res.json({ ok: true, paid: paidApi.paymentInfo, sanctions: paidApi.sanctions?.status() ?? null, afuel: paidApi.afuel?.status() ?? null, afuel_holders: paidApi.holders?.status() ?? null, memory, uptime_s: Math.round(process.uptime()) });
   });
   // Last: a 5xx is answered as JSON and reported to Sentry when SENTRY_DSN is set (lib/error-report.js).
   app.errorReporter = createErrorReporter({ dsn: env.SENTRY_DSN, service: 'x402-doctor', release: require('./package.json').version });
