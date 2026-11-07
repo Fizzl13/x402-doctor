@@ -263,7 +263,7 @@
    "name": "Does x402 Doctor check Solana, the XRP Ledger, Algorand and Stellar?",
    "acceptedAnswer": {
     "@type": "Answer",
-    "text": "Yes. It checks offers on Base and other EVM chains, Solana, the XRP Ledger, Algorand, Stellar and Circle's Arc, and MPP challenges. Its own paid calls accept USDC on Base, Solana, Monad, Polygon, Arbitrum, Avalanche, Algorand or Stellar, RLUSD on the XRP Ledger, USD₮0 on X Layer, or MPP."
+    "text": "Yes. It checks offers on Base and other EVM chains, Solana, the XRP Ledger, Algorand, Stellar, Concordium, TRON, Nano and Circle's Arc, and MPP challenges. Its own paid calls accept USDC on Base, Solana, Monad, Polygon, Arbitrum, Avalanche, Algorand or Stellar, RLUSD on the XRP Ledger, USD₮0 on X Layer, $AFUEL on Solana (25% off), or MPP."
    }
   },
   {
@@ -282,7 +282,7 @@
 <div class="wrap">
   <header class="topbar">
     <a class="brand" href="/"><svg class="mark" viewBox="0 0 128 128" aria-hidden="true"><rect x="1.5" y="1.5" width="125" height="125" rx="29" fill="#020708" stroke="#61f5c3" stroke-opacity=".4" stroke-width="3"/><path d="M78 30 A22 22 0 0 0 52 52 V104" fill="none" stroke="#f4f8f7" stroke-width="16" stroke-linecap="round"/><path d="M36 68 H72" stroke="#f4f8f7" stroke-width="16" stroke-linecap="round"/><g fill="#61f5c3"><circle cx="92" cy="72" r="8"/><circle cx="100" cy="52" r="5"/><circle cx="104" cy="38" r="3"/></g></svg><span><b>x402 Doctor</b><small>by <em>fizzl</em> · pay-per-call tools for AI agents</small></span></a>
-    <span class="top-right"><a class="wallet-link" href="https://wallet.fizzl.eu/" title="Fizzl Agent Wallet: spending limits and approvals for your agents">Agent Wallet ↗</a><span class="live">ONLINE · 6 NETWORKS</span></span>
+    <span class="top-right"><a class="wallet-link" href="https://wallet.fizzl.eu/" title="Fizzl Agent Wallet: spending limits and approvals for your agents">Agent Wallet ↗</a><span class="live">ONLINE · 10 NETWORKS</span></span>
   </header>
   <div class="eyebrow"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>x402 · MPP · 10 networks · for builders and agents</div>
   <h1>Check any x402 endpoint the way a <em>paying agent</em> would.</h1>
@@ -384,7 +384,29 @@
         <pre>GET /api/v1/credits/1000</pre>
       </div>
     </div>
-    <p class="buyer-note">Paid per call in USDC via x402 or MPP on Base, Solana, Monad, Polygon, Arbitrum, Avalanche, the XRP Ledger, Algorand or Stellar (RLUSD on the XRP Ledger, USD₮0 on X Layer), with a signed receipt. They never pay the endpoint. Also as MCP tools at <code>/mcp</code>; details in the <a href="/openapi.json">OpenAPI</a>.</p>
+    <p class="buyer-note">Paid per call in USDC via x402 or MPP on Base, Solana, Monad, Polygon, Arbitrum, Avalanche, the XRP Ledger, Algorand or Stellar (RLUSD on the XRP Ledger, USD₮0 on X Layer, or $AFUEL on Solana at 25% off), with a signed receipt. They never pay the endpoint. Also as MCP tools at <code>/mcp</code>; details in the <a href="/openapi.json">OpenAPI</a>.</p>
+  </section>
+
+  <section aria-labelledby="ccdTitle">
+    <h2 id="ccdTitle"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>Concordium: who you pay, and who pays</h2>
+    <div class="grid buyer">
+      <div class="card">
+        <span class="price">Free</span>
+        <h3>Badge check</h3>
+        <p>Is the seller a registered agent in Concordium's Agent Registry? Active, its card still matches the hash on chain, the card lists this site, and payTo is the agent's own wallet or a key bound to it. In the web check, and as the MCP tool <code>concordium_badge_check</code>. Owners: <a href="/concordium-agent.html">pin your Agent Card</a>.</p>
+      </div>
+      <div class="card">
+        <span class="price">Free</span>
+        <h3>Who stands behind the seller</h3>
+        <p>The owner proves from their own Concordium wallet that a verified adult, or an EU resident, stands behind the payTo, with zero knowledge: nothing else about them is revealed. Tied to the site and the payTo, so a copy fails elsewhere. The web check shows it. <a href="/concordium-proof.html">Make the proof</a>.</p>
+      </div>
+      <div class="card">
+        <span class="price">Free</span>
+        <h3>Who stands behind the buyer</h3>
+        <p>A seller can sell only to agents whose owner proved a fact, such as 18 or older, tied to the account the agent pays from. The owner makes it once. <a href="/concordium-proof.html?role=buyer">Make a buyer proof</a>.</p>
+      </div>
+    </div>
+    <p class="buyer-note">x402 Doctor is itself agent #5120 on Concordium mainnet. Built for the Concordium Trusted Agents hackathon, with an open-source <a href="https://github.com/Fizzl13/x402-examples/tree/main/concordium-facilitator">x402 facilitator for Concordium</a> that checks both proofs before it pays the fee. <a href="https://youtu.be/TfRMYzOpoWA">Demo video</a>.</p>
   </section>
 
   <h2><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>Questions</h2>
@@ -393,7 +415,7 @@
     <details><summary>Why can't agents pay my x402 endpoint?</summary><p>Most often the 402 names another URL than the one called (the resource field), the listed URL doesn't answer 402 on the listed method, only a testnet is offered, or the 402 asks more than the listing says. Paste your endpoint above for a free diagnosis with the fix for each problem, or run npx github:Fizzl13/x402-doctor &lt;url&gt; in CI.</p></details>
     <details><summary>Is there a free x402 endpoint validator?</summary><p>Yes. The web check on this page is free: paste a URL and it decodes the 402 challenge and runs every check without paying. In CI, use npx github:Fizzl13/x402-doctor &lt;url&gt; or the GitHub Action Fizzl13/x402-doctor-action. Agents can use the free MCP tool x402_quick_check (10 calls an hour).</p></details>
     <details><summary>Which x402 endpoints actually settle and deliver?</summary><p>The x402 Trust Index at https://x402-doctor.fizzl.eu/trust checks about 42,000 paid x402 and MPP endpoints every day and keeps a 30-day record per endpoint; GET https://x402-doctor.fizzl.eu/api/trust?url=&lt;endpoint&gt; returns it for free. Every week x402 Doctor also buys about 30 random payable endpoints and publishes what came back.</p></details>
-    <details><summary>Does x402 Doctor check Solana, the XRP Ledger, Algorand and Stellar?</summary><p>Yes. It checks offers on Base and other EVM chains, Solana, the XRP Ledger, Algorand, Stellar and Circle's Arc, and MPP challenges. Its own paid calls accept USDC on Base, Solana, Monad, Polygon, Arbitrum, Avalanche, Algorand or Stellar, RLUSD on the XRP Ledger, USD₮0 on X Layer, or MPP.</p></details>
+    <details><summary>Does x402 Doctor check Solana, the XRP Ledger, Algorand and Stellar?</summary><p>Yes. It checks offers on Base and other EVM chains, Solana, the XRP Ledger, Algorand, Stellar, Concordium, TRON, Nano and Circle's Arc, and MPP challenges. Its own paid calls accept USDC on Base, Solana, Monad, Polygon, Arbitrum, Avalanche, Algorand or Stellar, RLUSD on the XRP Ledger, USD₮0 on X Layer, $AFUEL on Solana (25% off), or MPP.</p></details>
     <details><summary>How do I add x402 Doctor to Claude or Cursor?</summary><p>Add the remote MCP server https://x402-doctor.fizzl.eu/mcp. In Claude Code: claude mcp add --transport http x402-doctor https://x402-doctor.fizzl.eu/mcp. Agent skills: npx skills add Fizzl13/x402-doctor, or in Claude Code /plugin marketplace add Fizzl13/x402-doctor and then /plugin install x402-doctor@fizzl.</p></details>
   </div>
 
