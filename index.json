@@ -88,7 +88,42 @@
       "transaction": "0xdf81a99b1d6405cddc89a462ed3986fd77ae713f479ada34019ef0ac31971c7c",
       "explorer": "https://basescan.org/tx/0xdf81a99b1d6405cddc89a462ed3986fd77ae713f479ada34019ef0ac31971c7c",
       "cap_usd": 0.1
+    },
+    "ldydqqcsgo": {
+      "id": "ldydqqcsgo",
+      "url": "https://agent402.tools/api/skill/subtitle-pipeline",
+      "queued_at": "2026-11-07T11:19:18.137Z",
+      "date": "2026-11-07T11:19:54.857Z",
+      "result": "delivered",
+      "step": "paid",
+      "paid_and_delivered": true,
+      "status": 200,
+      "price_usd": 0.03,
+      "charged_usd": 0.03,
+      "request": {
+        "method": "POST",
+        "source": "example"
+      },
+      "answer": {
+        "delivered": {
+          "verdict": "yes",
+          "p": 0.8,
+          "decidedBy": "jev"
+        },
+        "injection": {
+          "flagged": false,
+          "p": 0.03,
+          "decidedBy": "jev"
+        }
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "transaction": "0x7503772e642b42276a77b2c9d32c7568edb18bd8f8e7cea5a339e9271c152662",
+      "explorer": "https://basescan.org/tx/0x7503772e642b42276a77b2c9d32c7568edb18bd8f8e7cea5a339e9271c152662",
+      "cap_usd": 0.1
     }
   },
-  "updated": "2026-10-28T08:09:14.274Z"
+  "updated": "2026-11-07T11:19:54.858Z"
 }
