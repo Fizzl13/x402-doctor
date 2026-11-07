@@ -1,0 +1,65 @@
+{
+  "date": "2026-11-07",
+  "resources": 139945,
+  "today": {
+    "g": 38597,
+    "c": 3291,
+    "n": 1375,
+    "x": 323
+  },
+  "top_reasons": [
+    [
+      "gateway_only",
+      1677
+    ],
+    [
+      "no_402",
+      862
+    ],
+    [
+      "resource_mismatch",
+      731
+    ],
+    [
+      "unreachable",
+      323
+    ],
+    [
+      "challenge_mismatch",
+      293
+    ],
+    [
+      "retired",
+      195
+    ],
+    [
+      "testnet_only",
+      174
+    ],
+    [
+      "unknown_asset",
+      168
+    ],
+    [
+      "server_error",
+      143
+    ],
+    [
+      "host_disabled",
+      112
+    ]
+  ],
+  "payto_sanctioned": 0,
+  "payto_burn": 2,
+  "sanctions": {
+    "list": "OFAC SDN",
+    "published": "2026-11-06",
+    "addresses": 1064
+  },
+  "submitted": 59,
+  "scan_seconds": 432,
+  "shares": {
+    "finished": 4,
+    "of": 4
+  }
+}
