@@ -68,6 +68,21 @@ test('payee verification: a payee delegation signed by the agent wallet, in extr
   assert.equal(none.outcome, 'mismatch');
 });
 
+test('payee verification: one payTo with two assets uses the delegation for each option\'s asset', async () => {
+  const TOKEN = '8Qj1i5Q8DJ1HJW2rEpdzED47jNi2f5XvaqwykqQQpump';
+  const usdc = await delegation();
+  const token = await delegation({ asset: TOKEN, nonce: `0x${'cd'.repeat(32)}` });
+  const payees = [usdc, token].map((d) => ({ network: d.message.network, payTo: SOL_PAYTO, delegation: d }));
+  const doc = { ...DOC, services: [...DOC.services, { name: 'x402', endpoint: URL_, payees }] };
+  const [a, b] = await run([solOpt(), solOpt({ asset: TOKEN })], { fileIdentities: file(doc) });
+  assert.equal(a.outcome, 'verified-delegation');
+  assert.equal(b.outcome, 'verified-delegation', 'the second delegation covers the token');
+  const onlyUsdc = { ...DOC, services: [...DOC.services, { name: 'x402', endpoint: URL_, payees: payees.slice(0, 1) }] };
+  const [, missing] = await run([solOpt(), solOpt({ asset: TOKEN })], { fileIdentities: file(onlyUsdc) });
+  assert.equal(missing.outcome, 'invalid-delegation');
+  assert.match(missing.reason, /another asset/);
+});
+
 test('payee verification: an invalid delegation says which rule it fails', async () => {
   const reason = async (d) => {
     const [r] = await run([solOpt({ extra: { erc8004: { registry: `eip155:8453:${REGISTRY}`, agentId: '7', delegation: d } } })]);
