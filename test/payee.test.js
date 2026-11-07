@@ -119,3 +119,24 @@ test('payee verification: an ipfs:// tokenURI is read through a public gateway',
   assert.equal(docUrl('ipfs://ipfs/bafy/agent.json'), 'https://gateway.pinata.cloud/ipfs/bafy/agent.json');
   assert.equal(docUrl('https://seller.example/agent.json'), 'https://seller.example/agent.json');
 });
+
+test('payee verification: one payTo declared once per asset (USDC and a project token) picks the delegation for the asset paid', async () => {
+  const AFUEL = '8Qj1i5Q8DJ1HJW2rEpdzED47jNi2f5XvaqwykqQQpump';
+  const usdc = await delegation();
+  const token = await delegation({ asset: AFUEL, nonce: `0x${'cd'.repeat(32)}` });
+  const payees = [{ network: usdc.message.network, payTo: SOL_PAYTO, delegation: usdc }, { network: token.message.network, payTo: SOL_PAYTO, delegation: token }];
+  const doc = { ...DOC, services: [...DOC.services, { name: 'x402', endpoint: URL_, payees }] };
+  const [a, b] = await run([solOpt(), solOpt({ asset: AFUEL })], { fileIdentities: file(doc) });
+  assert.equal(a.outcome, 'verified-delegation');
+  assert.equal(b.outcome, 'verified-delegation');
+  // Only the USDC delegation declared: the token option still says why it fails.
+  const onlyUsdc = { ...DOC, services: [...DOC.services, { name: 'x402', endpoint: URL_, payees: [payees[0]] }] };
+  const [, c] = await run([solOpt(), solOpt({ asset: AFUEL })], { fileIdentities: file(onlyUsdc) });
+  assert.equal(c.outcome, 'invalid-delegation');
+  assert.equal(c.reason, 'it names another asset');
+  // A wildcard delegation covers every asset.
+  const any = await delegation({ asset: '*' });
+  const wild = { ...DOC, services: [...DOC.services, { name: 'x402', endpoint: URL_, payees: [{ network: any.message.network, payTo: SOL_PAYTO, delegation: any }] }] };
+  const [, d] = await run([solOpt(), solOpt({ asset: AFUEL })], { fileIdentities: file(wild) });
+  assert.equal(d.outcome, 'verified-delegation');
+});
