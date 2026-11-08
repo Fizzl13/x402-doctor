@@ -627,6 +627,20 @@ test('a $0 quote: the price depends on the request, so caution and a priced opti
   assert.ok(!mixed.reasons.some((x) => x.code === 'price_depends_on_request'));
 });
 
+test('a quote that already expired (extra.expiresAt and the like): caution quote_expired; a valid one or none: go', async () => {
+  const quoted = (extra) => baseOption('10000', { extra: { name: 'USD Coin', version: '2', quoteId: 'Q-1', ...extra } });
+  const expired = await run(await seller({ accepts: [quoted({ expiresAt: '2026-10-01T09:00:00.000Z' })] }));
+  assert.equal(expired.verdict, 'caution', JSON.stringify(expired.reasons));
+  assert.ok(expired.reasons.some((x) => x.code === 'quote_expired'));
+  // Unix seconds and the snake_case spelling count too.
+  const seconds = await run(await seller({ accepts: [quoted({ valid_until: Math.floor(Date.now() / 1000) - 60 })] }));
+  assert.ok(seconds.reasons.some((x) => x.code === 'quote_expired'), JSON.stringify(seconds.reasons));
+  const valid = await run(await seller({ accepts: [quoted({ expiresAt: new Date(Date.now() + 3600e3).toISOString() })] }));
+  assert.equal(valid.verdict, 'go', JSON.stringify(valid.reasons));
+  const none = await run(await seller({ accepts: [baseOption('10000')] }));
+  assert.ok(!none.reasons.some((x) => x.code === 'quote_expired'));
+});
+
 test('namesake (lib/namesakes.js): an info line from the track record, the verdict stays', async () => {
   const url = await seller({ accepts: [baseOption('20000')] });
   const namesake = { name: 'X402 Doctor', original: { site: 'fizzl.eu', url: 'https://x402-doctor.fizzl.eu/api/v1/preflight', payers: 6 }, payers: 4 };
