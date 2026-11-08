@@ -1,0 +1,1347 @@
+{
+  "date": "2026-11-08",
+  "started_at": "2026-11-08T18:06:02.612Z",
+  "finished_at": "2026-11-08T18:09:07.728Z",
+  "seed": "2026-11-08",
+  "index_date": "2026-11-08",
+  "rules": {
+    "n": 30,
+    "cap_usd": 0.05,
+    "budget_usd": 2,
+    "network": "eip155:8453",
+    "asset": "USDC",
+    "scheme": "exact",
+    "one_per_host": true
+  },
+  "wallet": "0xA12871853F653F76EC303B94AC4fb6C46578a3F1",
+  "sanctions_list": {
+    "published": "2026-11-06",
+    "addresses": 1064
+  },
+  "pool": {
+    "hosts": 3232,
+    "resources": 31699
+  },
+  "summary": {
+    "live": true,
+    "sampled": 30,
+    "skipped_before_paying": {
+      "not_402_now": 2,
+      "not_go_now": 1
+    },
+    "bought": 27,
+    "outcomes": {
+      "delivered": 24,
+      "off_schema": 0,
+      "empty": 0,
+      "charged_not_delivered": 0,
+      "payment_rejected": 1,
+      "error_not_charged": 2,
+      "payment_failed": 0
+    },
+    "paid_and_delivered_pct": 88.9,
+    "charged_without_answer": {
+      "count": 0,
+      "usd": 0,
+      "timed_out": 0
+    },
+    "delivered_within_30s_pct": 88.9,
+    "slow_answers": {
+      "over_s": 30,
+      "count": 0,
+      "hosts": []
+    },
+    "answer_s_median": 2.5,
+    "errors_not_charged": {
+      "with_example": 2,
+      "without_example": 0
+    },
+    "answer_check": {
+      "checked": 24,
+      "not_what_was_paid_for": {
+        "count": 2,
+        "hosts": [
+          "api.402rates.com",
+          "www.basehelper.fun"
+        ]
+      },
+      "unsure": 0,
+      "injection": {
+        "count": 0,
+        "hosts": []
+      }
+    },
+    "spent_usd": 0.306257
+  },
+  "outcomes_legend": {
+    "delivered": "Paid; a 2xx answer with content (matching the declared output schema when there is one)",
+    "off_schema": "Paid; a 2xx answer that does not match the declared output schema",
+    "empty": "Paid; a 2xx answer without content",
+    "charged_not_delivered": "USDC left the wallet, but the answer was an error",
+    "payment_rejected": "The seller answered 402 again after the payment was sent",
+    "error_not_charged": "An error answer after paying, and no USDC left the wallet",
+    "payment_failed": "No payment could be made (no usable option, signing or network error)"
+  },
+  "results": [
+    {
+      "url": "https://protocol-health-oracle.wickedapi.com/v1/protocols",
+      "host": "protocol-health-oracle.wickedapi.com",
+      "listed_price_usd": 0.001,
+      "request": {
+        "method": "GET",
+        "url": "https://protocol-health-oracle.wickedapi.com/v1/protocols",
+        "source": "example",
+        "input_declared": true
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.001,
+      "pay_to": "0x63EbccD826b874CE988e6498eAabB6Bd47AfC8A4",
+      "step": "paid",
+      "result": "delivered",
+      "status": 200,
+      "charged_usd": 0.001,
+      "body_bytes": 34662,
+      "answer": {
+        "delivered": {
+          "verdict": "yes",
+          "p": 0.72,
+          "decidedBy": "jev"
+        },
+        "injection": {
+          "flagged": false,
+          "p": 0.01,
+          "decidedBy": "jev"
+        }
+      },
+      "cache": {
+        "cache_control": "private",
+        "shared_cache": "no"
+      },
+      "proof": {
+        "overall": "pass",
+        "transaction": "0x52130e1c4dc658c7df920682bf996945df6b931a5fd21d36d35dfc534fa8cd2a",
+        "explorer": "https://basescan.org/tx/0x52130e1c4dc658c7df920682bf996945df6b931a5fd21d36d35dfc534fa8cd2a"
+      },
+      "ms": 2635
+    },
+    {
+      "url": "https://stableapify.dev/api/actors/valig/indeed-jobs-scraper/call",
+      "host": "stableapify.dev",
+      "listed_price_usd": 0.01,
+      "request": {
+        "method": "POST",
+        "url": "https://stableapify.dev/api/actors/valig/indeed-jobs-scraper/call",
+        "source": "example",
+        "input_declared": true
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.01,
+      "pay_to": "0x23d931f95831cee50b5f5edf4d0e88270f6c8411",
+      "step": "paid",
+      "result": "error_not_charged",
+      "status": 403,
+      "charged_usd": 0,
+      "body_bytes": 590,
+      "reason": "You've reached your monthly usage limit of $39.00, so Actor runs and other Apify services are blocked until your monthly usage cycle resets. To increase the limit, open https://console.apify.com/billi",
+      "proof": null,
+      "ms": 10147
+    },
+    {
+      "url": "https://puzzle-solvers.x402tookit.com/sudoku-validate",
+      "host": "puzzle-solvers.x402tookit.com",
+      "listed_price_usd": 0.02,
+      "request": {
+        "method": "GET",
+        "url": "https://puzzle-solvers.x402tookit.com/sudoku-validate?grid=534678912672195348198342567859761423426853791713924856961537284287419635345286179",
+        "source": "example",
+        "input_declared": true
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.02,
+      "pay_to": "0xb531320805C5BED1D46AEaDcF4F008FDF172DBDa",
+      "step": "paid",
+      "result": "payment_rejected",
+      "status": 402,
+      "charged_usd": 0,
+      "body_bytes": 3962,
+      "reason": "settlement failed: Facilitator settle failed (402): {\"correlationId\":\"a57682d3484849f2-IAD\",\"errorLink\":\"https://docs.cdp.coinbase.com/api-reference/v2/errors#payment-method-required\",\"errorMessage\":\"",
+      "proof": {
+        "overall": "fail",
+        "transaction": null,
+        "explorer": null
+      },
+      "ms": 10359
+    },
+    {
+      "url": "https://seoul-weather-402.fly.dev/weather/seoul/forecast",
+      "host": "seoul-weather-402.fly.dev",
+      "listed_price_usd": 0.01,
+      "request": {
+        "method": "GET",
+        "url": "https://seoul-weather-402.fly.dev/weather/seoul/forecast",
+        "source": "example",
+        "input_declared": true
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.01,
+      "pay_to": "0x1e15e64E815473385B571Deec7Bce4f0CC262817",
+      "step": "paid",
+      "result": "delivered",
+      "status": 200,
+      "charged_usd": 0.01,
+      "body_bytes": 1529,
+      "answer": {
+        "delivered": {
+          "verdict": "yes",
+          "p": 0.77,
+          "decidedBy": "jev"
+        },
+        "injection": {
+          "flagged": false,
+          "p": 0.01,
+          "decidedBy": "jev"
+        }
+      },
+      "cache": {
+        "cache_control": null,
+        "shared_cache": "unspecified"
+      },
+      "proof": {
+        "overall": "pass",
+        "transaction": "0x598c04fc498384ea3ee769b620e028662120bb9402a08e591551ea93507624c2",
+        "explorer": "https://basescan.org/tx/0x598c04fc498384ea3ee769b620e028662120bb9402a08e591551ea93507624c2"
+      },
+      "ms": 3430
+    },
+    {
+      "url": "https://x402-seller.onrender.com/electricity/price",
+      "host": "x402-seller.onrender.com",
+      "listed_price_usd": 0.001,
+      "request": {
+        "method": "GET",
+        "url": "https://x402-seller.onrender.com/electricity/price?state=US",
+        "source": "example",
+        "input_declared": true
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.001,
+      "pay_to": "0xbd61dfb01f81c91f02b0ccd51b0220e0c8918639",
+      "step": "paid",
+      "result": "delivered",
+      "status": 200,
+      "charged_usd": 0.001,
+      "body_bytes": 143,
+      "answer": {
+        "delivered": {
+          "verdict": "yes",
+          "p": 0.94,
+          "decidedBy": "jev"
+        },
+        "injection": {
+          "flagged": false,
+          "p": 0.01,
+          "decidedBy": "jev"
+        }
+      },
+      "cache": {
+        "cache_control": null,
+        "shared_cache": "unspecified"
+      },
+      "proof": {
+        "overall": "pass",
+        "transaction": "0xd38ddcd8688c4072c8b3e2e2337d9f9793ea424579fba3b13c136a629990569b",
+        "explorer": "https://basescan.org/tx/0xd38ddcd8688c4072c8b3e2e2337d9f9793ea424579fba3b13c136a629990569b"
+      },
+      "ms": 4016
+    },
+    {
+      "url": "https://chappy-japan-address-preflight.pre23964wb.workers.dev/v1/jp/address/preflight",
+      "host": "chappy-japan-address-preflight.pre23964wb.workers.dev",
+      "listed_price_usd": 0.02,
+      "request": {
+        "method": "POST",
+        "url": "https://chappy-japan-address-preflight.pre23964wb.workers.dev/v1/jp/address/preflight",
+        "source": "example",
+        "input_declared": true
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.02,
+      "pay_to": "0x2a997f68413B58766264bF10747e8700c8D59053",
+      "step": "paid",
+      "result": "delivered",
+      "status": 200,
+      "charged_usd": 0.02,
+      "body_bytes": 1734,
+      "answer": {
+        "delivered": {
+          "verdict": "yes",
+          "p": 0.95,
+          "decidedBy": "jev"
+        },
+        "injection": {
+          "flagged": false,
+          "p": 0.08,
+          "decidedBy": "jev"
+        }
+      },
+      "proof": {
+        "overall": "pass",
+        "transaction": "0x7596bc690c64e013cd952b02500e7b4e8a08b2d61208fecbebd365780f7e6173",
+        "explorer": "https://basescan.org/tx/0x7596bc690c64e013cd952b02500e7b4e8a08b2d61208fecbebd365780f7e6173"
+      },
+      "ms": 1843
+    },
+    {
+      "url": "https://wikidata.use.x402atlas.com/search",
+      "host": "wikidata.use.x402atlas.com",
+      "listed_price_usd": 0.01,
+      "request": {
+        "method": "GET",
+        "url": "https://wikidata.use.x402atlas.com/search?language=en&limit=3&query=Apple+Inc",
+        "source": "example",
+        "input_declared": true
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.01,
+      "pay_to": "0x8C128f1Ee62Bb5e47867CfbAe2ad89be325Df1b2",
+      "step": "paid",
+      "result": "delivered",
+      "status": 200,
+      "charged_usd": 0.01,
+      "body_bytes": 1253,
+      "answer": {
+        "delivered": {
+          "verdict": "yes",
+          "p": 0.98,
+          "decidedBy": "jev"
+        },
+        "injection": {
+          "flagged": false,
+          "p": 0.19,
+          "decidedBy": "jev"
+        }
+      },
+      "cache": {
+        "cache_control": "private",
+        "shared_cache": "no"
+      },
+      "proof": {
+        "overall": "pass",
+        "transaction": "0x096f75d3e9e7487a94472d7795d2fe0363319823e6a7bd6961102420a56aece9",
+        "explorer": "https://basescan.org/tx/0x096f75d3e9e7487a94472d7795d2fe0363319823e6a7bd6961102420a56aece9"
+      },
+      "ms": 1688
+    },
+    {
+      "url": "https://hostdefi.com/api/v1/x402/token-risk/solana/So11111111111111111111111111111111111111112",
+      "host": "hostdefi.com",
+      "listed_price_usd": 0.02,
+      "request": {
+        "method": "GET",
+        "url": "https://hostdefi.com/api/v1/x402/token-risk/solana/So11111111111111111111111111111111111111112",
+        "source": "example",
+        "input_declared": true
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.02,
+      "pay_to": "0x60D631095fBe251e8158422a3EF678CD0dc596Fb",
+      "step": "paid",
+      "result": "delivered",
+      "status": 200,
+      "charged_usd": 0.02,
+      "body_bytes": 1048,
+      "answer": {
+        "delivered": {
+          "verdict": "yes",
+          "p": 0.9,
+          "decidedBy": "jev"
+        },
+        "injection": {
+          "flagged": false,
+          "p": 0.01,
+          "decidedBy": "jev"
+        }
+      },
+      "cache": {
+        "cache_control": "no-store",
+        "shared_cache": "no"
+      },
+      "proof": {
+        "overall": "pass",
+        "transaction": "0xd4ccef81eb5231c7417cd5b84e3d081a97408b58e739f85e48b8f32b9a01263a",
+        "explorer": "https://basescan.org/tx/0xd4ccef81eb5231c7417cd5b84e3d081a97408b58e739f85e48b8f32b9a01263a"
+      },
+      "ms": 6283
+    },
+    {
+      "url": "https://cdp-agent-0-01.onrender.com/",
+      "host": "cdp-agent-0-01.onrender.com",
+      "listed_price_usd": 0.001,
+      "request": {
+        "method": "GET",
+        "url": "https://cdp-agent-0-01.onrender.com/?agent_name=ledger-bot&capability=webhook-inbox",
+        "source": "example",
+        "input_declared": true
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.001,
+      "pay_to": "0xed7d30e8bc643503f9da261ed8e623bb6ecf6189",
+      "step": "paid",
+      "result": "delivered",
+      "status": 200,
+      "charged_usd": 0.001,
+      "body_bytes": 916,
+      "answer": {
+        "delivered": {
+          "verdict": "yes",
+          "p": 0.84,
+          "decidedBy": "jev"
+        },
+        "injection": {
+          "flagged": false,
+          "p": 0.03,
+          "decidedBy": "jev"
+        }
+      },
+      "cache": {
+        "cache_control": null,
+        "shared_cache": "unspecified"
+      },
+      "proof": {
+        "overall": "pass",
+        "transaction": "0x62c9a79ef0e5ee373de99016536ede55e545b95daeb8e32e9d27c04837319b5b",
+        "explorer": "https://basescan.org/tx/0x62c9a79ef0e5ee373de99016536ede55e545b95daeb8e32e9d27c04837319b5b"
+      },
+      "ms": 1383
+    },
+    {
+      "url": "https://onchainpulse.theaslangroupllc.com/api/facet/honeypot",
+      "host": "onchainpulse.theaslangroupllc.com",
+      "listed_price_usd": 0.005,
+      "request": {
+        "method": "GET",
+        "url": "https://onchainpulse.theaslangroupllc.com/api/facet/honeypot?address=0x532f27101965dd16442E59d40670FaF5eBB142E4&chain=base",
+        "source": "example",
+        "input_declared": true
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.005,
+      "pay_to": "0x50ab2018c06c6E4eAA9BA52057Eb55eD284912fc",
+      "step": "paid",
+      "result": "delivered",
+      "status": 200,
+      "charged_usd": 0.005,
+      "body_bytes": 1312,
+      "answer": {
+        "delivered": {
+          "verdict": "yes",
+          "p": 0.97,
+          "decidedBy": "jev"
+        },
+        "injection": {
+          "flagged": false,
+          "p": 0.02,
+          "decidedBy": "jev"
+        }
+      },
+      "cache": {
+        "cache_control": "private, no-store",
+        "shared_cache": "no"
+      },
+      "proof": {
+        "overall": "pass",
+        "transaction": "0x22d02c542f4f4300543d79e8c0436be79b96b31cf66e1e339bdc9632b80cbeb7",
+        "explorer": "https://basescan.org/tx/0x22d02c542f4f4300543d79e8c0436be79b96b31cf66e1e339bdc9632b80cbeb7"
+      },
+      "ms": 1666
+    },
+    {
+      "url": "https://api.402rates.com/v1/settlement/costs",
+      "host": "api.402rates.com",
+      "listed_price_usd": 0.01,
+      "request": {
+        "method": "GET",
+        "url": "https://api.402rates.com/v1/settlement/costs?chains=base%2Cpolygon%2Carbitrum%2Cethereum%2Cxdc",
+        "source": "example",
+        "input_declared": true
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.01,
+      "pay_to": "0xf567Cfe0FDb87A1D6Ca330e3f30f0D3DA0F7cb98",
+      "step": "paid",
+      "result": "delivered",
+      "status": 200,
+      "charged_usd": 0.01,
+      "body_bytes": 22149,
+      "answer": {
+        "delivered": {
+          "verdict": "no",
+          "p": 0.18,
+          "why": "not what was paid for (82% sure)",
+          "decidedBy": "jev"
+        },
+        "injection": {
+          "flagged": false,
+          "p": 0.04,
+          "decidedBy": "jev"
+        }
+      },
+      "cache": {
+        "cache_control": null,
+        "shared_cache": "unspecified"
+      },
+      "proof": {
+        "overall": "pass",
+        "transaction": "0x41d3bb331bda2b9bbfe7685fe7891890c41b6ea69221ea86d357aafb2dd7d103",
+        "explorer": "https://basescan.org/tx/0x41d3bb331bda2b9bbfe7685fe7891890c41b6ea69221ea86d357aafb2dd7d103"
+      },
+      "ms": 5802
+    },
+    {
+      "url": "https://toll402.io/v1/eu/vat-rates",
+      "host": "toll402.io",
+      "listed_price_usd": 0.005,
+      "request": {
+        "method": "GET",
+        "url": "https://toll402.io/v1/eu/vat-rates?country=DK",
+        "source": "example",
+        "input_declared": true
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.01,
+      "pay_to": "0x56024C15eEb340ef932f3E43C9F809bb306F180E",
+      "step": "paid",
+      "result": "delivered",
+      "status": 200,
+      "charged_usd": 0.01,
+      "body_bytes": 1609,
+      "answer": {
+        "delivered": {
+          "verdict": "yes",
+          "p": 0.94,
+          "decidedBy": "jev"
+        },
+        "injection": {
+          "flagged": false,
+          "p": 0.01,
+          "decidedBy": "jev"
+        }
+      },
+      "cache": {
+        "cache_control": "private",
+        "shared_cache": "no"
+      },
+      "proof": {
+        "overall": "pass",
+        "transaction": "0x8b25daa6c8173d963cbed6a65cb9c783f40f2998e403d24804c561678de393e9",
+        "explorer": "https://basescan.org/tx/0x8b25daa6c8173d963cbed6a65cb9c783f40f2998e403d24804c561678de393e9"
+      },
+      "ms": 1701
+    },
+    {
+      "url": "https://api.auor.io/crustdata/v1/filters",
+      "host": "api.auor.io",
+      "listed_price_usd": 0.001,
+      "request": {
+        "method": "GET",
+        "url": "https://api.auor.io/crustdata/v1/filters?count=10&query=San+Francisco&type=region",
+        "source": "example",
+        "input_declared": true
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.001,
+      "pay_to": "0x57210b95ECbFD6F2EE74d77830228b48D1878867",
+      "step": "paid",
+      "result": "error_not_charged",
+      "status": 403,
+      "charged_usd": 0,
+      "body_bytes": 75,
+      "reason": "{\"error_msg\":\"You do not have access to this API. Please contact support.\"}",
+      "proof": null,
+      "ms": 10629
+    },
+    {
+      "url": "https://agmm.co.uk/x402/learn/:slug/index.md",
+      "host": "agmm.co.uk",
+      "listed_price_usd": 0.01,
+      "step": "probe",
+      "result": "not_402_now"
+    },
+    {
+      "url": "https://x402.presenceoperations.com/services/execution-cost",
+      "host": "x402.presenceoperations.com",
+      "listed_price_usd": 0.0048,
+      "request": {
+        "method": "GET",
+        "url": "https://x402.presenceoperations.com/services/execution-cost?market=BTC-PERP&notional=1000&side=BUY",
+        "source": "example",
+        "input_declared": true
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.0048,
+      "pay_to": "0x51edd63F074EaB0b1AB94c7BCf8b1e3aD43F1D2f",
+      "step": "paid",
+      "result": "delivered",
+      "status": 200,
+      "charged_usd": 0.0048,
+      "body_bytes": 322,
+      "answer": {
+        "delivered": {
+          "verdict": "yes",
+          "p": 0.95,
+          "decidedBy": "jev"
+        },
+        "injection": {
+          "flagged": false,
+          "p": 0.01,
+          "decidedBy": "jev"
+        }
+      },
+      "cache": {
+        "cache_control": "no-store",
+        "shared_cache": "no"
+      },
+      "proof": {
+        "overall": "fail",
+        "transaction": null,
+        "explorer": null
+      },
+      "ms": 5289
+    },
+    {
+      "url": "https://paket.halowerk.com/v1/dependency-bloat",
+      "host": "paket.halowerk.com",
+      "listed_price_usd": 0.005,
+      "request": {
+        "method": "POST",
+        "url": "https://paket.halowerk.com/v1/dependency-bloat",
+        "source": "example",
+        "input_declared": true
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.005,
+      "pay_to": "0x2880EdfFF13100677Bf97A3CBdF3Bc34771C4E5E",
+      "step": "paid",
+      "result": "delivered",
+      "status": 200,
+      "charged_usd": 0.005,
+      "body_bytes": 2435,
+      "answer": {
+        "delivered": {
+          "verdict": "yes",
+          "p": 0.97,
+          "decidedBy": "jev"
+        },
+        "injection": {
+          "flagged": false,
+          "p": 0.02,
+          "decidedBy": "jev"
+        }
+      },
+      "proof": {
+        "overall": "pass",
+        "transaction": "0x4b98a6647f3415aa255d3866d85e2692388915b636a3c16063f05b7d80fb2052",
+        "explorer": "https://basescan.org/tx/0x4b98a6647f3415aa255d3866d85e2692388915b636a3c16063f05b7d80fb2052"
+      },
+      "ms": 1987
+    },
+    {
+      "url": "https://npm-downloads-range.hergertsynthora.com/service",
+      "host": "npm-downloads-range.hergertsynthora.com",
+      "listed_price_usd": 0.001,
+      "request": {
+        "method": "POST",
+        "url": "https://npm-downloads-range.hergertsynthora.com/service",
+        "source": "example",
+        "input_declared": true
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.001,
+      "pay_to": "0x6D9F318463168fF637b50E5b9a21392e97c7c167",
+      "step": "paid",
+      "result": "delivered",
+      "status": 200,
+      "charged_usd": 0.001,
+      "body_bytes": 2585,
+      "answer": {
+        "delivered": {
+          "verdict": "yes",
+          "p": 0.87,
+          "decidedBy": "jev"
+        },
+        "injection": {
+          "flagged": false,
+          "p": 0.59,
+          "decidedBy": "jev+claude"
+        }
+      },
+      "proof": {
+        "overall": "fail",
+        "transaction": "0xe49b00d0084bff2c9f0d022a05b489bd7b2792c4e91c3f1a9249af2f12ff4f91",
+        "explorer": null
+      },
+      "ms": 5130
+    },
+    {
+      "url": "https://thepocketoperator.com/x402-test/data/pitfalls/:id",
+      "host": "thepocketoperator.com",
+      "listed_price_usd": 0.001,
+      "step": "probe",
+      "result": "not_402_now"
+    },
+    {
+      "url": "https://www.basehelper.fun/api/x402-xp",
+      "host": "www.basehelper.fun",
+      "listed_price_usd": 0.05,
+      "request": {
+        "method": "GET",
+        "url": "https://www.basehelper.fun/api/x402-xp",
+        "source": "plain",
+        "input_declared": false
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.05,
+      "pay_to": "0x2a0a7a70844877362e5Ad1E33d5045A2FDD6678f",
+      "step": "paid",
+      "result": "delivered",
+      "status": 200,
+      "charged_usd": 0.05,
+      "body_bytes": 72,
+      "answer": {
+        "delivered": {
+          "verdict": "no",
+          "p": 0.44,
+          "why": "not what was paid for (Claude)",
+          "decidedBy": "jev+claude"
+        },
+        "injection": {
+          "flagged": false,
+          "p": 0.02,
+          "decidedBy": "jev"
+        }
+      },
+      "cache": {
+        "cache_control": "public, max-age=0, must-revalidate",
+        "shared_cache": "unspecified"
+      },
+      "proof": {
+        "overall": "pass",
+        "transaction": "0x80af5a034fb095af84a66430ec6406415e088856bf992223631d7eed3f7757e8",
+        "explorer": "https://basescan.org/tx/0x80af5a034fb095af84a66430ec6406415e088856bf992223631d7eed3f7757e8"
+      },
+      "ms": 1924
+    },
+    {
+      "url": "https://api.onhub.ai/v1/search",
+      "host": "api.onhub.ai",
+      "listed_price_usd": 0.025,
+      "request": {
+        "method": "POST",
+        "url": "https://api.onhub.ai/v1/search",
+        "source": "example",
+        "input_declared": true
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.025,
+      "pay_to": "0x53884EF9A486b805bfa5e4F55290Ff66dca7C457",
+      "step": "paid",
+      "result": "delivered",
+      "status": 200,
+      "charged_usd": 0.025,
+      "body_bytes": 3280,
+      "answer": {
+        "delivered": {
+          "verdict": "yes",
+          "p": 0.82,
+          "decidedBy": "jev"
+        },
+        "injection": {
+          "flagged": false,
+          "p": 0.02,
+          "decidedBy": "jev"
+        }
+      },
+      "proof": {
+        "overall": "pass",
+        "transaction": "0x8894c0e109c2d19e562f7ecf2cebdc977fb7d2016dacd203a67b59678ca33768",
+        "explorer": "https://basescan.org/tx/0x8894c0e109c2d19e562f7ecf2cebdc977fb7d2016dacd203a67b59678ca33768"
+      },
+      "ms": 9637
+    },
+    {
+      "url": "https://threat-reputation-mcp.hsharmanov02.workers.dev/reputation?ip=8.8.8.8",
+      "host": "threat-reputation-mcp.hsharmanov02.workers.dev",
+      "listed_price_usd": 0.01,
+      "request": {
+        "method": "GET",
+        "url": "https://threat-reputation-mcp.hsharmanov02.workers.dev/reputation?ip=8.8.8.8",
+        "source": "plain",
+        "input_declared": true
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.01,
+      "pay_to": "0x48Cda0da34816Db1F997C3D3b167a4f6af850CB2",
+      "step": "paid",
+      "result": "delivered",
+      "status": 200,
+      "charged_usd": 0.01,
+      "body_bytes": 441,
+      "answer": {
+        "delivered": {
+          "verdict": "yes",
+          "p": 0.75,
+          "decidedBy": "jev"
+        },
+        "injection": {
+          "flagged": false,
+          "p": 0.02,
+          "decidedBy": "jev"
+        }
+      },
+      "cache": {
+        "cache_control": "no-store",
+        "shared_cache": "no"
+      },
+      "proof": {
+        "overall": "pass",
+        "transaction": "0x5d8049d0dd06e8698f1843e0e31089774644f61ebee14ee668edc19171b4d12c",
+        "explorer": "https://basescan.org/tx/0x5d8049d0dd06e8698f1843e0e31089774644f61ebee14ee668edc19171b4d12c"
+      },
+      "ms": 2320
+    },
+    {
+      "url": "https://priceplain.onrender.com/v1/extract",
+      "host": "priceplain.onrender.com",
+      "listed_price_usd": 0.01,
+      "request": {
+        "method": "POST",
+        "url": "https://priceplain.onrender.com/v1/extract",
+        "source": "example",
+        "input_declared": true
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.01,
+      "pay_to": "0x4Ec8B510d0c54D7A8f432B9697F3F419033DC629",
+      "step": "paid",
+      "result": "delivered",
+      "status": 200,
+      "charged_usd": 0.01,
+      "body_bytes": 105457,
+      "answer": {
+        "delivered": {
+          "verdict": "yes",
+          "p": 0.83,
+          "decidedBy": "jev"
+        },
+        "injection": {
+          "flagged": false,
+          "p": 0.03,
+          "decidedBy": "jev"
+        }
+      },
+      "proof": {
+        "overall": "pass",
+        "transaction": "0x3824168d4113f1016d0d0bfaf567ae7f3ba496e03711d709048954f906b3a697",
+        "explorer": "https://basescan.org/tx/0x3824168d4113f1016d0d0bfaf567ae7f3ba496e03711d709048954f906b3a697"
+      },
+      "ms": 6891
+    },
+    {
+      "url": "https://shared-hold-api.onrender.com/hold",
+      "host": "shared-hold-api.onrender.com",
+      "listed_price_usd": 0.005,
+      "request": {
+        "method": "POST",
+        "url": "https://shared-hold-api.onrender.com/hold",
+        "source": "example",
+        "input_declared": true
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.005,
+      "pay_to": "0x60c402878EfcEcAe5733A88075328Aa2320C39BE",
+      "step": "paid",
+      "result": "delivered",
+      "status": 200,
+      "charged_usd": 0.005,
+      "body_bytes": 272,
+      "answer": {
+        "delivered": {
+          "verdict": "yes",
+          "p": 0.86,
+          "decidedBy": "jev"
+        },
+        "injection": {
+          "flagged": false,
+          "p": 0.02,
+          "decidedBy": "jev"
+        }
+      },
+      "proof": {
+        "overall": "pass",
+        "transaction": "0x508043afd8967a28a47cdc2aa6d5186d56242e8cf1911180adfc014120be2c21",
+        "explorer": "https://basescan.org/tx/0x508043afd8967a28a47cdc2aa6d5186d56242e8cf1911180adfc014120be2c21"
+      },
+      "ms": 1250
+    },
+    {
+      "url": "https://api.gmfarcaster.com/v1/query",
+      "host": "api.gmfarcaster.com",
+      "listed_price_usd": 0.005,
+      "request": {
+        "method": "POST",
+        "url": "https://api.gmfarcaster.com/v1/query",
+        "source": "example",
+        "input_declared": true
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.005,
+      "pay_to": "0x8a99FEF40D17e0bd6d48Ce088Cc207847D1C0596",
+      "step": "paid",
+      "result": "delivered",
+      "status": 200,
+      "charged_usd": 0.005,
+      "body_bytes": 351,
+      "answer": {
+        "delivered": {
+          "verdict": "yes",
+          "p": 0.73,
+          "decidedBy": "jev"
+        },
+        "injection": {
+          "flagged": false,
+          "p": 0.01,
+          "decidedBy": "jev"
+        }
+      },
+      "proof": {
+        "overall": "pass",
+        "transaction": "0x36cfd6099f6a760c6eaa82c087112c4fb727738db7a0c01f95e0c894a083d27c",
+        "explorer": "https://basescan.org/tx/0x36cfd6099f6a760c6eaa82c087112c4fb727738db7a0c01f95e0c894a083d27c"
+      },
+      "ms": 7005
+    },
+    {
+      "url": "https://hyperliquid-accounts.use.x402atlas.com/staking",
+      "host": "hyperliquid-accounts.use.x402atlas.com",
+      "listed_price_usd": 0.01,
+      "request": {
+        "method": "GET",
+        "url": "https://hyperliquid-accounts.use.x402atlas.com/staking?address=0x010461c14e146ac35fe42271bdc1134ee31c703a",
+        "source": "example",
+        "input_declared": true
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.01,
+      "pay_to": "0xE79Aa9d55170f7E1AC420266ec93A6c28c436de8",
+      "step": "paid",
+      "result": "delivered",
+      "status": 200,
+      "charged_usd": 0.01,
+      "body_bytes": 208,
+      "answer": {
+        "delivered": {
+          "verdict": "yes",
+          "p": 0.88,
+          "decidedBy": "jev"
+        },
+        "injection": {
+          "flagged": false,
+          "p": 0.01,
+          "decidedBy": "jev"
+        }
+      },
+      "cache": {
+        "cache_control": "private",
+        "shared_cache": "no"
+      },
+      "proof": {
+        "overall": "pass",
+        "transaction": "0x20a4ba1e0cd487437cf49e03dcee1ce9efe6444e6e6035b39b3595d04408931e",
+        "explorer": "https://basescan.org/tx/0x20a4ba1e0cd487437cf49e03dcee1ce9efe6444e6e6035b39b3595d04408931e"
+      },
+      "ms": 1712
+    },
+    {
+      "url": "https://agents.rtrvr.ai/zcj/s229tuc4t07c/scrape",
+      "host": "agents.rtrvr.ai",
+      "listed_price_usd": 0.05,
+      "request": {
+        "method": "POST",
+        "url": "https://agents.rtrvr.ai/zcj/s229tuc4t07c/scrape",
+        "source": "example",
+        "input_declared": true
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.05,
+      "pay_to": "0xd4e4192495bea3101309c00c3be523fd19313d87",
+      "step": "paid",
+      "result": "delivered",
+      "status": 200,
+      "charged_usd": 0.05,
+      "body_bytes": 2370,
+      "answer": {
+        "delivered": {
+          "verdict": "yes",
+          "p": 0.84,
+          "decidedBy": "jev"
+        },
+        "injection": {
+          "flagged": false,
+          "p": 0.04,
+          "decidedBy": "jev"
+        }
+      },
+      "proof": {
+        "overall": "pass",
+        "transaction": "0xf5f249c1ff9a6a32d5280458c715331a986b2df5baca1cd245df7dbdcc8ae7a4",
+        "explorer": "https://basescan.org/tx/0xf5f249c1ff9a6a32d5280458c715331a986b2df5baca1cd245df7dbdcc8ae7a4"
+      },
+      "ms": 8990
+    },
+    {
+      "url": "https://api.ukintel.uk/v1/company/SC311560",
+      "host": "api.ukintel.uk",
+      "listed_price_usd": 0.02,
+      "request": {
+        "method": "GET",
+        "url": "https://api.ukintel.uk/v1/company/SC311560",
+        "source": "example",
+        "input_declared": true
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.02,
+      "pay_to": "0x8aa6a85a2723e2816204f3cf48d76b84bafdaab4",
+      "step": "paid",
+      "result": "delivered",
+      "status": 200,
+      "charged_usd": 0.02,
+      "body_bytes": 1210,
+      "answer": {
+        "delivered": {
+          "verdict": "yes",
+          "p": 0.93,
+          "decidedBy": "jev"
+        },
+        "injection": {
+          "flagged": false,
+          "p": 0.02,
+          "decidedBy": "jev"
+        }
+      },
+      "cache": {
+        "cache_control": "no-store",
+        "shared_cache": "no"
+      },
+      "proof": {
+        "overall": "pass",
+        "transaction": "0x12b7fc272c23aa09075340227e3063a9fe7a968fab775b61f16d8c84243809d4",
+        "explorer": "https://basescan.org/tx/0x12b7fc272c23aa09075340227e3063a9fe7a968fab775b61f16d8c84243809d4"
+      },
+      "ms": 2274
+    },
+    {
+      "url": "https://x402-v2-mint-epa-envirofacts-tri.vercel.app/v1/epa-envirofacts-tri",
+      "host": "x402-v2-mint-epa-envirofacts-tri.vercel.app",
+      "listed_price_usd": 0.020057,
+      "request": {
+        "method": "POST",
+        "url": "https://x402-v2-mint-epa-envirofacts-tri.vercel.app/v1/epa-envirofacts-tri",
+        "source": "example",
+        "input_declared": true
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.020057,
+      "pay_to": "0xc22f9CAEBAc37fE72D5142f35f21f6696Ea9Ef69",
+      "step": "paid",
+      "result": "delivered",
+      "status": 200,
+      "charged_usd": 0.020057,
+      "body_bytes": 2228,
+      "answer": {
+        "delivered": {
+          "verdict": "yes",
+          "p": 0.95,
+          "decidedBy": "jev"
+        },
+        "injection": {
+          "flagged": false,
+          "p": 0.03,
+          "decidedBy": "jev"
+        }
+      },
+      "proof": {
+        "overall": "pass",
+        "transaction": "0x11800d5d24e193b1440a25dbe5162350a1f6603baa2ac4d8ce0848e155343419",
+        "explorer": "https://basescan.org/tx/0x11800d5d24e193b1440a25dbe5162350a1f6603baa2ac4d8ce0848e155343419"
+      },
+      "ms": 2135
+    },
+    {
+      "url": "https://email.intel.rallylive.ca/bulk/email/disposable/burnermail-io",
+      "host": "email.intel.rallylive.ca",
+      "listed_price_usd": 0.01,
+      "request": {
+        "method": "GET",
+        "url": "https://email.intel.rallylive.ca/bulk/email/disposable/burnermail-io?emails=info%40example.com%2C+admin%40github.com%2C+bob%40mailinator.com",
+        "source": "example",
+        "input_declared": true
+      },
+      "preflight": {
+        "verdict": "no_go",
+        "codes": [
+          "over_budget"
+        ]
+      },
+      "step": "preflight",
+      "result": "not_go_now"
+    },
+    {
+      "url": "https://twitr.sh/api/tools/x_read",
+      "host": "twitr.sh",
+      "listed_price_usd": 0.0024,
+      "request": {
+        "method": "POST",
+        "url": "https://twitr.sh/api/tools/x_read",
+        "source": "example",
+        "input_declared": true
+      },
+      "preflight": {
+        "verdict": "go",
+        "codes": []
+      },
+      "price_usd": 0.0024,
+      "pay_to": "0xb5194A98DbDBb7028B585Db26B972e7F0F3f826A",
+      "step": "paid",
+      "result": "delivered",
+      "status": 200,
+      "charged_usd": 0.0024,
+      "body_bytes": 1065,
+      "answer": {
+        "delivered": {
+          "verdict": "yes",
+          "p": 0.92,
+          "decidedBy": "jev"
+        },
+        "injection": {
+          "flagged": false,
+          "p": 0.01,
+          "decidedBy": "jev"
+        }
+      },
+      "proof": {
+        "overall": "pass",
+        "transaction": "0xfd4ac318917ef27c5f6e158422cc53f24eae595976ab7c9761246f7143f6c35b",
+        "explorer": "https://basescan.org/tx/0xfd4ac318917ef27c5f6e158422cc53f24eae595976ab7c9761246f7143f6c35b"
+      },
+      "ms": 2626
+    }
+  ],
+  "retests": {
+    "rules": {
+      "n": 3,
+      "max_age_days": 56
+    },
+    "summary": {
+      "rechecked": 3,
+      "fixed": 0,
+      "still_failing": 3,
+      "not_bought": 0,
+      "hosts": [
+        {
+          "host": "contextslim.friczero.com",
+          "before": "charged_not_delivered",
+          "now": "charged_not_delivered"
+        },
+        {
+          "host": "pii-redact.x402supply.com",
+          "before": "payment_rejected",
+          "now": "payment_rejected"
+        },
+        {
+          "host": "unicode-text-tools.x402tookit.com",
+          "before": "payment_rejected",
+          "now": "payment_rejected"
+        }
+      ],
+      "spent_usd": 0.001
+    },
+    "results": [
+      {
+        "url": "https://contextslim.friczero.com/fetch",
+        "host": "contextslim.friczero.com",
+        "listed_price_usd": 0.001,
+        "previous": {
+          "date": "2026-10-25",
+          "result": "charged_not_delivered",
+          "reason": "Reference ID expired or not found."
+        },
+        "request": {
+          "method": "GET",
+          "url": "https://contextslim.friczero.com/fetch?referenceId=ref_12345678",
+          "source": "example",
+          "input_declared": true
+        },
+        "preflight": {
+          "verdict": "go",
+          "codes": []
+        },
+        "price_usd": 0.001,
+        "pay_to": "0xA18E34607479b706123cA5e1831f24d2ECECe4c6",
+        "step": "paid",
+        "result": "charged_not_delivered",
+        "status": 400,
+        "charged_usd": 0.001,
+        "body_bytes": 46,
+        "reason": "Reference ID expired or not found.",
+        "proof": {
+          "overall": "pass",
+          "transaction": "0xc9e18a50fb4ff1c4da23e6f41e1d3168672e70b51230d545881fecd72c45a20f",
+          "explorer": "https://basescan.org/tx/0xc9e18a50fb4ff1c4da23e6f41e1d3168672e70b51230d545881fecd72c45a20f"
+        },
+        "ms": 3120
+      },
+      {
+        "url": "https://pii-redact.x402supply.com/tools/redact",
+        "host": "pii-redact.x402supply.com",
+        "listed_price_usd": 0.02,
+        "previous": {
+          "date": "2026-11-03",
+          "result": "payment_rejected",
+          "reason": "Payment required"
+        },
+        "request": {
+          "method": "POST",
+          "url": "https://pii-redact.x402supply.com/tools/redact",
+          "source": "example",
+          "input_declared": true
+        },
+        "preflight": {
+          "verdict": "go",
+          "codes": []
+        },
+        "price_usd": 0.02,
+        "pay_to": "0x07fFB5044cF2Cd4352Be4655f578D0ba8cb754EB",
+        "step": "paid",
+        "result": "payment_rejected",
+        "status": 402,
+        "charged_usd": 0,
+        "body_bytes": 3731,
+        "reason": "Payment required",
+        "proof": null,
+        "ms": 9575
+      },
+      {
+        "url": "https://unicode-text-tools.x402tookit.com/script-mix",
+        "host": "unicode-text-tools.x402tookit.com",
+        "listed_price_usd": 0.02,
+        "previous": {
+          "date": "2026-11-03",
+          "result": "payment_rejected",
+          "reason": "settlement failed: Facilitator settle failed (402): {\"correlationId\":\"a54a5427fd6532e3-IAD\",\"errorLink\":\"https://docs.cdp.coinbase.com/api-reference/v2/errors#payment-method-required\",\"errorMessage\":\""
+        },
+        "request": {
+          "method": "GET",
+          "url": "https://unicode-text-tools.x402tookit.com/script-mix?text=paypal+p%D0%B0ypal+%E6%9D%B1%E4%BA%ACtokyo",
+          "source": "example",
+          "input_declared": true
+        },
+        "preflight": {
+          "verdict": "go",
+          "codes": []
+        },
+        "price_usd": 0.02,
+        "pay_to": "0xb531320805C5BED1D46AEaDcF4F008FDF172DBDa",
+        "step": "paid",
+        "result": "payment_rejected",
+        "status": 402,
+        "charged_usd": 0,
+        "body_bytes": 5423,
+        "reason": "settlement failed: Facilitator settle failed (402): {\"correlationId\":\"a57686ac4c02804f-IAD\",\"errorLink\":\"https://docs.cdp.coinbase.com/api-reference/v2/errors#payment-method-required\",\"errorMessage\":\"",
+        "proof": {
+          "overall": "fail",
+          "transaction": null,
+          "explorer": null
+        },
+        "ms": 10378
+      }
+    ]
+  }
+}
