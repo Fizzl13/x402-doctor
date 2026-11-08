@@ -100,6 +100,11 @@ test('x402_buy: listed next to the free pick; unpaid it asks $0.02 and buys noth
   const buyTool = tools.find((t) => t.name === 'x402_buy');
   assert.match(buyTool.description, /\$0\.02/);
   assert.equal(buyTool.annotations.destructiveHint, false);
+  // Output schemas and server instructions, for clients and MCP directories that read tools/list and initialize.
+  for (const t of tools) assert.equal(t.outputSchema?.type, 'object', t.name);
+  assert.ok(tools.find((t) => t.name === 'x402_pick').outputSchema.properties.pick);
+  assert.ok(buyTool.outputSchema.properties.answer);
+  assert.match(c.getInstructions(), /x402_pick \(free\)/);
   const unpaid = await c.callTool({ name: 'x402_buy', arguments: { need: 'weather forecast for Amsterdam tomorrow' } });
   assert.ok(unpaid.isError);
   const required = unpaid.structuredContent ?? JSON.parse(unpaid.content[0].text);
