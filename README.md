@@ -417,7 +417,8 @@ Space waits in `hf-mcp/`. Doctor's own MCP server is `https://x402-doctor.fizzl.
   waits 30 seconds gets), and a slow one adds `slow_after_payment` (info) to the pre-payment check.
   When the answer check ran (TypeSafe Jev, with Claude when unsure), each purchase carries `answer_check`
   (`delivered`: yes, no or unsure; `injection`), and for the seller's own example request the pre-payment check adds
-  `answer_not_what_was_paid_for` or `answer_carried_instructions` (both info: one purchase, never the verdict).
+  `answer_not_what_was_paid_for` (a `caution`: our own purchase of the seller's example got something else) or
+  `answer_carried_instructions` (info: the answer can still be what was paid for).
 - Delivery evidence from others who buy endpoints with real USDC: [nohumans.directory](https://nohumans.directory) (its
   catalogue is CC BY 4.0) and [PayAPI Market](https://payapi.market), which pays one route of each listing once. The
   scan's plan job writes the endpoints they bought and got an answer from to `delivery-nohumans.json` and

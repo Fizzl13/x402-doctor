@@ -479,18 +479,25 @@ test("the weekly spot-buy: a signal always; money taken for the seller's own exa
   assert.equal(fine.reasons.find((r) => r.code === 'slow_after_payment'), undefined, 'no answer time: nothing to say');
 });
 
-test('the spot-buy answer check: not what was paid for, or text aimed at agents, is information for the example request only', async () => {
+test('the spot-buy answer check: not what was paid for is a caution, text aimed at agents information, for the example request only', async () => {
   const url = await seller({ accepts: [baseOption('20000')] });
   const spotOf = (request, answer_check) => ({ forUrl: async () => ({ url, date: '2026-11-03', result: 'delivered', request, price_usd: 0.02, charged_usd: 0.02, status: 200, answer_check }) });
   const off = await run(url, { spot: spotOf('example', { delivered: 'no', injection: false }) });
-  assert.equal(off.verdict, 'go', 'one purchase: never the verdict');
-  assert.match(off.reasons.find((r) => r.code === 'answer_not_what_was_paid_for').message, /spot-buy of 2026-11-03 .* not what was paid for/);
+  assert.equal(off.verdict, 'caution', 'our own purchase got something else: a caution');
+  const offReason = off.reasons.find((r) => r.code === 'answer_not_what_was_paid_for');
+  assert.equal(offReason.level, 'caution');
+  assert.match(offReason.message, /spot-buy of 2026-11-03 .* not what was paid for/);
+  const unsure = await run(url, { spot: spotOf('example', { delivered: 'unsure', injection: false }) });
+  assert.equal(unsure.verdict, 'go', 'unsure says nothing');
+  assert.ok(!unsure.reasons.some((r) => r.code === 'answer_not_what_was_paid_for'));
   assert.deepEqual(off.signals.spot_buy.answer_check, { delivered: 'no', injection: false });
   const trap = await run(url, { spot: spotOf('example', { delivered: 'yes', injection: true }) });
   assert.ok(trap.reasons.some((r) => r.code === 'answer_carried_instructions' && r.level === 'info'));
+  assert.equal(trap.verdict, 'go', 'text aimed at agents: information only');
   assert.ok(!trap.reasons.some((r) => r.code === 'answer_not_what_was_paid_for'));
   const plain = await run(url, { spot: spotOf('plain', { delivered: 'no', injection: false }) });
   assert.ok(!plain.reasons.some((r) => r.code === 'answer_not_what_was_paid_for'), 'a plain request may have been our input');
+  assert.equal(plain.verdict, 'go');
   assert.equal(plain.signals.spot_buy.answer_check.delivered, 'no');
 });
 
