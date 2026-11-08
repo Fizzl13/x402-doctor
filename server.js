@@ -16,6 +16,7 @@ const diagnoseLib = require('./lib/diagnose');
 const { normaliseBody } = require('./lib/request-body');
 const { createBazaarIndex } = require('./lib/bazaar-index');
 const { createCdpValidator } = require('./lib/cdp-validate');
+const { createExamForward } = require('./lib/exam-forward');
 const { createPaidApi, ROUTE: PAID_ROUTE, PREFLIGHT_ROUTE, FIX_ROUTE, BATCH_ROUTE, DEEP_ROUTE, DELIVERY_ROUTE, REPORT_SCHEMA, FIX_SCHEMA, DEEP_SCHEMA } = require('./lib/paid-api');
 const { DELIVERY_EXAMPLE } = require('./lib/delivery-checks');
 const { BATCH_SCHEMA } = require('./lib/preflight-plus');
@@ -310,6 +311,12 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   // The payout wallet signs each fizzl origin once, for x402scan's "ownership verified" (proofs go into openapi.json).
   const ownershipPage = fs.readFileSync(path.join(__dirname, 'lib', 'sign-ownership.html'), 'utf8').replaceAll('{{AUTHORITY}}', authority);
   app.get('/sign-ownership', (_req, res) => res.type('html').send(ownershipPage));
+  // The Agent Safety exam (exam.fizzl.eu): a preflight, trust check or outcome report about an exam address goes to
+  // the exam's own Doctor, which knows that scenario's sellers (lib/exam-forward.js). Anything else passes on.
+  const examForward = createExamForward({ signer: paidApi.signer || null });
+  const examJson = express.json({ limit: '64kb' });
+  app.use((req, res, next) => (req.method === 'POST' && req.path === '/api/v1/outcome' ? examJson(req, res, () => examForward(req, res, next)) : examForward(req, res, next)));
+
   app.post('/api/v1/verify', express.json({ limit: '256kb' }), async (req, res) => {
     const { response, route, input } = req.body || {};
     const body = response && typeof response === 'object' ? response : req.body;

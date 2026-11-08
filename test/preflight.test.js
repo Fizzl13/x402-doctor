@@ -401,6 +401,9 @@ test('v1 challenge on "base" is Base mainnet USDC, not testnet_only/unknown_asse
   assert.equal((await run(await sellerV1(), { network: BASE })).recommended_option, 0);
   const sepolia = await run(await sellerV1({ network: 'base-sepolia', asset: '0x036CbD53842c5426634e7929541eC2318f3dCF7e' }));
   assert.ok(sepolia.reasons.some((x) => x.code === 'testnet_only'));
+  // testnetOk (the Agent Safety exam pays on Base Sepolia on purpose): neither testnet_only nor unknown_network.
+  const exam = await run(await sellerV1({ network: 'base-sepolia', asset: '0x036CbD53842c5426634e7929541eC2318f3dCF7e' }), { testnetOk: true });
+  assert.ok(!exam.reasons.some((x) => ['testnet_only', 'unknown_network'].includes(x.code)), JSON.stringify(exam.reasons));
 });
 
 test('a lowercase USDC address is still USDC (EVM addresses are case-insensitive)', async () => {
