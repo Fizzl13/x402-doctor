@@ -61,6 +61,10 @@ test('trust reader: every answer equals the full index', async () => {
   assert.deepEqual(reader.summary(), full.summary());
   assert.equal(reader.updated(), full.updated());
   assert.deepEqual(reader.atlas(), full.atlas());
+  // Kept gzipped, parsed fresh per call: the server adds its own fields to the copy it gets.
+  const copy = reader.atlas();
+  copy.sellers.push(['changed.example']);
+  assert.deepEqual(reader.atlas(), full.atlas(), 'a change to one copy does not reach the next');
   for (const n of ['xrpl', 'eip155', 'eip155:8453', 'solana', 'stellar', 'nothing']) assert.deepEqual(await reader.byNetwork(n), await full.byNetwork(n), n);
   assert.deepEqual(await reader.similar('https://z.example/x', 'Weather forecast for a city'), await full.similar('https://z.example/x', 'Weather forecast for a city'));
   assert.deepEqual(reader.submittedKeys('s.example'), full.submittedKeys('s.example'));
