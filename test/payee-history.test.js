@@ -134,3 +134,39 @@ test('mergeIndex groups payout moves by site: subdomains of one seller move toge
   assert.deepEqual(index.resources[`GET ${uk[0]}`].pt.m, [1, 5], 'one.co.uk: one of its own five moved, alone');
   assert.deepEqual(index.resources[`GET ${other}`].pt.m, [1, 1], 'two.co.uk is its own site, not part of co.uk');
 });
+
+test('a token burn added beside a real payout address is no payout move; a payTo that becomes a burn address still is', () => {
+  const { payToMapWithBurns } = require('../lib/payee-history');
+  const RH = 'eip155:4663';
+  const USDC_RH = '0x0000000000000000000000000000000000000abc'; // the real option's asset; only the burn's asset matters
+  const DEAD = '0x000000000000000000000000000000000000dEaD';
+  const WAFERMAP = '0x1234567890123456789012345678901234567890';
+  const real = { network: RH, pay_to: A, asset: USDC_RH, usd: 0.01, payable: true };
+  const burn = { network: RH, pay_to: DEAD, asset: WAFERMAP, usd: 0.01, payable: true };
+  // The burn is left out when the network has a real payout address; the older fingerprint (burns in) is kept apart.
+  assert.equal(payToMap([real, burn])[RH], payToMap([real])[RH]);
+  assert.equal(payToMapWithBurns([real]), null);
+  assert.equal(payToMapWithBurns([real, burn])[RH], payToMap([real, burn], { withBurns: true })[RH]);
+
+  // Index before: only the real address. Today: the burn is added. No move.
+  const before = mergePayTo(undefined, payToMap([real]), '2026-11-02');
+  const after = mergePayTo(before, payToMap([real, burn]), '2026-11-03', payToMapWithBurns([real, burn]));
+  assert.equal(after.c, undefined);
+  assert.equal(after.s, '2026-11-02');
+
+  // Index stored before this change (burn counted in): today's scan is not a move either, and the entry moves to the new fingerprint.
+  const legacy = { a: payToMap([real, burn], { withBurns: true }), s: '2026-11-03', c: [RH] };
+  const migrated = mergePayTo(legacy, payToMap([real, burn]), '2026-11-10', payToMapWithBurns([real, burn]));
+  assert.equal(migrated.s, '2026-11-03');
+  assert.equal(migrated.a[RH], payToMap([real])[RH]);
+  // The preflight against that older entry: no payto_changed for the live 402 with the burn.
+  const record = { payto: { a: legacy.a, s: '2026-10-01' }, days: ['2026-11-09'] };
+  assert.ok(!changeReasons({ record, options: [real, burn], now }).some((r) => r.code === 'payto_changed'));
+
+  // A real move beside the burn still counts.
+  const moved = mergePayTo(before, payToMap([{ ...real, pay_to: B }, burn]), '2026-11-04', payToMapWithBurns([{ ...real, pay_to: B }, burn]));
+  assert.deepEqual(moved.c, [RH]);
+  // And a payTo that becomes only a burn address counts as a move (cleave.fi's zero address is no token burn at all).
+  const toBurn = mergePayTo(before, payToMap([burn]), '2026-11-05', payToMapWithBurns([burn]));
+  assert.deepEqual(toBurn.c, [RH]);
+});
