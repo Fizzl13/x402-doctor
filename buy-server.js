@@ -287,7 +287,7 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
   }));
 
   // Refusals of Fizzl Buy's own 402 (lib/refusal.js, draft): why a buyer didn't pay, counted on GET.
-  const refusalRoutes = createRefusalRoutes({ publicUrl });
+  const refusalRoutes = createRefusalRoutes({ publicUrl, routes: [BUY_ROUTE, '/mcp'] });
   app.get(REFUSAL_PATH, (req, res) => { res.set('Access-Control-Allow-Origin', '*'); refusalRoutes.get(req, res); });
   app.post(REFUSAL_PATH, express.json({ limit: '4kb' }), (req, res) => { res.set('Access-Control-Allow-Origin', '*'); return refusalRoutes.post(req, res); });
   app.use(vault.creditBack());
