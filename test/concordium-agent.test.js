@@ -304,3 +304,34 @@ test('externalKeyAddress: a compressed secp256k1 key gives the same EVM address 
   assert.equal(externalKeyAddress({ key_type: 'secp256k1-compressed', public_key_hex: `02${'ff'.repeat(32)}` }), null, 'x beyond the field');
   assert.equal(externalKeyAddress({ key_type: 'secp256k1-compressed', public_key_hex: `04${'11'.repeat(32)}` }), null, 'wrong prefix');
 });
+
+test('lookupBadge with exam: the Agent Safety Index for a site the anchored card lists, verified results only', async () => {
+  const { lookupBadge, examFor, clearConcordiumCache: clear } = require('../lib/concordium-agent');
+  const host = new URL(SELLER).hostname;
+  const asked = [];
+  const entry = (over) => ({ agent: { name: 'Seller bot' }, score: 92, admitted: true, current: true, traps_avoided: '14/14', valid_until: '2026-12-08T00:00:00Z', agent_page: 'https://exam.fizzl.eu/a/k', result: 'https://exam.fizzl.eu/v1/results/r', verified: true, finished_at: '2026-11-08T00:00:00Z', ...over });
+  const examFetch = (agents) => async (url) => { asked.push(url); return { ok: true, json: async () => ({ site: host, agents }) }; };
+
+  const text = card();
+  clear();
+  const r = registry({ agent_by_token_address: agent(text) });
+  const ok = await lookupBadge(BADGE, { fetchImpl: r.fetchImpl, safeFetch: pages({ [CARD_URL]: text }), exam: true, examFetch: examFetch([entry({ score: 60, admitted: false, current: false, finished_at: '2026-11-09T00:00:00Z' }), entry()]) });
+  assert.equal(ok.valid, true);
+  assert.equal(asked[0], `https://exam.fizzl.eu/v1/lookup?site=${encodeURIComponent(host)}`);
+  assert.deepEqual([ok.exam.site, ok.exam.admitted, ok.exam.current, ok.exam.score], [host, true, true, 92], 'a current admission wins over a later failed sitting');
+
+  // A result the site does not vouch for (not verified) is not shown; the index being down is not an issue.
+  assert.equal(await examFor([SELLER], { fetchImpl: examFetch([entry({ verified: false })]) }), null);
+  assert.equal(await examFor([SELLER], { fetchImpl: async () => { throw new Error('down'); } }), null);
+  clear();
+  const down = await lookupBadge(BADGE, { fetchImpl: registry({ agent_by_token_address: agent(text) }).fetchImpl, safeFetch: pages({ [CARD_URL]: text }), exam: true, examFetch: async () => ({ ok: false }) });
+  assert.equal(down.valid, true);
+  assert.equal(down.exam, null);
+
+  // Without exam: true nothing is asked and there is no exam field.
+  clear();
+  const n = asked.length;
+  const plain = await lookupBadge(BADGE, { fetchImpl: registry({ agent_by_token_address: agent(text) }).fetchImpl, safeFetch: pages({ [CARD_URL]: text }), examFetch: examFetch([entry()]) });
+  assert.equal('exam' in plain, false);
+  assert.equal(asked.length, n);
+});
