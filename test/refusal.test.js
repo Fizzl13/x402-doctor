@@ -58,7 +58,7 @@ test('parse: a buyer\'s report passes; bad fields, old reports and other sellers
 
 async function app(opts = {}) {
   const recorded = [];
-  const routes = createRefusalRoutes({ publicUrl: 'https://x402-doctor.fizzl.eu', record: (r, m) => recorded.push({ r, m }), ...opts });
+  const routes = createRefusalRoutes({ publicUrl: 'https://x402-doctor.fizzl.eu', routes: ['/api/v1/preflight'], record: (r, m) => recorded.push({ r, m }), ...opts });
   const a = express();
   a.use(express.json());
   a.get(PATH, routes.get);
@@ -89,7 +89,7 @@ test('endpoint: takes a report (204), counts it, checks a signature, and limits 
   const info = await (await fetch(url)).json();
   assert.equal(info.extension, 'refusal');
   assert.ok(info.reasons.terms_mismatch);
-  assert.deepEqual(info.received.by_resource['https://x402-doctor.fizzl.eu/api/v1/preflight'], { total: 2, signed: 1, reasons: { payto_changed: 1, price_above_limit: 1 } });
+  assert.deepEqual(info.received.by_resource['/api/v1/preflight'], { total: 2, signed: 1, reasons: { payto_changed: 1, price_above_limit: 1 } });
   assert.equal((await post(report)).status, 429, 'three an hour per address (the refused forgery counts too)');
 });
 
@@ -112,7 +112,7 @@ test('Doctor\'s own 402 names the refusal endpoint, and the endpoint answers', a
   const posted = await fetch(`${base}${PATH}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(report) });
   assert.equal(posted.status, 204);
   const info = await (await fetch(`${base}${PATH}`)).json();
-  assert.equal(info.received.by_resource['https://x402-doctor.fizzl.eu/api/v1/preflight'].reasons.network_unsupported, 1);
+  assert.equal(info.received.by_resource['/api/v1/preflight'].reasons.network_unsupported, 1);
 });
 
 test('sender: posts the ready report, refuses redirects, and never throws', async () => {
@@ -140,7 +140,7 @@ test('Fizzl Buy\'s own 402 names its refusal endpoint, which takes reports', asy
   const report = refusalReport({ resource: 'https://buy.fizzl.eu/v1/buy', accept: ACCEPT, reason: 'price_above_limit' });
   assert.equal((await fetch(`${base}${PATH}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(report) })).status, 204);
   const info = await (await fetch(`${base}${PATH}`)).json();
-  assert.equal(info.received.by_resource['https://buy.fizzl.eu/v1/buy'].reasons.price_above_limit, 1);
+  assert.equal(info.received.by_resource['/v1/buy'].reasons.price_above_limit, 1);
 });
 
 test('v0.3: check_unavailable says which check could not complete, and needs that detail', async () => {
@@ -193,9 +193,9 @@ test('v0.2: trust_low, a screening_hit only when signed, and counts per day', as
   const info = await (await fetch(url)).json();
   assert.equal(info.version, VERSION);
   assert.deepEqual(info.received.by_day, [
-    { day: '2026-11-02', resource, reason: 'trust_low', count: 2, signed: 0 },
-    { day: '2026-11-01', resource, reason: 'screening_hit', count: 1, signed: 1 },
-    { day: '2026-11-01', resource, reason: 'trust_low', count: 1, signed: 0 },
+    { day: '2026-11-02', resource: '/api/v1/preflight', reason: 'trust_low', count: 2, signed: 0 },
+    { day: '2026-11-01', resource: '/api/v1/preflight', reason: 'screening_hit', count: 1, signed: 1 },
+    { day: '2026-11-01', resource: '/api/v1/preflight', reason: 'trust_low', count: 1, signed: 0 },
   ]);
 
   // A buyer's sender doesn't post a screening_hit it can't sign (the seller would refuse it).
@@ -203,4 +203,31 @@ test('v0.2: trust_low, a screening_hit only when signed, and counts per day', as
   const sender = createRefusalSender({ fetchImpl: async () => { calls.push(1); return { status: 204 }; } });
   assert.equal(await sender.send({ url: 'https://s.example/r', report: refusalReport({ resource: 'https://s.example/paid', accept: ACCEPT, reason: 'screening_hit' }) }), false);
   assert.equal(calls.length, 0);
+});
+
+test('a report counts under the route the seller declares: no query or path from the buyer shows up, and a repost counts once', async () => {
+  const { url, post, recorded } = await app({ routes: ['/api/v1/preflight', '/v1/items/:id'] });
+  const markers = ['marker-a-7f3c', 'marker-b-91e2', 'item-55d0', 'item-c4a8', 'stray-0b6e'];
+  const reports = [
+    refusalReport({ resource: `https://x402-doctor.fizzl.eu/api/v1/preflight?url=https://${markers[0]}.example/x`, accept: ACCEPT, reason: 'price_above_limit' }),
+    refusalReport({ resource: `https://x402-doctor.fizzl.eu/api/v1/preflight/?email=${markers[1]}`, accept: ACCEPT, reason: 'price_above_limit' }),
+    refusalReport({ resource: `https://x402-doctor.fizzl.eu/v1/items/${markers[2]}`, accept: ACCEPT, reason: 'payto_changed' }),
+    refusalReport({ resource: `https://x402-doctor.fizzl.eu/v1/items/${markers[3]}?q=1`, accept: ACCEPT, reason: 'payto_changed' }),
+    refusalReport({ resource: `https://x402-doctor.fizzl.eu/${markers[4]}/deep/path`, accept: ACCEPT, reason: 'payto_changed' }),
+  ];
+  for (const r of reports) assert.equal((await post(r)).status, 204);
+  assert.equal((await post(reports[0])).status, 204, 'an exact repost is taken');
+
+  const text = await (await fetch(url)).text();
+  const info = JSON.parse(text);
+  assert.deepEqual(Object.keys(info.received.by_resource).sort(), ['/api/v1/preflight', '/v1/items/:id', 'other']);
+  assert.equal(info.received.by_resource['/api/v1/preflight'].total, 2, 'two inputs to one route, one bucket; the repost counts once');
+  assert.equal(info.received.by_resource['/v1/items/:id'].total, 2);
+  assert.equal(info.received.by_resource.other.total, 1);
+  const kept = JSON.stringify(recorded.map((x) => x.r));
+  for (const m of markers) {
+    assert.ok(!text.includes(m), `${m} is not in the public counts`);
+    assert.ok(!kept.includes(m), `${m} is not passed to the record hook`);
+  }
+  assert.equal(recorded.length, 5);
 });

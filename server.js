@@ -341,7 +341,8 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   });
   // The refusal extension (draft, lib/refusal.js): buyers that decide not to pay one of Doctor's 402s say why here.
   // Counted in the usage log (route "refusal received") and on GET.
-  const refusals = createRefusalRoutes({ publicUrl: env.PUBLIC_URL || 'https://x402-doctor.fizzl.eu' });
+  // Public counts per paid route, never per URL as a buyer sent it (it can carry the buyer's own query or path).
+  const refusals = createRefusalRoutes({ publicUrl: env.PUBLIC_URL || 'https://x402-doctor.fizzl.eu', routes: [PAID_ROUTE, PREFLIGHT_ROUTE, FIX_ROUTE, BATCH_ROUTE, DEEP_ROUTE, DELIVERY_ROUTE, '/mcp'] });
   app.get(REFUSAL_PATH, (req, res) => { res.set('Access-Control-Allow-Origin', '*'); refusals.get(req, res); });
   app.options(REFUSAL_PATH, (_req, res) => res.set({ 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST', 'Access-Control-Allow-Headers': 'content-type' }).status(204).end());
   app.use(feedback.router(express)); // its own 16 kB JSON parser, before the 4 kB one
