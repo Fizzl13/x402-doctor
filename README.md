@@ -123,10 +123,15 @@ call it before your agent pays an x402 endpoint it has not used before. It never
 `client=gateway` when your agent pays with Circle's Gateway client from a Gateway balance: Circle Gateway-only
 endpoints (`gateway_only`, otherwise a caution) are then a go, and a Gateway option is recommended first.
 
+A caution is not a go: `next_step` is `ask_user`, and the summary starts "Ask your user first" and says why. An
+agent should stop, tell its user the reason, and pay only if they accept it. (`safe_to_pay` stays true on a caution,
+as before; read `next_step`.)
+
 ```json
 {
   "verdict": "go",                     // go | caution | no_go
-  "safe_to_pay": true,
+  "safe_to_pay": true,                 // false only on no_go
+  "next_step": "pay",                  // pay | ask_user (on caution) | do_not_pay
   "summary": "OK to pay: $0.02 on Solana.",
   "recommended_option": 1,             // index into the endpoint's accepts[]
   "options": [{ "network": "eip155:8453", "asset_symbol": "USDC", "usd": 0.02, "payable": true, "problems": [] }, …],
