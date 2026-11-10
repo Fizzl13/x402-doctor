@@ -258,3 +258,18 @@ test('basis: a payout or price refusal says what it compared with (live read or 
   assert.deepEqual(info.received.by_resource['/api/v1/preflight'], { total: 3, signed: 0, reasons: { payto_changed: 3 }, basis: { payto_changed: { live: 1, catalog: 1 } } });
   assert.ok(info.schema.properties.basis);
 });
+
+test('basis listed_updated: a catalog comparison can say how old the listing was, next to when it was read', async () => {
+  const resource = 'https://x402-doctor.fizzl.eu/api/v1/preflight';
+  const basis = { source: 'catalog', at: '2026-11-09T21:00:00Z', listed_updated: '2026-10-31T08:12:00Z' };
+  const r = refusalReport({ resource, accept: ACCEPT, reason: 'payto_changed', basis });
+  assert.deepEqual(r.basis, basis);
+  assert.match(signingMessage(r), /\nbasis: catalog 2026-11-09T21:00:00Z 2026-10-31T08:12:00Z$/);
+  const without = refusalReport({ resource, accept: ACCEPT, reason: 'payto_changed', basis: { source: 'catalog', at: '2026-11-09' } });
+  assert.match(signingMessage(without), /\nbasis: catalog 2026-11-09$/, 'without it a report signs exactly as before');
+  assert.throws(() => refusalReport({ resource, accept: ACCEPT, reason: 'payto_changed', basis: { source: 'live', at: '2026-11-09', listed_updated: '2026-11-01' } }), /only for source "catalog"/);
+  assert.throws(() => refusalReport({ resource, accept: ACCEPT, reason: 'payto_changed', basis: { source: 'catalog', at: '2026-11-01', listed_updated: '2026-11-09' } }), /at or before basis.at/);
+  assert.throws(() => refusalReport({ resource, accept: ACCEPT, reason: 'price_changed', basis: { source: 'catalog', at: '2026-11-09', listed_updated: 'last week' } }), /UTC date or ISO time/);
+  const parsed = parseRefusal({ ...r }, { ownHost: 'x402-doctor.fizzl.eu' });
+  assert.deepEqual(parsed.report.basis, basis, 'a receiver keeps it');
+});
