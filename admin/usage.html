@@ -9,14 +9,14 @@
   :root {
     color-scheme: dark;
     --bg: #0d1117; --panel: #161b22; --line: #30363d; --grid: #21262d; --text: #e6edf3; --text-soft: #8b949e; --accent: #58a6ff;
-    --s-doctor: #3987e5; --s-buy: #d95926; --s-ichimoku: #199e70; --s-presign: #c98500;
+    --s-doctor: #3987e5; --s-buy: #d95926; --s-ichimoku: #199e70; --s-presign: #c98500; --s-exam: #9a6fe0;
     --ok: #3fb950; --bad: #f85149;
     --v1: #3987e5; --v2: #d95926; --v3: #199e70;
   }
   @media (prefers-color-scheme: light) {
     :root { color-scheme: light;
       --bg: #f6f8fa; --panel: #ffffff; --line: #d0d7de; --grid: #eaeef2; --text: #1f2328; --text-soft: #57606a; --accent: #0969da;
-      --s-doctor: #2a78d6; --s-buy: #eb6834; --s-ichimoku: #1baf7a; --s-presign: #eda100;
+      --s-doctor: #2a78d6; --s-buy: #eb6834; --s-ichimoku: #1baf7a; --s-presign: #eda100; --s-exam: #8250df;
       --ok: #1a7f37; --bad: #cf222e;
       --v1: #2a78d6; --v2: #eb6834; --v3: #1baf7a; }
   }
@@ -42,7 +42,7 @@
   .tile .k { color: var(--text-soft); font-size: 13px; }
   .tile .v { font-size: 1.7rem; font-weight: 650; font-variant-numeric: tabular-nums; line-height: 1.2; margin-top: 2px; }
   .tile .d { color: var(--text-soft); font-size: 12.5px; }
-  .services { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .services { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
   .svc { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; border-top: 3px solid var(--c); }
   .svc .name { display: flex; align-items: center; gap: 8px; font-weight: 600; }
   .svc .big { font-size: 1.4rem; font-weight: 650; font-variant-numeric: tabular-nums; margin-top: 4px; }
@@ -196,6 +196,14 @@
     <p class="note" id="buyNote"></p>
   </div>
 
+  <h2>Agent exam: sittings, badges and lookups</h2>
+  <div class="panel">
+    <div class="tiles" id="examTiles"></div>
+    <details open><summary>Recent sittings</summary><div class="scroll"><table id="examTable"></table></div></details>
+    <details><summary>What else was used</summary><div class="scroll"><table id="examUse"></table></div></details>
+    <p class="note" id="examNote"></p>
+  </div>
+
   <h2>Agent Wallet: how people sign in</h2>
   <div class="panel">
     <div class="legend" id="signLegend"></div>
@@ -246,6 +254,7 @@
     { id: 'buy', name: 'Fizzl Buy' }, // took PlainText's place on 23 Oct 2026 (PlainText paused since 16 Oct)
     { id: 'ichimoku', name: 'Ichimoku Signal' },
     { id: 'presign', name: 'presign-guard' },
+    { id: 'exam', name: 'Agent exam' }, // exam.fizzl.eu, logged since 8 Nov 2026
   ];
   const NAME = Object.fromEntries(SERVICES.map((s) => [s.id, s.name]));
   const color = (id) => `var(--s-${id}, var(--text-soft))`;
@@ -376,6 +385,7 @@
     renderCallers(events);
     renderNetworks();
     renderBuy();
+    renderExam();
     renderSignins();
     renderDownloads();
     renderMpp();
@@ -639,6 +649,48 @@
     }
     table('buySellers', ['Seller', 'Purchases', 'Paid to it'], [...sellers].sort((a, b) => b[1].n - a[1].n).map(([h, r]) => [h, r.n, usd(r.usd)]));
     $('buyNote').textContent = 'From Fizzl Buy (buy.fizzl.eu, live since 23 Oct 2026): every purchase, with what the agent paid ($0.02) and what the inkoper paid the sellers from its own wallet (up to $0.01 each, also for sellers tried that didn\'t deliver; logged since 23 Oct 2026). When no seller delivers the agent is not charged, so those rows only cost. Our own index payments are purchases too. Not filtered by the service chips; "hide monitors" applies.';
+  }
+
+  // ---- Agent exam (events/exam: exam started / finished / refused, badge, lookup, verify, mcp, page, demo) ----
+  // Our own sittings: the references, the demo agents and the model sittings we ran ourselves (bin/exam-agent.js).
+  const OUR_EXAM_AGENT = /^(Reference: |Demo agent|Fizzl demo agent|Claude |Grok |GPT-)/;
+  const ourSitting = (e) => ['reference', 'demo'].includes(e.input?.kind) || OUR_EXAM_AGENT.test(String(e.input?.agent || ''));
+  function renderExam() {
+    const ev = (state.data.events || []).filter((e) => e.service === 'exam' && !e.quote && (!state.hideBots || !isBot(e)));
+    const of = (route) => ev.filter((e) => e.route === route);
+    const started = of('exam started');
+    const finished = of('exam finished').sort((a, b) => (a.t < b.t ? 1 : -1));
+    const theirs = finished.filter((e) => !ourSitting(e));
+    const admitted = theirs.filter((e) => e.result?.admitted);
+    const paid = started.filter((e) => e.paid);
+    const received = paid.reduce((t, e) => t + (Number(e.usd) || 0), 0);
+    const visitors = (list) => new Set(list.map((e) => e.visitor).filter(Boolean)).size;
+    const pages = of('page');
+    const tile = (k, v, d) => el('div', { className: 'tile' }, el('div', { className: 'k', textContent: k }), el('div', { className: 'v', textContent: v }), el('div', { className: 'd', textContent: d }));
+    $('examTiles').replaceChildren(
+      tile('Sittings by others', theirs.length.toLocaleString(), `${admitted.length} admitted · ${finished.length - theirs.length} of ours`),
+      tile('Paid sittings', paid.length.toLocaleString(), paid.length ? `${usd(received)} received` : 'none yet'),
+      tile('Started', started.length.toLocaleString(), `${of('exam refused').length} refused (free exam already used)`),
+      tile('Badge views', of('badge').length.toLocaleString(), `${visitors(of('badge'))} visitor(s)`),
+      tile('Site lookups', of('lookup').length.toLocaleString(), `${of('verify').length} result checks`),
+      tile('MCP calls', of('mcp').length.toLocaleString(), `${visitors(of('mcp'))} caller(s)`),
+      tile('Page views', pages.length.toLocaleString(), `${visitors(pages)} visitor(s)`),
+    );
+    table('examTable', ['When', 'Agent', 'Kind', 'Score', 'Admitted', 'Traps', 'Honest', 'Lost', 'Who'], finished.slice(0, 25).map((e) => [
+      `${new Date(e.t).toLocaleString()} (${ago(e.t)})`, e.input?.agent || '?', e.input?.kind || '', e.result?.score ?? '', e.result ? (e.result.admitted ? 'yes' : 'no') : '', e.result?.traps || '', e.result?.honest || '', Number.isFinite(e.result?.lost_usd) ? usd(e.result.lost_usd) : '', ourSitting(e) ? 'ours' : (e.acct || e.visitor || ''),
+    ]), 3);
+    const use = new Map();
+    for (const e of ev) {
+      if (e.route.startsWith('exam ')) continue;
+      const what = e.route === 'page' ? `page: ${e.input?.page || '?'}` : e.route === 'mcp' ? `MCP: ${e.input?.tool || '?'}` : e.route === 'badge' ? `badge${e.input?.style ? ` (${e.input.style})` : ''}` : e.route === 'demo' ? `live demo: ${e.input?.agent || '?'}` : e.route;
+      if (!use.has(what)) use.set(what, { n: 0, v: new Set(), last: e.t });
+      const r = use.get(what);
+      r.n++;
+      if (e.visitor) r.v.add(e.visitor);
+      if (e.t > r.last) r.last = e.t;
+    }
+    table('examUse', ['What', 'Times', 'Visitors', 'Last'], [...use].sort((a, b) => b[1].n - a[1].n).map(([w, r]) => [w, r.n, r.v.size, ago(r.last)]), 1);
+    $('examNote').textContent = 'From the agent exam (exam.fizzl.eu, logged since 8 Nov 2026). "Ours" are the reference agents, the demo agents and the model sittings we ran ourselves (Claude, Grok, GPT); the other rows are outside agents, shown by their anonymous account or visitor code. A paid sitting is a re-sit from the same operator wallet. Not filtered by the service chips; "hide monitors" applies.';
   }
 
   // ---- Agent Wallet sign-ins (events/wallet: route signup / signin, input.chain = the way in) ----
