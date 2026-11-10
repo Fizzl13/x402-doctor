@@ -392,7 +392,11 @@ Space waits in `hf-mcp/`. Doctor's own MCP server is `https://x402-doctor.fizzl.
   last 7 days (`payto_changed_alone` when that daily change was the only one of its site, the domain with all
   its subdomains, while at least 3 other endpoints of the site kept their address: most changes come per seller, as
   when a seller rotates its wallet), and `price_changed` when the price is higher than in the last scan (`info` when lower) or changed this
-  week. The index keeps a short fingerprint of each payout address, not the address.
+  week. The index keeps a short fingerprint of each payout address, not the address. The same comes as data in
+  `changed_fields` (`["pay_to"]`, `["price"]`, both, `[]` for nothing, `null` when there is no scan record) and
+  `changes` (per change: `field`, `networks` and `bound` for a payout address, `from_usd` and `to_usd` for a price,
+  `kind` `differs_from_scan` or `changed_in_scan`, and the scan `day`), so an agent can refuse a changed seller
+  without reading the codes.
 - **Fizzl Buy buy-check.** [`buy-check.yml`](.github/workflows/buy-check.yml), started by hand only, buys through
   Fizzl Buy (`POST https://buy.fizzl.eu/v1/buy`, $0.02) the way an agent would (`scripts/buy-check.js`): 1 to 20
   everyday needs (prices, weather, search, news), each with whether a seller delivered, which one, what it was paid,

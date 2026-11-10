@@ -54,6 +54,7 @@ test('changeReasons: changed in a scan this week (caution); older changes are hi
   const r = changeReasons({ record: { days: ['2026-10-31'], payto: pt }, options: [opt('eip155:8453', B)], now });
   assert.equal(r[0].code, 'payto_changed');
   assert.match(r[0].message, /changed in the daily scan of 29 Oct 2026/);
+  assert.deepEqual(r[0].change, { field: 'pay_to', networks: ['eip155:8453'], kind: 'changed_in_scan', day: '2026-10-29', bound: false });
   assert.deepEqual(changeReasons({ record: { payto: { ...pt, s: '2026-10-10' } }, options: [opt('eip155:8453', B)], now }), []);
 });
 
@@ -62,11 +63,13 @@ test('changeReasons: price above the scan is a caution, below is info, a change 
   const up = changeReasons({ record, options: [opt('eip155:8453', A, 0.05)], now });
   assert.deepEqual(up.map((x) => [x.level, x.code]), [['caution', 'price_changed']]);
   assert.match(up[0].message, /Asks \$0\.05 now; the daily scan of 31 Oct 2026 saw \$0\.01\./);
+  assert.deepEqual(up[0].change, { field: 'price', from_usd: 0.01, to_usd: 0.05, kind: 'differs_from_scan', day: '2026-10-31' });
   assert.equal(changeReasons({ record, options: [opt('eip155:8453', A, 0.005)], now })[0].level, 'info');
   assert.deepEqual(changeReasons({ record, options: [opt('eip155:8453', A, 0.01), opt('solana:x', SOL, 0.5)], now }), [], 'the cheapest payable option is compared');
   const week = changeReasons({ record: { price: [0.05, '2026-10-28', 0.01] }, options: [opt('eip155:8453', A, 0.05)], now });
   assert.match(week[0].message, /went from \$0\.01 to \$0\.05 in the daily scan of 28 Oct 2026/);
   assert.equal(week[0].level, 'caution');
+  assert.deepEqual(week[0].change, { field: 'price', from_usd: 0.01, to_usd: 0.05, kind: 'changed_in_scan', day: '2026-10-28' });
   assert.deepEqual(changeReasons({ record: null, options: [] }), []);
 });
 
