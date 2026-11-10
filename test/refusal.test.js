@@ -60,13 +60,15 @@ async function app(opts = {}) {
   const recorded = [];
   const routes = createRefusalRoutes({ publicUrl: 'https://x402-doctor.fizzl.eu', routes: ['/api/v1/preflight'], record: (r, m) => recorded.push({ r, m }), ...opts });
   const a = express();
+  a.set('trust proxy', 1); // as behind Render: the address is the one its proxy hop supplies
   a.use(express.json());
   a.get(PATH, routes.get);
   a.post(PATH, routes.post);
   const s = await new Promise((ok) => { const x = a.listen(0, '127.0.0.1', () => ok(x)); });
   servers.push(s);
   const url = `http://127.0.0.1:${s.address().port}${PATH}`;
-  const post = (body) => fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  // `from`: the sending address, as the proxy hop would supply it (unsigned reports count once per address a day).
+  const post = (body, from) => fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', ...(from ? { 'x-forwarded-for': from } : {}) }, body: JSON.stringify(body) });
   return { url, post, recorded };
 }
 
@@ -189,7 +191,7 @@ test('v0.2: trust_low, a screening_hit only when signed, and counts per day', as
   assert.equal((await post(refusalReport({ resource, accept: ACCEPT, reason: 'trust_low', detail: 'unknown', now: new Date(t) }))).status, 204);
   t += 86400 * 1000;
   assert.equal((await post(refusalReport({ resource, accept: ACCEPT, reason: 'trust_low', detail: 'score', now: new Date(t) }))).status, 204);
-  assert.equal((await post(refusalReport({ resource, accept: ACCEPT, reason: 'trust_low', now: new Date(t) }))).status, 204);
+  assert.equal((await post(refusalReport({ resource, accept: ACCEPT, reason: 'trust_low', now: new Date(t) }), '203.0.113.2')).status, 204);
   const info = await (await fetch(url)).json();
   assert.equal(info.version, VERSION);
   assert.deepEqual(info.received.by_day, [
@@ -215,8 +217,8 @@ test('a report counts under the route the seller declares: no query or path from
     refusalReport({ resource: `https://x402-doctor.fizzl.eu/v1/items/${markers[3]}?q=1`, accept: ACCEPT, reason: 'payto_changed' }),
     refusalReport({ resource: `https://x402-doctor.fizzl.eu/${markers[4]}/deep/path`, accept: ACCEPT, reason: 'payto_changed' }),
   ];
-  for (const r of reports) assert.equal((await post(r)).status, 204);
-  assert.equal((await post(reports[0])).status, 204, 'an exact repost is taken');
+  for (const [i, r] of reports.entries()) assert.equal((await post(r, `203.0.113.${i + 1}`)).status, 204);
+  assert.equal((await post(reports[0], '203.0.113.1')).status, 204, 'an exact repost is taken');
 
   const text = await (await fetch(url)).text();
   const info = JSON.parse(text);
@@ -230,6 +232,39 @@ test('a report counts under the route the seller declares: no query or path from
     assert.ok(!kept.includes(m), `${m} is not passed to the record hook`);
   }
   assert.equal(recorded.length, 5);
+});
+
+test('unsigned reports are capped: one per sending address, UTC day, route and reason, whatever their checkedAt (Lucian)', async () => {
+  let t = Date.parse('2026-11-10T08:00:00Z');
+  const { url, post, recorded } = await app({ perHour: 30, now: () => t });
+  const resource = 'https://x402-doctor.fizzl.eu/api/v1/preflight';
+  const at = (min, extra = {}) => refusalReport({ resource, accept: ACCEPT, reason: 'trust_low', now: new Date(t + min * 60000), ...extra });
+  // One address varies checkedAt, detail and the URL's query: one contribution.
+  for (let i = 0; i < 10; i++) assert.equal((await post(at(i, { detail: i % 2 ? 'score' : 'unknown' }), '198.51.100.7')).status, 204);
+  assert.equal((await post(refusalReport({ resource: `${resource}?url=https://a.example/${t}`, accept: ACCEPT, reason: 'trust_low', now: new Date(t) }), '198.51.100.7')).status, 204);
+  const count = async () => (await (await fetch(url)).json()).received.by_resource['/api/v1/preflight'];
+  assert.deepEqual(await count(), { total: 1, signed: 0, reasons: { trust_low: 1 } });
+  // The same address with another reason, and another address with the same reason, each count.
+  assert.equal((await post(at(11, { reason: 'price_above_limit' }), '198.51.100.7')).status, 204);
+  assert.equal((await post(at(12), '198.51.100.8')).status, 204);
+  assert.deepEqual(await count(), { total: 3, signed: 0, reasons: { trust_low: 2, price_above_limit: 1 } });
+  // Signed reports are counted apart, once per exact report (a signature proves a key, not a unique customer).
+  const account = privateKeyToAccount(generatePrivateKey());
+  for (const min of [13, 14]) {
+    const r = at(min);
+    r.signature = { type: 'eip191', signer: account.address, value: await account.signMessage({ message: signingMessage(r) }) };
+    assert.equal((await post(r, '198.51.100.7')).status, 204);
+    assert.equal((await post(r, '198.51.100.7')).status, 204, 'its exact repost is taken, not counted');
+  }
+  assert.deepEqual(await count(), { total: 5, signed: 2, reasons: { trust_low: 4, price_above_limit: 1 } });
+  assert.equal(recorded.length, 5, 'only counted reports reach the record hook');
+  // A new server day counts the address again; the GET says how unsigned reports are counted.
+  t += 86400 * 1000;
+  assert.equal((await post(at(0), '198.51.100.7')).status, 204);
+  const info = await (await fetch(url)).json();
+  assert.equal(info.received.by_day.find((d) => d.day === '2026-11-11').count, 1);
+  assert.match(info.received.counted_by, /capped at one per sending address, UTC day, route and reason/);
+  assert.ok(!JSON.stringify(info).includes('198.51.100'), 'no address in the public counts');
 });
 
 test('basis: a payout or price refusal says what it compared with (live read or catalog), and sellers count them apart', async () => {
@@ -249,10 +284,10 @@ test('basis: a payout or price refusal says what it compared with (live read or 
   assert.match(bad({ source: 'live', at: '2026-11-09' }, 'trust_low'), /only for a comparison reason/);
 
   const { url, post, recorded } = await app();
-  assert.equal((await post(live)).status, 204);
+  assert.equal((await post(live, '203.0.113.1')).status, 204);
   const catalog = refusalReport({ resource, accept: ACCEPT, reason: 'payto_changed', basis: { source: 'catalog', at: '2026-11-02' } });
-  assert.equal((await post(catalog)).status, 204);
-  assert.equal((await post(plain)).status, 204);
+  assert.equal((await post(catalog, '203.0.113.2')).status, 204);
+  assert.equal((await post(plain, '203.0.113.3')).status, 204);
   assert.deepEqual(recorded[1].r.basis, { source: 'catalog', at: '2026-11-02' });
   const info = await (await fetch(url)).json();
   assert.deepEqual(info.received.by_resource['/api/v1/preflight'], { total: 3, signed: 0, reasons: { payto_changed: 3 }, basis: { payto_changed: { live: 1, catalog: 1 } } });
