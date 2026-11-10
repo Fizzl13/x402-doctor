@@ -83,6 +83,7 @@ test('healthy seller: go, cheapest USDC option recommended, signals filled in', 
   assert.equal(r.options[1].usd, 0.015);
   assert.equal(r.options[0].asset_symbol, 'USDC');
   assert.match(r.summary, /OK to pay: \$0.015 on Solana/);
+  assert.equal(r.next_step, 'pay');
   assert.equal(r.signals.advertised_price_usd, 0.02);
   assert.equal(r.signals.listed_in_cdp_bazaar, true);
 });
@@ -119,6 +120,11 @@ test('charging more than the OpenAPI advertises is a caution', async () => {
   const r = await run(await seller({ accepts: [baseOption('100000')], advertised: '0.02' }));
   assert.equal(r.verdict, 'caution');
   assert.ok(r.reasons.some((x) => x.code === 'price_above_advertised'));
+  // A caution reads as "stop and ask", never as a go: models read "Payable, with caution" as one and paid.
+  assert.equal(r.next_step, 'ask_user');
+  assert.equal(r.safe_to_pay, true, 'unchanged for existing clients');
+  assert.match(r.summary, /^Ask your user first: payable \(\$0\.1 on Base\), but .+ Pay only if they accept this\.$/);
+  assert.doesNotMatch(r.summary, /Payable, with caution/);
 });
 
 test('charging ten times the advertised price or more is no_go', async () => {
