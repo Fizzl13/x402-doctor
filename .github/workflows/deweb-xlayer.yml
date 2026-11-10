@@ -6,7 +6,11 @@ name: DeWEB site on X Layer
 # run (the default) simulates every transaction and sends nothing. The deploy wallet's key is the XLAYER_DEPLOY_KEY
 # secret: a dedicated wallet that holds only the OKB for these steps (about 0.09 OKB the first time, then only gas
 # for changed files). What it set up is kept in deweb-state.json on the deweb-data branch, with the published files.
+# Every Monday at 04:37 UTC (after the day's Trust Index scan) it also publishes for real, so the page's "today's
+# verdict" is at most a week old; a scheduled run has no inputs, so dry_run is off. Frits asked for it on 10 Nov 2026.
 on:
+  schedule:
+    - cron: "37 4 * * 1"
   workflow_dispatch:
     inputs:
       dry_run:
