@@ -231,3 +231,30 @@ test('a report counts under the route the seller declares: no query or path from
   }
   assert.equal(recorded.length, 5);
 });
+
+test('basis: a payout or price refusal says what it compared with (live read or catalog), and sellers count them apart', async () => {
+  const resource = 'https://x402-doctor.fizzl.eu/api/v1/preflight';
+  const live = refusalReport({ resource, accept: ACCEPT, reason: 'payto_changed', basis: { source: 'live', at: '2026-11-09' } });
+  assert.deepEqual(live.basis, { source: 'live', at: '2026-11-09' });
+  assert.match(signingMessage(live), /\nbasis: live 2026-11-09$/);
+  const plain = refusalReport({ resource, accept: ACCEPT, reason: 'payto_changed' });
+  assert.equal(plain.basis, undefined);
+  assert.doesNotMatch(signingMessage(plain), /basis/, 'without a basis a report signs exactly as before');
+  assert.throws(() => refusalReport({ resource, accept: ACCEPT, reason: 'network_unsupported', basis: { source: 'live', at: '2026-11-09' } }), /only for a comparison reason/);
+  assert.throws(() => refusalReport({ resource, accept: ACCEPT, reason: 'price_changed', basis: { source: 'rumour', at: '2026-11-09' } }), /basis must be/);
+  const bad = (basis, reason = 'payto_changed') => parseRefusal({ ...plain, reason, basis }, { ownHost: 'x402-doctor.fizzl.eu' }).error;
+  assert.equal(bad({ source: 'catalog', at: '2026-11-02T08:00:00Z' }), undefined);
+  assert.match(bad({ source: 'catalog', at: 'last week' }), /basis must be/);
+  assert.match(bad('live'), /basis must be/);
+  assert.match(bad({ source: 'live', at: '2026-11-09' }, 'trust_low'), /only for a comparison reason/);
+
+  const { url, post, recorded } = await app();
+  assert.equal((await post(live)).status, 204);
+  const catalog = refusalReport({ resource, accept: ACCEPT, reason: 'payto_changed', basis: { source: 'catalog', at: '2026-11-02' } });
+  assert.equal((await post(catalog)).status, 204);
+  assert.equal((await post(plain)).status, 204);
+  assert.deepEqual(recorded[1].r.basis, { source: 'catalog', at: '2026-11-02' });
+  const info = await (await fetch(url)).json();
+  assert.deepEqual(info.received.by_resource['/api/v1/preflight'], { total: 3, signed: 0, reasons: { payto_changed: 3 }, basis: { payto_changed: { live: 1, catalog: 1 } } });
+  assert.ok(info.schema.properties.basis);
+});

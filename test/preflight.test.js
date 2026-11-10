@@ -768,3 +768,13 @@ test('refusal: a no_go for a seller that takes refusals comes with a ready repor
   const elsewhere = await seller({ accepts: [option], extensions: { refusal: { info: { url: 'https://victim.example/hook' } } } });
   assert.equal((await run(elsewhere, { maxUsd: 0.01 })).refusal, undefined);
 });
+
+test('refusal: a payto_changed report says it compared with Doctor\'s own live read (basis live, the scan day)', async () => {
+  const { payToMap } = require('../lib/payee-history');
+  const url = await seller({ accepts: [baseOption('10000')], extensions: (origin) => ({ refusal: { info: { url: `${origin}/.well-known/x402-refusal`, version: '0.4-draft' } } }) });
+  const trustIndex = { lookup: async () => ({ days_checked: 5, days_payable: 5, payable_ratio: 1, history: 'ggggg', days: ['2026-10-31'], payto: { a: payToMap([{ network: BASE, pay_to: '0x1111111111111111111111111111111111111111' }]), s: '2026-10-01' } }) };
+  const r = await run(url, { trustIndex, payeeCheck: async () => [{ network: BASE, outcome: 'mismatch' }] });
+  assert.equal(r.refusal.report.reason, 'payto_changed', JSON.stringify(r.reasons));
+  assert.deepEqual(r.refusal.report.basis, { source: 'live', at: '2026-10-31' });
+  assert.match(r.refusal.signing_message, /\nbasis: live 2026-10-31$/);
+});
