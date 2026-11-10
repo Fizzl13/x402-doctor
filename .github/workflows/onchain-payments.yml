@@ -41,6 +41,9 @@ jobs:
             git show FETCH_HEAD:payments-xlayer.json > payments-data/payments-xlayer.json 2>/dev/null || rm -f payments-data/payments-xlayer.json
             git show FETCH_HEAD:payments-monad.json > payments-data/payments-monad.json 2>/dev/null || rm -f payments-data/payments-monad.json
             for k in polygon arbitrum avalanche optimism; do git show FETCH_HEAD:payments-$k.json > payments-data/payments-$k.json 2>/dev/null || rm -f payments-data/payments-$k.json; done
+            # The longer history (lib/onchain-history.js): the days that left the hourly files, kept 35 days.
+            mkdir -p payments-data/history
+            for f in $(git ls-tree --name-only FETCH_HEAD history/ 2>/dev/null); do git show "FETCH_HEAD:$f" > "payments-data/$f" || rm -f "payments-data/$f"; done
           fi
           if git fetch --depth 1 origin trust-data 2>/dev/null; then
             git show FETCH_HEAD:paytos.json > paytos.json || rm -f paytos.json
@@ -87,6 +90,8 @@ jobs:
           the same as on Base for payout addresses on X Layer, counting signed (EIP-3009) USD₮0 and USDC payments. `payments-monad.json`: the same
           for USDC payout addresses on Monad, and `payments-polygon.json`, `payments-arbitrum.json`,
           `payments-avalanche.json` and `payments-optimism.json` for USDC payout addresses on those networks.
+          `history/` holds the same files for the days that left them (older than today and the 7 days before), kept
+          35 days, so a window other than the last week can still be counted.
           See https://x402-doctor.fizzl.eu/trust
           MD
           git init -q -b payments-data
@@ -98,6 +103,7 @@ jobs:
           if [ -f payments-xlayer.json ]; then git add payments-xlayer.json; fi
           if [ -f payments-monad.json ]; then git add payments-monad.json; fi
           for f in payments-polygon.json payments-arbitrum.json payments-avalanche.json payments-optimism.json; do if [ -f "$f" ]; then git add "$f"; fi; done
+          if [ -d history ] && [ -n "$(ls -A history)" ]; then git add history; fi
           git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -qm "Payments $(date -u +%FT%H:%M)"
           git push -qf "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" payments-data
         env:
