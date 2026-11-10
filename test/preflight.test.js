@@ -668,17 +668,24 @@ test('payto_changed: a moved address bound to the seller\'s agent (ERC-8478) is 
   const trustIndex = { lookup: async () => ({ days_checked: 5, days_payable: 5, payable_ratio: 1, history: 'ggggg', days: ['2026-10-31'], payto: { a: payToMap([{ network: BASE, pay_to: '0x1111111111111111111111111111111111111111' }]), s: '2026-10-01' } }) };
   const unbound = await run(url, { trustIndex, payeeCheck: async () => [{ network: BASE, outcome: 'mismatch' }] });
   assert.ok(unbound.reasons.some((r) => r.code === 'payto_changed' && r.level === 'caution'), JSON.stringify(unbound.reasons));
+  // The same as data, so an agent can compare without reading the codes.
+  assert.deepEqual(unbound.changed_fields, ['pay_to']);
+  assert.deepEqual(unbound.changes, [{ field: 'pay_to', networks: [BASE], kind: 'differs_from_scan', day: '2026-10-31', bound: false }]);
   let asked = 0;
   const bound = await run(url, { trustIndex, payeeCheck: async () => { asked++; return [{ network: BASE, outcome: 'verified-delegation', identity: { agentId: '988891' } }]; } });
   assert.equal(asked, 1);
   assert.ok(!bound.reasons.some((r) => r.code === 'payto_changed'), JSON.stringify(bound.reasons));
   assert.ok(bound.reasons.some((r) => r.code === 'payto_changed_bound' && r.level === 'info' && /#988891/.test(r.message)));
+  assert.deepEqual(bound.changes, [{ field: 'pay_to', networks: [BASE], kind: 'differs_from_scan', day: '2026-10-31', bound: true }]);
   assert.equal(bound.verdict, 'go', JSON.stringify(bound.reasons));
   // Not asked when nothing moved.
   let never = 0;
   const same = { lookup: async () => ({ days_checked: 5, days_payable: 5, payable_ratio: 1, history: 'ggggg', days: ['2026-10-31'], payto: { a: payToMap([{ network: BASE, pay_to: PAY_TO_BASE }]), s: '2026-10-01' } }) };
-  await run(url, { trustIndex: same, payeeCheck: async () => { never++; return []; } });
+  const unchanged = await run(url, { trustIndex: same, payeeCheck: async () => { never++; return []; } });
   assert.equal(never, 0);
+  assert.deepEqual([unchanged.changed_fields, unchanged.changes], [[], []], 'compared, nothing changed');
+  const noRecord = await run(url, {});
+  assert.deepEqual([noRecord.changed_fields, noRecord.changes], [null, null], 'nothing to compare with');
 });
 
 test('Verified by Concordium: a badge that vouches is info, one that does not is caution, none changes nothing', async () => {
