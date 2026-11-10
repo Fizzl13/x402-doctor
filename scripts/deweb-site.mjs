@@ -101,7 +101,7 @@ td.u{word-break:break-all}footer{margin-top:48px;font-size:13px;color:var(--mute
 <div class="tbl"><table><tr><th>Category</th><th class="n">Services</th></tr>${cats}</table></div>
 
 <h2>Every endpoint</h2>
-<p>Today's verdict per endpoint: <b class="green">go</b> payable as listed, <b class="orange">caution</b> payable with a catch, <b class="red">no_go</b> don't pay. Type to filter.</p>
+<p>The verdict per endpoint from the scan of ${esc(date) || 'the last scan'} (rewritten here every Monday; live at <a href="https://x402-doctor.fizzl.eu/xlayer">x402-doctor.fizzl.eu/xlayer</a>): <b class="green">go</b> payable as listed, <b class="orange">caution</b> payable with a catch, <b class="red">no_go</b> don't pay. Type to filter.</p>
 <input id="q" placeholder="Filter by host, path or category" aria-label="Filter endpoints">
 <div class="tbl"><table><thead><tr><th>Endpoint</th><th class="n">Price</th><th>Verdict</th></tr></thead><tbody id="rows"></tbody></table></div>
 <p id="more"></p>
