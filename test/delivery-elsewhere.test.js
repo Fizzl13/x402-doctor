@@ -7,7 +7,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
 const { loadNohumansCatalog, loadPayApiCatalog } = require('../lib/trust-scan');
-const { createDeliveryElsewhere, openClawSource, SOURCES } = require('../lib/delivery-elsewhere');
+const { createDeliveryElsewhere, openClawSource, arpSource, SOURCES } = require('../lib/delivery-elsewhere');
 const { createSafeFetch } = require('../lib/safe-fetch');
 const { preflight } = require('../lib/preflight');
 const { keyOf } = require('../lib/bazaar-index');
@@ -51,7 +51,8 @@ test('loadPayApiCatalog: with evidence, the routes it paid and got product from,
 });
 
 const file = (endpoints) => ({ version: 1, updated: '2026-10-26', endpoints });
-const sources = () => SOURCES.map((s) => ({ ...s, url: `https://x/${s.name}.json` }));
+// The two trust-data files (nohumans.directory, PayAPI Market); feeds with their own parse (ARP) have their own tests.
+const sources = () => SOURCES.filter((s) => !s.parse).map((s) => ({ ...s, url: `https://x/${s.name}.json` }));
 
 test('createDeliveryElsewhere: finds an endpoint by origin + path in each source, the latest purchase first, with listing links', async () => {
   let calls = 0;
@@ -160,4 +161,30 @@ test('OpenClaw feed as published (rows[]): failed only with a tx hash, "y:"/"n:"
   const d = await delivery.forUrl('https://d.example/q');
   assert.deepEqual([d.status, d.reason ?? null], ['failed', null]);
   assert.equal((await delivery.forUrl('https://e.example/p')).reason, 'partial: catalog, not data');
+});
+
+test('ARP outcomes feed (arp.x402-outcomes/2): the latest outcome per endpoint, failed with the payer\'s reason and how many wallets said it', async () => {
+  // Records as ARP's docs (apps/web/public/docs/x402-feed.md) show them.
+  const rec = (o) => ({ endpoint: null, endpoint_canonical: 'https://api.example.com/x402/weather', outcome: 'failed', reason: 'no-delivery', domain: null, settlement_tx: '0x1111111111111111111111111111111111111111111111111111111111111111', network: 'eip155:8453', payer: '0xaaa', pay_to: '0xbbb', amount: '20000', asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', paid_at: '2026-11-09T19:32:02.000Z', writer: '0xaaa', line_id: '0x1', written_at: '2026-11-09T20:00:00.000Z', ...o });
+  const feed = { schema: 'arp.x402-outcomes/2', records: [
+    rec({ endpoint: 'http://www.api.example.com/x402/weather/?email=me@example.com' }),
+    rec({ payer: '0xccc', settlement_tx: '0x2222222222222222222222222222222222222222222222222222222222222222', paid_at: '2026-11-10T08:00:00.000Z' }),
+    rec({ payer: '0xAAA', settlement_tx: '0x3333333333333333333333333333333333333333333333333333333333333333', paid_at: '2026-11-08T08:00:00.000Z' }), // the same wallet again, older
+    rec({ endpoint_canonical: 'https://b.example/v1/y', outcome: 'worked', reason: null, settlement_tx: '0x4444444444444444444444444444444444444444444444444444444444444444' }),
+    rec({ endpoint_canonical: 'https://c.example/no-tx', settlement_tx: '0x12' }),
+    rec({ endpoint_canonical: 'https://d.example/odd', outcome: 'maybe' }),
+  ], by_endpoint: {}, skipped: { count: 0, reasons: {} }, truncated: false };
+  const delivery = createDeliveryElsewhere({ sources: [arpSource('https://arp.example/feeds/x402-outcomes.json')], fetchImpl: async () => Response.json(feed) });
+  const a = await delivery.forUrl('https://api.example.com/x402/weather?q=1', { waitMs: 1000 });
+  assert.deepEqual([a.source, a.paid_on, a.status, a.reason, a.listing], ['ARP', '2026-11-10', 'failed', "paid, got nothing back; the payer's word, 2 wallets", 'https://basescan.org/tx/0x2222222222222222222222222222222222222222222222222222222222222222']);
+  const b = await delivery.forUrl('https://b.example/v1/y');
+  assert.deepEqual([b.status, b.reason], ['delivered', "the payer's word, 1 wallet"]);
+  assert.equal(await delivery.forUrl('https://c.example/no-tx'), null, 'no settlement tx, no record');
+  assert.equal(await delivery.forUrl('https://d.example/odd'), null);
+  assert.ok(!JSON.stringify(a).includes('me@example.com'), 'a query value from the payer\'s call never shows');
+  assert.ok(SOURCES.some((x) => x.name === 'ARP'), 'read by default');
+
+  // ARP's feed as published today: empty, nothing found, nothing thrown.
+  const empty = createDeliveryElsewhere({ sources: [arpSource('https://arp.example/x.json')], fetchImpl: async () => Response.json({ schema: 'arp.x402-outcomes/2', records: [], by_endpoint: {} }) });
+  assert.equal(await empty.forUrl('https://api.example.com/x402/weather', { waitMs: 1000 }), null);
 });

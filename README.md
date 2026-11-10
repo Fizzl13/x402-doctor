@@ -437,6 +437,11 @@ Space waits in `hf-mcp/`. Doctor's own MCP server is `https://x402-doctor.fizzl.
   set (`{ "grades": [{ "url", "date", "delivered": true|false, "reason"?, "report"? }] }`, the latest per endpoint).
   It also has failed purchases (paid, and no usable answer): those add an `info` line `failed_elsewhere` with the
   reason.
+  A fourth source, ARP's x402 outcomes feed (`arp.x402-outcomes/2`, intuition-box/ARP), is read by default
+  (`ARP_OUTCOMES_URL` points elsewhere, `off` stops it): payers' public lines about a paid call (`worked`, or `failed`
+  with a reason such as `no-delivery`), each tied to a settlement tx that ARP checked on chain. The record proves the
+  payment, not the outcome, so the line says it is the payer's word and how many wallets said it, with a link to the
+  transaction. Records are matched on origin and path only, so a query value from the payer's call is never used.
   The same wallet makes one other kind of payment, started by hand: [`index-payment.yml`](.github/workflows/index-payment.yml)
   pays our own fizzl.eu routes (`scripts/index-payment.js`), because the CDP Bazaar lists a route only after a payment
   for it settles and drops it after 30 days without one. `stale` (the default) pays each of our 16 routes whose last
