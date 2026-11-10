@@ -24,6 +24,8 @@
 // rpc.monad.xyz.
 
 const fs = require('node:fs');
+const path = require('node:path');
+const { archiveDropped } = require('../lib/onchain-history');
 const { collect, totalsOf, PUBLIC_RPC } = require('../lib/onchain-payments');
 const { collectSolana, PUBLIC_RPC: SOLANA_PUBLIC_RPC } = require('../lib/onchain-payments-solana');
 const { collectXrpl, PUBLIC_NODES: XRPL_PUBLIC_NODES } = require('../lib/onchain-payments-xrpl');
@@ -38,6 +40,15 @@ function arg(name, fallback) {
   return i > 0 ? process.argv[i + 1] : fallback;
 }
 const read = (p) => { try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return null; } };
+// Writes a state file, and moves every day it no longer holds (older than 8 days) into history/<same name>, where it is
+// kept for 35 days (lib/onchain-history.js); the workflow publishes both on the payments-data branch.
+function save(statePath, state) {
+  const historyPath = path.join(path.dirname(statePath), 'history', path.basename(statePath));
+  const history = archiveDropped(read(statePath), state, read(historyPath));
+  fs.mkdirSync(path.dirname(historyPath), { recursive: true });
+  fs.writeFileSync(historyPath, JSON.stringify(history));
+  fs.writeFileSync(statePath, JSON.stringify(state));
+}
 
 async function base() {
   const statePath = arg('state', 'payments-data/payments.json');
@@ -48,7 +59,7 @@ async function base() {
   }
   const nodes = [process.env.BASE_RPC_URL?.trim(), PUBLIC_RPC].filter(Boolean);
   const state = await collect(read(statePath), { payTos, nodes, log: (line) => console.log(line) });
-  fs.writeFileSync(statePath, JSON.stringify(state));
+  save(statePath, state);
   console.log(`Base: ${payTos.length} payout addresses watched; last 7 days: ${JSON.stringify(totalsOf(state))}`);
 }
 
@@ -67,7 +78,7 @@ async function solana() {
   // A keyed node can go faster than the public one, which allows 10 calls of one method per 10 seconds.
   const pace = keyed ? { minGapMs: 120 } : { minGapMs: 350, methodGapMs: 1100 };
   const state = await collectSolana(read(statePath), { payTos, feePayers: Object.keys(list.fee_payers || {}), nodes, ...pace, log: (line) => console.log(`Solana: ${line}`) });
-  fs.writeFileSync(statePath, JSON.stringify(state));
+  save(statePath, state);
   console.log(`Solana: ${payTos.length} payout addresses watched; last 7 days: ${JSON.stringify(totalsOf(state))}`);
 }
 
@@ -82,7 +93,7 @@ async function xrpl() {
   }
   const nodes = [process.env.XRPL_RPC_URL?.trim(), ...XRPL_PUBLIC_NODES].filter(Boolean);
   const state = await collectXrpl(read(statePath), { payTos, nodes, log: (line) => console.log(`XRPL: ${line}`) });
-  fs.writeFileSync(statePath, JSON.stringify(state));
+  save(statePath, state);
   console.log(`XRPL: ${payTos.length} payout addresses watched; last 7 days: ${JSON.stringify(totalsOf(state))}`);
 }
 
@@ -97,7 +108,7 @@ async function stellar() {
   }
   const nodes = [process.env.STELLAR_HORIZON_URL?.trim(), PUBLIC_HORIZON].filter(Boolean);
   const state = await collectStellar(read(statePath), { payTos, nodes, log: (line) => console.log(`Stellar: ${line}`) });
-  fs.writeFileSync(statePath, JSON.stringify(state));
+  save(statePath, state);
   console.log(`Stellar: ${payTos.length} payout accounts watched; last 7 days: ${JSON.stringify(totalsOf(state))}`);
 }
 
@@ -109,7 +120,7 @@ async function algorand() {
   const payTos = Object.keys(read(listPath)?.pay_tos || {});
   const nodes = [process.env.ALGORAND_INDEXER_URL?.trim(), PUBLIC_INDEXER].filter(Boolean);
   const state = await collectAlgorand(read(statePath), { payTos, nodes, log: (line) => console.log(`Algorand: ${line}`) });
-  fs.writeFileSync(statePath, JSON.stringify(state));
+  save(statePath, state);
   console.log(`Algorand: ${Object.keys(state.pay_tos).length} payout addresses watched (${payTos.length} from the scan); last 7 days: ${JSON.stringify(totalsOf(state))}`);
 }
 
@@ -124,7 +135,7 @@ async function xlayer() {
   }
   const nodes = [process.env.XLAYER_RPC_URL?.trim(), XLAYER_PUBLIC_RPC].filter(Boolean);
   const state = await collectXlayer(read(statePath), { payTos, nodes, log: (line) => console.log(`X Layer: ${line}`) });
-  fs.writeFileSync(statePath, JSON.stringify(state));
+  save(statePath, state);
   console.log(`X Layer: ${payTos.length} payout addresses watched; last 7 days: ${JSON.stringify(totalsOf(state))}`);
 }
 
@@ -139,7 +150,7 @@ async function monad() {
   }
   const nodes = [process.env.MONAD_RPC_URL?.trim(), MONAD_PUBLIC_RPC].filter(Boolean);
   const state = await collectMonad(read(statePath), { payTos, nodes, log: (line) => console.log(`Monad: ${line}`) });
-  fs.writeFileSync(statePath, JSON.stringify(state));
+  save(statePath, state);
   console.log(`Monad: ${payTos.length} payout addresses watched; last 7 days: ${JSON.stringify(totalsOf(state))}`);
 }
 
@@ -157,7 +168,7 @@ async function evm(key) {
   }
   const nodes = [process.env[c.env]?.trim(), c.rpc].filter(Boolean);
   const state = await collectEvm(key, read(statePath), { payTos, nodes, log: (line) => console.log(`${c.name}: ${line}`) });
-  fs.writeFileSync(statePath, JSON.stringify(state));
+  save(statePath, state);
   console.log(`${c.name}: ${payTos.length} payout addresses watched; last 7 days: ${JSON.stringify(totalsOf(state))}`);
 }
 
