@@ -880,7 +880,7 @@ Or the CLI in a plain `run:` step:
 | `DOCTOR_FIX_PRICE` | Price per fix (default `$0.05`) |
 | `FACILITATOR_URL` | x402 facilitator (default PayAI, `https://facilitator.payai.network`) |
 | `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET` | Use Coinbase's CDP facilitator for Base (PayAI stays the fallback). Payments settled through CDP get the route listed in the CDP Bazaar |
-| `ONRAMP_KEY` | With the CDP keys: lets the Fizzl Agent Wallet (the same value there) start a Coinbase Onramp checkout for USDC on Base (`GET /api/onramp`, `lib/onramp.js`). The wallet checks who asks first and passes the buyer's IP (`client_ip`), which Coinbase binds the session to (`clientIp`) |
+| `ONRAMP_KEY` | With the CDP keys: lets the Fizzl Agent Wallet (the same value there) start a Coinbase Onramp checkout for USDC on Base (`GET /api/onramp`, `lib/onramp.js`). The wallet checks who asks first and passes the buyer's IP (`client_ip`), which Coinbase binds the session to (`clientIp`), and may name a page on wallet.fizzl.eu or fizzl.eu to return to after the purchase (`redirect_url`, sent as `redirectUrl`; those domains are on the Onramp allowlist in the CDP portal) |
 | `CDP_VALIDATE` | `off` stops the `cdp-validate` check, which sends the checked URL to Coinbase's public validate API (`api.cdp.coinbase.com/platform/v2/x402/validate`, no key) |
 | `DOCTOR_SOLANA_FACILITATOR` | With CDP keys set, Solana is settled by PayAI (CDP takes over if PayAI is down). Set to `cdp` to settle Solana through CDP too |
 | `MPP_SECRET` | Turns on MPP payment (method `evm`, USDC on Base, via the same facilitator) next to x402 on the paid routes, for agents that speak MPP (mppx). Any long random string; it signs the challenge ids. Without it only x402 is offered |

@@ -93,3 +93,24 @@ test('client_ip: the buyer IP the wallet server passes on goes to Coinbase as cl
     assert.equal('clientIp' in bodies[2], false);
   } finally { s.close(); }
 });
+
+test('redirect_url: Coinbase sends the buyer back to a Fizzl page (the CDP allowlist); any other is 400', async () => {
+  const { cleanReturnUrl } = require('../lib/onramp');
+  assert.equal(cleanReturnUrl('https://wallet.fizzl.eu/?funded=1#/account'), 'https://wallet.fizzl.eu/?funded=1#/account');
+  assert.equal(cleanReturnUrl('https://fizzl.eu/start/'), 'https://fizzl.eu/start/');
+  for (const bad of ['http://wallet.fizzl.eu/', 'https://evil.example/', 'https://wallet.fizzl.eu.evil.example/', 'https://user@wallet.fizzl.eu/', 'https://wallet.fizzl.eu:8443/', 'javascript:alert(1)', '']) assert.equal(cleanReturnUrl(bad), null, bad);
+
+  let calls = 0;
+  const s = await serve(onrampRoute({ env, generateJwt: async () => 'jwt', fetch: async () => { calls++; return Response.json({ token: 'tok4' }); } }));
+  try {
+    const back = 'https://wallet.fizzl.eu/?funded=1#/account';
+    const r = await fetch(`${s.base}/api/onramp?address=${ADDR}&redirect_url=${encodeURIComponent(back)}`, { headers: auth });
+    assert.equal(r.status, 200);
+    assert.equal(new URL((await r.json()).url).searchParams.get('redirectUrl'), back);
+    const bad = await fetch(`${s.base}/api/onramp?address=${ADDR}&redirect_url=${encodeURIComponent('https://evil.example/')}`, { headers: auth });
+    assert.equal(bad.status, 400);
+    assert.equal(calls, 1, 'no Coinbase session for a bad redirect_url');
+    const none = await fetch(`${s.base}/api/onramp?address=${ADDR}`, { headers: auth });
+    assert.equal(new URL((await none.json()).url).searchParams.has('redirectUrl'), false);
+  } finally { s.close(); }
+});
