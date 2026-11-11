@@ -24,6 +24,7 @@ const { fizzlCors } = require('./lib/fizzl-cors');
 const { createSafeFetch, isPrivateIp } = require('./lib/safe-fetch');
 const diagnoseLib = require('./lib/diagnose');
 const { concordiumSeller, cleanAccepts } = require('./lib/concordium-seller');
+const { lookupBadge } = require('./lib/concordium-agent');
 const { normaliseBody } = require('./lib/request-body');
 const { createBazaarIndex } = require('./lib/bazaar-index');
 const { createCdpValidator } = require('./lib/cdp-validate');
@@ -151,6 +152,9 @@ function describeDoctorCall(req, _res, body) {
   const b = body || {};
   if (req.method === 'POST' && req.path === '/api/v1/concordium/seller') {
     return { route: 'concordium seller', via: 'api', input: { url: req.body && req.body.url, accepts: Array.isArray(req.body && req.body.accepts) ? req.body.accepts.length : 0 }, result: { status: _res.statusCode, badge: (b.badge && b.badge.verdict) || null, proof: (b.proof && b.proof.status) || null } };
+  }
+  if (req.method === 'POST' && req.path === '/api/v1/concordium/badge') {
+    return { route: 'concordium badge', via: 'api', input: { badge: req.body && typeof req.body.badge === 'string' ? req.body.badge.slice(0, 80) : null }, result: { status: _res.statusCode, valid: b.valid === true, network: b.network || null } };
   }
   if (req.method === 'POST' && req.path === '/api/diagnose') {
     return { route: 'diagnose', via: 'web', input: { url: req.body && req.body.url, method: req.body && req.body.method }, result: { overall: b.overall, protocol: protocolOf(b), mpp: mppMethods(b), networks: networksOf(b), error: b.error } };
@@ -934,6 +938,20 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     }
     try {
       res.set('cache-control', 'no-store').json(await concordiumSeller(targetUrl, { accepts, safeFetch }));
+    } catch (err) {
+      res.status(502).json({ error: `could not check: ${err.message}` });
+    }
+  });
+
+  // One Concordium badge on its own (lib/concordium-agent.js lookupBadge, the same as the free MCP tool
+  // concordium_badge_check): its agent in the registry, the owner account, the anchored card and the key it binds.
+  // The Fizzl Agent Wallet asks this before it links an agent's badge to an owner whose Concordium ID it checked: the
+  // badge counts only when the registry names that same account as the agent's owner. Free and read-only.
+  app.post('/api/v1/concordium/badge', rateLimit({ windowMs: limits.windowMs, max: limits.max * 6 }), async (req, res) => {
+    const badge = req.body && req.body.badge;
+    if (typeof badge !== 'string' || !badge.trim() || badge.length > 200) return res.status(400).json({ error: 'badge (the badge or Agent ID, a string) is required' });
+    try {
+      res.set('cache-control', 'no-store').json(await lookupBadge(badge, { safeFetch }));
     } catch (err) {
       res.status(502).json({ error: `could not check: ${err.message}` });
     }

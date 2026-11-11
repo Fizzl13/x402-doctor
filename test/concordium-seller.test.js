@@ -80,3 +80,20 @@ test('POST /api/v1/concordium/seller: a bad url or bad accepts is 400 before any
     assert.match((await r.json()).error, /network and payTo/);
   } finally { server.close(); }
 });
+
+test('POST /api/v1/concordium/badge: a badge is required (a string, at most 200 characters); a wrong one says why', async () => {
+  const app = createApp({ env: {}, status: { snapshot: async () => ({}) } });
+  const server = await new Promise((r) => { const s = app.listen(0, () => r(s)); });
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const post = (body) => fetch(`${base}/api/v1/concordium/badge`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  try {
+    assert.equal((await post({})).status, 400);
+    assert.equal((await post({ badge: 7 })).status, 400);
+    assert.equal((await post({ badge: 'x'.repeat(201) })).status, 400);
+    const wrong = await post({ badge: 'not-a-badge' });
+    assert.equal(wrong.status, 200);
+    const body = await wrong.json();
+    assert.equal(body.valid, false);
+    assert.match(body.issues[0], /not a CIS-2 token address/);
+  } finally { server.close(); }
+});
