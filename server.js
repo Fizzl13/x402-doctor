@@ -846,9 +846,9 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     }
   });
 
-  // Buy USDC on Base with a card, delivered to one wallet (Coinbase Onramp, lib/onramp.js): a link for the start page,
-  // the wallet dashboard and the command line. Coinbase takes the payment and sends the USDC; Fizzl holds nothing.
-  app.get('/api/onramp', rateLimit({ windowMs: 60 * 1000, max: 10 }), onrampRoute({ env }));
+  // Buy USDC on Base with a card, delivered to one wallet (Coinbase Onramp, lib/onramp.js): only for the Agent Wallet,
+  // with ONRAMP_KEY, which checks who asks first. Coinbase takes the payment and sends the USDC; Fizzl holds nothing.
+  app.get('/api/onramp', rateLimit({ windowMs: 60 * 1000, max: 30 }), onrampRoute({ env }));
 
   // Memory and uptime let the monitor see a leak coming before Render's 512 MB limit restarts the instance,
   // and an uptime that drops without a deploy is a crash.
