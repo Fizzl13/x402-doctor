@@ -121,6 +121,10 @@ test('revoked, unknown badge, foreign contract and an unreadable registry', asyn
   const revoked = await verifyConcordiumPayees([{ network: TESTNET, payTo: WALLET }], { url: SELLER, safeFetch: pages({ [CARD_URL]: text }), fetchImpl: registry({ agent_by_token_address: agent(text, { status: 'Revoked' }) }).fetchImpl });
   assert.equal(revoked.results[0].outcome, 'revoked');
   clearConcordiumCache();
+  const unpinned = await verifyConcordiumPayees([{ network: TESTNET, payTo: WALLET }], { url: SELLER, safeFetch: pages({ [CARD_URL]: text }), fetchImpl: registry({ agent_by_token_address: agent(text, { metadata_hash_hex: '' }) }).fetchImpl });
+  assert.equal(unpinned.results[0].outcome, 'not-read');
+  assert.match(unpinned.results[0].reason, /never pinned/);
+  clearConcordiumCache();
   const missing = await verifyConcordiumPayees([{ network: TESTNET, payTo: WALLET }], { url: SELLER, safeFetch: pages({ [CARD_URL]: text }), fetchImpl: registry({}).fetchImpl });
   assert.equal(missing.results[0].outcome, 'not-read');
   const foreignCard = JSON.stringify({ url: SELLER, capabilities: { extensions: [{ uri: 'https://docs.concordium.com/a2a-extensions/concordium-badge/v1', params: { tokenAddress: tokenAddress(999) } }] } });
@@ -281,6 +285,13 @@ test('lookupBadge: a badge on its own, from its short form or the registry app\'
   clearConcordiumCache();
   const revoked = await lookupBadge(BADGE, { fetchImpl: registry({ agent_by_token_address: agent(text, { status: 'Revoked' }) }).fetchImpl, safeFetch: pages({ [CARD_URL]: text }) });
   assert.match(revoked.issues.join(' '), /Revoked/);
+
+  // No hash on chain: said as such, not as a card that could not be read (as Concordium's check_badge says it).
+  clearConcordiumCache();
+  const unpinned = await lookupBadge(BADGE, { fetchImpl: registry({ agent_by_token_address: agent(text, { metadata_hash_hex: null }) }).fetchImpl, safeFetch: pages({ [CARD_URL]: text }) });
+  assert.equal(unpinned.valid, false);
+  assert.match(unpinned.issues.join(' '), /no card hash on chain/);
+  assert.doesNotMatch(unpinned.issues.join(' '), /could not be read/);
 
   assert.deepEqual((await lookupBadge('nonsense!')).valid, false);
   assert.match((await lookupBadge(tokenAddress(999))).issues[0], /not a token of the official/);
