@@ -6,7 +6,9 @@ const express = require('express');
 const { onrampRoute, sessionToken, onrampUrl } = require('../lib/onramp');
 
 const ADDR = '0x6B0F4651eD42893ab58139938175E4a69f175F25';
-const env = { CDP_API_KEY_ID: 'kid', CDP_API_KEY_SECRET: 'secret' };
+const KEY = 'k'.repeat(40);
+const env = { CDP_API_KEY_ID: 'kid', CDP_API_KEY_SECRET: 'secret', ONRAMP_KEY: KEY };
+const auth = { authorization: `Bearer ${KEY}` };
 
 async function serve(route) {
   const app = express();
@@ -36,26 +38,34 @@ test('onrampUrl: Coinbase checkout with the token, Base, USDC and the amount', (
   assert.deepEqual(Object.fromEntries(u.searchParams), { sessionToken: 'tok1', defaultNetwork: 'base', defaultAsset: 'USDC', presetFiatAmount: '25' });
 });
 
-test('GET /api/onramp: redirects to the checkout; json on request; bad input 400; no keys 503; Coinbase error 502', async () => {
-  const ok = await serve(onrampRoute({ env, generateJwt: async () => 'jwt', fetch: async () => Response.json({ token: 'tok2' }) }));
+test('GET /api/onramp: only with ONRAMP_KEY (the Agent Wallet); JSON with the checkout URL; bad input 400', async () => {
+  let calls = 0;
+  const ok = await serve(onrampRoute({ env, generateJwt: async () => 'jwt', fetch: async () => { calls++; return Response.json({ token: 'tok2' }); } }));
   try {
-    const r = await fetch(`${ok.base}/api/onramp?address=${ADDR}`, { redirect: 'manual' });
-    assert.equal(r.status, 302);
-    assert.match(r.headers.get('location'), /^https:\/\/pay\.coinbase\.com\/buy\/select-asset\?sessionToken=tok2&defaultNetwork=base&defaultAsset=USDC&presetFiatAmount=5$/);
+    const none = await fetch(`${ok.base}/api/onramp?address=${ADDR}`);
+    assert.equal(none.status, 401);
+    assert.match((await none.json()).error, /wallet\.fizzl\.eu/);
+    assert.equal((await fetch(`${ok.base}/api/onramp?address=${ADDR}`, { headers: { authorization: 'Bearer wrong' } })).status, 401);
+    assert.equal(calls, 0, 'no Coinbase session without the key');
+
+    const r = await fetch(`${ok.base}/api/onramp?address=${ADDR}&amount=20`, { headers: auth });
+    assert.equal(r.status, 200);
     assert.equal(r.headers.get('cache-control'), 'no-store');
-    const j = await (await fetch(`${ok.base}/api/onramp?address=${ADDR}&amount=20&format=json`)).json();
-    assert.equal(j.network, 'base');
-    assert.match(j.url, /presetFiatAmount=20/);
-    assert.equal((await fetch(`${ok.base}/api/onramp?address=0x123`)).status, 400);
-    assert.equal((await fetch(`${ok.base}/api/onramp?address=${ADDR}&amount=9999`)).status, 400);
+    const j = await r.json();
+    assert.equal(j.url, 'https://pay.coinbase.com/buy/select-asset?sessionToken=tok2&defaultNetwork=base&defaultAsset=USDC&presetFiatAmount=20');
+    assert.deepEqual({ ...j, url: undefined }, { url: undefined, address: ADDR, network: 'base', asset: 'USDC', amount_usd: 20, expires_in_s: 300 });
+    assert.equal((await fetch(`${ok.base}/api/onramp?address=0x123`, { headers: auth })).status, 400);
+    assert.equal((await fetch(`${ok.base}/api/onramp?address=${ADDR}&amount=9999`, { headers: auth })).status, 400);
   } finally { ok.close(); }
 
-  const nokey = await serve(onrampRoute({ env: {} }));
-  try { assert.equal((await fetch(`${nokey.base}/api/onramp?address=${ADDR}`)).status, 503); } finally { nokey.close(); }
+  for (const partial of [{ ...env, ONRAMP_KEY: '' }, { ONRAMP_KEY: KEY }]) {
+    const off = await serve(onrampRoute({ env: partial }));
+    try { assert.equal((await fetch(`${off.base}/api/onramp?address=${ADDR}`, { headers: auth })).status, 503); } finally { off.close(); }
+  }
 
   const fail = await serve(onrampRoute({ env, generateJwt: async () => 'jwt', fetch: async () => Response.json({ message: 'onramp not enabled' }, { status: 403 }) }));
   try {
-    const r = await fetch(`${fail.base}/api/onramp?address=${ADDR}`, { redirect: 'manual' });
+    const r = await fetch(`${fail.base}/api/onramp?address=${ADDR}`, { headers: auth });
     assert.equal(r.status, 502);
     assert.match((await r.json()).error, /try again/);
   } finally { fail.close(); }
