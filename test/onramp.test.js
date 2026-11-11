@@ -70,3 +70,26 @@ test('GET /api/onramp: only with ONRAMP_KEY (the Agent Wallet); JSON with the ch
     assert.match((await r.json()).error, /try again/);
   } finally { fail.close(); }
 });
+
+test('client_ip: the buyer IP the wallet server passes on goes to Coinbase as clientIp; a bad one is 400', async () => {
+  const { cleanIp } = require('../lib/onramp');
+  assert.equal(cleanIp('203.0.113.7'), '203.0.113.7');
+  assert.equal(cleanIp('::ffff:203.0.113.7'), '203.0.113.7');
+  assert.equal(cleanIp('2001:db8::1'), '2001:db8::1');
+  for (const bad of ['', 'localhost', '1.2.3', '203.0.113.7, 10.0.0.1']) assert.equal(cleanIp(bad), null, bad);
+
+  const bodies = [];
+  const s = await serve(onrampRoute({ env, generateJwt: async () => 'jwt', fetch: async (_u, init) => { bodies.push(JSON.parse(init.body)); return Response.json({ token: 'tok3' }); } }));
+  try {
+    assert.equal((await fetch(`${s.base}/api/onramp?address=${ADDR}&client_ip=203.0.113.7`, { headers: auth })).status, 200);
+    assert.equal(bodies[0].clientIp, '203.0.113.7');
+    assert.equal((await fetch(`${s.base}/api/onramp?address=${ADDR}&client_ip=2001:db8::1`, { headers: auth })).status, 200);
+    assert.equal(bodies[1].clientIp, '2001:db8::1');
+    const bad = await fetch(`${s.base}/api/onramp?address=${ADDR}&client_ip=evil`, { headers: auth });
+    assert.equal(bad.status, 400);
+    assert.equal(bodies.length, 2, 'no Coinbase session for a bad client_ip');
+    // Without client_ip (an older wallet server): the token request as before, without clientIp.
+    assert.equal((await fetch(`${s.base}/api/onramp?address=${ADDR}`, { headers: auth })).status, 200);
+    assert.equal('clientIp' in bodies[2], false);
+  } finally { s.close(); }
+});
