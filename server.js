@@ -56,6 +56,7 @@ const { createTriage } = require('./lib/jev-triage');
 const { createDescribe } = require('./lib/jev-describe');
 const { createPriceCheck } = require('./lib/jev-price');
 const { createPoisonCheck } = require('./lib/jev-poison');
+const { onrampRoute } = require('./lib/onramp');
 
 const PORT = process.env.PORT || 3001;
 // Payout addresses shown by /demo/broken (it never settles, so nothing is paid).
@@ -844,6 +845,10 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
       res.status(503).json({ error: 'stats not available right now' });
     }
   });
+
+  // Buy USDC on Base with a card, delivered to one wallet (Coinbase Onramp, lib/onramp.js): a link for the start page,
+  // the wallet dashboard and the command line. Coinbase takes the payment and sends the USDC; Fizzl holds nothing.
+  app.get('/api/onramp', rateLimit({ windowMs: 60 * 1000, max: 10 }), onrampRoute({ env }));
 
   // Memory and uptime let the monitor see a leak coming before Render's 512 MB limit restarts the instance,
   // and an uptime that drops without a deploy is a crash.
