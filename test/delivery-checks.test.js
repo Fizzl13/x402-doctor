@@ -141,9 +141,10 @@ test('the token check: reads the workflow without starting it; a refusal shows a
 });
 
 test('a done job leaves the queue and shows its result', async () => {
+  // Queued two hours ago, not on a fixed date: the queue drops jobs after JOB_TTL_DAYS (30), so a fixed date fails a month later.
   const store = memoryStore();
-  await store.add({ id: 'aaaaaaaaaa', url: 'https://a.example/x', method: null, price_usd: 0.02, queued_at: '2026-10-12T17:00:00.000Z', settled: true });
-  await store.add({ id: 'bbbbbbbbbb', url: 'https://b.example/y', method: null, price_usd: 0.01, queued_at: '2026-10-12T17:05:00.000Z', settled: true });
+  await store.add({ id: 'aaaaaaaaaa', url: 'https://a.example/x', method: null, price_usd: 0.02, queued_at: new Date(Date.now() - 2 * 3600e3).toISOString(), settled: true });
+  await store.add({ id: 'bbbbbbbbbb', url: 'https://b.example/y', method: null, price_usd: 0.01, queued_at: new Date(Date.now() - 2 * 3600e3 + 5 * 60e3).toISOString(), settled: true });
   const result = { id: 'aaaaaaaaaa', url: 'https://a.example/x', result: 'delivered', paid_and_delivered: true, charged_usd: 0.02 };
   const s = await app({ store, done: { aaaaaaaaaa: result } });
   try {
