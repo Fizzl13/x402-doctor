@@ -23,6 +23,7 @@ const { siteOf } = require('./lib/site');
 const { fizzlCors } = require('./lib/fizzl-cors');
 const { createSafeFetch, isPrivateIp } = require('./lib/safe-fetch');
 const diagnoseLib = require('./lib/diagnose');
+const { concordiumSeller, cleanAccepts } = require('./lib/concordium-seller');
 const { normaliseBody } = require('./lib/request-body');
 const { createBazaarIndex } = require('./lib/bazaar-index');
 const { createCdpValidator } = require('./lib/cdp-validate');
@@ -148,6 +149,9 @@ function describeDoctorCall(req, _res, body) {
   // Who reads the MCP server card (directories such as Smithery).
   if (req.method === 'GET' && req.path === '/.well-known/mcp/server-card.json') return { route: 'mcp server card', via: 'discovery', input: {}, result: { status: _res.statusCode } };
   const b = body || {};
+  if (req.method === 'POST' && req.path === '/api/v1/concordium/seller') {
+    return { route: 'concordium seller', via: 'api', input: { url: req.body && req.body.url, accepts: Array.isArray(req.body && req.body.accepts) ? req.body.accepts.length : 0 }, result: { status: _res.statusCode, badge: (b.badge && b.badge.verdict) || null, proof: (b.proof && b.proof.status) || null } };
+  }
   if (req.method === 'POST' && req.path === '/api/diagnose') {
     return { route: 'diagnose', via: 'web', input: { url: req.body && req.body.url, method: req.body && req.body.method }, result: { overall: b.overall, protocol: protocolOf(b), mpp: mppMethods(b), networks: networksOf(b), error: b.error } };
   }
@@ -912,6 +916,27 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
       : typeof onchainPayments[which.fn] === 'function' ? await onchainPayments[which.fn]({ waitMs: 3000, ...(which.limit ? { limit: which.limit } : {}) }).catch(() => null) : null;
     if (!list) return res.status(503).json({ error: which.none });
     res.json(list);
+  });
+
+  // Verified by Concordium for one seller (lib/concordium-seller.js): what the Fizzl Agent Wallet shows next to a
+  // seller in its search and on a receipt, and checks right before an agent pays (with the payTo it is about to pay).
+  // Free and read-only: the seller's Agent Card, the registry and a served proof, nothing else (no 402 probe when
+  // accepts are given, no outreach draft). Six times the free check's rate, since a wallet asks per seller.
+  app.post('/api/v1/concordium/seller', rateLimit({ windowMs: limits.windowMs, max: limits.max * 6 }), async (req, res) => {
+    const { url: targetUrl } = req.body || {};
+    let accepts;
+    try {
+      if (typeof targetUrl !== 'string' || !/^https?:\/\//i.test(targetUrl) || targetUrl.length > 2000) return res.status(400).json({ error: 'url (http or https) is required' });
+      new URL(targetUrl);
+      accepts = cleanAccepts(req.body.accepts);
+    } catch (err) {
+      return res.status(err.status || 400).json({ error: err.status ? err.message : 'Not a valid URL.' });
+    }
+    try {
+      res.set('cache-control', 'no-store').json(await concordiumSeller(targetUrl, { accepts, safeFetch }));
+    } catch (err) {
+      res.status(502).json({ error: `could not check: ${err.message}` });
+    }
   });
 
   // The free check may also be called from the live demo on fizzl.eu (browser, CORS).
