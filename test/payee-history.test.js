@@ -173,3 +173,13 @@ test('a token burn added beside a real payout address is no payout move; a payTo
   const toBurn = mergePayTo(before, payToMap([burn]), '2026-11-05', payToMapWithBurns([burn]));
   assert.deepEqual(toBurn.c, [RH]);
 });
+
+test('changeReasons: perRequest networks (a new address on every request) give payto_per_request, not payto_changed', () => {
+  const record = { days: ['2026-10-30', '2026-10-31'], payto: { a: payToMap([opt('eip155:8453', A)]), s: '2026-10-29', c: ['eip155:8453'] } };
+  const r = changeReasons({ record, options: [opt('eip155:8453', B)], now, perRequest: new Set(['eip155:8453']) });
+  assert.deepEqual(r.map((x) => [x.level, x.code]), [['info', 'payto_per_request']]);
+  assert.deepEqual(r[0].change, { field: 'pay_to', networks: ['eip155:8453'], kind: 'per_request', day: '2026-10-31', bound: false });
+  // Another network that moved on its own still counts.
+  const two = changeReasons({ record: { ...record, payto: { a: payToMap([opt('eip155:8453', A), opt('solana:x', SOL)]), s: '2026-10-01' } }, options: [opt('eip155:8453', B), opt('solana:x', 'So22222222222222222222222222222222222222222')], now, perRequest: new Set(['eip155:8453']) });
+  assert.deepEqual(two.map((x) => x.code).sort(), ['payto_changed', 'payto_per_request']);
+});
