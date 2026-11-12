@@ -1574,6 +1574,23 @@ test('BNB Chain: 18-decimal dollar tokens, EIP-3009 vs Permit2, the token domain
   assert.match(get('accepts[6]-asset').message, /not a dollar stablecoin x402 Doctor knows \(USDC, USDT, USD1, U\) on BNB Chain/);
 });
 
+test('HPP: bridged USDC (USDC.e) signs as "Bridged USDC" v2; the Base domain there fails', () => {
+  const checks = [];
+  const payTo = '0x408C4610F6879a75c25722cfCd18A2Eff99dc20F';
+  const option = (asset, extra) => ({ scheme: 'exact', network: 'eip155:190415', amount: '10000', asset, payTo, maxTimeoutSeconds: 60, extra });
+  checkAccepts([
+    option('0x401eCb1D350407f13ba348573E5630B83638E30D', { name: 'Bridged USDC', version: '2' }),
+    option('0x401ecb1d350407f13ba348573e5630b83638e30d', { name: 'USD Coin', version: '2' }), // Base's domain, copied
+  ], checks);
+  const get = (id) => checks.find((c) => c.id === id);
+  assert.match(get('accepts[0]-network').message, /HPP \(eip155:190415\)/);
+  assert.equal(get('accepts[0]-asset'), undefined, 'a known dollar token');
+  assert.match(get('accepts[0]-amount').message, /\$0\.01 USDC\.e/);
+  assert.equal(get('accepts[0]-extra').status, 'pass');
+  assert.equal(get('accepts[1]-extra').status, 'fail');
+  assert.match(get('accepts[1]-extra').message, /USDC\.e on HPP signs as "Bridged USDC" v2/);
+});
+
 test('X Layer, Celo and Robinhood Chain: their dollar tokens, decimals and EIP-712 domains', () => {
   const checks = [];
   const payTo = '0x408C4610F6879a75c25722cfCd18A2Eff99dc20F';
