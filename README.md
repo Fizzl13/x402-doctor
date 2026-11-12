@@ -400,6 +400,18 @@ Does this transaction pay exactly what this receipt says? `POST { receipt, tx }`
 - `{ valid: true, payer, sponsor, paid: { network, asset, amount, payTo, resource }, summary }`, or `{ valid: false, reason }`; `not_read: true` (503) when the chain could not be read, which is not a verdict.
 - The receipt is the same canonical JSON as the facilitator's (`lib/concordium-receipt.js`, fields in order `kind, v, network, asset, amount, payTo, resource, ticket`), so anyone can recompute the memo and compare it on any Concordium node or explorer. The usage log keeps the network and the answer, never the receipt's resource (what someone bought).
 
+### Trust Index on chain: `GET /api/trust/proof?url=` (free)
+
+Every day the whole Trust Index (one record per listed resource: its 30-day history, verdict, codes, price, networks,
+payout-address fingerprints and paid-delivery evidence) goes under one Merkle root, registered on Concordium mainnet
+with RegisterData from account `3t4YnWTT…FURpp` (45 bytes: `FZTI`, version 1, the day, the root, the count). This
+answers with one endpoint's record of the latest anchored day and its path to that root, so anyone can check that the
+record is the one registered that day, without trusting us.
+
+- `GET /api/trust/proof?url=https://api.example.com/paid` → `{ found, day, key, record, leaf_json, index, count, path: [{ s: "L"|"R", h }], root, anchor: { network, account, tx, block, time, data, explorer } }`; 404 with `found: false` when the endpoint isn't in that day's index.
+- Check it yourself: leaf = sha256(0x00 ‖ utf8(`leaf_json`)); for each step, sha256(0x01 ‖ `h` ‖ node) when `s` is `L`, else sha256(0x01 ‖ node ‖ `h`); the result is `root`. Then read the transaction on chain (Concordium's wallet proxy, `/v0/submissionStatus/<tx>`, gives `registeredData`) and find that root in it.
+- Built from public data only: the trust-data branch (the records exactly as the anchor builds them) and the chain (the anchor's root). The tree is rebuilt once a day, after the new day is anchored, and kept only when its root equals the one on chain. About 22 MB in memory (the records gzipped in blocks of 256).
+
 ### Lock destinations: `POST /api/v1/concordium/destinations` (free)
 
 For the sellers an agent may pay, the payout addresses Concordium vouches for, as an allow-list per network.

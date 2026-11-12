@@ -25,6 +25,7 @@ const { createSafeFetch, isPrivateIp } = require('./lib/safe-fetch');
 const diagnoseLib = require('./lib/diagnose');
 const { concordiumSeller, cleanAccepts } = require('./lib/concordium-seller');
 const { concordiumDestinations } = require('./lib/concordium-destinations');
+const { createTrustProof } = require('./lib/trust-proof');
 const { lookupBadge } = require('./lib/concordium-agent');
 const { receiptCheckAnswer, receiptBacksReport, decodeReceiptParam } = require('./lib/concordium-receipt');
 const { normaliseBody } = require('./lib/request-body');
@@ -184,6 +185,9 @@ function describeDoctorCall(req, _res, body) {
   if (req.method === 'GET' && req.path === DELIVERY_ROUTE) {
     return { route: 'delivery check', via: 'api', input: { url: req.query.url, method: req.query.method }, result: { status: b.status, id: b.id, error: b.error } };
   }
+  if (req.method === 'GET' && req.path === '/api/trust/proof') {
+    return { route: 'trust proof', via: 'api', input: { url: req.query.url }, result: { status: _res.statusCode, found: b.found === true, day: typeof b.day === 'string' ? b.day : null, error: b.error } };
+  }
   if (req.method === 'POST' && req.path === '/api/trust/submit') {
     return { route: 'trust submit', via: 'web', input: { url: req.body && req.body.url }, result: { status: b.status, error: b.error } };
   }
@@ -265,7 +269,7 @@ function trustProxyHops(env) {
   return Number.isInteger(n) && n >= 0 && n <= 10 && String(env.TRUST_PROXY_HOPS).trim() !== '' ? n : 3;
 }
 
-function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, cdpValidate = env.CDP_VALIDATE === 'off' ? null : createCdpValidator(), trustIndex = createTrustReader(), spotResults = createSpotResults(), deliveryElsewhere = createDeliveryElsewhere(), onchainPayments = createOnchainPayments({ demand: createDemand({ apiKey: env.TYPESAFE_API_KEY }) }), media = createMediaCache(), usageLog = createUsageLog({ service: 'doctor', env }), usageReader = createUsageReader({ env }), publicStats = createPublicStats({ usageReader }), settlementFetch = globalThis.fetch, status = null, facilitatorStatus = null, outreachHook: outreachHookOverride = null, describe = createDescribe({ apiKey: env.TYPESAFE_API_KEY }), poison = createPoisonCheck({ apiKey: env.TYPESAFE_API_KEY }), creditStore, agentKinds = createAgentKinds({ apiKey: env.TYPESAFE_API_KEY }), downloads = createDownloads(), priceCheck = createPriceCheck({ apiKey: env.TYPESAFE_API_KEY, trustIndex }), deliveryStore, deliveryResults, trustSubmissions: trustSubmissionsOverride = null, pass: passOverride = null, vaultStore, passSale, refusalLog: refusalLogOverride = null, refusalReader = createUsageReader({ env }), facilitator: facilitatorOverride = null } = {}) {
+function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, cdpValidate = env.CDP_VALIDATE === 'off' ? null : createCdpValidator(), trustIndex = createTrustReader(), spotResults = createSpotResults(), deliveryElsewhere = createDeliveryElsewhere(), onchainPayments = createOnchainPayments({ demand: createDemand({ apiKey: env.TYPESAFE_API_KEY }) }), media = createMediaCache(), usageLog = createUsageLog({ service: 'doctor', env }), usageReader = createUsageReader({ env }), publicStats = createPublicStats({ usageReader }), settlementFetch = globalThis.fetch, status = null, facilitatorStatus = null, outreachHook: outreachHookOverride = null, describe = createDescribe({ apiKey: env.TYPESAFE_API_KEY }), poison = createPoisonCheck({ apiKey: env.TYPESAFE_API_KEY }), creditStore, agentKinds = createAgentKinds({ apiKey: env.TYPESAFE_API_KEY }), downloads = createDownloads(), priceCheck = createPriceCheck({ apiKey: env.TYPESAFE_API_KEY, trustIndex }), deliveryStore, deliveryResults, trustSubmissions: trustSubmissionsOverride = null, pass: passOverride = null, vaultStore, passSale, refusalLog: refusalLogOverride = null, refusalReader = createUsageReader({ env }), facilitator: facilitatorOverride = null, trustProof = createTrustProof() } = {}) {
   // Which x402 facilitators answer now (lib/facilitators.js): the /facilitators page, its API and a free MCP tool.
   const facilitatorBoard = facilitatorStatus || createFacilitatorStatus();
   const app = express();
@@ -868,6 +872,18 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     atlasCache = { key, gz: zlib.gzipSync(JSON.stringify(slimAtlas(map))), market: market && { ...market, ...source } };
     return atlasCache;
   }
+  // Proof that an endpoint's record in the Trust Index of a day is in the Merkle root registered on Concordium that day
+  // (lib/trust-proof.js): the record, its path to the root, and the anchor transaction, from public data only. The
+  // caller checks it without trusting us (fizzl.eu/concordium does it in the browser). Free, read-only, open CORS.
+  app.get('/api/trust/proof', trustLimit, async (req, res) => {
+    res.set('Access-Control-Allow-Origin', '*');
+    try {
+      const body = await trustProof.proof(req.query.url);
+      res.set('Cache-Control', 'public, max-age=600').status(body.found ? 200 : 404).json(body);
+    } catch (err) {
+      res.set('Cache-Control', 'no-store').status(err.status || 502).json({ error: err.status ? err.message : `could not build the proof: ${err.message}` });
+    }
+  });
   app.get('/api/trust/atlas', trustLimit, (req, res) => {
     if (!atlasState()) return res.status(503).json({ error: 'trust index loading, try again shortly' });
     res.set({ 'Cache-Control': 'public, max-age=1800', 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json; charset=utf-8', Vary: 'Accept-Encoding' });
