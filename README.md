@@ -851,6 +851,13 @@ Then, per payment option, one outcome:
 Every payTo verified is a pass. A mismatch, a revoked agent, a swapped card or an unlisted endpoint is a warning with
 the fix.
 
+For a wallet, `POST /api/v1/concordium/seller` with `{ "url", "accepts"?, "networks"? }` is the same check for one
+seller, free: `badge.verdict` is `verified` (every payTo checked is the agent's), `partial` (some can't be compared) or
+`problem`, with `payees` and their outcomes. `accepts` limits it to the payTos the wallet is about to pay; `networks`
+(chain namespaces such as `["eip155", "ccd"]`) to the chains the wallet pays on. A badge can't speak for a payTo on a
+chain where the agent can't bind a key (the XRP Ledger, Algorand, Stellar), so a seller that also takes payment there
+is `partial`, unless the wallet asks only about its own chains.
+
 The paid pre-payment check (`/api/v1/preflight`, MCP `x402_preflight`) uses the same outcomes (the daily scan doesn't
 ask: one more request per endpoint). A badge that vouches for the seller adds an `info`
 line (`concordium_verified`) and `signals.concordium`. A badge that doesn't is `caution`: `concordium_payto_mismatch`

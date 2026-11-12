@@ -2,7 +2,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { sha256Hex, clearConcordiumCache } = require('../lib/concordium-agent');
-const { concordiumSeller, cleanAccepts } = require('../lib/concordium-seller');
+const { concordiumSeller, cleanAccepts, cleanNetworks } = require('../lib/concordium-seller');
 const { createApp } = require('../server.js');
 
 const TESTNET = 'ccd:4221332d34e1694168c2a0c0b3fd0f27';
@@ -58,6 +58,30 @@ test('concordiumSeller without accepts: a seller without a badge costs one read 
   assert.deepEqual(asked, [CARD_URL]);
 });
 
+test('concordiumSeller with networks: only the payTos on those chains are checked (a wallet asks about where it pays)', async () => {
+  const text = card();
+  const SOL = 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp';
+  const accepts = [{ network: TESTNET, payTo: WALLET }, { network: SOL, payTo: 'ATWJ82T8nRdQwZnaysB68N5EpaSvLRsQP4h6eWmaJBH9' }];
+  const opts = { safeFetch: pages({ [CARD_URL]: text }), fetchImpl: registry({ agent_by_token_address: agent(text) }) };
+  const all = await concordiumSeller(`${SELLER}/paid`, { accepts, ...opts });
+  assert.equal(all.badge.verdict, 'partial', 'a Solana payTo the agent binds no key for can\'t be compared');
+  clearConcordiumCache();
+  const ccd = await concordiumSeller(`${SELLER}/paid`, { accepts, networks: ['ccd'], ...opts });
+  assert.equal(ccd.badge.verdict, 'verified');
+  assert.deepEqual(ccd.badge.payees.map((p) => p.network), [TESTNET]);
+  clearConcordiumCache();
+  const none = await concordiumSeller(`${SELLER}/paid`, { accepts, networks: ['xrpl'], ...opts });
+  assert.equal(none.badge, null, 'nothing on those chains: nothing to say');
+});
+
+test('cleanNetworks: at most five chain namespaces', () => {
+  assert.equal(cleanNetworks(undefined), null);
+  assert.deepEqual(cleanNetworks(['eip155', 'ccd', 'ccd']), ['eip155', 'ccd']);
+  for (const bad of [[], 'eip155', ['EIP155'], ['eip155:8453'], Array(6).fill('a1'), [1]]) {
+    assert.throws(() => cleanNetworks(bad), (err) => err.status === 400, JSON.stringify(bad));
+  }
+});
+
 test('cleanAccepts: at most ten { network, payTo, asset? } with short strings', () => {
   assert.equal(cleanAccepts(undefined), null);
   assert.deepEqual(cleanAccepts([{ network: 'eip155:8453', payTo: '0xabc', asset: '0xdef', extra: 1 }]), [{ network: 'eip155:8453', payTo: '0xabc', asset: '0xdef' }]);
@@ -78,6 +102,9 @@ test('POST /api/v1/concordium/seller: a bad url or bad accepts is 400 before any
     const r = await post({ url: 'https://seller.example/paid', accepts: [{ network: 'eip155:8453' }] });
     assert.equal(r.status, 400);
     assert.match((await r.json()).error, /network and payTo/);
+    const n = await post({ url: 'https://seller.example/paid', networks: ['eip155:8453'] });
+    assert.equal(n.status, 400);
+    assert.match((await n.json()).error, /chain namespaces/);
   } finally { server.close(); }
 });
 

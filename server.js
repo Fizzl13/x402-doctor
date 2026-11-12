@@ -23,7 +23,7 @@ const { siteOf } = require('./lib/site');
 const { fizzlCors } = require('./lib/fizzl-cors');
 const { createSafeFetch, isPrivateIp } = require('./lib/safe-fetch');
 const diagnoseLib = require('./lib/diagnose');
-const { concordiumSeller, cleanAccepts } = require('./lib/concordium-seller');
+const { concordiumSeller, cleanAccepts, cleanNetworks } = require('./lib/concordium-seller');
 const { concordiumDestinations } = require('./lib/concordium-destinations');
 const { createTrustProof } = require('./lib/trust-proof');
 const { lookupBadge } = require('./lib/concordium-agent');
@@ -979,16 +979,17 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   // accepts are given, no outreach draft). Six times the free check's rate, since a wallet asks per seller.
   app.post('/api/v1/concordium/seller', rateLimit({ windowMs: limits.windowMs, max: limits.max * 6 }), async (req, res) => {
     const { url: targetUrl } = req.body || {};
-    let accepts;
+    let accepts, networks;
     try {
       if (typeof targetUrl !== 'string' || !/^https?:\/\//i.test(targetUrl) || targetUrl.length > 2000) return res.status(400).json({ error: 'url (http or https) is required' });
       new URL(targetUrl);
       accepts = cleanAccepts(req.body.accepts);
+      networks = cleanNetworks(req.body.networks);
     } catch (err) {
       return res.status(err.status || 400).json({ error: err.status ? err.message : 'Not a valid URL.' });
     }
     try {
-      res.set('cache-control', 'no-store').json(await concordiumSeller(targetUrl, { accepts, safeFetch }));
+      res.set('cache-control', 'no-store').json(await concordiumSeller(targetUrl, { accepts, networks, safeFetch }));
     } catch (err) {
       res.status(502).json({ error: `could not check: ${err.message}` });
     }
