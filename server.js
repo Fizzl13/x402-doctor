@@ -1096,6 +1096,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     // heap_limit_mb is where V8 stops with "heap out of memory" (exit 134), which can sit well below Render's 512 MB.
     const memory = { rss_mb: mb(rss), heap_mb: mb(heapUsed), heap_total_mb: mb(heapTotal), heap_limit_mb: mb(require('node:v8').getHeapStatistics().heap_size_limit), external_mb: mb(external) };
     res.json({ ok: true, paid: paidApi.paymentInfo, sanctions: paidApi.sanctions?.status() ?? null, afuel: paidApi.afuel?.status() ?? null, afuel_holders: paidApi.holders?.status() ?? null, facilitator: facilitatorService.status(), memory, uptime_s: Math.round(process.uptime()) });
+    res.json({ ok: true, paid: paidApi.paymentInfo, sanctions: paidApi.sanctions?.status() ?? null, afuel: paidApi.afuel?.status() ?? null, ccd: paidApi.ccd?.status() ?? null, afuel_holders: paidApi.holders?.status() ?? null, memory, uptime_s: Math.round(process.uptime()) });
   });
   // Last: a 5xx is answered as JSON and reported to Sentry when SENTRY_DSN is set (lib/error-report.js).
   app.errorReporter = createErrorReporter({ dsn: env.SENTRY_DSN, service: 'x402-doctor', release: require('./package.json').version });
