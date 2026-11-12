@@ -188,7 +188,7 @@ test('server: free pick with its limit, the purchase, bad input, no wallet, disc
   assert.deepEqual((await bought.json()).answer, { temp_c: 11 });
   assert.equal((await fetch(`${base}/v1/buy`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })).status, 400);
   const mcp = await (await fetch(`${base}/mcp`, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} }) })).json();
-  assert.deepEqual(mcp.result.tools.map((t) => t.name), ['x402_pick']);
+  assert.deepEqual(mcp.result.tools.map((t) => t.name), ['x402_pick', 'feedback']);
   assert.equal((await fetch(`${base}/v1/pick?need=weather%20amsterdam`)).status, 200);
   assert.equal((await fetch(`${base}/v1/pick?need=weather%20amsterdam`)).status, 429, 'the free limit');
   const spec = await (await fetch(`${base}/openapi.json`)).json();
@@ -226,6 +226,34 @@ test('server: free pick with its limit, the purchase, bad input, no wallet, disc
   servers.push(s2);
   const r503 = await fetch(`http://127.0.0.1:${s2.address().port}/v1/buy`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ need: 'weather amsterdam' }) });
   assert.equal(r503.status, 503);
+});
+
+test('feedback: POST /feedback and the MCP tool, free; a report may name the payment it is about; logged once, as feedback', async () => {
+  const a = await seller();
+  const { d } = await deps({ results: [result(`${a}/w`)] });
+  const logged = [];
+  const usageLog = { record: (e) => logged.push({ recorded: e }), middleware: (describe) => (req, res, next) => { res.on('finish', () => { const e = describe(req, res, undefined); if (e) logged.push(e); }); next(); } };
+  const app = createBuyApp({ env: { PUBLIC_URL: 'https://buy.test', AGENT_PAYOUT_WALLET: PAY_TO }, deps: { fetch: d.fetch, sanctions: null, trustIndex: null, lure: null, answerCheck: d.answerCheck, filler: { enabled: true, fill: d.fill }, wallet: null, usageLog, signer: null } });
+  const s = await new Promise((r) => { const srv = app.listen(0, '127.0.0.1', () => r(srv)); });
+  servers.push(s);
+  const base = `http://127.0.0.1:${s.address().port}`;
+  const tx = `0x${'ab'.repeat(32)}`;
+  const how = await (await fetch(`${base}/feedback`)).json();
+  assert.equal(how.service, 'buy');
+  assert.ok(how.schema.properties.payment);
+  const sent = await fetch(`${base}/feedback`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ type: 'bug', message: 'Paid $0.02 and got an empty answer', endpoint: '/v1/buy', payment: { tx, network: 'eip155:8453' } }) });
+  assert.equal(sent.status, 202);
+  assert.equal((await sent.json()).received, true);
+  assert.equal((await fetch(`${base}/feedback`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ message: 'x' }) })).status, 400);
+  const mcp = await (await fetch(`${base}/mcp`, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'feedback', arguments: { type: 'feature', message: 'Buy in EURC too' } } }) })).json();
+  assert.equal(mcp.result.structuredContent.received, true);
+  assert.equal(mcp.result.structuredContent.service, 'buy');
+  const reports = logged.filter((e) => e.recorded?.route === 'feedback');
+  assert.equal(reports.length, 3 - 1, 'the two accepted reports, the refused one is not a report');
+  assert.equal(reports[0].recorded.input.payment, 'eip155:8453');
+  assert.equal(reports[1].recorded.via, 'mcp');
+  assert.ok(!logged.some((e) => e.route === 'feedback'), 'the MCP call is not logged a second time by the request log');
+  assert.match(await (await fetch(`${base}/llms.txt`)).text(), /POST https:\/\/buy\.test\/feedback/);
 });
 
 test('routes: $0.02 on Base, and on Solana with a Solana payout address; five minutes to buy; seller and Builder Code', () => {
