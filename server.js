@@ -40,6 +40,7 @@ const { createFeedback } = require('./lib/feedback');
 const { createOutcomes } = require('./lib/outcomes');
 const { createErrorReporter } = require('./lib/error-report');
 const { createRefusalRoutes, PATH: REFUSAL_PATH } = require('./lib/refusal');
+const { createRefusalLog } = require('./lib/refusal-log');
 const REFUSAL_LOG = 'refusals'; // the usage log service the counted refusal reports are kept in (events/refusals/)
 const { createUsageReader } = require('./lib/usage-reader');
 const { createPublicStats, statsCors } = require('./lib/public-stats');
@@ -344,23 +345,14 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   // The refusal extension (draft, lib/refusal.js): buyers that decide not to pay one of Doctor's 402s say why here.
   // Counted in the usage log (route "refusal received") and on GET.
   // Public counts per paid route, never per URL as a buyer sent it (it can carry the buyer's own query or path).
-  // Each counted report also goes to a small log of its own (events/refusals/, like trust-submit): only the route,
-  // reason, signed or not, the basis source and the report's key. At the start the last 30 days are read back from it,
-  // so a restart or deploy no longer empties the public counts. Written at most once a minute (a report counted in the
-  // minute before a restart can be missing); no second shutdown handler next to the main log's. Read with a reader of
-  // its own: a load() drops the cached files it didn't use, which would be the main log's (as for trust-submit).
-  const refusalLog = refusalLogOverride || createUsageLog({ service: REFUSAL_LOG, env, exitOnSignal: false, flushDelayMs: 60 * 1000 });
+  // The counts survive a restart: each counted report also goes to a small log of its own (events/refusals/), read back
+  // at the start (lib/refusal-log.js).
+  const refusalLog = createRefusalLog({ service: REFUSAL_LOG, env, log: refusalLogOverride, reader: refusalReader });
   const refusals = createRefusalRoutes({
     publicUrl: env.PUBLIC_URL || 'https://x402-doctor.fizzl.eu',
     routes: [PAID_ROUTE, PREFLIGHT_ROUTE, FIX_ROUTE, BATCH_ROUTE, DEEP_ROUTE, DELIVERY_ROUTE, '/mcp'],
-    record: (r, { signer, key }) => refusalLog.record({ route: 'refusal counted', via: 'api', input: { route: r.resource, reason: r.reason, signed: Boolean(signer), ...(r.basis ? { basis: r.basis.source } : {}), key }, result: { counted: true } }),
-    history: async () => {
-      if (!refusalReader || !refusalReader.configured) return [];
-      const started = new Date().toISOString();
-      const { events = [] } = await refusalReader.load({ days: 30, service: REFUSAL_LOG, max: 50000 });
-      return events.filter((e) => e && e.route === 'refusal counted' && e.input && e.t < started)
-        .map((e) => ({ at: e.t, resource: e.input.route, reason: e.input.reason, signed: e.input.signed === true, basis: e.input.basis, key: e.input.key }));
-    },
+    record: refusalLog.record,
+    history: refusalLog.history,
   });
   app.get(REFUSAL_PATH, (req, res) => { res.set('Access-Control-Allow-Origin', '*'); refusals.get(req, res); });
   app.options(REFUSAL_PATH, (_req, res) => res.set({ 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST', 'Access-Control-Allow-Headers': 'content-type' }).status(204).end());

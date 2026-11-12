@@ -26,6 +26,7 @@ const express = require('express');
 const { createPassVerifier, limitKeyOf } = require('./lib/fizzl-pass');
 const { createVault, redisVault, usdOf } = require('./lib/fizzl-vault');
 const { createRefusalSender, createRefusalRoutes, refusalExtension, PATH: REFUSAL_PATH } = require('./lib/refusal');
+const { createRefusalLog } = require('./lib/refusal-log');
 const { createErrorReporter } = require('./lib/error-report');
 const PAYEE_DELEGATIONS = require('./lib/buy-payee-delegations.json');
 const { paymentMiddleware, x402ResourceServer } = require('@x402/express');
@@ -286,8 +287,11 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
     return null;
   }));
 
-  // Refusals of Fizzl Buy's own 402 (lib/refusal.js, draft): why a buyer didn't pay, counted on GET.
-  const refusalRoutes = createRefusalRoutes({ publicUrl, routes: [BUY_ROUTE, '/mcp'] });
+  // Refusals of Fizzl Buy's own 402 (lib/refusal.js, draft): why a buyer didn't pay, counted on GET. The counts survive
+  // a restart: each counted report also goes to a small log of its own (events/buy-refusals/), read back at the start
+  // (lib/refusal-log.js).
+  const refusalLog = createRefusalLog({ service: 'buy-refusals', env, log: deps.refusalLog ?? null, reader: deps.refusalReader ?? null });
+  const refusalRoutes = createRefusalRoutes({ publicUrl, routes: [BUY_ROUTE, '/mcp'], record: refusalLog.record, history: refusalLog.history });
   app.get(REFUSAL_PATH, (req, res) => { res.set('Access-Control-Allow-Origin', '*'); refusalRoutes.get(req, res); });
   app.post(REFUSAL_PATH, express.json({ limit: '4kb' }), (req, res) => { res.set('Access-Control-Allow-Origin', '*'); return refusalRoutes.post(req, res); });
   app.use(vault.creditBack());
