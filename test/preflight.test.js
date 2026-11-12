@@ -30,13 +30,15 @@ const baseOption = (amount, extra = {}) => ({ scheme: 'exact', network: BASE, am
 const solanaOption = (amount, payTo = PAY_TO_SOLANA) => ({ scheme: 'exact', network: SOLANA, amount, asset: USDC_SOLANA, payTo, maxTimeoutSeconds: 60, extra: { feePayer: FEE_PAYER } });
 
 // A seller: /paid answers 402 with the given accepts[]; /openapi.json advertises a price.
-async function seller({ accepts, advertised = '0.02', status = 402, body: bodyOf = null, extensions = undefined }) {
+// accepts may be a function: called for every request, as for a seller with a deposit address per payment.
+async function seller({ accepts: acceptsOf, advertised = '0.02', status = 402, body: bodyOf = null, extensions = undefined }) {
   let origin;
   origin = await listen((req, res) => {
     res.setHeader('content-type', 'application/json');
     if (req.url === '/openapi.json') {
       return res.end(JSON.stringify({ openapi: '3.1.0', info: { title: 't' }, paths: { '/paid/{id}': { get: { 'x-payment-info': { protocols: ['x402'], price: { mode: 'fixed', currency: 'USD', amount: advertised } } } } } }));
     }
+    const accepts = typeof acceptsOf === 'function' ? acceptsOf(req) : acceptsOf;
     const challenge = { x402Version: 2, resource: { url: `${origin}${req.url.split('?')[0]}`, mimeType: 'application/json', description: 'x' }, accepts, ...(extensions ? { extensions: typeof extensions === 'function' ? extensions(origin) : extensions } : {}) };
     res.statusCode = status;
     if (status === 402) res.setHeader('PAYMENT-REQUIRED', Buffer.from(JSON.stringify(challenge)).toString('base64'));
@@ -783,4 +785,76 @@ test('refusal: a payto_changed report says it compared with Doctor\'s own live r
   assert.equal(r.refusal.report.reason, 'payto_changed', JSON.stringify(r.reasons));
   assert.deepEqual(r.refusal.report.basis, { source: 'live', at: '2026-10-31' });
   assert.match(r.refusal.signing_message, /\nbasis: live 2026-10-31$/);
+});
+
+// A seller with a deposit address per payment (a new payTo on every 402, as three sellers on Base did on 12 Nov 2026):
+// no scan can match its address, so a difference from the scan is info.
+const freshPayTo = () => {
+  let n = 0;
+  return () => [baseOption('10000', { payTo: `0x${(++n).toString(16).padStart(40, 'a')}` })];
+};
+const OLD_BASE = '0x1111111111111111111111111111111111111111';
+const scanSaw = (address) => {
+  const { payToMap } = require('../lib/payee-history');
+  return { lookup: async () => ({ days_checked: 5, days_payable: 5, payable_ratio: 1, history: 'ggggg', days: ['2026-11-11'], payto: { a: payToMap([{ network: BASE, pay_to: address }]), s: '2026-11-01' } }) };
+};
+
+test('payto_per_request: a new payout address on every 402 is info, not payto_changed; a stable move stays caution', async () => {
+  const fresh = await run(await seller({ accepts: freshPayTo() }), { trustIndex: scanSaw(OLD_BASE), payeeCheck: async () => [] });
+  assert.equal(fresh.verdict, 'go', JSON.stringify(fresh.reasons));
+  assert.ok(!fresh.reasons.some((r) => r.code === 'payto_changed'), JSON.stringify(fresh.reasons));
+  const line = fresh.reasons.find((r) => r.code === 'payto_per_request');
+  assert.equal(line.level, 'info');
+  assert.match(line.message, /new payout address on Base on every request/);
+  // No change as data either: an agent that refuses on changed_fields would refuse this seller on every call.
+  assert.deepEqual(fresh.changed_fields, []);
+  assert.deepEqual(fresh.changes, []);
+  // One address, moved since the scan: asked again it is the same one, so it stays a caution.
+  const moved = await run(await seller({ accepts: [baseOption('10000')] }), { trustIndex: scanSaw(OLD_BASE), payeeCheck: async () => [] });
+  assert.equal(moved.verdict, 'caution');
+  assert.ok(moved.reasons.some((r) => r.code === 'payto_changed' && r.level === 'caution'));
+  assert.ok(!moved.reasons.some((r) => r.code === 'payto_per_request'));
+});
+
+const BAD = '0x9999999999999999999999999999999999999999';
+const sanctionsStub = { enabled: true, ready: async () => ({ published: '2026-11-10' }), check: (a) => (String(a).toLowerCase() === BAD ? { listed: true, entries: [{ name: 'Listed Mixer', programs: ['CYBER2'] }] } : { listed: false, entries: [] }) };
+
+test('pay_to: the address the buyer was asked to pay is screened, and one Doctor was not shown is a caution', async () => {
+  const url = await seller({ accepts: [baseOption('10000')] });
+  const shown = await run(url, { network: BASE, payTo: PAY_TO_BASE.toLowerCase(), sanctions: sanctionsStub });
+  assert.equal(shown.verdict, 'go', JSON.stringify(shown.reasons));
+  assert.deepEqual(shown.signals.pay_to_check, { pay_to: PAY_TO_BASE.toLowerCase(), network: BASE, shown_to_doctor: true, per_request: false, sanctioned: false });
+  // The seller showed x402 Doctor its own address (twice) and the buyer another: cloaked.
+  const other = '0x3333333333333333333333333333333333333333';
+  const cloaked = await run(url, { network: BASE, payTo: other, sanctions: sanctionsStub });
+  assert.equal(cloaked.verdict, 'caution', JSON.stringify(cloaked.reasons));
+  const line = cloaked.reasons.find((r) => r.code === 'payto_not_shown');
+  assert.match(line.message, new RegExp(`asked to pay ${other}, but this endpoint asked x402 Doctor's requests to pay ${PAY_TO_BASE}`));
+  assert.equal(cloaked.signals.pay_to_check.shown_to_doctor, false);
+  // ...and the other one is on the sanctions list: no_go, whatever Doctor was shown.
+  const listed = await run(url, { network: BASE, payTo: BAD, sanctions: sanctionsStub });
+  assert.equal(listed.verdict, 'no_go', JSON.stringify(listed.reasons));
+  assert.match(listed.reasons.find((r) => r.code === 'payto_sanctioned').message, /your agent was asked to pay, 0x9{40}, is on the OFAC SDN sanctions list: Listed Mixer \(CYBER2\)/);
+  assert.equal(listed.signals.pay_to_check.sanctioned, true);
+});
+
+test('pay_to with a deposit address per payment: not shown is expected (info), the screen still applies', async () => {
+  const url = await seller({ accepts: freshPayTo() });
+  const r = await run(url, { network: BASE, payTo: '0x4444444444444444444444444444444444444444', sanctions: sanctionsStub });
+  assert.equal(r.verdict, 'go', JSON.stringify(r.reasons));
+  assert.ok(r.reasons.some((x) => x.code === 'payto_per_request' && x.level === 'info'));
+  assert.ok(!r.reasons.some((x) => x.code === 'payto_not_shown'));
+  assert.equal(r.signals.pay_to_check.per_request, true);
+  const bad = await run(url, { network: BASE, payTo: BAD, sanctions: sanctionsStub });
+  assert.equal(bad.verdict, 'no_go', JSON.stringify(bad.reasons));
+});
+
+test('pay_to: part of the cached preflight key', async () => {
+  const url = await seller({ accepts: [baseOption('10000')] });
+  const cached = createPreflight({ safeFetch, rpcUrl, bazaarIndex: listed });
+  assert.equal((await cached(url, { payTo: PAY_TO_BASE })).cached, false);
+  assert.equal((await cached(url, { payTo: PAY_TO_BASE })).cached, true);
+  const other = await cached(url, { payTo: '0x3333333333333333333333333333333333333333' });
+  assert.equal(other.cached, false);
+  assert.ok(other.reasons.some((r) => r.code === 'payto_not_shown'));
 });

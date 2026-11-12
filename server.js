@@ -971,6 +971,7 @@ function openApi(origin, payment) {
         { name: 'max_usd', in: 'query', required: false, example: '0.05', schema: { type: 'string' }, description: 'Your budget per call in USD; above it the verdict is no_go' },
         { name: 'network', in: 'query', required: false, schema: { type: 'string' }, description: 'CAIP-2 network you want to pay on, e.g. eip155:8453' },
         { name: 'client', in: 'query', required: false, schema: { type: 'string', enum: ['gateway'] }, description: "Set to gateway when your agent pays with Circle's Gateway client (@circle-fin/x402-batching) from a Gateway balance: Gateway-only endpoints are then not a caution, and Gateway options are recommended first." },
+        { name: 'pay_to', in: 'query', required: false, schema: { type: 'string' }, description: 'The payout address (payTo) your agent was asked to pay, from the 402 it got. x402 Doctor screens that address too (OFAC SDN) and says caution (payto_not_shown) when the seller showed x402 Doctor another one: a seller can show a checker one 402 and buyers another.' },
       ],
       responses: {
         200: { description: 'Verdict (go / caution / no_go), recommended option and reasons', content: { 'application/json': { schema: withReceipt(PREFLIGHT_SCHEMA) } } },

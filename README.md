@@ -401,7 +401,16 @@ Space waits in `hf-mcp/`. Doctor's own MCP server is `https://x402-doctor.fizzl.
   `changed_fields` (`["pay_to"]`, `["price"]`, both, `[]` for nothing, `null` when there is no scan record) and
   `changes` (per change: `field`, `networks` and `bound` for a payout address, `from_usd` and `to_usd` for a price,
   `kind` `differs_from_scan` or `changed_in_scan`, and the scan `day`), so an agent can refuse a changed seller
-  without reading the codes.
+  without reading the codes. A seller that asks for a new payout address on every request (a deposit address per
+  payment) can't match any scan: when the address differs, the preflight asks once more, and two new addresses in a row
+  make it an `info` line (`payto_per_request`) instead of a caution, and no entry in `changed_fields`. On 12 Nov 2026 three sellers
+  on Base did this, and every preflight for them was a caution.
+- `pay_to` (optional): the payout address the buyer was asked to pay, from its own 402. A seller can tell the checker's
+  requests apart and show it one 402 while buyers get another (held-out set 2 of the agent safety bench in
+  Fizzl13/x402-examples: the checker saw a clean address, the buyer one on the sanctions list). With `pay_to` that
+  address is screened too (`payto_sanctioned`, `no_go`), and when the seller asked x402 Doctor twice for one address
+  and the buyer for another it is a `caution` (`payto_not_shown`). With a deposit address per payment only the screen
+  applies. `signals.pay_to_check` says what was found (`shown_to_doctor`, `per_request`, `sanctioned`).
 - **Fizzl Buy buy-check.** [`buy-check.yml`](.github/workflows/buy-check.yml), started by hand only, buys through
   Fizzl Buy (`POST https://buy.fizzl.eu/v1/buy`, $0.02) the way an agent would (`scripts/buy-check.js`): 1 to 20
   everyday needs (prices, weather, search, news), each with whether a seller delivered, which one, what it was paid,
