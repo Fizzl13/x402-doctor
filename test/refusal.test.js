@@ -69,7 +69,7 @@ async function app(opts = {}) {
   const url = `http://127.0.0.1:${s.address().port}${PATH}`;
   // `from`: the sending address, as the proxy hop would supply it (unsigned reports count once per address a day).
   const post = (body, from) => fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', ...(from ? { 'x-forwarded-for': from } : {}) }, body: JSON.stringify(body) });
-  return { url, post, recorded };
+  return { url, post, recorded, routes };
 }
 
 test('endpoint: takes a report (204), counts it, checks a signature, and limits each address', async () => {
@@ -307,4 +307,98 @@ test('basis listed_updated: a catalog comparison can say how old the listing was
   assert.throws(() => refusalReport({ resource, accept: ACCEPT, reason: 'price_changed', basis: { source: 'catalog', at: '2026-11-09', listed_updated: 'last week' } }), /UTC date or ISO time/);
   const parsed = parseRefusal({ ...r }, { ownHost: 'x402-doctor.fizzl.eu' });
   assert.deepEqual(parsed.report.basis, basis, 'a receiver keeps it');
+});
+
+test('history: the counts from before a restart come back, a restored report still counts once, bad rows are left out', async () => {
+  const t = Date.parse('2026-11-12T10:00:00Z');
+  const resource = 'https://x402-doctor.fizzl.eu/api/v1/preflight';
+  const a = refusalReport({ resource: `${resource}?url=https://marker-9d41.example/x`, accept: ACCEPT, reason: 'payto_changed', basis: { source: 'live', at: '2026-11-11' }, now: new Date(t) });
+  const b = refusalReport({ resource, accept: ACCEPT, reason: 'price_above_limit', now: new Date(t) });
+
+  // The first process counts two reports; the record hook gets each one's key, nothing of the URL as sent.
+  const first = await app({ now: () => t });
+  assert.equal((await first.post(a, '203.0.113.1')).status, 204);
+  assert.equal((await first.post(b, '203.0.113.2')).status, 204);
+  assert.equal((await (await fetch(first.url)).json()).received.since_restart, true, 'no history: counts since this process started');
+  const log = first.recorded.map(({ r, m }) => ({ at: new Date(t).toISOString(), resource: r.resource, reason: r.reason, signed: Boolean(m.signer), basis: r.basis?.source, key: m.key }));
+  assert.match(log[0].key, /^[0-9a-f]{64}$/);
+  assert.ok(!JSON.stringify(log).includes('marker-9d41'));
+
+  // After a restart: the log is read back, with rows too old, from the future, unknown or broken left out.
+  const junk = [
+    null,
+    { at: new Date(t - 31 * 86400000).toISOString(), resource: '/api/v1/preflight', reason: 'payto_changed' },
+    { at: new Date(t + 86400000 * 2).toISOString(), resource: '/api/v1/preflight', reason: 'payto_changed' },
+    { at: 'yesterday', resource: '/api/v1/preflight', reason: 'payto_changed' },
+    { at: new Date(t).toISOString(), resource: '/api/v1/preflight', reason: 'made_up' },
+    { at: new Date(t).toISOString(), resource: '', reason: 'payto_changed' },
+  ];
+  const second = await app({ now: () => t + 3600000, history: async () => [...log, ...junk] });
+  await second.routes.ready;
+  let info = await (await fetch(second.url)).json();
+  assert.equal(info.received.since_restart, false);
+  assert.deepEqual(info.received.by_resource['/api/v1/preflight'], { total: 2, signed: 0, reasons: { payto_changed: 1, price_above_limit: 1 }, basis: { payto_changed: { live: 1 } } });
+  assert.deepEqual(info.received.by_day.map((d) => [d.day, d.reason, d.count]).sort(), [['2026-11-12', 'payto_changed', 1], ['2026-11-12', 'price_above_limit', 1]]);
+
+  // The same report posted again after the restart still counts once; a new one adds to the restored counts.
+  assert.equal((await second.post(a, '203.0.113.9')).status, 204);
+  const c = refusalReport({ resource, accept: ACCEPT, reason: 'network_unsupported', now: new Date(t + 3600000) });
+  assert.equal((await second.post(c, '203.0.113.9')).status, 204);
+  info = await (await fetch(second.url)).json();
+  assert.equal(info.received.by_resource['/api/v1/preflight'].total, 3);
+  assert.equal(second.recorded.length, 1, 'only the new report is recorded again');
+
+  // A history that can't be read leaves the counts to this process, and reports are still taken.
+  const third = await app({ now: () => t, history: async () => { throw new Error('log unreachable'); } });
+  await third.routes.ready;
+  assert.equal((await third.post(b, '203.0.113.3')).status, 204);
+  info = await (await fetch(third.url)).json();
+  assert.equal(info.received.since_restart, true);
+  assert.equal(info.received.by_resource['/api/v1/preflight'].total, 1);
+});
+
+test('Doctor keeps its refusal counts across a restart: counted reports go to their own small log and are read back', async () => {
+  process.env.BASE_RPC_URL = 'http://127.0.0.1:1';
+  const written = [];
+  const refusalLog = { record: (e) => written.push(e) };
+  const before = new Date(Date.now() - 3600000).toISOString();
+  const later = new Date(Date.now() + 3600000).toISOString();
+  const asked = [];
+  const refusalReader = {
+    configured: true,
+    load: async ({ service } = {}) => {
+      asked.push(service);
+      if (service !== 'refusals') return { events: [] };
+      return { events: [
+        { t: before, service: 'refusals', route: 'refusal counted', input: { route: '/api/v1/preflight', reason: 'payto_changed', signed: false, basis: 'catalog', key: 'a'.repeat(64) }, result: { counted: true } },
+        { t: before, service: 'refusals', route: 'something else', input: { route: '/api/v1/preflight', reason: 'payto_changed' } },
+        { t: later, service: 'refusals', route: 'refusal counted', input: { route: '/api/v1/preflight', reason: 'price_changed', key: 'b'.repeat(64) } },
+      ] };
+    },
+  };
+  const { createApp } = require('../server');
+  const a = createApp({ allowPrivate: true, env: { AGENT_PAYOUT_WALLET: ACCEPT.payTo, FACILITATOR_URL: 'http://127.0.0.1:1' }, bazaarIndex: { lookup: async () => ({ resource: false, origin: false }) }, creditStore: null, vaultStore: null, refusalReader, refusalLog });
+  const s = await new Promise((ok) => { const x = a.listen(0, '127.0.0.1', () => ok(x)); });
+  servers.push(s);
+  const base = `http://127.0.0.1:${s.address().port}`;
+  let info;
+  for (let i = 0; i < 50; i++) {
+    info = await (await fetch(`${base}${PATH}`)).json();
+    if (!info.received.since_restart) break;
+    await new Promise((r) => setTimeout(r, 20));
+  }
+  assert.ok(asked.includes('refusals'), 'reads only its own small log');
+  assert.equal(info.received.since_restart, false);
+  assert.deepEqual(info.received.by_resource['/api/v1/preflight'], { total: 1, signed: 0, reasons: { payto_changed: 1 }, basis: { payto_changed: { catalog: 1 } } }, 'other routes and events written after the start are not counted twice');
+
+  const report = refusalReport({ resource: 'https://x402-doctor.fizzl.eu/api/v1/preflight?url=https://marker-4be2.example/x', accept: ACCEPT, reason: 'network_unsupported' });
+  assert.equal((await fetch(`${base}${PATH}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(report) })).status, 204);
+  assert.equal(written.length, 1);
+  assert.equal(written[0].route, 'refusal counted');
+  assert.deepEqual(Object.keys(written[0].input).sort(), ['key', 'reason', 'route', 'signed']);
+  assert.equal(written[0].input.route, '/api/v1/preflight');
+  assert.match(written[0].input.key, /^[0-9a-f]{64}$/);
+  assert.ok(!JSON.stringify(written).includes('marker-4be2'), 'the URL as sent is not logged');
+  info = await (await fetch(`${base}${PATH}`)).json();
+  assert.deepEqual(info.received.by_resource['/api/v1/preflight'].reasons, { payto_changed: 1, network_unsupported: 1 });
 });
