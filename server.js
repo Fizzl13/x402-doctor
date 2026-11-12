@@ -24,6 +24,7 @@ const { fizzlCors } = require('./lib/fizzl-cors');
 const { createSafeFetch, isPrivateIp } = require('./lib/safe-fetch');
 const diagnoseLib = require('./lib/diagnose');
 const { concordiumSeller, cleanAccepts } = require('./lib/concordium-seller');
+const { concordiumDestinations } = require('./lib/concordium-destinations');
 const { lookupBadge } = require('./lib/concordium-agent');
 const { receiptCheckAnswer, receiptBacksReport, decodeReceiptParam } = require('./lib/concordium-receipt');
 const { normaliseBody } = require('./lib/request-body');
@@ -151,6 +152,9 @@ function describeDoctorCall(req, _res, body) {
   // Who reads the MCP server card (directories such as Smithery).
   if (req.method === 'GET' && req.path === '/.well-known/mcp/server-card.json') return { route: 'mcp server card', via: 'discovery', input: {}, result: { status: _res.statusCode } };
   const b = body || {};
+  if (req.method === 'POST' && req.path === '/api/v1/concordium/destinations') {
+    return { route: 'concordium destinations', via: 'api', input: { sellers: Array.isArray(req.body && req.body.urls) ? req.body.urls.length : 0 }, result: { status: _res.statusCode, destinations: Array.isArray(b.destinations) ? b.destinations.length : 0, refused: Array.isArray(b.refused) ? b.refused.length : 0 } };
+  }
   if (req.method === 'POST' && req.path === '/api/v1/concordium/seller') {
     return { route: 'concordium seller', via: 'api', input: { url: req.body && req.body.url, accepts: Array.isArray(req.body && req.body.accepts) ? req.body.accepts.length : 0 }, result: { status: _res.statusCode, badge: (b.badge && b.badge.verdict) || null, proof: (b.proof && b.proof.status) || null } };
   }
@@ -971,6 +975,17 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
       res.set('cache-control', 'no-store').json(await concordiumSeller(targetUrl, { accepts, safeFetch }));
     } catch (err) {
       res.status(502).json({ error: `could not check: ${err.message}` });
+    }
+  });
+
+  // Lock destinations (lib/concordium-destinations.js): for up to 10 sellers an agent may pay, the payout addresses
+  // Concordium vouches for, as an allow-list per network. What Protocol-Level Locks ring-fence an agent's funds to, or a
+  // wallet's spend rules allow today. Free and read-only; the base free rate, since one call checks up to 10 sellers.
+  app.post('/api/v1/concordium/destinations', rateLimit({ windowMs: limits.windowMs, max: limits.max }), async (req, res) => {
+    try {
+      res.set('cache-control', 'no-store').json(await concordiumDestinations(req.body && req.body.urls, { safeFetch }));
+    } catch (err) {
+      res.status(err.status || 502).json({ error: err.status ? err.message : `could not check: ${err.message}` });
     }
   });
 
