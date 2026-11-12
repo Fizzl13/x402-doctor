@@ -402,3 +402,43 @@ test('Doctor keeps its refusal counts across a restart: counted reports go to th
   info = await (await fetch(`${base}${PATH}`)).json();
   assert.deepEqual(info.received.by_resource['/api/v1/preflight'].reasons, { payto_changed: 1, network_unsupported: 1 });
 });
+
+test('Fizzl Buy keeps its refusal counts across a restart too, in a log of its own (buy-refusals)', async () => {
+  const { createBuyApp } = require('../buy-server');
+  const written = [];
+  const asked = [];
+  const before = new Date(Date.now() - 3600000).toISOString();
+  const refusalReader = {
+    configured: true,
+    load: async ({ service } = {}) => {
+      asked.push(service);
+      return { events: service === 'buy-refusals' ? [{ t: before, service: 'buy-refusals', route: 'refusal counted', input: { route: '/v1/buy', reason: 'price_above_limit', signed: false, key: 'c'.repeat(64) }, result: { counted: true } }] : [] };
+    },
+  };
+  const a = createBuyApp({ env: { PUBLIC_URL: 'https://buy.fizzl.eu' }, deps: { usageLog: { middleware: () => (_q, _s, n) => n() }, vaultStore: null, sanctions: null, trustIndex: null, lure: null, wallet: null, refusalLog: { record: (e) => written.push(e) }, refusalReader } });
+  const s = await new Promise((ok) => { const x = a.listen(0, '127.0.0.1', () => ok(x)); });
+  servers.push(s);
+  const base = `http://127.0.0.1:${s.address().port}`;
+  let info;
+  for (let i = 0; i < 50; i++) {
+    info = await (await fetch(`${base}${PATH}`)).json();
+    if (!info.received.since_restart) break;
+    await new Promise((r) => setTimeout(r, 20));
+  }
+  assert.deepEqual(asked, ['buy-refusals'], 'reads only its own log, not Doctor\'s');
+  assert.equal(info.received.since_restart, false);
+  assert.deepEqual(info.received.by_resource['/v1/buy'].reasons, { price_above_limit: 1 });
+  const report = refusalReport({ resource: 'https://buy.fizzl.eu/v1/buy', accept: ACCEPT, reason: 'payto_changed' });
+  assert.equal((await fetch(`${base}${PATH}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(report) })).status, 204);
+  assert.equal(written.length, 1);
+  assert.equal(written[0].input.route, '/v1/buy');
+  info = await (await fetch(`${base}${PATH}`)).json();
+  assert.deepEqual(info.received.by_resource['/v1/buy'].reasons, { price_above_limit: 1, payto_changed: 1 });
+});
+
+test('refusal log: needs a service name, and reads nothing without a configured reader', async () => {
+  const { createRefusalLog } = require('../lib/refusal-log');
+  assert.throws(() => createRefusalLog({}), /service/);
+  const off = createRefusalLog({ service: 'x', log: { record() {} }, reader: { configured: false, load: async () => { throw new Error('not called'); } } });
+  assert.equal(await off.history(), null, 'no log to read: nothing restored, since_restart stays true');
+});
