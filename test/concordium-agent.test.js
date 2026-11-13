@@ -346,3 +346,47 @@ test('lookupBadge with exam: the Agent Safety Index for a site the anchored card
   assert.equal('exam' in plain, false);
   assert.equal(asked.length, n);
 });
+
+test('lookupBadge: the owner\'s spending rules from the anchored card, and a mandate held against them', async () => {
+  const { lookupBadge, checkMandate } = require('../lib/concordium-agent');
+  const jcs = (v) => (Array.isArray(v) ? `[${v.map(jcs).join(',')}]` : v && typeof v === 'object' ? `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${jcs(v[k])}`).join(',')}}` : JSON.stringify(v));
+  const keyPair = (seed) => {
+    const priv = crypto.createPrivateKey({ key: Buffer.concat([Buffer.from('302e020100300506032b657004220420', 'hex'), Buffer.alloc(32, seed)]), format: 'der', type: 'pkcs8' });
+    return { x: crypto.createPublicKey(priv).export({ format: 'jwk' }).x, sign: (s) => crypto.sign(null, Buffer.from(s, 'utf8'), priv).toString('base64url') };
+  };
+  const owner = keyPair(7);
+  const envelopeOf = (k, over = {}) => {
+    const mandate = { v: 'x402-mandate/1', issuer: k.x, subject: '0x2222222222222222222222222222222222222222', asset: 'eip155:8453/erc20:0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', cap: '3000000', perPayment: '1500000', recipients: ['*'], accountant: k.x, purpose: 'market data', notAfter: '2026-12-01T00:00:00Z', nonce: 'fw-abc', ...over };
+    return { mandate, alg: 'Ed25519', sig: k.sign(`x402-mandate/1\n${jcs(mandate)}`) };
+  };
+  const rulesExt = { uri: 'https://fizzl.eu/a2a/spending-rules/v1', params: { v: '1', issuer: owner.x, limits: { tokens: { USDC: { perTx: '2', perDay: '10' } } }, mandate: { cap: '3', perPayment: '1.5', notAfter: '2026-12-01T00:00:00Z', purpose: 'market data', nonce: 'fw-abc' } } };
+  const text = card({ capabilities: { extensions: [{ uri: 'https://docs.concordium.com/a2a-extensions/concordium-badge/v1', params: { tokenAddress: `${TESTNET}/cis-2:${BADGE}` } }, rulesExt] } });
+  const look = (t, mandate) => lookupBadge(BADGE, { fetchImpl: registry({ agent_by_token_address: agent(t) }).fetchImpl, safeFetch: pages({ [CARD_URL]: t }), mandate });
+
+  const ok = await look(text, envelopeOf(owner));
+  assert.equal(ok.valid, true, JSON.stringify(ok.issues));
+  assert.equal(ok.spending_rules.pinned_by, OWNER);
+  assert.equal(ok.spending_rules.issuer, owner.x);
+  assert.deepEqual(ok.spending_rules.limits.tokens.USDC, { perTx: '2', perDay: '10' });
+  assert.deepEqual(ok.mandate_check, { match: true, signature_valid: true });
+
+  clearConcordiumCache();
+  const plain = await look(text, null);
+  assert.equal(plain.mandate_check, undefined, 'no mandate asked: no check');
+
+  // Another key, a broken signature, another nonce, other terms: never a match.
+  const rules = ok.spending_rules;
+  assert.match(checkMandate(envelopeOf(keyPair(9)), rules).reason, /another key/);
+  const forged = envelopeOf(owner); forged.mandate.cap = '9000000';
+  assert.deepEqual([checkMandate(forged, rules).match, checkMandate(forged, rules).signature_valid], [false, false]);
+  assert.match(checkMandate(envelopeOf(owner, { nonce: 'fw-new' }), rules).reason, /another nonce/);
+  assert.match(checkMandate(envelopeOf(owner, { perPayment: '2500000' }), rules).reason, /terms differ/);
+  assert.match(checkMandate({ nope: 1 }, rules).reason, /not an x402-mandate/);
+
+  // A card that no longer matches its hash: no rules are read from it.
+  clearConcordiumCache();
+  const swapped = await lookupBadge(BADGE, { fetchImpl: registry({ agent_by_token_address: agent(text) }).fetchImpl, safeFetch: pages({ [CARD_URL]: text.replace('market data', 'anything') }), mandate: envelopeOf(owner) });
+  assert.equal(swapped.spending_rules, null);
+  assert.equal(swapped.mandate_check.match, false);
+  assert.match(swapped.mandate_check.reason, /no spending rules/);
+});

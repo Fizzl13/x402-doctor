@@ -1014,7 +1014,9 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     const badge = req.body && req.body.badge;
     if (typeof badge !== 'string' || !badge.trim() || badge.length > 200) return res.status(400).json({ error: 'badge (the badge or Agent ID, a string) is required' });
     try {
-      res.set('cache-control', 'no-store').json(await lookupBadge(badge, { safeFetch }));
+      // An x402-mandate/1 envelope the agent showed, to hold against the spending rules its owner pinned (optional).
+      const mandate = req.body && req.body.mandate && typeof req.body.mandate === 'object' && JSON.stringify(req.body.mandate).length <= 8192 ? req.body.mandate : null;
+      res.set('cache-control', 'no-store').json(await lookupBadge(badge, { safeFetch, mandate }));
     } catch (err) {
       res.status(502).json({ error: `could not check: ${err.message}` });
     }
