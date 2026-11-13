@@ -53,6 +53,7 @@ const { NETWORKS } = require('./lib/networks');
 const { languageOf, createAgentKinds, createDownloads } = require('./lib/usage-insights');
 const { createFeedback } = require('./lib/feedback');
 const { createOutcomes } = require('./lib/outcomes');
+const { createRefunds } = require('./lib/concordium-refund');
 const { createErrorReporter } = require('./lib/error-report');
 const { createRefusalRoutes, PATH: REFUSAL_PATH } = require('./lib/refusal');
 const { createRefusalLog } = require('./lib/refusal-log');
@@ -269,7 +270,7 @@ function trustProxyHops(env) {
   return Number.isInteger(n) && n >= 0 && n <= 10 && String(env.TRUST_PROXY_HOPS).trim() !== '' ? n : 3;
 }
 
-function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, cdpValidate = env.CDP_VALIDATE === 'off' ? null : createCdpValidator(), trustIndex = createTrustReader(), spotResults = createSpotResults(), deliveryElsewhere = createDeliveryElsewhere(), onchainPayments = createOnchainPayments({ demand: createDemand({ apiKey: env.TYPESAFE_API_KEY }) }), media = createMediaCache(), usageLog = createUsageLog({ service: 'doctor', env }), usageReader = createUsageReader({ env }), publicStats = createPublicStats({ usageReader }), settlementFetch = globalThis.fetch, status = null, facilitatorStatus = null, outreachHook: outreachHookOverride = null, describe = createDescribe({ apiKey: env.TYPESAFE_API_KEY }), poison = createPoisonCheck({ apiKey: env.TYPESAFE_API_KEY }), creditStore, agentKinds = createAgentKinds({ apiKey: env.TYPESAFE_API_KEY }), downloads = createDownloads(), priceCheck = createPriceCheck({ apiKey: env.TYPESAFE_API_KEY, trustIndex }), deliveryStore, deliveryResults, trustSubmissions: trustSubmissionsOverride = null, pass: passOverride = null, vaultStore, passSale, refusalLog: refusalLogOverride = null, refusalReader = createUsageReader({ env }), facilitator: facilitatorOverride = null, trustProof = createTrustProof() } = {}) {
+function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, cdpValidate = env.CDP_VALIDATE === 'off' ? null : createCdpValidator(), trustIndex = createTrustReader(), spotResults = createSpotResults(), deliveryElsewhere = createDeliveryElsewhere(), onchainPayments = createOnchainPayments({ demand: createDemand({ apiKey: env.TYPESAFE_API_KEY }) }), media = createMediaCache(), usageLog = createUsageLog({ service: 'doctor', env }), usageReader = createUsageReader({ env }), publicStats = createPublicStats({ usageReader }), settlementFetch = globalThis.fetch, status = null, facilitatorStatus = null, outreachHook: outreachHookOverride = null, describe = createDescribe({ apiKey: env.TYPESAFE_API_KEY }), poison = createPoisonCheck({ apiKey: env.TYPESAFE_API_KEY }), creditStore, agentKinds = createAgentKinds({ apiKey: env.TYPESAFE_API_KEY }), downloads = createDownloads(), priceCheck = createPriceCheck({ apiKey: env.TYPESAFE_API_KEY, trustIndex }), deliveryStore, deliveryResults, trustSubmissions: trustSubmissionsOverride = null, pass: passOverride = null, vaultStore, passSale, refusalLog: refusalLogOverride = null, refusalReader = createUsageReader({ env }), facilitator: facilitatorOverride = null, trustProof = createTrustProof(), refunds: refundsOverride = null } = {}) {
   // Which x402 facilitators answer now (lib/facilitators.js): the /facilitators page, its API and a free MCP tool.
   const facilitatorBoard = facilitatorStatus || createFacilitatorStatus();
   const app = express();
@@ -294,12 +295,17 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     const challenge = probe ? await diagnoseLib.checkEnvelope(probe, []) : null;
     return Array.isArray(challenge?.accepts) ? challenge.accepts : null;
   };
+  // Refunds of Concordium payments that delivered nothing (lib/concordium-refund.js): asked through outcome reports,
+  // found on chain (CCD) or sent in by the seller or the wallet (tokens), counted per seller account.
+  const refunds = refundsOverride || createRefunds({ usageReader, record: usageLog.record, env });
+  if (usageReader) setInterval(() => { refunds.tick().catch(() => {}); }, 60 * 60 * 1000).unref();
   const outcomes = createOutcomes({
     usageReader,
     record: usageLog.record,
     signers: () => (paidApi && paidApi.signer ? paidApi.signer.signers : []),
     authority: env.RECEIPT_AUTHORITY || AUTHORITY,
     checkPaymentReceipt: (receipt, tx, u) => receiptBacksReport(receipt, tx, u, { readAccepts, env }),
+    refunds,
   });
   // Free payment-proof check (lib/settlement.js): the PAYMENT-RESPONSE header → the on-chain transaction.
   const rpcUrls = { ...(env.BASE_RPC_URL ? { 'eip155:8453': env.BASE_RPC_URL } : {}), ...(env.SOLANA_RPC_URL ? { 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp': env.SOLANA_RPC_URL } : {}) };
@@ -328,7 +334,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
       if (cfg) nearCore = createNearFacilitator(cfg);
     } catch (err) { console.error(`[facilitator] NEAR facilitator off: ${err.message}`); }
   }
-  paidApi = createPaidApi({ near: nearCore, facilitators: facilitatorBoard, pass: passVerifier, safeFetch, env, trustIndex, feedback, bazaarIndex: bazaar, cdpValidate, outcomes, checkPaymentProof, creditStore, priceCheck, spotResults, deliveryElsewhere, onchainPayments, deliveryStore, ...(deliveryResults ? { deliveryResults } : {}), trust: trustTools, ...(vaultStore !== undefined ? { vaultStore } : {}), ...(passSale ? { passSale } : {}) });
+  paidApi = createPaidApi({ near: nearCore, facilitators: facilitatorBoard, pass: passVerifier, safeFetch, env, trustIndex, feedback, bazaarIndex: bazaar, cdpValidate, outcomes, refunds, checkPaymentProof, creditStore, priceCheck, spotResults, deliveryElsewhere, onchainPayments, deliveryStore, ...(deliveryResults ? { deliveryResults } : {}), trust: trustTools, ...(vaultStore !== undefined ? { vaultStore } : {}), ...(passSale ? { passSale } : {}) });
   const facilitatorService = facilitatorOverride || createFacilitatorService({ env, nearCore, sanctions: paidApi.sanctions, creditStore: paidApi.creditsStore, publicUrl: env.PUBLIC_URL || 'https://x402-doctor.fizzl.eu' });
   app.facilitator = facilitatorService;
 
@@ -407,6 +413,30 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   app.post('/api/v1/concordium/receipt', receiptLimit, express.json({ limit: '16kb' }), async (req, res) => {
     const { receipt, tx } = req.body || {};
     const { status, body } = await receiptCheckAnswer(receipt, tx, { env });
+    receiptCors(res).status(status).json(body);
+  });
+  // Free: refunds of Concordium payments that delivered nothing (lib/concordium-refund.js). GET ?tx=<payment> says
+  // whether a refund was asked and whether it came (a CCD refund is looked for on chain right away); GET ?pay_to=<seller
+  // account> gives that seller's record over 30 days (counts only); POST { receipt, tx, refund_tx } sends in a refund
+  // (a seller's, or one the wallet saw), checked against the chain. Open CORS.
+  app.options('/api/v1/concordium/refund', (_req, res) => res.set({ 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST', 'Access-Control-Allow-Headers': 'content-type' }).status(204).end());
+  app.get('/api/v1/concordium/refund', receiptLimit, async (req, res) => {
+    receiptCors(res);
+    const tx = String(req.query.tx || '').toLowerCase();
+    const payTo = String(req.query.pay_to || '');
+    if (/^[1-9A-HJ-NP-Za-km-z]{50}$/.test(payTo)) {
+      return res.json({ pay_to: payTo, refunds: refunds.ofSeller(payTo) || { days: 30, asked: 0, refunded: 0, open: 0, median_hours: null }, how: 'Agents\' wallets ask for a refund in a payment-backed outcome report (POST /api/v1/outcome with payment_receipt and refund). A refund is a transfer back from this account to the paying account, of at least the amount, best with the memo the request names.' });
+    }
+    if (!/^[0-9a-f]{64}$/.test(tx)) return res.status(400).json({ error: 'give tx (the payment\'s transaction hash) or pay_to (a seller\'s Concordium account)' });
+    // ?network=testnet (or a ccd: id) for a testnet payment; mainnet by default.
+    const n = String(req.query.network || '');
+    const network = n === 'testnet' ? 'ccd:4221332d34e1694168c2a0c0b3fd0f27' : /^ccd:[0-9a-f]{32}$/.test(n) ? n : 'ccd:9dd9ca4d19e9393877d2c44b70f89acb';
+    const s = await refunds.status(tx, { network }).catch(() => null);
+    if (!s) return res.status(404).json({ tx, asked: null, refunded: null, reason: 'no refund was asked for this payment here, and it is not a CCD payment with a receipt memo (x402r:) on chain' });
+    res.json(s);
+  });
+  app.post('/api/v1/concordium/refund', receiptLimit, express.json({ limit: '16kb' }), async (req, res) => {
+    const { status, body } = await refunds.prove(req.body);
     receiptCors(res).status(status).json(body);
   });
   // Free, for sellers: why agents refused to pay an endpoint in the last 30 days (refused outcome reports, counts only).
@@ -989,7 +1019,11 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
       return res.status(err.status || 400).json({ error: err.status ? err.message : 'Not a valid URL.' });
     }
     try {
-      res.set('cache-control', 'no-store').json(await concordiumSeller(targetUrl, { accepts, networks, safeFetch }));
+      const seller = await concordiumSeller(targetUrl, { accepts, networks, safeFetch });
+      // Refunds asked of this seller's Concordium accounts, and how many came (lib/concordium-refund.js); counts only.
+      const payTos = [...new Set([...(accepts || []), ...(seller?.badge?.payees || [])].filter((a) => String(a?.network || '').startsWith('ccd:')).map((a) => a.payTo))];
+      const asked = payTos.map((payTo) => ({ payTo, ...refunds.ofSeller(payTo) })).filter((r) => r.days);
+      res.set('cache-control', 'no-store').json(asked.length ? { ...seller, refunds: asked } : seller);
     } catch (err) {
       res.status(502).json({ error: `could not check: ${err.message}` });
     }
@@ -1097,8 +1131,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     const mb = (n) => Math.round(n / 1048576);
     // heap_limit_mb is where V8 stops with "heap out of memory" (exit 134), which can sit well below Render's 512 MB.
     const memory = { rss_mb: mb(rss), heap_mb: mb(heapUsed), heap_total_mb: mb(heapTotal), heap_limit_mb: mb(require('node:v8').getHeapStatistics().heap_size_limit), external_mb: mb(external) };
-    res.json({ ok: true, paid: paidApi.paymentInfo, sanctions: paidApi.sanctions?.status() ?? null, afuel: paidApi.afuel?.status() ?? null, afuel_holders: paidApi.holders?.status() ?? null, facilitator: facilitatorService.status(), memory, uptime_s: Math.round(process.uptime()) });
-    res.json({ ok: true, paid: paidApi.paymentInfo, sanctions: paidApi.sanctions?.status() ?? null, afuel: paidApi.afuel?.status() ?? null, ccd: paidApi.ccd?.status() ?? null, afuel_holders: paidApi.holders?.status() ?? null, memory, uptime_s: Math.round(process.uptime()) });
+    res.json({ ok: true, paid: paidApi.paymentInfo, sanctions: paidApi.sanctions?.status() ?? null, afuel: paidApi.afuel?.status() ?? null, ccd: paidApi.ccd?.status() ?? null, afuel_holders: paidApi.holders?.status() ?? null, memory, uptime_s: Math.round(process.uptime()), facilitator: facilitatorService.status() });
   });
   // Last: a 5xx is answered as JSON and reported to Sentry when SENTRY_DSN is set (lib/error-report.js).
   app.errorReporter = createErrorReporter({ dsn: env.SENTRY_DSN, service: 'x402-doctor', release: require('./package.json').version });
