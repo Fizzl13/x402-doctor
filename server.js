@@ -725,6 +725,18 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     if (/\bgzip\b/.test(req.get('accept-encoding') || '')) return res.set('Content-Encoding', 'gzip').send(atlasCache.gz);
     res.send(zlib.gunzipSync(atlasCache.gz));
   });
+  // Whether the CDP Bazaar lists a seller (free, read-only): ?host=example.com, or any of its hosts, by the same site
+  // rule as /api/trust/seller (subdomains count as the site; on shared hosting the full host name). The exam's register
+  // (exam.fizzl.eu/register) lists only agents whose website is a seller in the Bazaar.
+  app.get('/api/bazaar/site', trustLimit, async (req, res) => {
+    let host;
+    try { host = new URL(/^https?:\/\//i.test(String(req.query.host || '')) ? String(req.query.host) : `https://${req.query.host}`).hostname.toLowerCase(); } catch { host = ''; }
+    if (!host || !host.includes('.')) return res.status(400).json({ error: 'host is required, e.g. /api/bazaar/site?host=fizzl.eu' });
+    const out = typeof bazaar.siteListing === 'function' ? await bazaar.siteListing(host, { waitMs: 5000 }).catch(() => null) : null;
+    if (!out) return res.status(503).json({ error: 'the Bazaar list is loading, try again shortly' });
+    res.set('Cache-Control', 'public, max-age=1800').set('Access-Control-Allow-Origin', '*');
+    res.json({ site: out.site, listed: out.listed, routes: out.routes, source: 'CDP Bazaar (x402 discovery, api.cdp.coinbase.com)', read_at: new Date(out.at).toISOString() });
+  });
   // One seller's endpoints for the atlas card (atlas.fizzl.eu): ?host=api.example.com or example.com, any subdomain
   // counts as the same seller, as on the map. Free, read-only.
   app.get('/api/trust/seller', trustLimit, async (req, res) => {
