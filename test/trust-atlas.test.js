@@ -203,3 +203,48 @@ test('GET /api/trust/seller: on-chain payments and the demand label from the end
   assert.equal(body.onchain_payments[0].pay_to, undefined, 'no payout address in the card');
   assert.deepEqual(body.onchain_payments[0].demand.judged, { operators: 0.72, label: 'few_operators' });
 });
+
+test('bazaar site: whether the Bazaar lists any route of a seller site, by the seller-site rule; GET /api/bazaar/site', async () => {
+  const { createBazaarIndex } = require('../lib/bazaar-index');
+  const items = [
+    { resource: 'https://pay.seller.ai/a', accepts: [] },
+    { resource: 'https://api.seller.ai/b', accepts: [] },
+    { resource: 'https://foo.vercel.app/c', accepts: [] },
+    { resource: 'not a url', accepts: [] },
+  ];
+  const bz = createBazaarIndex({ url: 'http://bazaar.test', fetchImpl: async () => new Response(JSON.stringify({ items })) });
+  await bz.refresh();
+  const at = (await bz.siteListing('seller.ai')).at;
+  assert.deepEqual(await bz.siteListing('www.seller.ai'), { site: 'seller.ai', listed: true, routes: 2, at });
+  assert.deepEqual(await bz.siteListing('api.seller.ai'), { site: 'seller.ai', listed: true, routes: 2, at }, 'a subdomain is the same seller');
+  assert.equal((await bz.siteListing('bar.vercel.app')).listed, false, 'another app on the same shared host is not this seller');
+  assert.equal((await bz.siteListing('foo.vercel.app')).routes, 1);
+  assert.equal((await bz.siteListing('vercel.app')).listed, false, 'the platform itself is not a seller');
+  assert.equal((await bz.siteListing('nobody.dev')).listed, false);
+
+  const app = createApp({ env: {}, status: { snapshot: async () => ({}) }, bazaarIndex: bz, trustIndex: createTrustIndex({ url: 'http://index.test', categoriesUrl: 'http://cat.test', fetchImpl }) });
+  const server = await new Promise((resolve) => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
+  try {
+    const base = `http://127.0.0.1:${server.address().port}`;
+    const res = await fetch(`${base}/api/bazaar/site?host=https://api.seller.ai/path`);
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get('access-control-allow-origin'), '*');
+    const body = await res.json();
+    assert.deepEqual([body.site, body.listed, body.routes], ['seller.ai', true, 2]);
+    assert.match(body.read_at, /^\d{4}-\d\d-\d\dT/);
+    assert.equal((await (await fetch(`${base}/api/bazaar/site?host=nobody.dev`)).json()).listed, false);
+    assert.equal((await fetch(`${base}/api/bazaar/site?host=localhost`)).status, 400);
+    assert.equal((await fetch(`${base}/api/bazaar/site`)).status, 400);
+    // Not loaded yet (the Bazaar can't be read): 503, not "not listed".
+    const down = createBazaarIndex({ url: 'http://bazaar.test', fetchImpl: async () => new Response('', { status: 500 }) });
+    const app2 = createApp({ env: {}, status: { snapshot: async () => ({}) }, bazaarIndex: down, trustIndex: createTrustIndex({ url: 'http://index.test', categoriesUrl: 'http://cat.test', fetchImpl }) });
+    const server2 = await new Promise((resolve) => { const s = app2.listen(0, '127.0.0.1', () => resolve(s)); });
+    try {
+      assert.equal((await fetch(`http://127.0.0.1:${server2.address().port}/api/bazaar/site?host=seller.ai`)).status, 503);
+    } finally {
+      server2.close();
+    }
+  } finally {
+    server.close();
+  }
+});
