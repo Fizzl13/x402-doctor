@@ -668,6 +668,35 @@ test('nohumans.directory catalogue: endpoint_url, https only, one per origin + p
   await assert.rejects(loadNohumansCatalog({ sleep: async () => {}, retryDelays: [], fetchImpl: async () => new Response('no', { status: 404 }) }), /nohumans.directory HTTP 404/);
 });
 
+test('HIVE402 catalogue: one document, https only, one entry per origin + path, no homepage, its guest-listing mark dropped', async () => {
+  const { loadHive402Catalog } = require('../lib/trust-scan');
+  const resources = [
+    { resource: 'https://a.example/v1/quote?pair=BTC', method: 'GET', description: 'Guest listing — A Corp. Quotes for one pair.', accepts: [{ network: 'eip155:8453' }] },
+    { resource: 'https://a.example/v1/quote/', method: 'GET', description: 'the same path again' },
+    { resource: 'https://b.example/run', method: 'post', description: 'Runs a job.' },
+    { resource: 'https://c.example/', method: 'GET' },
+    { resource: 'http://d.example/plain', method: 'GET' },
+    { resource: 'https://e.example/items/{id}', method: 'PUT' },
+    { resource: 'not a url' },
+    null,
+  ];
+  const calls = [];
+  let fails = 1;
+  const list = await loadHive402Catalog({ sleep: async () => {}, retryDelays: [0], fetchImpl: async (u, opts) => {
+    calls.push([u, opts.headers['user-agent']]);
+    if (fails-- > 0) return new Response('busy', { status: 503 });
+    return Response.json({ x402Version: 2, name: 'HIVE402', resources });
+  } });
+  assert.equal(calls.length, 2, 'a 503 is tried again');
+  assert.equal(calls[0][0], 'https://hive402.scriptmasterlabs.com/.well-known/x402');
+  assert.match(calls[0][1], /x402-doctor-trust-scan/);
+  assert.deepEqual(list.map((r) => [r.key, r.method]), [['https://a.example/v1/quote', 'GET'], ['https://b.example/run', 'POST'], ['https://e.example/items/%7Bid%7D', undefined]]);
+  assert.equal(list[0].description, 'A Corp. Quotes for one pair.');
+  assert.equal(list[2].template, true, 'a path template without an example is needs_input, not broken');
+  assert.deepEqual(await loadHive402Catalog({ fetchImpl: async () => Response.json({ name: 'HIVE402' }) }), []);
+  await assert.rejects(loadHive402Catalog({ fetchImpl: async () => new Response('gone', { status: 404 }) }), /HIVE402 HTTP 404/);
+});
+
 test('PayAPI Market catalogue: the paid route and the paid-once routes with their method, no homepage or MCP endpoint, pages of 500', async () => {
   const { loadPayApiCatalog } = require('../lib/trust-scan');
   const page = (offset) => offset === 0
