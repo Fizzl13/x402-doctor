@@ -1,0 +1,244 @@
+{
+  "updated": "2026-11-14T04:38:04.039Z",
+  "brand": {
+    "x402 web search": 0.63,
+    "crypto market data": 0.1,
+    "web-search": 0.06,
+    "wikipedia article summary": 0.11,
+    "web search": 0.09,
+    "coin flip": 0.13,
+    "ssl/tls certificate check": 0.12,
+    "smartmoney": 0.72,
+    "email validator": 0.17,
+    "web-extract": 0.2,
+    "timezone converter": 0.15,
+    "uuid generator": 0.2,
+    "vin decoder": 0.69,
+    "ens resolver": 0.75,
+    "x402-gateway": 0.87,
+    "x402 doctor": 0.17,
+    "gas price": 0.21,
+    "latest block number": 0.26,
+    "crypto fear & greed index": 0.58,
+    "tokenguard": 0.5,
+    "wallet balance": 0.39,
+    "asn lookup": 0.08,
+    "crypto & token prices": 0.06,
+    "dns lookup": 0.06,
+    "word of the day": 0.14,
+    "qr code generator": 0.07,
+    "token price": 0.19,
+    "sitemap url extractor": 0.06,
+    "currency exchange rate": 0.13,
+    "web page to markdown": 0.1,
+    "eu vat number validation": 0.16,
+    "fda drug recalls": 0.21,
+    "tx decode": 0.12,
+    "domain intel": 0.48,
+    "pdf text extraction": 0.11,
+    "json repair": 0.14,
+    "base wallet balances": 0.09,
+    "x402 preflight": 0.31,
+    "web search + read top pages": 0.05,
+    "uk postcode lookup": 0.12,
+    "x402 seller check": 0.58,
+    "weather forecast": 0.05,
+    "global weather": 0.11,
+    "agent ready": 0.41,
+    "company enrichment": 0.15,
+    "email validate": 0.14,
+    "random fact": 0.08,
+    "iban check": 0.07,
+    "base gas price": 0.06,
+    "lei lookup (gleif)": 0.24,
+    "dice roller": 0.06,
+    "us weather alerts": 0.07,
+    "erc20 token info": 0.09,
+    "currency exchange rates (ecb)": 0.13,
+    "country profile": 0.06,
+    "image generation": 0.06,
+    "lei lookup": 0.11,
+    "whois lookup": 0.07,
+    "broken link checker": 0.06,
+    "ofac sanctions screening": 0.51,
+    "google image search": 0.45,
+    "public holidays api": 0.12,
+    "pageaudit": 0.77,
+    "crypto address validator": 0.09,
+    "currency exchange rates api": 0.07,
+    "eu vat number check": 0.06,
+    "translation": 0.04,
+    "random number": 0.03,
+    "lorem ipsum generator": 0.07,
+    "base transaction": 0.12,
+    "domain age checker": 0.08,
+    "sanctions screening": 0.08,
+    "sanctions name screening": 0.07,
+    "gas price oracle": 0.24,
+    "crypto news": 0.06,
+    "web read": 0.35,
+    "token safety check": 0.08,
+    "email auth check": 0.08,
+    "website screenshot": 0.08,
+    "norwegian company lookup": 0.1,
+    "wallet portfolio": 0.11,
+    "sec filings": 0.06,
+    "token price by contract address": 0.04,
+    "x402check": 0.72,
+    "base token verdict": 0.33,
+    "address validator": 0.11,
+    "url to markdown": 0.09,
+    "preflight": 0.32,
+    "ip geolocation": 0.07,
+    "time zone converter": 0.05,
+    "us treasury yield curve": 0.1,
+    "sanctions check": 0.09
+  },
+  "cases": [
+    {
+      "name": "x402-gateway",
+      "brand": 0.87,
+      "original": {
+        "sites": [
+          "freeq.one"
+        ],
+        "url": "https://x402.freeq.one/tools/markdown",
+        "payers": 10,
+        "calls": 1527
+      },
+      "namesakes": [
+        {
+          "sites": [
+            "x402-gateway.ai"
+          ],
+          "url": "https://x402-gateway.ai/api/v1/ping",
+          "payers": 4,
+          "calls": 8,
+          "endpoints": 2
+        }
+      ]
+    },
+    {
+      "name": "x402check",
+      "brand": 0.72,
+      "own_site_name": true,
+      "original": {
+        "sites": [
+          "x402check.arden-instance.workers.dev",
+          "x402check.dev",
+          "x402check.xyz"
+        ],
+        "url": "https://x402check.xyz/v1/risk-check",
+        "payers": 9,
+        "calls": 38
+      },
+      "namesakes": [
+        {
+          "sites": [
+            "firstmention.uk"
+          ],
+          "url": "https://api.firstmention.uk/s/x402check/check",
+          "payers": 3,
+          "calls": 3,
+          "endpoints": 1
+        }
+      ]
+    },
+    {
+      "name": "x402 Doctor",
+      "brand": 0.17,
+      "own_site_name": true,
+      "original": {
+        "sites": [
+          "fizzl.eu"
+        ],
+        "url": "https://x402-doctor.fizzl.eu/api/v1/preflight",
+        "payers": 8,
+        "calls": 27
+      },
+      "namesakes": [
+        {
+          "sites": [
+            "promoclube.online"
+          ],
+          "url": "https://doctor.promoclube.online/diagnose",
+          "payers": 4,
+          "calls": 5,
+          "endpoints": 1
+        }
+      ]
+    },
+    {
+      "name": "Smartmoney",
+      "brand": 0.72,
+      "own_site_name": true,
+      "original": {
+        "sites": [
+          "smartmoney.market"
+        ],
+        "url": "https://x402.smartmoney.market/congress",
+        "payers": 4,
+        "calls": 10
+      },
+      "namesakes": [
+        {
+          "sites": [
+            "lonestaroracle.xyz"
+          ],
+          "url": "https://smartmoney.lonestaroracle.xyz/smartmoney",
+          "payers": 1,
+          "calls": 5,
+          "endpoints": 1
+        }
+      ]
+    },
+    {
+      "name": "Agent Ready",
+      "brand": 0.41,
+      "own_site_name": true,
+      "original": {
+        "sites": [
+          "agent-ready.dev"
+        ],
+        "url": "https://agent-ready.dev/api/x402/scan",
+        "payers": 4,
+        "calls": 5
+      },
+      "namesakes": [
+        {
+          "sites": [
+            "x402tookit.com"
+          ],
+          "url": "https://agent-ready.x402tookit.com/llms-txt-check",
+          "payers": 2,
+          "calls": 5,
+          "endpoints": 3
+        }
+      ]
+    },
+    {
+      "name": "pageaudit",
+      "brand": 0.77,
+      "own_site_name": true,
+      "original": {
+        "sites": [
+          "pageaudit.online"
+        ],
+        "url": "https://pageaudit.online/api/x402/audit",
+        "payers": 4,
+        "calls": 6
+      },
+      "namesakes": [
+        {
+          "sites": [
+            "firstmention.uk"
+          ],
+          "url": "https://api.firstmention.uk/s/pageaudit/watchlist",
+          "payers": 1,
+          "calls": 1,
+          "endpoints": 1
+        }
+      ]
+    }
+  ]
+}
