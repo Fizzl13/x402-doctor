@@ -118,5 +118,85 @@
    },
    "signature": "0x3930ed0f089b8eb758cfee0083fbc446a90a9e34ea03c116d8556337cda17b4034c0fa298cdb1c3b3be1196031d0b99af0e7ce8fdeaebf9b05a5af83a8f278321b"
   }
+ },
+ {
+  "network": "eip155:143",
+  "payTo": "0x4998D0F55E97598E1711faC4EB196EC318d8e08c",
+  "delegation": {
+   "message": {
+    "chainId": "8453",
+    "registry": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+    "agentId": "988891",
+    "agentWallet": "0x2c7c52d15339e8b46e0e09245bb247cd7e6b128b",
+    "network": "eip155:143",
+    "payTo": "0x4998D0F55E97598E1711faC4EB196EC318d8e08c",
+    "asset": "0x754704Bc059F8C67012fEd69BC8A327a5aafb603",
+    "origin": "https://buy.fizzl.eu",
+    "validAfter": "1794748638",
+    "validUntil": "1826284578",
+    "nonce": "0xac1ca7ef2228354a33321bb16d993db655c75d9bbc98a000406ab81989bcdf9b"
+   },
+   "signature": "0x1018f9dff3d586d5897131e2d48bd4c316b4abbc7a4d443fd72623be54c1fb2c0a711a0577b4211fa8965da790fe87f328bacba5941e2a1828b81e776195146a1b"
+  }
+ },
+ {
+  "network": "eip155:137",
+  "payTo": "0x4998D0F55E97598E1711faC4EB196EC318d8e08c",
+  "delegation": {
+   "message": {
+    "chainId": "8453",
+    "registry": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+    "agentId": "988891",
+    "agentWallet": "0x2c7c52d15339e8b46e0e09245bb247cd7e6b128b",
+    "network": "eip155:137",
+    "payTo": "0x4998D0F55E97598E1711faC4EB196EC318d8e08c",
+    "asset": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+    "origin": "https://buy.fizzl.eu",
+    "validAfter": "1794748638",
+    "validUntil": "1826284578",
+    "nonce": "0x54eb4cf6d87314f7a1514d492e991eeeb9703ffff6a17a14a7c103810b12b4ce"
+   },
+   "signature": "0xbbbac55c88a55c840085848c638f6c9368fdb427427e5d290ed9a7ffb45596b33f3308b3233ed809c9eb62cceaf0dd378c48abfee06bec29037aba5105d4ec5c1c"
+  }
+ },
+ {
+  "network": "eip155:42161",
+  "payTo": "0x4998D0F55E97598E1711faC4EB196EC318d8e08c",
+  "delegation": {
+   "message": {
+    "chainId": "8453",
+    "registry": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+    "agentId": "988891",
+    "agentWallet": "0x2c7c52d15339e8b46e0e09245bb247cd7e6b128b",
+    "network": "eip155:42161",
+    "payTo": "0x4998D0F55E97598E1711faC4EB196EC318d8e08c",
+    "asset": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+    "origin": "https://buy.fizzl.eu",
+    "validAfter": "1794748638",
+    "validUntil": "1826284578",
+    "nonce": "0x693fd6ea7cbb00590843db25b912808b5823d0e8ec0ccd8b11ff2c2b2d45b3b7"
+   },
+   "signature": "0x3acbcf913c9f61ecddb6005de1eecfec4632502c3ad7bb50dd20b9a4801db19c734f8b4fbfeb61b9ac764bc76f2ebe1ad5cb6a4579572d9d8b3be87dab65b2701c"
+  }
+ },
+ {
+  "network": "eip155:43114",
+  "payTo": "0x4998D0F55E97598E1711faC4EB196EC318d8e08c",
+  "delegation": {
+   "message": {
+    "chainId": "8453",
+    "registry": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+    "agentId": "988891",
+    "agentWallet": "0x2c7c52d15339e8b46e0e09245bb247cd7e6b128b",
+    "network": "eip155:43114",
+    "payTo": "0x4998D0F55E97598E1711faC4EB196EC318d8e08c",
+    "asset": "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E",
+    "origin": "https://buy.fizzl.eu",
+    "validAfter": "1794748638",
+    "validUntil": "1826284578",
+    "nonce": "0x9ad015cbf9b01274d10a1fb79642b3d609b40b3d46d9d6d0291455283ceed63f"
+   },
+   "signature": "0x4e1518aa724eb6fa9417d64ceba072445f331b1b929dcd9264f0f339c35392ea74d39c4574917fc32873607b9a596a4d79b73333e3a10592fc6173f2691030cc1c"
+  }
  }
 ]
