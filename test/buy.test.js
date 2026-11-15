@@ -206,6 +206,14 @@ test('server: free pick with its limit, the purchase, bad input, no wallet, disc
   assert.equal(agent.services[2].payees.length, 6, 'every payTo with its payee delegation');
   assert.equal(agent.x402Support, true);
   assert.equal(agent.image, 'https://buy.test/icon.png');
+  const card = await fetch(`${base}/.well-known/agent-card.json`);
+  assert.equal(card.headers.get('access-control-allow-origin'), '*');
+  const a2a = await card.json();
+  assert.equal(a2a.protocolVersion, '0.3.0');
+  assert.equal(a2a.name, 'Fizzl Buy');
+  assert.deepEqual(a2a.skills.map((x) => x.id), ['buy', 'pick']);
+  assert.match(a2a.skills[0].examples[0], /^POST https:\/\/buy\.test\/v1\/buy /);
+  assert.deepEqual(a2a.additionalInterfaces.map((x) => x.url), ['https://buy.test/openapi.json', 'https://buy.test/mcp']);
   const icon = await fetch(`${base}/icon.png`);
   assert.equal(icon.headers.get('content-type'), 'image/png');
   assert.equal((await fetch(`${base}/favicon.ico`)).headers.get('content-type'), 'image/png');

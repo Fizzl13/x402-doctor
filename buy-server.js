@@ -9,6 +9,7 @@
 //   GET  /v1/pick?need=…   free (10 an hour per caller): which service the inkoper would buy, and why.
 //   POST /mcp              MCP: x402_pick (free) and x402_buy ($0.02, paid inside the call, _meta["x402/payment"]).
 //   GET  /.well-known/mcp/server-card.json   the same tools for MCP directories (Smithery and others).
+//   GET  /.well-known/agent-card.json        the A2A Agent Card (skills buy and pick).
 //
 // Runs as its own Render service from this repository (render.yaml, service fizzl-buy). Env: PUBLIC_URL,
 // AGENT_PAYOUT_WALLET (+ AGENT_PAYOUT_WALLET_SOLANA), CDP_API_KEY_ID/SECRET, BUY_WALLET_KEY (the inkoper's own wallet,
@@ -280,6 +281,7 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
     // Who reads the ERC-8004 registration (agent registries and their indexers).
     if (req.method === 'GET' && req.path === '/.well-known/agent-registration.json') return { route: 'agent registration', via: 'discovery', input: {}, result: { status: res.statusCode } };
     if (req.method === 'GET' && req.path === '/.well-known/mcp/server-card.json') return { route: 'mcp server card', via: 'discovery', input: {}, result: { status: res.statusCode } };
+    if (req.method === 'GET' && req.path === '/.well-known/agent-card.json') return { route: 'agent card', via: 'discovery', input: {}, result: { status: res.statusCode } };
     if (req.path === '/mcp' && req.body?.method === 'tools/call' && req.body.params?.name === 'x402_buy') {
       const r = body?.result?.structuredContent;
       return { route: 'x402_buy', via, input: { chars: String(req.body.params?.arguments?.need || '').length, ...(res.locals.spentUsd ? { spent_usd: res.locals.spentUsd, instance } : {}) }, result: { delivered: r?.delivered, paid_usd: r?.paid_usd, service: r?.service?.url ? new URL(r.service.url).host : undefined, tried: r?.tried, error: body?.result?.isError ? String(body.result.content?.[0]?.text || '').slice(0, 200) : undefined }, payment: mcpPayment(req.body, body) };
@@ -514,6 +516,29 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
     x402Support: true,
     registrations: AGENT_REGISTRATIONS,
     supportedTrust: [],
+  }));
+  // A2A Agent Card: what this agent does, for A2A clients and agent directories, as Ichimoku Signal serves its own.
+  // No A2A task endpoint: the skills are called over plain HTTP (x402) or MCP. Not pinned on chain (unlike Doctor's).
+  app.get('/.well-known/agent-card.json', (_req, res) => res.set('cache-control', 'public, max-age=300').set('access-control-allow-origin', '*').json({
+    protocolVersion: '0.3.0',
+    name: 'Fizzl Buy',
+    description: `${routes[`POST ${BUY_ROUTE}`].description} Paid per call over x402 (${payText}); the pick is free.`,
+    url: `${publicUrl}/`,
+    version: '1.1.0',
+    provider: { organization: 'Fizzl', url: 'https://fizzl.eu' },
+    iconUrl: `${publicUrl}/icon.png`,
+    documentationUrl: `${publicUrl}/llms.txt`,
+    capabilities: { streaming: false, pushNotifications: false },
+    defaultInputModes: ['application/json'],
+    defaultOutputModes: ['application/json'],
+    skills: [
+      { id: 'buy', name: 'Buy', tags: ['x402', 'buy', 'agents'], description: `Buy the right paid x402 API for a need, picked by x402 Doctor's track records, and return its answer checked; $${PRICE_USD}, nothing charged when no service delivers.`, examples: [`POST ${publicUrl}${BUY_ROUTE} {"need": "${EXAMPLE_NEED}"}`] },
+      { id: 'pick', name: 'Pick (free)', tags: ['free', 'x402', 'discovery'], description: 'Free: which paid API Fizzl Buy would buy for a need, and why, without buying.', examples: [`GET ${publicUrl}/v1/pick?need=${encodeURIComponent(EXAMPLE_NEED)}`] },
+    ],
+    additionalInterfaces: [
+      { transport: 'HTTP+JSON', url: `${publicUrl}/openapi.json` },
+      { transport: 'MCP', url: `${publicUrl}/mcp` },
+    ],
   }));
   // Fizzl Buy's icon (a shopping cart, in the style of the other Fizzl agents; source scripts/buy-icon.html).
   app.get('/icon.png', (_req, res) => res.set('cache-control', 'public, max-age=86400').sendFile(path.join(__dirname, 'public-buy', 'icon.png')));
