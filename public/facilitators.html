@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>x402 facilitator status</title>
+<link rel="canonical" href="https://x402-doctor.fizzl.eu/facilitators">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"%3E%3Crect width="128" height="128" rx="28" fill="%23020708"/%3E%3Cpath d="M78 30 A22 22 0 0 0 52 52 V104" fill="none" stroke="%23f4f8f7" stroke-width="16" stroke-linecap="round"/%3E%3Cpath d="M36 68 H72" stroke="%23f4f8f7" stroke-width="16" stroke-linecap="round"/%3E%3Cg fill="%2361f5c3"%3E%3Ccircle cx="92" cy="72" r="8"/%3E%3Ccircle cx="100" cy="52" r="5"/%3E%3Ccircle cx="104" cy="38" r="3"/%3E%3C/g%3E%3C/svg%3E">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Which x402 facilitators answer right now, and which networks and schemes each one settles: PayAI, GoPlausible, x402.rs, Dexter, Daydreams, Semantic Pay and more. Free, live, with a JSON API.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700&family=Unbounded:wght@500;600;700;800&display=swap">
+<style>
+  :root {
+    --bg: #020708; --panel: #041212; --line: rgba(97,245,195,.16); --text: #f4f8f7; --text-soft: #a8b5b2;
+    --go: #3fb950; --caution: #d29922; --nogo: #f85149; --none: #484f58; --accent: #61f5c3; --on-accent: #02100c;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --bg: #f6f8fa; --panel: #ffffff; --line: #d0d7de; --text: #1f2328; --text-soft: #57606a;
+      --go: #1a7f37; --caution: #9a6700; --nogo: #cf222e; --none: #d0d7de; --accent: #0a7a5c; --on-accent: #ffffff; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Lexend', system-ui, sans-serif; line-height: 1.55; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 48px 16px 80px; }
+  h1 { font-family: 'Unbounded', 'Lexend', sans-serif; font-size: 1.6rem; letter-spacing: -.01em; margin: 0 0 8px; }
+  h2 { font-size: 0.8rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-soft); margin: 32px 0 10px; }
+  .sub { color: var(--text-soft); margin: 0 0 24px; }
+  .headline { font-size: 17px; margin: 0 0 12px; }
+  .headline strong { font-variant-numeric: tabular-nums; }
+  .share { display: flex; gap: 2px; height: 34px; border-radius: 6px; overflow: hidden; background: var(--panel); }
+  .share .seg { min-width: 4px; height: 100%; cursor: default; outline-offset: 2px; }
+  .share .seg:focus-visible { outline: 2px solid var(--text); }
+  .seg.g { background: var(--go); } .seg.c { background: var(--caution); }
+  .seg.n { background: var(--nogo); background-image: repeating-linear-gradient(135deg, rgba(0,0,0,.28) 0 3px, transparent 3px 7px); }
+  .share-legend { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+  .share-legend > div { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+  .share-legend .k { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
+  .share-legend .sw { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+  .share-legend .v { font-size: 1.25rem; font-weight: 600; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .share-legend .p { color: var(--text-soft); font-size: 13px; font-weight: 400; margin-left: 4px; }
+  .reasons { display: flex; flex-direction: column; gap: 10px; }
+  .reason { display: grid; grid-template-columns: minmax(0, 1fr) 64px; gap: 2px 12px; align-items: center; outline-offset: 3px; border-radius: 4px; }
+  .reason:focus-visible { outline: 2px solid var(--text); }
+  .reason .t { font-size: 14px; grid-column: 1 / -1; }
+  .reason .track { height: 12px; }
+  .reason .bar { height: 100%; min-width: 3px; background: var(--accent); border-radius: 0 4px 4px 0; }
+  .reason .n { font-size: 13.5px; font-variant-numeric: tabular-nums; text-align: right; color: var(--text); }
+  .note { color: var(--text-soft); font-size: 12.5px; margin-top: 10px; }
+  details { margin-top: 10px; font-size: 13.5px; } summary { cursor: pointer; color: var(--text-soft); }
+  table { border-collapse: collapse; margin-top: 8px; width: 100%; font-size: 13.5px; }
+  td, th { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); } td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  #tip { position: fixed; z-index: 10; pointer-events: none; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 13px; box-shadow: 0 6px 20px rgba(0,0,0,.25); max-width: 280px; }
+  form { display: flex; gap: 8px; flex-wrap: wrap; }
+  input[type=url] { flex: 1 1 320px; min-width: 0; font-family: 'SF Mono', Consolas, monospace; font-size: 14px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+  button { font: inherit; font-weight: 600; font-size: 14px; background: var(--accent); color: var(--on-accent); border: none; border-radius: 8px; padding: 12px 20px; cursor: pointer; }
+  .result { margin-top: 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; overflow-wrap: anywhere; }
+  .days { display: flex; gap: 3px; margin: 10px 0 6px; flex-wrap: wrap; }
+  .day { width: 14px; height: 22px; border-radius: 3px; background: var(--none); }
+  .day.g { background: var(--go); } .day.c { background: var(--caution); } .day.n, .day.x { background: var(--nogo); }
+  .legend { font-size: 12.5px; color: var(--text-soft); }
+  ul { padding-left: 20px; } li { margin: 4px 0; }
+  code { font-family: 'SF Mono', Consolas, monospace; font-size: 13px; }
+  a { color: var(--accent); }
+  footer { margin-top: 40px; color: var(--text-soft); font-size: 12.5px; }
+  .overall { display: flex; align-items: center; gap: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; font-size: 17px; font-weight: 600; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; background: var(--none); }
+  .dot.up { background: var(--go); } .dot.degraded { background: var(--caution); } .dot.down { background: var(--nogo); }
+  .svc { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-top: 10px; }
+  .svc .top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .svc .name { font-weight: 700; font-size: 16px; } .svc .name a { color: inherit; text-decoration: none; } .svc .name a:hover { text-decoration: underline; }
+  .svc .right { margin-left: auto; font-size: 13px; color: var(--text-soft); font-variant-numeric: tabular-nums; }
+  .svc .what { color: var(--text-soft); font-size: 13.5px; margin: 4px 0 0; }
+  .svc .note { margin-top: 6px; }
+  .days { display: flex; gap: 3px; margin: 10px 0 4px; flex-wrap: wrap; }
+  .day { width: 14px; height: 22px; border-radius: 3px; background: var(--none); }
+  .day.up { background: var(--go); } .day.down { background: var(--nogo); }
+  .legend { font-size: 12.5px; color: var(--text-soft); }
+  .nets { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+  .net { font-size: 12px; border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; color: var(--text); }
+  .net.t { color: var(--text-soft); border-style: dashed; }
+  .dot.slow { background: var(--caution); } .dot.not_checked { background: var(--none); }
+  .find { margin: 18px 0 8px; }
+  input[type=text] { flex: 1 1 260px; min-width: 0; font-family: 'SF Mono', Consolas, monospace; font-size: 14px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+  .hit { margin-top: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+</style>
+<style>.by-fizzl{margin:28px 0 0;font-size:12.5px;line-height:1}.by-fizzl a{display:inline-flex;align-items:center;gap:6px;color:inherit;opacity:.75;text-decoration:none}.by-fizzl a:hover,.by-fizzl a:focus-visible{opacity:1}.by-fizzl svg{height:20px;width:auto;display:block}.by-fizzl .b{fill:#61f5c3}@media (prefers-color-scheme: light){.by-fizzl .b{fill:#0b7a57}}</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>x402 facilitator status</h1>
+  <p class="sub">A seller's x402 payments go through a facilitator. When it is down, nobody gets paid there. This page asks each public facilitator what it supports (<code>GET /supported</code>) when you open it, at most every 5 minutes. Read-only: nothing is verified or settled.</p>
+  <div class="overall" id="overall"><span class="dot"></span><span>Checking…</span></div>
+  <form class="find" id="find"><input type="text" id="net" placeholder="Network, e.g. eip155:8453, base, solana, eip155:196" aria-label="Network"><button type="submit">Who settles it?</button></form>
+  <div id="hit"></div>
+  <div id="list"></div>
+  <p class="note" id="meta"></p>
+  <footer>Data: <code>GET /api/v1/facilitators</code> and <code>GET /api/v1/facilitators?network=eip155:8453</code> (JSON, free, CORS open). Up means the facilitator answered 200 with at least one payment kind; it does not mean a payment will settle. Coinbase CDP's facilitator needs an API key to list what it supports, so it is not checked here. Missing one? Use Doctor's <a href="/">feedback</a>. · <a href="/status">Fizzl status</a> · <a href="https://fizzl.eu/privacy/">Privacy</a> · <a href="https://fizzl.eu/terms/">Terms</a> · © 2026 Fizzl</footer>
+  <p class="by-fizzl"><a href="https://fizzl.eu" title="Fizzl: all pay-per-call tools for AI agents, with live demos">by <svg viewBox="-6 -14 236 126" role="img" aria-label="fizzl"><g fill="none" stroke="currentColor" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"><path d="M44 12 A20 20 0 0 0 20 32 V100"/><path d="M6 48 H38"/><path d="M64 56 V100"/><path d="M88 52 H124 L88 100 H124"/><path d="M144 52 H180 L144 100 H180"/><path d="M200 8 V84 A16 16 0 0 0 216 100"/></g><g class="b"><circle cx="64" cy="26" r="9"/><circle cx="78" cy="10" r="5"/><circle cx="90" cy="-2" r="3"/></g></svg><span>· all tools and live demos at fizzl.eu</span></a></p>
+</div>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const words = { up: 'Up', slow: 'Up, slow', down: 'Down', not_checked: 'Not checked' };
+  const netChip = (n) => `<span class="net${n.testnet ? ' t' : ''}" title="${esc(n.id)}${n.schemes.length ? ' · ' + esc(n.schemes.join(', ')) : ''}">${esc(n.name || n.id)}</span>`;
+  function render(s) {
+    const state = s.down ? (s.up ? 'slow' : 'down') : 'up';
+    $('overall').innerHTML = `<span class="dot ${state}"></span><span>${esc(s.up)} up · ${esc(s.down)} down</span>`;
+    $('list').innerHTML = s.facilitators.map((f) => {
+      const main = (f.networks || []).filter((n) => !n.testnet), test = (f.networks || []).filter((n) => n.testnet);
+      const recent = f.recent && f.recent.checks > 1 ? ` · up in ${f.recent.up} of the last ${f.recent.checks} checks` : '';
+      const lastUp = f.state === 'down' && f.last_up ? ` Last up: ${new Date(f.last_up).toLocaleString()}.` : '';
+      return `<article class="svc" id="f-${esc(f.id)}"><div class="top"><span class="dot ${esc(f.state)}"></span><span class="name">${esc(f.name)}</span><span class="right">${esc(words[f.state] || f.state)}${f.response_ms != null ? ' · ' + esc(Math.round(f.response_ms)) + ' ms' : ''}${esc(recent)}</span></div>
+        <p class="what"><code>${esc(f.url)}</code></p><p class="note">${esc(f.note)}${esc(lastUp)}</p>
+        ${main.length ? `<div class="nets" aria-label="Mainnets">${main.map(netChip).join('')}</div>` : ''}
+        ${test.length ? `<details><summary>${test.length} testnet${test.length === 1 ? '' : 's'}</summary><div class="nets">${test.map(netChip).join('')}</div></details>` : ''}
+        ${f.schemes && f.schemes.length ? `<p class="legend">Schemes: ${esc(f.schemes.join(', '))} · x402 v${esc((f.x402_versions || []).join(', v'))}</p>` : ''}</article>`;
+    }).join('');
+    $('meta').textContent = `Checked ${new Date(s.checked_at).toLocaleString()}. Reload after ${new Date(s.next_check_after).toLocaleTimeString()} for a fresh check.`;
+    if (s.network) {
+      const n = s.network, names = (ids) => ids.map((id) => (s.facilitators.find((f) => f.id === id) || {}).name || id);
+      $('hit').innerHTML = `<div class="hit"><strong>${esc(n.name || n.id)}</strong> (<code>${esc(n.id)}</code>): ${n.facilitators_up.length ? `settled by ${esc(names(n.facilitators_up).join(', '))} right now.` : 'no checked facilitator settles it right now.'}</div>`;
+    } else $('hit').innerHTML = '';
+  }
+  function load(network) {
+    const q = network ? `?network=${encodeURIComponent(network)}` : '';
+    return fetch(`/api/v1/facilitators${q}`).then((r) => r.json()).then((s) => { if (s.error) throw new Error(s.error); render(s); })
+      .catch((err) => { $('overall').innerHTML = `<span class="dot down"></span><span>Could not load the status: ${esc(err.message)}</span>`; });
+  }
+  $('find').addEventListener('submit', (e) => { e.preventDefault(); load($('net').value.trim()); });
+  const start = new URLSearchParams(location.search).get('network');
+  if (start) $('net').value = start;
+  load(start);
+</script>
+</body>
+</html>

@@ -50,6 +50,7 @@ const { paidOf, parseKnown, summarizePayments } = require('./lib/usage-payments'
 const priceFunnel = require('./lib/price-funnel');
 const { checkSettlement } = require('./lib/settlement');
 const { createStatus } = require('./lib/status');
+const { createFacilitatorStatus } = require('./lib/facilitators');
 const { renderBadge, badgeFor } = require('./lib/badge');
 const { addMppOffers } = require('./lib/mpp-pay');
 const { createOutreachHook, recheckFindings } = require('./lib/outreach-hook');
@@ -236,7 +237,7 @@ function trustProxyHops(env) {
   return Number.isInteger(n) && n >= 0 && n <= 10 && String(env.TRUST_PROXY_HOPS).trim() !== '' ? n : 3;
 }
 
-function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, cdpValidate = env.CDP_VALIDATE === 'off' ? null : createCdpValidator(), trustIndex = createTrustReader(), spotResults = createSpotResults(), deliveryElsewhere = createDeliveryElsewhere(), onchainPayments = createOnchainPayments({ demand: createDemand({ apiKey: env.TYPESAFE_API_KEY }) }), media = createMediaCache(), usageLog = createUsageLog({ service: 'doctor', env }), usageReader = createUsageReader({ env }), publicStats = createPublicStats({ usageReader }), settlementFetch = globalThis.fetch, status = null, outreachHook: outreachHookOverride = null, describe = createDescribe({ apiKey: env.TYPESAFE_API_KEY }), poison = createPoisonCheck({ apiKey: env.TYPESAFE_API_KEY }), creditStore, agentKinds = createAgentKinds({ apiKey: env.TYPESAFE_API_KEY }), downloads = createDownloads(), priceCheck = createPriceCheck({ apiKey: env.TYPESAFE_API_KEY, trustIndex }), deliveryStore, deliveryResults, trustSubmissions: trustSubmissionsOverride = null, pass: passOverride = null, vaultStore, passSale, refusalLog: refusalLogOverride = null, refusalReader = createUsageReader({ env }) } = {}) {
+function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, cdpValidate = env.CDP_VALIDATE === 'off' ? null : createCdpValidator(), trustIndex = createTrustReader(), spotResults = createSpotResults(), deliveryElsewhere = createDeliveryElsewhere(), onchainPayments = createOnchainPayments({ demand: createDemand({ apiKey: env.TYPESAFE_API_KEY }) }), media = createMediaCache(), usageLog = createUsageLog({ service: 'doctor', env }), usageReader = createUsageReader({ env }), publicStats = createPublicStats({ usageReader }), settlementFetch = globalThis.fetch, status = null, facilitatorStatus = null, outreachHook: outreachHookOverride = null, describe = createDescribe({ apiKey: env.TYPESAFE_API_KEY }), poison = createPoisonCheck({ apiKey: env.TYPESAFE_API_KEY }), creditStore, agentKinds = createAgentKinds({ apiKey: env.TYPESAFE_API_KEY }), downloads = createDownloads(), priceCheck = createPriceCheck({ apiKey: env.TYPESAFE_API_KEY, trustIndex }), deliveryStore, deliveryResults, trustSubmissions: trustSubmissionsOverride = null, pass: passOverride = null, vaultStore, passSale, refusalLog: refusalLogOverride = null, refusalReader = createUsageReader({ env }) } = {}) {
   const app = express();
   // Fizzl Pass holders get higher free limits (lib/fizzl-pass.js); the public key comes from the Agent Wallet.
   const passVerifier = passOverride || createPassVerifier({ jwksUrl: env.PASS_JWKS_URL || undefined });
@@ -652,6 +653,19 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   const statusBoard = status || createStatus({ trustIndex });
   app.get('/status', page('status.html', '/status'));
   app.get('/sellers', page('sellers.html', '/sellers'));
+  // Which x402 facilitators answer right now, and which networks they settle (lib/facilitators.js). Free, read-only.
+  const facilitatorBoard = facilitatorStatus || createFacilitatorStatus();
+  app.get('/facilitators', page('facilitators.html', '/facilitators'));
+  app.get('/api/v1/facilitators', async (req, res) => {
+    const network = req.query.network === undefined ? null : String(req.query.network).trim();
+    if (network !== null && !/^[a-z0-9-]{2,32}(:[-_a-zA-Z0-9/+=]{1,64})?$/.test(network)) return res.status(400).json({ error: 'network must be a CAIP-2 id (e.g. eip155:8453) or an x402 v1 name (e.g. base)' });
+    try {
+      res.set('Cache-Control', 'public, max-age=60').set('Access-Control-Allow-Origin', '*');
+      res.json(await facilitatorBoard.snapshot({ network }));
+    } catch (err) {
+      res.status(503).json({ error: 'facilitator status unavailable, try again shortly' });
+    }
+  });
   app.use('/api/status', fizzlCors);
   app.get('/api/status', async (_req, res) => {
     try {
