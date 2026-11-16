@@ -238,6 +238,8 @@ function trustProxyHops(env) {
 }
 
 function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, cdpValidate = env.CDP_VALIDATE === 'off' ? null : createCdpValidator(), trustIndex = createTrustReader(), spotResults = createSpotResults(), deliveryElsewhere = createDeliveryElsewhere(), onchainPayments = createOnchainPayments({ demand: createDemand({ apiKey: env.TYPESAFE_API_KEY }) }), media = createMediaCache(), usageLog = createUsageLog({ service: 'doctor', env }), usageReader = createUsageReader({ env }), publicStats = createPublicStats({ usageReader }), settlementFetch = globalThis.fetch, status = null, facilitatorStatus = null, outreachHook: outreachHookOverride = null, describe = createDescribe({ apiKey: env.TYPESAFE_API_KEY }), poison = createPoisonCheck({ apiKey: env.TYPESAFE_API_KEY }), creditStore, agentKinds = createAgentKinds({ apiKey: env.TYPESAFE_API_KEY }), downloads = createDownloads(), priceCheck = createPriceCheck({ apiKey: env.TYPESAFE_API_KEY, trustIndex }), deliveryStore, deliveryResults, trustSubmissions: trustSubmissionsOverride = null, pass: passOverride = null, vaultStore, passSale, refusalLog: refusalLogOverride = null, refusalReader = createUsageReader({ env }) } = {}) {
+  // Which x402 facilitators answer now (lib/facilitators.js): the /facilitators page, its API and a free MCP tool.
+  const facilitatorBoard = facilitatorStatus || createFacilitatorStatus();
   const app = express();
   // Fizzl Pass holders get higher free limits (lib/fizzl-pass.js); the public key comes from the Agent Wallet.
   const passVerifier = passOverride || createPassVerifier({ jwksUrl: env.PASS_JWKS_URL || undefined });
@@ -277,7 +279,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     submit: (url) => submitToTrust(url, { via: 'mcp' }),
     howToList: "Not in the x402 Trust Index yet. Its daily scan checks every resource listed in the CDP Bazaar, Circle's Agent Marketplace, GoPlausible's discovery list, the XRPL AI Hub, nohumans.directory, PayAPI Market, HIVE402 or the MPP directory; your own endpoint can be added with x402_trust_add.",
   };
-  paidApi = createPaidApi({ pass: passVerifier, safeFetch, env, trustIndex, feedback, bazaarIndex: bazaar, cdpValidate, outcomes, checkPaymentProof, creditStore, priceCheck, spotResults, deliveryElsewhere, onchainPayments, deliveryStore, ...(deliveryResults ? { deliveryResults } : {}), trust: trustTools, ...(vaultStore !== undefined ? { vaultStore } : {}), ...(passSale ? { passSale } : {}) });
+  paidApi = createPaidApi({ facilitators: facilitatorBoard, pass: passVerifier, safeFetch, env, trustIndex, feedback, bazaarIndex: bazaar, cdpValidate, outcomes, checkPaymentProof, creditStore, priceCheck, spotResults, deliveryElsewhere, onchainPayments, deliveryStore, ...(deliveryResults ? { deliveryResults } : {}), trust: trustTools, ...(vaultStore !== undefined ? { vaultStore } : {}), ...(passSale ? { passSale } : {}) });
 
   // Doctor's requests reach the app through three proxies (the caller, then two
   // hops, the last a private Render address: measured 26 Sep), so Express has to
@@ -654,7 +656,6 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   app.get('/status', page('status.html', '/status'));
   app.get('/sellers', page('sellers.html', '/sellers'));
   // Which x402 facilitators answer right now, and which networks they settle (lib/facilitators.js). Free, read-only.
-  const facilitatorBoard = facilitatorStatus || createFacilitatorStatus();
   app.get('/facilitators', page('facilitators.html', '/facilitators'));
   app.get('/api/v1/facilitators', async (req, res) => {
     const network = req.query.network === undefined ? null : String(req.query.network).trim();

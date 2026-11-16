@@ -13,6 +13,7 @@ const { x402Client } = require('@x402/core/client');
 const { ExactEvmScheme } = require('@x402/evm/exact/client');
 const { createApp } = require('../server');
 const { FREE_CALLS_PER_HOUR, isAnthropicIp } = require('../lib/mcp');
+const facilitatorAsks = [];
 
 const BASE = 'eip155:8453';
 const SOLANA = 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp';
@@ -95,7 +96,8 @@ test.before(async () => {
     refresh: () => Promise.resolve(),
     summary: () => ({ updated: '2026-09-23T03:00:00Z', days: 5, resources: 1, latest: { go: 0, caution: 0, no_go: 1, unreachable: 0 } }),
   };
-  const app = createApp({ allowPrivate: true, env, bazaarIndex: { lookup: async () => ({ resource: false, origin: false }) }, trustIndex });
+  const facilitatorStatus = { snapshot: async ({ network }) => { facilitatorAsks.push(network); return { checked_at: '2026-11-16T21:00:00.000Z', up: 1, down: 0, facilitators: [{ id: 'a', name: 'A', url: 'https://a.example', state: 'up', note: 'Answers.' }], ...(network && { network: { id: 'eip155:196', facilitators_up: ['a'] } }) }; } };
+  const app = createApp({ allowPrivate: true, env, bazaarIndex: { lookup: async () => ({ resource: false, origin: false }) }, trustIndex, facilitatorStatus });
   api = await new Promise((resolve) => {
     const server = app.listen(0, '127.0.0.1', () => resolve(`http://127.0.0.1:${server.address().port}`));
     servers.push(server);
@@ -126,7 +128,7 @@ function assertAnnotated(tools) {
 test('mcp: a free quick check, five paid tools with their prices, the free payment proof and receipt checks and the free feedback tool', async () => {
   const client = await mcpClient();
   const { tools } = await client.listTools();
-  assert.deepEqual(tools.map((t) => t.name).sort(), ['check_payment_proof', 'concordium_badge_check', 'feedback', 'verify_receipt', 'x402_diagnose', 'x402_fix', 'x402_payee_check', 'x402_preflight', 'x402_preflight_batch', 'x402_preflight_deep', 'x402_quick_check', 'x402_trust_add', 'x402_trust_record']);
+  assert.deepEqual(tools.map((t) => t.name).sort(), ['check_payment_proof', 'concordium_badge_check', 'feedback', 'verify_receipt', 'x402_diagnose', 'x402_facilitator_status', 'x402_fix', 'x402_payee_check', 'x402_preflight', 'x402_preflight_batch', 'x402_preflight_deep', 'x402_quick_check', 'x402_trust_add', 'x402_trust_record']);
   const fb = await client.callTool({ name: 'feedback', arguments: { type: 'feature', message: 'Check Solana payTo token accounts in quick check', endpoint: 'x402_quick_check' } });
   assert.ok(!fb.isError);
   assert.equal(JSON.parse(fb.content[0].text).service, 'doctor');
@@ -157,7 +159,7 @@ test('mcp: a free quick check, five paid tools with their prices, the free payme
 test('mcp/free: only the free tools, annotated, with no price or paid tool in any description', async () => {
   const client = await mcpClient('/mcp/free');
   const { tools } = await client.listTools();
-  assert.deepEqual(tools.map((t) => t.name).sort(), ['check_payment_proof', 'concordium_badge_check', 'x402_payee_check', 'x402_quick_check', 'x402_trust_add', 'x402_trust_record']);
+  assert.deepEqual(tools.map((t) => t.name).sort(), ['check_payment_proof', 'concordium_badge_check', 'x402_facilitator_status', 'x402_payee_check', 'x402_quick_check', 'x402_trust_add', 'x402_trust_record']);
   assertAnnotated(tools);
   for (const t of tools) {
     assert.doesNotMatch(t.description, /\$\d|x402_diagnose|x402_preflight|x402_fix/, `${t.name} points to nothing paid`);
@@ -362,7 +364,7 @@ test('diagnose on an x402 MCP server: tools listed, unpaid calls return the paym
   assert.equal(report.method, 'MCP');
   assert.equal(byId('returns-402')[0].status, 'info');
   assert.equal(byId('mcp-server')[0].status, 'pass');
-  assert.match(byId('mcp-server')[0].message, /13 tools/);
+  assert.match(byId('mcp-server')[0].message, /14 tools/);
   const calls = byId('mcp-payment-required');
   assert.equal(calls.length, 2, JSON.stringify(report.checks, null, 1));
   for (const c of calls) assert.equal(c.status, 'pass', c.message);
@@ -389,4 +391,23 @@ test('summarize: problems that stop a payer come before findability warnings', (
   const withFail = summarize({ url: 'https://seller.example/x', overall: 'fail', checks: [...checks, { id: 'challenge-header', status: 'fail', message: 'mismatch' }] });
   assert.equal(withFail.top_problems[0], 'fail: mismatch');
   assert.equal(withFail.warnings, 5);
+});
+
+test('mcp: the free x402_facilitator_status tool, on /mcp and /mcp/free, with a network filter', async () => {
+  facilitatorAsks.length = 0;
+  for (const path of ['/mcp', '/mcp/free']) {
+    const client = await mcpClient(path);
+    const { tools } = await client.listTools();
+    const tool = tools.find((x) => x.name === 'x402_facilitator_status');
+    assert.ok(tool, `${path} lists it`);
+    assert.equal(tool.annotations.readOnlyHint, true);
+    assert.deepEqual(tool._meta['eu.fizzl/price'], { paid: false, amount_usd: 0 });
+    const out = await client.callTool({ name: 'x402_facilitator_status', arguments: { network: 'xlayer' } });
+    assert.ok(!out.isError, JSON.stringify(out.content));
+    assert.deepEqual(out.structuredContent.network.facilitators_up, ['a']);
+    const bad = await client.callTool({ name: 'x402_facilitator_status', arguments: { network: '<x>' } }).catch(() => ({ isError: true }));
+    assert.ok(bad.isError, 'a bad network is refused');
+    await client.close();
+  }
+  assert.deepEqual(facilitatorAsks, ['xlayer', 'xlayer']);
 });
