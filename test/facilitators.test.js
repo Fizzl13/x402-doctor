@@ -86,3 +86,4 @@ test('GET /api/v1/facilitators and /facilitators', async (t) => {
   assert.match(page, /<title>x402 facilitator status/);
   assert.match(page, /\/api\/v1\/facilitators/);
 });
+
