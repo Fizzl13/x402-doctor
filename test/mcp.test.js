@@ -142,6 +142,15 @@ test('mcp: a free quick check, five paid tools with their prices, the free payme
   }
   assert.equal(fb.structuredContent.service, 'doctor', 'the answer as structured content too');
   assertAnnotated(tools);
+  // The price, machine-readable, on every tool (a scanner reads it without calling and without parsing descriptions).
+  const price = (name) => tools.find((t) => t.name === name)._meta['eu.fizzl/price'];
+  for (const t of tools) assert.equal(typeof (t._meta && t._meta['eu.fizzl/price'] && t._meta['eu.fizzl/price'].paid), 'boolean', `${t.name} says whether it is paid`);
+  assert.deepEqual(['x402_diagnose', 'x402_preflight', 'x402_fix', 'x402_preflight_batch', 'x402_preflight_deep'].map((n) => price(n).amount_usd), [0.01, 0.001, 0.05, 0.005, 0.01]);
+  assert.equal(price('x402_preflight').protocol, 'x402');
+  assert.ok(price('x402_preflight').networks.includes('eip155:8453'), JSON.stringify(price('x402_preflight')));
+  assert.equal(price('x402_preflight').payment_meta_key, 'x402/payment');
+  assert.deepEqual(price('x402_quick_check'), { paid: false, amount_usd: 0 });
+  assert.equal(price('feedback').paid, false);
   await client.close();
 });
 
@@ -152,6 +161,7 @@ test('mcp/free: only the free tools, annotated, with no price or paid tool in an
   assertAnnotated(tools);
   for (const t of tools) {
     assert.doesNotMatch(t.description, /\$\d|x402_diagnose|x402_preflight|x402_fix/, `${t.name} points to nothing paid`);
+    assert.deepEqual(t._meta['eu.fizzl/price'], { paid: false, amount_usd: 0 }, `${t.name} is free`);
   }
   const out = await client.callTool({ name: 'x402_quick_check', arguments: { url: targetUrl } });
   assert.ok(!out.isError, JSON.stringify(out.content));
