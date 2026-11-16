@@ -386,6 +386,26 @@ test('search: between equally relevant sellers the cheaper one first; a seller w
   assert.equal((await candidatesFor('btc price', { capUsd: 0.01, fetch: searchFetch(results), strikes }))[0].url, 'https://cheap.test/btc', 'the strike ends');
 });
 
+test('search: without relevance (ranking by meaning failed) the keyword order stays; the price does not decide', async () => {
+  // 16 Nov 2026: TypeSafe answered 402, the search came back in keyword order without relevance, and the cheapest
+  // keyword match (a date calculator) beat the weather services for "weather in London".
+  const results = [
+    result('https://weather.test/forecast', { relevance: null, usd: 0.002 }),
+    result('https://sky.test/forecast', { relevance: null, usd: 0.003 }),
+    result('https://date-math.test/schedule', { relevance: null, usd: 0.001 }),
+  ];
+  const warned = [];
+  const out = await candidatesFor('weather forecast for London this weekend', { capUsd: 0.01, fetch: searchFetch(results), log: { warn: (m) => warned.push(m) } });
+  assert.deepEqual(out.map((c) => new URL(c.url).host), ['weather.test', 'sky.test', 'date-math.test']);
+  assert.equal(out[0].relevance, null);
+  assert.equal(warned.length, 1);
+  assert.match(warned[0], /without relevance/);
+  // Ranked results still go by relevance, then the price, and log nothing.
+  const ranked = await candidatesFor('weather', { capUsd: 0.01, fetch: searchFetch([result('https://a.test/w', { relevance: 0.6, usd: 0.001 }), result('https://b.test/w', { relevance: 0.95 })]), log: { warn: (m) => warned.push(m) } });
+  assert.deepEqual(ranked.map((c) => new URL(c.url).host), ['b.test', 'a.test']);
+  assert.equal(warned.length, 1);
+});
+
 test('purchase: a seller that was paid and gave no usable answer gets a strike; one that fails before payment does not', async () => {
   const a = await seller();
   const b = await seller();
