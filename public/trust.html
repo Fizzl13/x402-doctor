@@ -543,6 +543,22 @@
           const j = await r.json();
           said.textContent = j.message || j.error || 'Something went wrong.';
           if (!r.ok) add.disabled = false;
+          // A site root with paid routes in its /.well-known/x402: one button per route to add that one instead.
+          for (const route of j.paid_routes || []) {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.textContent = `Add ${new URL(route).pathname}`;
+            b.style.margin = '8px 8px 0 0';
+            b.addEventListener('click', async () => {
+              b.disabled = true;
+              try {
+                const rr = await fetch('/api/trust/submit', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: route }) });
+                const jj = await rr.json();
+                b.textContent = `${new URL(route).pathname}: ${rr.ok ? 'added' : (jj.error || 'not added')}`;
+              } catch { b.textContent = 'Could not reach Doctor'; b.disabled = false; }
+            });
+            said.append(document.createElement('br'), b);
+          }
         } catch {
           said.textContent = 'Could not reach Doctor. Try again in a minute.';
           add.disabled = false;
