@@ -667,6 +667,8 @@ async function showTrust(url, id) {
           const r = await fetch('/api/trust/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) });
           const j = await r.json();
           line.textContent = j.message || j.error || 'Something went wrong.';
+          // A site root with paid routes in its /.well-known/x402: a link per route to check that one instead.
+          for (const route of j.paid_routes || []) line.append(' ', link(`/?url=${encodeURIComponent(route)}`, `${new URL(route).pathname} →`));
         } catch {
           line.textContent = 'Could not reach Doctor. Try again in a minute.';
         }
