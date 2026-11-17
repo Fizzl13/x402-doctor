@@ -24,7 +24,7 @@ const { STACKS } = require('./lib/stack');
 const { PREFLIGHT_SCHEMA, preflight } = require('./lib/preflight');
 const { createTrustReader } = require('./lib/trust-reader');
 const { Readable } = require('node:stream');
-const { createTrustSubmissions } = require('./lib/trust-submissions');
+const { createTrustSubmissions, createRouteDiscovery } = require('./lib/trust-submissions');
 const { createOnchainPayments } = require('./lib/onchain-payments');
 const { KEYS: EVM_KEYS, CHAINS: EVM_CHAINS } = require('./lib/onchain-payments-evm');
 const { createDemand } = require('./lib/jev-demand');
@@ -273,7 +273,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     publicUrl: (env.PUBLIC_URL || 'https://x402-doctor.fizzl.eu').replace(/\/$/, ''),
   });
   // who: { via, agent, visitor } for the usage log, so the daily submissions watch can tell callers apart.
-  const submitToTrust = (url, who = {}) => trustSubmissions.submit(url, { check: (u) => preflight(u, { safeFetch }), trustIndex, ...who });
+  const submitToTrust = (url, who = {}) => trustSubmissions.submit(url, { check: (u) => preflight(u, { safeFetch }), trustIndex, discover: createRouteDiscovery(safeFetch), ...who });
   const trustTools = {
     lookup: (url) => trustIndex.lookup(url, { waitMs: 5000 }),
     submit: (url) => submitToTrust(url, { via: 'mcp' }),

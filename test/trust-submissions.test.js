@@ -166,3 +166,36 @@ test('server: POST /api/trust/submit, GET /api/trust/submitted, and a 404 that s
   const other = await (await fetch(`${base}/api/trust?url=${encodeURIComponent('https://nobody.example/x')}`)).json();
   assert.equal(other.submitted_at, undefined);
 });
+
+test('submit: a site root that has no 402 names the paid routes from its /.well-known/x402', async () => {
+  const { routesFromManifest } = require('../lib/trust-submissions');
+  const origin = 'https://app.example';
+  // The endpoints-map shape (one seller's 13 app roots, 17 Nov 2026) and the resources list.
+  assert.deepEqual(routesFromManifest({ endpoints: { '/api/summarize': { method: 'POST' }, '/api/explain': {}, nope: {} } }, origin), ['https://app.example/api/summarize', 'https://app.example/api/explain']);
+  assert.deepEqual(routesFromManifest({ resources: ['https://app.example/a', { url: 'https://app.example/b' }, { resource: '/c' }, 'https://other.example/x', 'https://app.example/', 'https://app.example/a'] }, origin), ['https://app.example/a', 'https://app.example/b', 'https://app.example/c']);
+  assert.equal(routesFromManifest({ resources: Array.from({ length: 15 }, (_, i) => `/r${i}`) }, origin).length, 10);
+  assert.deepEqual(routesFromManifest(null, origin), []);
+
+  const usageLog = fakeLog();
+  const subs = createTrustSubmissions({ usageLog });
+  const asked = [];
+  const discover = async (o) => (asked.push(o), ['https://app.example/api/summarize']);
+  const check = async () => noChallenge;
+
+  const root = await subs.submit('https://app.example/', { check, trustIndex: noIndex, discover });
+  assert.equal(root.status, 422);
+  assert.deepEqual(root.body.paid_routes, ['https://app.example/api/summarize']);
+  assert.match(root.body.error, /site's root, not a paid route/);
+  assert.deepEqual(asked, ['https://app.example']);
+  assert.equal(usageLog.events.length, 0, 'nothing is added for the routes it names');
+
+  // A path that isn't the root, or a root whose manifest names nothing: the plain refusal, no lookup.
+  const deep = await subs.submit('https://app.example/api/missing', { check, trustIndex: noIndex, discover });
+  assert.equal(deep.status, 422);
+  assert.equal(deep.body.paid_routes, undefined);
+  assert.equal(asked.length, 1);
+  const bare = await subs.submit('https://plain.example', { check, trustIndex: noIndex, discover: async () => [] });
+  assert.equal(bare.body.paid_routes, undefined);
+  const failing = await subs.submit('https://down.example/', { check, trustIndex: noIndex, discover: async () => { throw new Error('boom'); } });
+  assert.equal(failing.status, 422);
+});
