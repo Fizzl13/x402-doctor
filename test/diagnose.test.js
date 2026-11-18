@@ -1750,3 +1750,14 @@ test('checkAccepts: only test networks is a warning, a mainnet option next to th
   checkAccepts([pay('eip155:999999', '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913')], unknown);
   assert.equal(unknown.find((c) => c.id === 'testnet-only'), undefined);
 });
+
+test('Solana extra.feePayer equal to payTo is a warn, not a fail (a seller running its own facilitator)', async () => {
+  const PAY = 'ATWJ82T8nRdQwZnaysB68N5EpaSvLRsQP4h6eWmaJBH9';
+  const accepts = [{ scheme: 'exact', network: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp', amount: '10000', asset: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', payTo: PAY, maxTimeoutSeconds: 300, extra: { feePayer: PAY } }];
+  const { checkAccepts } = require('../lib/diagnose');
+  const checks = [];
+  checkAccepts(accepts, checks);
+  const c = checks.find((x) => x.id === 'accepts[0]-extra');
+  assert.equal(c.status, 'warn');
+  assert.match(c.message, /own facilitator/);
+});
