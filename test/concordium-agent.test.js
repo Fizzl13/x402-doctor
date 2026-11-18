@@ -390,3 +390,26 @@ test('lookupBadge: the owner\'s spending rules from the anchored card, and a man
   assert.equal(swapped.mandate_check.match, false);
   assert.match(swapped.mandate_check.reason, /no spending rules/);
 });
+
+test('tokenIdOf: the token id inside a registry token address', () => {
+  const { tokenIdOf } = require('../lib/concordium-agent');
+  assert.equal(tokenIdOf('JyP9UhTu6PeHXpm6LAhSy'), '43');
+  assert.equal(tokenIdOf(BADGE), '0');
+  assert.equal(tokenIdOf('not-base58!'), null);
+});
+
+test('registry MCP down: the indexer answers when it is in sync, and never when it lags', async () => {
+  const text = card();
+  const row = agent(text);
+  const indexer = (lag) => async (url) => {
+    if (String(url).includes('agent-registry-mcp')) return { ok: false, status: 503, text: async () => '' };
+    if (String(url).endsWith('/status')) return { ok: true, status: 200, text: async () => JSON.stringify({ networks: { testnet: { lag_blocks: lag } } }) };
+    if (/\/agents\/0\?network=testnet$/.test(String(url))) return { ok: true, status: 200, text: async () => JSON.stringify({ network: 'testnet', agent: row }) };
+    return { ok: false, status: 404, text: async () => '' };
+  };
+  const ok = await verifyConcordiumPayees([{ network: TESTNET, payTo: WALLET }], { url: SELLER, safeFetch: pages({ [CARD_URL]: text }), fetchImpl: indexer(0) });
+  assert.equal(ok.results[0].outcome, 'verified-wallet', 'the same verdict as through the MCP service');
+  clearConcordiumCache();
+  const behind = await verifyConcordiumPayees([{ network: TESTNET, payTo: WALLET }], { url: SELLER, safeFetch: pages({ [CARD_URL]: text }), fetchImpl: indexer(500) });
+  assert.match(behind.results[0].reason, /registry HTTP 503/, 'a lagging indexer is not used: the original error stands');
+});
