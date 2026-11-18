@@ -301,6 +301,41 @@ Solana fee payer, EIP-712 domain, http resource URL behind a proxy, resource URL
 example, Solana payout token account, Phantom on PayAI, testnet paywall on mainnet, and openapi.json. Anything
 without a recipe is returned under `unfixed` with the diagnosis hint.
 
+### A Solana facilitator for sellers: `/facilitator`
+
+Doctor is also an x402 facilitator for Solana mainnet (USDC, scheme `exact`), open to any seller. Point your x402
+resource server at it and nothing else changes:
+
+```js
+const facilitator = new HTTPFacilitatorClient({
+  url: "https://x402-doctor.fizzl.eu/facilitator",
+  createAuthHeaders: async () => ({ settle: { "x-credit-key": process.env.DOCTOR_CREDIT_KEY } }),
+});
+```
+
+What it does that the free facilitators don't:
+
+- **Payments signed in Phantom settle.** Phantom adds Lighthouse instructions around the transfer, and some
+  facilitators refuse that layout. Doctor simulates such a transaction and checks the USDC really reaches your payTo
+  (the x402 reference "smart wallet" path), and lets Phantom's read-only Lighthouse asserts on the fee payer through.
+  Everything else is the reference facilitator's checks.
+- **Every settle is screened against the OFAC SDN list first**, payer and payTo. A listed address is refused
+  (`sanctioned_address`), and so is every settle while the list can't be read (`sanctions_screen_unavailable`).
+
+| | Price |
+|---|---|
+| `GET /facilitator/supported`, `POST /facilitator/verify` | free (verify: 60 a minute per IP) |
+| `POST /facilitator/settle` | the first 20 a day per payTo free, then 1 credit ($0.001) each |
+
+Credits are the same prepaid packs as the paid checks (`GET /api/v1/credits/1000`: 1000 credits for $0.80), sent as
+`x-credit-key` or `Authorization: Bearer <key>`. A settle that fails gives its credit back. Without credits past the
+free settles, settle answers 402 with `facilitator_payment_required`. `GET /facilitator` describes it all, with the fee
+payer address; `GET /facilitator/health` has today's counts.
+
+The fee payer only pays Solana's network fee (about 0.000005 SOL a payment) and never holds the money: the buyer's
+USDC goes straight to your payTo. Self-hosting: set `SOLANA_FACILITATOR_KEY` (a fresh keypair with a little SOL),
+optionally `SOLANA_FACILITATOR_RPC_URL`, `FACILITATOR_FREE_PER_DAY` and `FACILITATOR_DAILY_MAX` (default 1000 settles a day).
+
 ### Learning from outcomes: `POST /api/v1/outcome`
 
 After a paid preflight, a buyer can report (free) what happened when it then paid the endpoint: `paid_ok`, `paid_failed` (402 again) or `paid_error`. [x402-safe-fetch](https://www.npmjs.com/package/x402-safe-fetch) does it with `shareOutcomes: true`.

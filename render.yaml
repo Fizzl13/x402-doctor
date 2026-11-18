@@ -8,6 +8,8 @@ services:
     envVars:
       - key: SOLANA_RPC_URL
         sync: false
+      - key: SOLANA_FACILITATOR_KEY # optional: switches on the Solana facilitator for sellers (/facilitator, lib/facilitator-service.js); a fresh keypair holding only a little SOL for network fees
+        sync: false
       - key: AGENT_PAYOUT_WALLET
         sync: false
       - key: AGENT_PAYOUT_WALLET_SOLANA
