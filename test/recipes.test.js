@@ -466,3 +466,26 @@ test('every failed or warning check Doctor can report has a recipe, except a fre
   assert.deepEqual(out.unfixed.map((u) => u.id), ['returns-402']);
   assert.ok(fix(out, 'solana-account'));
 });
+
+test('improvements: the unnamed /.well-known/x402 routes, refusal url, merchant and OpenAPI input, with code for any stack', () => {
+  const names = buildFixes(report({ url: 'https://api.example.com/a', checks: [{ id: 'well-known-names', status: 'info', message: '2 of 3 resource(s) in /.well-known/x402 have no name and description.', resources: [{ url: 'https://api.example.com/a' }, { url: 'https://api.example.com/b', method: 'POST', name: 'B' }] }] }));
+  const doc = JSON.parse(code(names.improvements[0]));
+  assert.deepEqual(doc.resources.map((r) => [r.url, r.method, r.name]), [['https://api.example.com/a', 'GET', 'Short name'], ['https://api.example.com/b', 'POST', 'B']]);
+  assert.match(names.improvements[0].steps.join(' '), /your 2 unnamed routes/);
+
+  const python = { checks: [
+    { id: 'refusal-extension', status: 'info', message: "No refusal url: when a buyer's wallet or agent decides not to pay, you never hear why." },
+    { id: 'merchant', status: 'info', message: "No x402-merchant extension: GoPlausible's catalog lists these routes under a merchant without a name, website or logo." },
+    { id: 'openapi-input-schema', status: 'info', message: 'Paid operations without parameters or requestBody: GET /paid. x402scan does not register a paid operation without an input schema.' },
+  ] };
+  const generic = buildFixes(report(python), { stack: 'python' });
+  const byKey = Object.fromEntries(generic.improvements.map((f) => [f.recipe, f]));
+  assert.deepEqual(Object.keys(byKey), ['refusal-extension', 'merchant', 'openapi-input-schema']);
+  assert.equal(byKey['refusal-extension'].title, 'Hear why a buyer did not pay');
+  assert.deepEqual(JSON.parse(code(byKey['refusal-extension'])), { refusal: { info: { url: 'https://api.example.com/.well-known/x402-refusal', version: '0.4-draft' } } }, 'only the 402 JSON outside Node');
+  assert.equal(JSON.parse(code(byKey.merchant))['x402-merchant'].info.website, 'https://api.example.com');
+  assert.match(code(byKey['openapi-input-schema']), /"\/paid": \{[\s\S]*"in": "query"/);
+  const node = Object.fromEntries(buildFixes(report(python)).improvements.map((f) => [f.recipe, f]));
+  assert.match(code(node['refusal-extension']), /app\.post\("\/\.well-known\/x402-refusal"/);
+  assert.match(code(node.merchant), /\.\.\.merchant/);
+});
