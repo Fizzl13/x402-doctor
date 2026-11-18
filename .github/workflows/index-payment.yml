@@ -33,6 +33,10 @@ on:
         description: "With forge: pay at most this many tools in one run"
         type: number
         default: 100
+      all:
+        description: "With forge: pay every Forge tool for sale once, listed or not (to refresh the Bazaar text)"
+        type: boolean
+        default: false
       dry_run:
         description: "Dry run: everything up to the payment, nothing paid"
         type: boolean
@@ -62,7 +66,9 @@ jobs:
           dry=""
           if [ "$DRY_RUN" = "true" ]; then dry="--dry"; fi
           if [ "$FORGE" = "true" ]; then
-            node scripts/index-payment.js --forge --days "$DAYS" --max "$MAX" $dry
+            all=""
+            if [ "$ALL" = "true" ]; then all="--all"; fi
+            node scripts/index-payment.js --forge --days "$DAYS" --max "$MAX" $all $dry
           elif [ "$STALE" = "true" ]; then
             node scripts/index-payment.js --stale --days "$DAYS" $dry
           else
@@ -72,6 +78,7 @@ jobs:
           STALE: ${{ github.event.inputs.stale }}
           FORGE: ${{ github.event.inputs.forge }}
           MAX: ${{ github.event.inputs.max }}
+          ALL: ${{ github.event.inputs.all }}
           DAYS: ${{ github.event.inputs.days }}
           TARGET_URL: ${{ github.event.inputs.url }}
           DRY_RUN: ${{ github.event.inputs.dry_run }}
