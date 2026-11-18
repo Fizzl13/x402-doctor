@@ -7,7 +7,8 @@ name: Index payment
 # that it does not list); otherwise "url" is paid once. Each payment costs at most the route's own price (see
 # INDEX_PAYMENT.routes in lib/spot-buy.js; any other fizzl.eu URL $0.01), in USDC on Base, only to a fizzl.eu route
 # and so to our own payout wallet, with the spot-buy wallet (the secret SPOT_BUY_KEY). It publishes nothing: the
-# spot-buy results stay a sample of other sellers.
+# spot-buy results stay a sample of other sellers. "forge" (ignores stale and url) does the same for x402 Forge's tools
+# (forge.fizzl.eu/catalog.json, for sale, on Base at most $0.01 each, each with its own example input), at most "max" per run.
 on:
   workflow_dispatch:
     inputs:
@@ -23,6 +24,14 @@ on:
         description: "Without stale: the fizzl.eu route to pay once (https)"
         type: string
         default: "https://presign-guard.fizzl.eu/v1/screen?address=TNiq9AXBp9EjUqhDhrwrfvAA8U3GUQZH81"
+      forge:
+        description: "Pay x402 Forge's tools the Bazaar does not list or is about to drop (ignores stale and url)"
+        type: boolean
+        default: false
+      max:
+        description: "With forge: pay at most this many tools in one run"
+        type: number
+        default: 100
       dry_run:
         description: "Dry run: everything up to the payment, nothing paid"
         type: boolean
@@ -51,13 +60,17 @@ jobs:
         run: |
           dry=""
           if [ "$DRY_RUN" = "true" ]; then dry="--dry"; fi
-          if [ "$STALE" = "true" ]; then
+          if [ "$FORGE" = "true" ]; then
+            node scripts/index-payment.js --forge --days "$DAYS" --max "$MAX" $dry
+          elif [ "$STALE" = "true" ]; then
             node scripts/index-payment.js --stale --days "$DAYS" $dry
           else
             node scripts/index-payment.js --url "$TARGET_URL" $dry
           fi
         env:
           STALE: ${{ github.event.inputs.stale }}
+          FORGE: ${{ github.event.inputs.forge }}
+          MAX: ${{ github.event.inputs.max }}
           DAYS: ${{ github.event.inputs.days }}
           TARGET_URL: ${{ github.event.inputs.url }}
           DRY_RUN: ${{ github.event.inputs.dry_run }}

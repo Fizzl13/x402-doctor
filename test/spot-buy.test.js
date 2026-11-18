@@ -10,7 +10,7 @@ const { ExactEvmScheme } = require('@x402/evm/exact/client');
 const { createSafeFetch } = require('../lib/safe-fetch');
 const { createSanctions } = require('../lib/sanctions');
 const { recordPayments } = require('../lib/spot-wallet');
-const { selectCandidates, selectRetests, summarizeRetests, runSpotBuy, classify, summarize, reasonOf, cacheRisk, exampleRequest, isoWeek, ownTarget, INDEX_PAYMENT, indexCapFor, staleRoutes, LIMITS, USER_AGENT } = require('../lib/spot-buy');
+const { selectCandidates, selectRetests, summarizeRetests, runSpotBuy, classify, summarize, reasonOf, cacheRisk, exampleRequest, isoWeek, ownTarget, INDEX_PAYMENT, indexCapFor, staleRoutes, FORGE, forgeTargets, LIMITS, USER_AGENT } = require('../lib/spot-buy');
 
 const BASE = 'eip155:8453';
 const USDC = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
@@ -135,6 +135,16 @@ function seller({ mode, payTo = PAY_TO, amount = '10000', input = null }) {
         // Validates after payment, without charging: only ?symbol= from its own example makes it deliver.
         if (!new URL(req.url, origin).searchParams.get('symbol')) { res.statusCode = 400; return res.end('{"error":"symbol is required"}'); }
         settle(); return res.end('{"price":1}');
+      }
+      if (mode === 'needs_body') {
+        // Like Forge: charges only on a 2xx, and only a POST with {"text":"hi"} (its catalog example) gets one.
+        let raw = '';
+        req.on('data', (d) => { raw += d; });
+        return req.on('end', () => {
+          let json = null; try { json = JSON.parse(raw); } catch {}
+          if (req.method !== 'POST' || json?.text !== 'hi') { res.statusCode = 400; return res.end('{"error":"text is required"}'); }
+          settle(); res.setHeader('content-type', 'application/json'); res.end('{"price":7}');
+        });
       }
     }).listen(0, '127.0.0.1', () => { origin = `http://127.0.0.1:${server.address().port}`; resolve({ url: `${origin}/paid`, host: `127.0.0.1:${server.address().port}`, price_usd: Number(amount) / 1e6 }); });
     servers.push(server);
@@ -374,6 +384,81 @@ test('an own-routes-only run never buys someone else\'s endpoint, whatever its p
   assert.equal(run.results[0].result, 'not_own');
   assert.equal(paid, 0);
   assert.equal(run.summary.skipped_before_paying.not_own, 1);
+  // Our own route whose request would go elsewhere: not bought either.
+  const away = await runSpotBuy([{ ...ownTarget('https://forge.fizzl.eu/p/x'), request: { url: 'https://a.example/p/x?q=1', method: 'GET', headers: {} } }], { safeFetch: createSafeFetch({ allowPrivate: true }), payFetch, capUsd: 0.01, budgetUsd: 0.01, ownRoutesOnly: true, wait: async () => {} });
+  assert.equal(away.results[0].result, 'not_own');
+  assert.equal(paid, 0);
+});
+
+test('Forge tools from its catalog: Base at most $0.01, forge.fizzl.eu only, the example as query or JSON body, capped at the price', () => {
+  const product = (slug, extra = {}) => ({ slug, url: `https://forge.fizzl.eu/p/${slug}`, price: '$0.001', network: BASE, input_example: { text: 'hi' }, ...extra });
+  const catalog = { products: [
+    product('flat', { input_example: { country: 'DE', depth: 5, strict: true, name: 'Max Mustermann' } }),
+    product('nested', { price: '$0.002', input_example: { items: [{ sku: 'a' }], opts: { x: 1 } } }),
+    product('nulls', { input_example: { a: null } }),
+    product('none', { input_example: undefined }),
+    product('edge', { price: '$0.01' }),
+    product('dear', { price: '$0.011' }),
+    product('free', { price: '$0' }),
+    product('solana', { network: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp' }),
+    product('other', { url: 'https://presign-guard.fizzl.eu/v1/screen' }),
+    product('away', { url: 'https://forge.example/p/away' }),
+    product('plain', { url: 'http://forge.fizzl.eu/p/plain' }),
+    product('query', { url: 'https://forge.fizzl.eu/p/query?x=1' }),
+    product('list', { input_example: ['a'] }),
+  ] };
+  const { targets, skipped } = forgeTargets(catalog);
+  assert.deepEqual(targets.map((t) => t.slug), ['flat', 'nested', 'nulls', 'none', 'edge']);
+  const [flat, nested, nulls, none, edge] = targets;
+  assert.deepEqual(flat.request, { url: 'https://forge.fizzl.eu/p/flat?country=DE&depth=5&strict=true&name=Max+Mustermann', method: 'GET', headers: {} });
+  assert.equal(flat.url, 'https://forge.fizzl.eu/p/flat', 'the route itself stays without the query (the Bazaar lists it so)');
+  assert.equal(flat.host, 'forge.fizzl.eu');
+  assert.equal(flat.method, 'GET');
+  assert.deepEqual(nested.request, { url: 'https://forge.fizzl.eu/p/nested', method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"items":[{"sku":"a"}],"opts":{"x":1}}' });
+  assert.equal(nulls.request.method, 'POST', 'a null is not a query value');
+  assert.deepEqual(none.request, { url: 'https://forge.fizzl.eu/p/none', method: 'GET', headers: {} });
+  assert.equal(indexCapFor(flat), 0.001, 'the cap is the price');
+  assert.equal(indexCapFor(nested), 0.002);
+  assert.equal(indexCapFor(edge), FORGE.maxUsd);
+  assert.equal(indexCapFor({ url: 'https://forge.fizzl.eu/p/x', capUsd: 0.3 }), INDEX_PAYMENT.capUsd, 'never above $0.01 for a route without its own cap');
+  assert.deepEqual(Object.fromEntries(skipped.map((s) => [s.slug, s.why])), {
+    dear: 'price $0.011', free: 'price $0', solana: 'network solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp',
+    other: 'not a forge.fizzl.eu route', away: 'not a forge.fizzl.eu route', plain: 'not a forge.fizzl.eu route', query: 'not a forge.fizzl.eu route',
+    list: 'no usable example input',
+  });
+  assert.deepEqual(forgeTargets(null), { targets: [], skipped: [] });
+
+  // Listed and stale: a listed tool paid within --days is left alone; unlisted and stale ones are due, oldest first.
+  const now = Date.parse('2026-11-18T00:00:00Z');
+  const listed = [
+    { resource: 'https://forge.fizzl.eu/p/flat', quality: { lastCalledAt: '2026-11-14T15:50:13Z' } }, // 3 days
+    { resource: 'https://forge.fizzl.eu/p/nested', quality: { lastCalledAt: '2026-10-20T00:00:00Z' } }, // 29 days
+    { resource: 'https://forge.example/p/nulls', quality: { lastCalledAt: '2026-11-17T00:00:00Z' } }, // another host
+  ];
+  const due = staleRoutes(listed, { routes: targets, now, staleDays: 21 });
+  assert.deepEqual(due.map((d) => [d.slug, d.listed]), [['nulls', false], ['none', false], ['edge', false], ['nested', true]]);
+  assert.deepEqual(due[3].request, nested.request, 'a due tool keeps its request and cap');
+  assert.equal(indexCapFor(due[3]), 0.002);
+  assert.deepEqual(staleRoutes(listed, { routes: targets, now, staleDays: 30 }).map((d) => d.slug), ['nulls', 'none', 'edge']);
+});
+
+test('a candidate\'s own request (a Forge example) is the one paid; never one on another host', async () => {
+  const account = privateKeyToAccount(generatePrivateKey());
+  const client = new x402Client((_v, accepts) => accepts.find((x) => x.network === BASE));
+  client.register(BASE, new ExactEvmScheme(account));
+  const sanctions = createSanctions({ list: { addresses: [{ address: LISTED, entries: [] }] } });
+  const run = async (c) => (await runSpotBuy([c], { safeFetch: createSafeFetch({ allowPrivate: true }), payFetch: wrapFetchWithPayment(fetch, client), sanctions, balance: async () => chain.balance, capUsd: 0.01, budgetUsd: 0.01, allowPrivate: true, wait: async () => {} })).results[0];
+  const s = await seller({ mode: 'needs_body' });
+  const post = { url: s.url, method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"text":"hi"}' };
+  const given = await run({ ...s, method: 'POST', request: post });
+  assert.equal(given.result, 'delivered');
+  assert.deepEqual(given.request, { method: 'POST', url: s.url, source: 'given', input_declared: false });
+  const elsewhere = await run({ ...s, method: 'POST', request: { ...post, url: 'http://127.0.0.2:1/paid' } });
+  assert.equal(elsewhere.request.source, 'plain', 'a request on another host is ignored');
+  assert.equal(elsewhere.result, 'error_not_charged');
+  const dry = (await runSpotBuy([{ ...s, method: 'POST', request: post }], { safeFetch: createSafeFetch({ allowPrivate: true }), sanctions, capUsd: 0.01, budgetUsd: 0.01, allowPrivate: true, wait: async () => {} })).results[0];
+  assert.equal(dry.result, 'would_buy');
+  assert.equal(dry.request.source, 'given');
 });
 
 test('a run can name its own user agent; the default is the spot-buy one', async () => {

@@ -3,13 +3,16 @@
 //
 //   node scripts/index-payment.js --url https://presign-guard.fizzl.eu/v1/screen?address=... [--dry]
 //   node scripts/index-payment.js --stale [--days 21] [--dry]
+//   node scripts/index-payment.js --forge [--days 21] [--max 100] [--dry]
 //
 // The Bazaar lists a route only once a payment for it has settled through the CDP facilitator, and drops it after 30
 // days without one; directories that read the Bazaar (Roundhouse, our own Trust Index) follow it. --url makes one
 // such payment; --stale pays each of our routes (INDEX_PAYMENT.routes in lib/spot-buy.js) whose last settled payment
 // in the Bazaar is --days old or more (default 21), or that the Bazaar does not list. Each payment costs at most the
-// route's own cap (its price; any other fizzl.eu URL $0.01), only to a fizzl.eu route, with the spot-buy wallet
-// (SPOT_BUY_KEY), and goes to our own payout wallet. It takes the same steps as a spot-buy purchase (a fresh
+// route's own cap (its price; any other fizzl.eu URL $0.01). --forge does the same for x402 Forge's tools
+// (forge.fizzl.eu/catalog.json: those for sale on Base at most $0.01, each capped at its price, with its own example input,
+// since Forge charges only on a 2xx answer), at most --max (default 100) in one run. Every payment goes only to a
+// fizzl.eu route, with the spot-buy wallet (SPOT_BUY_KEY), and so to our own payout wallet. It takes the same steps as a spot-buy purchase (a fresh
 // preflight with the OFAC screen of the payout address, the charge measured on chain) but publishes nothing, so the
 // spot-buy results stay a sample of other sellers.
 // Without the key (or with --dry) it does everything up to the payment and pays nothing.
@@ -22,7 +25,8 @@ const { createSafeFetch } = require('../lib/safe-fetch');
 const { createSanctions } = require('../lib/sanctions');
 const { checkSettlement } = require('../lib/settlement');
 const { createSpotWallet } = require('../lib/spot-wallet');
-const { runSpotBuy, ownTarget, INDEX_PAYMENT, indexCapFor, staleRoutes, BASE } = require('../lib/spot-buy');
+const { runSpotBuy, ownTarget, INDEX_PAYMENT, indexCapFor, staleRoutes, FORGE, forgeTargets, BASE } = require('../lib/spot-buy');
+const { loadCatalogItems } = require('../lib/trust-scan');
 const { NETWORKS } = require('../lib/networks');
 const { parseBuilderCodeSuffixFromCalldata } = require('@x402/extensions/builder-code');
 
@@ -41,6 +45,15 @@ async function listedRoutes(routes) {
     listed.push(...found);
   }
   return listed;
+}
+
+// Forge's routes as the Bazaar lists them. Its search does not find them (none for "forge.fizzl.eu" on 18 Nov 2026,
+// while the full list had five), so this reads the whole discovery list (read-only, no key; about 70 pages).
+async function listedOnHost(host) {
+  const items = await loadCatalogItems();
+  // A short list most likely means the read failed: never pay every tool on that.
+  if (items.length < 1000) throw new Error(`the Bazaar list has only ${items.length} routes: not paying on that`);
+  return items.filter((r) => typeof r.resource === 'string' && URL.canParse(r.resource) && new URL(r.resource).hostname.toLowerCase() === host);
 }
 
 // The ERC-8021 builder codes in a Base transaction's calldata: { a, w, s } as the facilitator wrote them, null when
@@ -74,6 +87,23 @@ async function main() {
       console.log(`${d ? 'DUE ' : 'ok  '} ${r.url}${d ? ` (${d.listed ? `last settled ${d.last_settled}, ${d.age_days} days ago` : 'not listed'})` : ''}`);
     }
     targets = due.map((d) => ownTarget(d.url));
+  } else if (process.argv.includes('--forge')) {
+    const staleDays = Number(arg('days') || INDEX_PAYMENT.staleDays);
+    if (!(staleDays >= 7)) throw new Error('--days must be 7 or more');
+    const max = Number(arg('max') || 100);
+    if (!(Number.isInteger(max) && max >= 1)) throw new Error('--max must be a whole number, 1 or more');
+    const res = await fetch(FORGE.catalog, { signal: AbortSignal.timeout(30000) });
+    if (!res.ok) throw new Error(`Forge catalog HTTP ${res.status}`);
+    const { targets: tools, skipped } = forgeTargets(await res.json());
+    for (const s of skipped) console.log(`skip  ${s.url ?? s.slug} (${s.why})`);
+    const listed = await listedOnHost(FORGE.host);
+    const due = staleRoutes(listed, { routes: tools, staleDays });
+    for (const t of tools) {
+      const d = due.find((x) => x.url === t.url);
+      console.log(`${d ? 'DUE ' : 'ok  '} ${t.url}${d ? ` (${d.listed ? `last settled ${d.last_settled}, ${d.age_days} days ago` : 'not listed'})` : ''}`);
+    }
+    console.log(`${tools.length} Forge tool(s) on Base at most $${FORGE.maxUsd}, ${listed.length} listed in the Bazaar, ${due.length} due${due.length > max ? `, the first ${max} paid in this run` : ''}`);
+    targets = due.slice(0, max);
   } else {
     const target = ownTarget(arg('url') || '');
     if (!target) throw new Error('--url must be an https URL on a fizzl.eu host');
