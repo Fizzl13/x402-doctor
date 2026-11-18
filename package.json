@@ -13,22 +13,22 @@
   },
   "dependencies": {
     "@coinbase/x402": "^2.1.0",
-    "@modelcontextprotocol/sdk": "^1.32.1",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "@solana/kit": "^8.6.0",
-    "@x402/avm": "^2.29.0",
-    "@x402/core": "^2.29.0",
-    "@x402/evm": "^2.29.0",
-    "@x402/express": "^2.29.0",
+    "@x402/avm": "^2.31.0",
+    "@x402/core": "^2.31.0",
+    "@x402/evm": "^2.31.0",
+    "@x402/express": "^2.31.0",
     "@x402/extensions": "^2.29.0",
-    "@x402/mcp": "^2.29.0",
+    "@x402/mcp": "^2.31.0",
     "@x402/paywall": "^2.29.0",
-    "@x402/stellar": "^2.29.0",
-    "@x402/svm": "^2.29.0",
-    "@x402/xrpl": "^2.29.0",
+    "@x402/stellar": "^2.31.0",
+    "@x402/svm": "^2.31.0",
+    "@x402/xrpl": "^2.31.0",
     "express": "^4.19.2",
-    "redis": "^5.12.1",
-    "undici": "^7.29.1",
-    "viem": "^2.56.8",
+    "redis": "^5.12.2",
+    "undici": "^7.30.2",
+    "viem": "^2.57.20",
     "zod": "^4.6.7"
   },
   "bin": {
@@ -41,7 +41,7 @@
     "public/"
   ],
   "devDependencies": {
-    "@x402/fetch": "^2.29.0"
+    "@x402/fetch": "^2.31.0"
   },
   "overrides": {
     "@stellar/stellar-sdk": {
