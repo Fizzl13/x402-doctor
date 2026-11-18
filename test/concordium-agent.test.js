@@ -413,3 +413,24 @@ test('registry MCP down: the indexer answers when it is in sync, and never when 
   const behind = await verifyConcordiumPayees([{ network: TESTNET, payTo: WALLET }], { url: SELLER, safeFetch: pages({ [CARD_URL]: text }), fetchImpl: indexer(500) });
   assert.match(behind.results[0].reason, /registry HTTP 503/, 'a lagging indexer is not used: the original error stands');
 });
+
+test('Concordium check five: the owner the anchored card names must be the owner on chain', async () => {
+  const { lookupBadge, clearConcordiumCache, cardBadgeOwner } = require('../lib/concordium-agent');
+  assert.equal(cardBadgeOwner(JSON.parse(card())), null);
+  const named = (owner) => card({ capabilities: { extensions: [{ uri: 'https://docs.concordium.com/a2a-extensions/concordium-badge/v1', params: { tokenAddress: `${TESTNET}/cis-2:${BADGE}`, owner: { account: `${TESTNET}:${owner}` } } }] } });
+  const right = named(OWNER);
+  const okPay = await verifyConcordiumPayees([{ network: TESTNET, payTo: WALLET }], { url: SELLER, safeFetch: pages({ [CARD_URL]: right }), fetchImpl: registry({ agent_by_token_address: agent(right) }).fetchImpl });
+  assert.equal(okPay.results[0].outcome, 'verified-wallet');
+  clearConcordiumCache();
+  assert.equal((await lookupBadge(BADGE, { fetchImpl: registry({ agent_by_token_address: agent(right) }).fetchImpl, safeFetch: pages({ [CARD_URL]: right }) })).valid, true);
+  assert.equal(cardBadgeOwner(JSON.parse(right)), OWNER);
+  clearConcordiumCache();
+  const wrong = named(WALLET); // pinned on chain, but it names someone else as owner
+  const badPay = await verifyConcordiumPayees([{ network: TESTNET, payTo: WALLET }], { url: SELLER, safeFetch: pages({ [CARD_URL]: wrong }), fetchImpl: registry({ agent_by_token_address: agent(wrong) }).fetchImpl });
+  assert.equal(badPay.results[0].outcome, 'card-mismatch');
+  assert.match(badPay.results[0].reason, /another owner/);
+  clearConcordiumCache();
+  const bad = await lookupBadge(BADGE, { fetchImpl: registry({ agent_by_token_address: agent(wrong) }).fetchImpl, safeFetch: pages({ [CARD_URL]: wrong }) });
+  assert.equal(bad.valid, false);
+  assert.ok(bad.issues.some((i) => /another owner/.test(i)));
+});
