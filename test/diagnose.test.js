@@ -782,6 +782,7 @@ test('well-known-names: info when resources have no name and description (direct
   assert.match(names.message, /^1 of 2 resource\(s\) in \/\.well-known\/x402 have no name and description/);
   assert.match(names.message, /XRPL AI Hub/);
   assert.match(names.hint, /"name": "Short name"/);
+  assert.deepEqual(names.resources, [{ url: 'https://api.example.com/a' }], 'the unnamed ones, for the example in lib/recipes.js');
   assert.equal((await run({ version: 1, resources: [{ url: 'https://api.example.com/a', name: 'A', description: 'Does a.' }] })).find((c) => c.id === 'well-known-names'), undefined);
 });
 

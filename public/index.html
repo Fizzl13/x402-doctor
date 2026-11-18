@@ -156,6 +156,13 @@
   .fix .snippet-label { font-size: 12px; color: var(--soft); margin-bottom: 4px; }
   .fix .snippet pre { margin: 0; white-space: pre; padding-right: 76px; }
   .fix .copy { position: absolute; top: 24px; right: 8px; padding: 5px 12px; font-size: 12px; background: var(--ink-3); color: var(--text); box-shadow: none; }
+  .example { margin-top: 6px; font-size: 13.5px; }
+  .example summary { cursor: pointer; color: var(--soft); }
+  .example ol { margin: 6px 0; padding-left: 20px; }
+  .example .snippet { position: relative; margin-top: 8px; min-width: 0; }
+  .example .snippet-label { font-size: 12px; color: var(--soft); margin-bottom: 4px; }
+  .example .snippet pre { margin: 0; white-space: pre; padding-right: 76px; overflow-x: auto; }
+  .example .copy { position: absolute; top: 24px; right: 8px; padding: 5px 12px; font-size: 12px; background: var(--ink-3); color: var(--text); box-shadow: none; }
   .sev { font-size: 11px; padding: 1px 8px; border-radius: 999px; border: 1px solid currentColor; font-weight: 700; }
   .sev.fail { color: var(--fail); } .sev.warn { color: var(--warn); } .sev.info { color: var(--ink-2); }
   [hidden] { display: none !important; }
@@ -506,7 +513,10 @@ function walletTable(wallets) {
   return table;
 }
 
-function renderChecks(checks, wallets) {
+// improvements: the free examples for info checks (lib/recipes.js IMPROVEMENTS), shown under the check they belong to.
+function renderChecks(checks, wallets, improvements = []) {
+  const byCheck = new Map();
+  for (const f of improvements || []) for (const id of f.checks || []) if (!byCheck.has(id)) byCheck.set(id, f);
   const results = $('results');
   results.replaceChildren();
   let current = null;
@@ -529,6 +539,17 @@ function renderChecks(checks, wallets) {
     const body = el('div', 'check-body');
     body.append(el('div', 'id', c.id), el('div', 'message', c.message));
     if (c.hint && c.status !== 'pass') body.append(el('div', 'hint', c.hint));
+    const f = c.status === 'info' && byCheck.get(c.id);
+    if (f) {
+      byCheck.delete(c.id); // once per check id
+      const ex = el('details', 'example');
+      ex.append(el('summary', null, `Show how: ${f.title}`));
+      const ol = el('ol');
+      for (const step of f.steps || []) ol.append(el('li', null, step));
+      ex.append(ol);
+      for (const code of f.code || []) ex.append(snippetBlock(code));
+      body.append(ex);
+    }
     row.append(body);
     list.append(row);
   }
@@ -583,14 +604,14 @@ async function diagnose(url, method, body = '') {
     if (id !== runId) return;
     if (!res.ok) {
       showError(`${url}: ${data.error || `Request failed (HTTP ${res.status}).`}`);
-      if (data.checks) renderChecks(data.checks, data.wallets);
+      if (data.checks) renderChecks(data.checks, data.wallets, data.improvements);
       return;
     }
     const counts = ['pass', 'warn', 'fail'].map((s) => data.checks.filter((c) => c.status === s).length);
     $('overallText').textContent = `${LABELS[data.overall] || data.overall} · ${counts[0]} passed, ${counts[1]} warnings, ${counts[2]} failed · ${url}${method ? ` (${method})` : ''}`;
     $('overallBox').className = `overall ${data.overall}`;
     $('overallBox').hidden = false;
-    renderChecks(data.checks, data.wallets);
+    renderChecks(data.checks, data.wallets, data.improvements);
     // The Fizzl endpoint monitor (wallet.fizzl.eu): opens with this endpoint filled in.
     const watchMethod = data.method || method || 'GET';
     if (/^https:/i.test(url) && ['GET', 'POST'].includes(watchMethod)) {
@@ -707,6 +728,19 @@ function paymentError(err, price) {
   return raw || 'Something went wrong. Nothing was paid.';
 }
 
+// A code block with its label and a copy button (text only).
+function snippetBlock(c) {
+  const wrap = el('div', 'snippet');
+  const pre = el('pre', null, c.snippet);
+  const copy = el('button', 'copy', 'Copy');
+  copy.type = 'button';
+  copy.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(c.snippet); copy.textContent = 'Copied'; } catch { copy.textContent = 'Select and copy'; }
+  });
+  wrap.append(el('div', 'snippet-label', c.label), pre, copy);
+  return wrap;
+}
+
 // Code blocks from the fix are text only; a copy button per block.
 function renderFixes(out) {
   const box = $('fixes');
@@ -721,17 +755,7 @@ function renderFixes(out) {
     const ol = el('ol');
     for (const step of f.steps) ol.append(el('li', null, step));
     card.append(ol);
-    for (const c of f.code) {
-      const wrap = el('div', 'snippet');
-      const pre = el('pre', null, c.snippet);
-      const copy = el('button', 'copy', 'Copy');
-      copy.type = 'button';
-      copy.addEventListener('click', async () => {
-        try { await navigator.clipboard.writeText(c.snippet); copy.textContent = 'Copied'; } catch { copy.textContent = 'Select and copy'; }
-      });
-      wrap.append(el('div', 'snippet-label', c.label), pre, copy);
-      card.append(wrap);
-    }
+    for (const c of f.code) card.append(snippetBlock(c));
     if (f.verify) card.append(el('p', 'fix-note', f.verify));
     box.append(card);
   }

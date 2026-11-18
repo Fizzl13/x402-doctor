@@ -2,6 +2,7 @@ const express = require('express');
 const zlib = require('node:zlib');
 const fs = require('fs');
 const path = require('path');
+const { buildFixes } = require('./lib/recipes');
 const { createPassVerifier, limitKeyOf } = require('./lib/fizzl-pass');
 const { createFacilitatorService } = require('./lib/facilitator-service');
 const { facilitatorOf, summarizeFacilitator } = require('./lib/facilitator-usage');
@@ -881,7 +882,11 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
       // The page's own share link, for callers that only see JSON (curl, scripts):
       // opening it runs the same check again in the browser.
       const share = new URLSearchParams({ url: targetUrl, ...(method ? { method } : {}), ...(body !== undefined && body.length <= 2000 ? { body } : {}) });
-      res.json({ ...report, share_url: `${req.protocol}://${req.get('host')}/?${share}` });
+      // The improvements for its info checks, with code (lib/recipes.js): free on the web page. Fixes for warnings and
+      // failures stay the paid /api/v1/fix.
+      let improvements = [];
+      try { improvements = buildFixes(report).improvements; } catch { /* the page works without them */ }
+      res.json({ ...report, improvements, share_url: `${req.protocol}://${req.get('host')}/?${share}` });
     } catch (err) {
       res.status(err.statusCode || 502).json({ error: err.message, checks: [] });
     }
