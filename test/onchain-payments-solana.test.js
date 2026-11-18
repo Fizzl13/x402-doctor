@@ -51,7 +51,15 @@ function fakeNode({ accounts, txs, onAccount = {} }) {
       const cut = opts.until ? list.findIndex((x) => x.signature === opts.until) : -1;
       return reply((cut >= 0 ? list.slice(0, cut) : list).slice(0, opts.limit));
     }
-    if (method === 'getTransaction') return reply(txs[params[0]] || null);
+    if (method === 'getTransaction') {
+      // Like mainnet: a client that asks for an older version than the transaction's gets an error (Phantom sends
+      // version 1 transactions since Nov 2026).
+      const t = txs[params[0]];
+      if (t && typeof t.version === 'number' && !(params[1]?.maxSupportedTransactionVersion >= t.version)) {
+        return { ok: true, status: 200, json: async () => ({ jsonrpc: '2.0', id: 1, error: { code: -32015, message: `Transaction version (${t.version}) is not supported by the requesting client.` } }) };
+      }
+      return reply(t || null);
+    }
     return reply(null);
   };
   return { fetchImpl, calls };
@@ -84,7 +92,7 @@ test('transfersOf: USDC transfers at the top level and inner, with the recipient
 
 test('collectSolana: facilitator-paid USDC payments counted per day; plain transfers and unknown fee payers not; sweeps back recorded', async () => {
   const txs = {
-    s1: tx({ feePayer: FACILITATOR, from: BUYER_ACCT, fromOwner: BUYER, to: SELLER_ACCT, toOwner: SELLER, amount: 10000, at: `${DAY1}T09:00:00Z` }),
+    s1: { ...tx({ feePayer: FACILITATOR, from: BUYER_ACCT, fromOwner: BUYER, to: SELLER_ACCT, toOwner: SELLER, amount: 10000, at: `${DAY1}T09:00:00Z` }), version: 1 }, // a Phantom payment
     s2: tx({ feePayer: FACILITATOR, from: BUYER2_ACCT, fromOwner: BUYER2, to: SELLER_ACCT, toOwner: SELLER, amount: 20000, at: `${DAY1}T10:00:00Z`, inner: true }),
     s3: tx({ feePayer: BUYER, from: BUYER_ACCT, fromOwner: BUYER, to: SELLER_ACCT, toOwner: SELLER, amount: 5000000, at: `${DAY1}T11:00:00Z` }), // plain transfer: buyer pays its own fee
     s4: tx({ feePayer: OTHER_FEE, from: BUYER_ACCT, fromOwner: BUYER, to: SELLER_ACCT, toOwner: SELLER, amount: 7000, at: `${DAY1}T12:00:00Z` }), // a fee payer no offer names
