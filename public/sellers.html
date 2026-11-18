@@ -103,6 +103,16 @@
     <p style="margin:0"><a href="https://wallet.fizzl.eu/#/account">Watch my endpoint →</a> <span style="color:var(--text-soft);font-size:13px">(sign in with your wallet, no e-mail)</span></p>
   </div>
 
+  <h2 id="facilitator">A facilitator for Solana that takes Phantom</h2>
+  <div class="tool" id="solana-facilitator">
+    <p>Sell on Solana? Phantom adds Lighthouse safety instructions to every payment it signs, and some facilitators refuse that layout, so those buyers can't pay you. Doctor's facilitator settles them: it simulates the transaction and checks the USDC really reaches your payTo. Before every settle it also screens the payer and your payTo against the OFAC SDN list, so no sanctioned money reaches you through it.</p>
+    <ul>
+      <li><b>Use it:</b> <code>new HTTPFacilitatorClient({ url: "https://x402-doctor.fizzl.eu/facilitator" })</code> in your x402 resource server. Your Solana option then names our fee payer; the buyer's USDC goes straight to you.</li>
+      <li><b>Price:</b> verify is free; settle is free for 20 payments a day per payTo, then $0.001 each from prepaid credits (<a href="/api/v1/credits">1000 for $0.80</a>), sent as <code>x-credit-key</code>. A failed settle costs nothing.</li>
+      <li><b>Details</b> and the fee payer's address: <a href="/facilitator">/facilitator</a>.</li>
+    </ul>
+  </div>
+
   <h2 id="platforms">Selling through AWS, Cloudflare or Stripe</h2>
   <p>Cloudflare's <a href="https://developers.cloudflare.com/monetization-gateway/">Monetization Gateway</a> (closed beta, US sellers and buyers) and <a href="https://docs.stripe.com/payments/machine/x402">Stripe's x402 machine payments</a> (US businesses; elsewhere on request) both send a standard x402 v2 challenge and settle through the Coinbase CDP facilitator, so the free check above works on them as is. <a href="https://docs.aws.amazon.com/waf/latest/developerguide/waf-ai-traffic-monetization-pricing.html">AWS WAF's Monetize action</a> on CloudFront answers in the x402 format too, and settles through the same Coinbase facilitator. What to watch:</p>
 
