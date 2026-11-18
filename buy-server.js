@@ -539,6 +539,12 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
       { transport: 'HTTP+JSON', url: `${publicUrl}/openapi.json` },
       { transport: 'MCP', url: `${publicUrl}/mcp` },
     ],
+    // A2A 1.0 (a2a-protocol.org/latest/specification, 4.4.6 and 5.8): the interfaces Fizzl Buy really serves, as custom
+    // bindings named by URI, since it has no A2A message:send endpoint: MCP (Streamable HTTP) and the x402 HTTP API.
+    supportedInterfaces: [
+      { url: `${publicUrl}/mcp`, protocolBinding: 'https://modelcontextprotocol.io/specification/2025-06-18/basic/transports#streamable-http', protocolVersion: '1.0' },
+      { url: `${publicUrl}/openapi.json`, protocolBinding: 'https://www.x402.org/', protocolVersion: '1.0' },
+    ],
   }));
   // Fizzl Buy's icon (a shopping cart, in the style of the other Fizzl agents; source scripts/buy-icon.html).
   app.get('/icon.png', (_req, res) => res.set('cache-control', 'public, max-age=86400').sendFile(path.join(__dirname, 'public-buy', 'icon.png')));
