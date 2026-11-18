@@ -3,6 +3,7 @@ const zlib = require('node:zlib');
 const fs = require('fs');
 const path = require('path');
 const { createPassVerifier, limitKeyOf } = require('./lib/fizzl-pass');
+const { createFacilitatorService } = require('./lib/facilitator-service');
 const PAYEE_DELEGATIONS = require('./lib/payee-delegations.json');
 const { x402TrustTxtRoute } = require('./lib/x402-trust-txt');
 const { ALGORITHM, verifyReceipt, AUTHORITY, SERVICE } = require('./lib/receipt');
@@ -237,7 +238,7 @@ function trustProxyHops(env) {
   return Number.isInteger(n) && n >= 0 && n <= 10 && String(env.TRUST_PROXY_HOPS).trim() !== '' ? n : 3;
 }
 
-function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, cdpValidate = env.CDP_VALIDATE === 'off' ? null : createCdpValidator(), trustIndex = createTrustReader(), spotResults = createSpotResults(), deliveryElsewhere = createDeliveryElsewhere(), onchainPayments = createOnchainPayments({ demand: createDemand({ apiKey: env.TYPESAFE_API_KEY }) }), media = createMediaCache(), usageLog = createUsageLog({ service: 'doctor', env }), usageReader = createUsageReader({ env }), publicStats = createPublicStats({ usageReader }), settlementFetch = globalThis.fetch, status = null, facilitatorStatus = null, outreachHook: outreachHookOverride = null, describe = createDescribe({ apiKey: env.TYPESAFE_API_KEY }), poison = createPoisonCheck({ apiKey: env.TYPESAFE_API_KEY }), creditStore, agentKinds = createAgentKinds({ apiKey: env.TYPESAFE_API_KEY }), downloads = createDownloads(), priceCheck = createPriceCheck({ apiKey: env.TYPESAFE_API_KEY, trustIndex }), deliveryStore, deliveryResults, trustSubmissions: trustSubmissionsOverride = null, pass: passOverride = null, vaultStore, passSale, refusalLog: refusalLogOverride = null, refusalReader = createUsageReader({ env }) } = {}) {
+function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, cdpValidate = env.CDP_VALIDATE === 'off' ? null : createCdpValidator(), trustIndex = createTrustReader(), spotResults = createSpotResults(), deliveryElsewhere = createDeliveryElsewhere(), onchainPayments = createOnchainPayments({ demand: createDemand({ apiKey: env.TYPESAFE_API_KEY }) }), media = createMediaCache(), usageLog = createUsageLog({ service: 'doctor', env }), usageReader = createUsageReader({ env }), publicStats = createPublicStats({ usageReader }), settlementFetch = globalThis.fetch, status = null, facilitatorStatus = null, outreachHook: outreachHookOverride = null, describe = createDescribe({ apiKey: env.TYPESAFE_API_KEY }), poison = createPoisonCheck({ apiKey: env.TYPESAFE_API_KEY }), creditStore, agentKinds = createAgentKinds({ apiKey: env.TYPESAFE_API_KEY }), downloads = createDownloads(), priceCheck = createPriceCheck({ apiKey: env.TYPESAFE_API_KEY, trustIndex }), deliveryStore, deliveryResults, trustSubmissions: trustSubmissionsOverride = null, pass: passOverride = null, vaultStore, passSale, refusalLog: refusalLogOverride = null, refusalReader = createUsageReader({ env }), facilitator: facilitatorOverride = null } = {}) {
   // Which x402 facilitators answer now (lib/facilitators.js): the /facilitators page, its API and a free MCP tool.
   const facilitatorBoard = facilitatorStatus || createFacilitatorStatus();
   const app = express();
@@ -280,6 +281,8 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     howToList: "Not in the x402 Trust Index yet. Its daily scan checks every resource listed in the CDP Bazaar, Circle's Agent Marketplace, GoPlausible's discovery list, the XRPL AI Hub, nohumans.directory, PayAPI Market, HIVE402 or the MPP directory; your own endpoint can be added with x402_trust_add.",
   };
   paidApi = createPaidApi({ facilitators: facilitatorBoard, pass: passVerifier, safeFetch, env, trustIndex, feedback, bazaarIndex: bazaar, cdpValidate, outcomes, checkPaymentProof, creditStore, priceCheck, spotResults, deliveryElsewhere, onchainPayments, deliveryStore, ...(deliveryResults ? { deliveryResults } : {}), trust: trustTools, ...(vaultStore !== undefined ? { vaultStore } : {}), ...(passSale ? { passSale } : {}) });
+  const facilitatorService = facilitatorOverride || createFacilitatorService({ env, sanctions: paidApi.sanctions, creditStore: paidApi.creditsStore, publicUrl: env.PUBLIC_URL || 'https://x402-doctor.fizzl.eu' });
+  app.facilitator = facilitatorService;
 
   // Doctor's requests reach the app through three proxies (the caller, then two
   // hops, the last a private Render address: measured 26 Sep), so Express has to
@@ -363,8 +366,22 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   // MCP calls (lib/mcp.js) carry a payment in _meta, and verify_receipt a whole signed answer: 256 kB like /api/v1/verify.
   // /mcp/free is the same server with only the free tools (for Claude's connectors directory).
   app.post(['/mcp', '/mcp/free'], express.json({ limit: '256kb' }));
+  // The Solana facilitator (lib/facilitator-service.js) takes x402 v2 bodies with a signed transaction: 64 kB.
+  app.post(['/facilitator/verify', '/facilitator/settle'], express.json({ limit: '64kb' }));
   app.use(express.json({ limit: '4kb' }));
   app.use(usageLog.middleware((req, res, body) => {
+    if (req.path.startsWith('/facilitator')) {
+      const step = req.path.split('/')[2] || 'info';
+      if (req.method !== 'POST') return { route: `facilitator ${step}`, via: 'api', result: { status: res.statusCode } };
+      const reqs = req.body?.paymentRequirements || {};
+      return {
+        route: `facilitator ${step}`,
+        via: res.get('x-facilitator-billing') || 'api',
+        payment: null, // a settle for a seller: the buyer pays the seller, not us
+        input: { network: reqs.network, pay_to: reqs.payTo, amount: reqs.amount },
+        result: { status: res.statusCode, ok: body ? Boolean(body.success ?? body.isValid) : null, reason: body?.errorReason || body?.invalidReason || undefined, payer: body?.payer || undefined, tx: body?.transaction || undefined },
+      };
+    }
     // Prepaid credits (credits.js): a pack sale, or a call paid from credits.
     const pack = req.method === 'GET' && /^\/api\/v1\/credits\/(\d+)$/.exec(req.path);
     if (pack) return { route: 'credits pack', via: 'api', input: { pack: Number(pack[1]) }, result: { status: res.statusCode, error: body && body.error } };
@@ -430,6 +447,8 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
 
   // Paid agent API (x402). The web page below stays free and rate-limited.
   app.use(paidApi);
+  // The Solana facilitator, open to any seller (lib/facilitator-service.js). Off without SOLANA_FACILITATOR_KEY.
+  app.use(facilitatorService.router(express));
   // Instructions an AI agent can read and follow ("Connect to x402-doctor.fizzl.eu/skill.md").
   app.get('/skill.md', (_req, res) => res.set('cache-control', 'public, max-age=300').type('text/markdown; charset=utf-8').sendFile(path.join(__dirname, 'public', 'skill.md')));
   app.get('/openapi.json', (req, res) => res.json(openApi(`${req.protocol}://${req.get('host')}`, paidApi.paymentInfo)));
@@ -894,7 +913,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     const mb = (n) => Math.round(n / 1048576);
     // heap_limit_mb is where V8 stops with "heap out of memory" (exit 134), which can sit well below Render's 512 MB.
     const memory = { rss_mb: mb(rss), heap_mb: mb(heapUsed), heap_total_mb: mb(heapTotal), heap_limit_mb: mb(require('node:v8').getHeapStatistics().heap_size_limit), external_mb: mb(external) };
-    res.json({ ok: true, paid: paidApi.paymentInfo, sanctions: paidApi.sanctions?.status() ?? null, afuel: paidApi.afuel?.status() ?? null, afuel_holders: paidApi.holders?.status() ?? null, memory, uptime_s: Math.round(process.uptime()) });
+    res.json({ ok: true, paid: paidApi.paymentInfo, sanctions: paidApi.sanctions?.status() ?? null, afuel: paidApi.afuel?.status() ?? null, afuel_holders: paidApi.holders?.status() ?? null, facilitator: facilitatorService.status(), memory, uptime_s: Math.round(process.uptime()) });
   });
   // Last: a 5xx is answered as JSON and reported to Sentry when SENTRY_DSN is set (lib/error-report.js).
   app.errorReporter = createErrorReporter({ dsn: env.SENTRY_DSN, service: 'x402-doctor', release: require('./package.json').version });
