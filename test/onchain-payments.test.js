@@ -3,7 +3,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { mergePayTos, collect, windowOf, totalsOf, createOnchainPayments, TRANSFER, AUTH_USED, USDC } = require('../lib/onchain-payments');
+const { mergePayTos, collect, windowOf, totalsOf, createOnchainPayments, TRANSFER, AUTH_USED, USDC, PERMIT2_PROXIES, PROXY_SETTLED } = require('../lib/onchain-payments');
 const { payTosOf } = require('../lib/trust-scan');
 
 const P1 = '0x1111111111111111111111111111111111111111';
@@ -14,7 +14,8 @@ const OWN = '0xA12871853F653F76EC303B94AC4fb6C46578a3F1';
 const pad = (a) => `0x${a.toLowerCase().slice(2).padStart(64, '0')}`;
 const hex = (n) => `0x${n.toString(16)}`;
 
-// A node whose chain tip is `tip` (2-second blocks, tip at headIso). transfers: [block, from, to, micro-USDC, signed].
+// A node whose chain tip is `tip` (2-second blocks, tip at headIso). transfers: [block, from, to, micro-USDC, signed],
+// signed true (EIP-3009), 'proxy' (settled through x402's Permit2 proxy) or false (a plain transfer).
 // limits: { maxSpan } refuses wider getLogs ranges; { archiveBelow } refuses blocks older than that.
 function fakeNode({ tip, headIso, transfers, maxSpan = Infinity, archiveBelow = 0, blockSeconds = 2 }) {
   const calls = [];
@@ -34,8 +35,14 @@ function fakeNode({ tip, headIso, transfers, maxSpan = Infinity, archiveBelow = 
       const from = parseInt(f.fromBlock, 16), to = parseInt(f.toBlock, 16);
       if (to - from + 1 > maxSpan) return fail('query returned more than 10000 results');
       if (from < archiveBelow) return fail('Archive requests require a personal token');
-      assert.equal(f.address.toLowerCase(), USDC);
       const inRange = logs.filter((l) => l.block >= from && l.block <= to);
+      if (Array.isArray(f.address)) {
+        assert.deepEqual(f.address, PERMIT2_PROXIES);
+        assert.deepEqual(f.topics, [PROXY_SETTLED]);
+        calls.push('proxy');
+        return reply(inRange.filter((l) => l.signed === 'proxy').map((l) => ({ address: PERMIT2_PROXIES[1], topics: [PROXY_SETTLED[0]], data: '0x', blockNumber: hex(l.block), transactionHash: l.tx })));
+      }
+      assert.equal(f.address.toLowerCase(), USDC);
       if (f.topics[0] === TRANSFER) {
         // Transfers to the payout addresses (topic 2), or out of them (topic 1).
         const senders = f.topics[1] ? new Set(f.topics[1]) : null, targets = f.topics[2] ? new Set(f.topics[2]) : null;
@@ -43,7 +50,7 @@ function fakeNode({ tip, headIso, transfers, maxSpan = Infinity, archiveBelow = 
       }
       if (f.topics[0] === AUTH_USED) {
         const who = new Set(f.topics[1]);
-        return reply(inRange.filter((l) => l.signed && who.has(pad(l.from))).map((l) => ({ topics: [AUTH_USED, pad(l.from), pad('0x01')], data: '0x', blockNumber: hex(l.block), transactionHash: l.tx })));
+        return reply(inRange.filter((l) => l.signed === true && who.has(pad(l.from))).map((l) => ({ topics: [AUTH_USED, pad(l.from), pad('0x01')], data: '0x', blockNumber: hex(l.block), transactionHash: l.tx })));
       }
     }
     return fail(`unexpected ${method}`);
@@ -93,6 +100,25 @@ test('collect: signed USDC payments per payout address per day; unsigned transfe
   assert.deepEqual({ ...w, as_of: undefined }, { network: 'eip155:8453', pay_to: P1, days: 1, payments: 2, payers: 1, payers_wide: 0, payers_paid_back: 0, usd_paid_back: 0, usd: 0.03, coverage: 0.201, as_of: undefined });
   const t = totalsOf(later);
   assert.deepEqual([t.days, t.watched, t.pay_tos_paid, t.payments, t.payers, t.usd], [1, 2, 1, 2, 1, 0.03]);
+});
+
+test('collect: payments settled through x402\'s Permit2 proxy (upto, as Cloudflare\'s gateway pays) count; the proxy is only asked when needed', async () => {
+  const node = fakeNode({
+    tip: 100010,
+    headIso: '2026-10-19T00:10:20Z',
+    transfers: [
+      [99800, A, P1, 45000, 'proxy'], // upto: settled for less than the 50000 maximum
+      [99810, B, P1, 30000, false], // a plain transfer: still not a payment
+      [99820, OWN, P1, 50000, 'proxy'], // our own wallet: still left out
+    ],
+  });
+  const state = await collect(null, { payTos: [P1], nodes: ['https://node.test'], fetchImpl: node.fetchImpl, now: () => Date.parse('2026-10-19T00:11:00Z') });
+  assert.deepEqual(state.pay_tos[P1].d['2026-10-19'], [1, 45000, [A.slice(2, 12)]]);
+
+  // Only EIP-3009 payments in the range: the proxy's logs aren't asked for.
+  const plain = fakeNode({ tip: 100010, headIso: '2026-10-19T00:10:20Z', transfers: [[99800, A, P1, 10000, true]] });
+  await collect(null, { payTos: [P1], nodes: ['https://node.test'], fetchImpl: plain.fetchImpl, now: () => Date.parse('2026-10-19T00:11:00Z') });
+  assert.ok(!plain.calls.includes('proxy'));
 });
 
 test('collect: the block time is measured, so 0.2-second blocks (Base since 5 Nov 2026) land on the right day', async () => {

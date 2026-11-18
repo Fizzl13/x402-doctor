@@ -36,6 +36,7 @@ function fakeNode({ tip, headIso, transfers }) {
       if (to - from + 1 > 100) return fail('eth_getLogs is limited to a 100 range');
       const tokens = new Set([].concat(f.address).map((a) => a.toLowerCase()));
       const inRange = logs.filter((l) => l.block >= from && l.block <= to);
+      if (Array.isArray(f.topics[0])) return reply([]); // x402's Permit2 proxy (Settled logs): none here
       if (f.topics[0] === TRANSFER) {
         const senders = f.topics[1] ? new Set(f.topics[1]) : null, targets = f.topics[2] ? new Set(f.topics[2]) : null;
         return reply(inRange.filter((l) => tokens.has(l.token) && (!senders || senders.has(pad(l.from))) && (!targets || targets.has(pad(l.to)))).map((l) => ({ address: l.token, topics: [TRANSFER, pad(l.from), pad(l.to)], data: hex(l.value), blockNumber: hex(l.block), transactionHash: l.tx })));
