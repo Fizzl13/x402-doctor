@@ -3,7 +3,7 @@
 //
 //   node scripts/index-payment.js --url https://presign-guard.fizzl.eu/v1/screen?address=... [--dry]
 //   node scripts/index-payment.js --stale [--days 21] [--dry]
-//   node scripts/index-payment.js --forge [--days 21] [--max 100] [--dry]
+//   node scripts/index-payment.js --forge [--days 21] [--max 100] [--all] [--dry]
 //
 // The Bazaar lists a route only once a payment for it has settled through the CDP facilitator, and drops it after 30
 // days without one; directories that read the Bazaar (Roundhouse, our own Trust Index) follow it. --url makes one
@@ -97,10 +97,13 @@ async function main() {
     const { targets: tools, skipped } = forgeTargets(await res.json());
     for (const s of skipped) console.log(`skip  ${s.url ?? s.slug} (${s.why})`);
     const listed = await listedOnHost(FORGE.host);
-    const due = staleRoutes(listed, { routes: tools, staleDays });
+    // --all (Frits, 18 Nov 2026): pay every Forge tool for sale once, listed or not, so the Bazaar takes a new
+    // description now instead of at the next stale re-index (it reads the text at each settled payment).
+    const all = process.argv.includes('--all');
+    const due = all ? tools.map((t) => ({ ...t, listed: true, last_settled: null, age_days: null })) : staleRoutes(listed, { routes: tools, staleDays });
     for (const t of tools) {
       const d = due.find((x) => x.url === t.url);
-      console.log(`${d ? 'DUE ' : 'ok  '} ${t.url}${d ? ` (${d.listed ? `last settled ${d.last_settled}, ${d.age_days} days ago` : 'not listed'})` : ''}`);
+      console.log(`${d ? 'DUE ' : 'ok  '} ${t.url}${d ? ` (${all ? 'all' : d.listed ? `last settled ${d.last_settled}, ${d.age_days} days ago` : 'not listed'})` : ''}`);
     }
     console.log(`${tools.length} Forge tool(s) on Base at most $${FORGE.maxUsd}, ${listed.length} listed in the Bazaar, ${due.length} due${due.length > max ? `, the first ${max} paid in this run` : ''}`);
     targets = due.slice(0, max);
