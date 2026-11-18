@@ -46,6 +46,7 @@ const { createRefusalLog } = require('./lib/refusal-log');
 const REFUSAL_LOG = 'refusals'; // the usage log service the counted refusal reports are kept in (events/refusals/)
 const { createUsageReader } = require('./lib/usage-reader');
 const { createPublicStats, statsCors } = require('./lib/public-stats');
+const { slimAtlas } = require('./lib/atlas-slim');
 const { marketSummary } = require('./lib/market-summary');
 const { setupsFunnel } = require('./lib/usage-funnel');
 const { paidOf, parseKnown, summarizePayments } = require('./lib/usage-payments');
@@ -743,7 +744,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     res.set('PAYMENT-REQUIRED', Buffer.from(JSON.stringify(challenge)).toString('base64'));
     res.status(402).json(challenge);
   });
-  // The Trust Index as a star map for atlas.fizzl.eu (free, public data): ~2 MB of JSON, ~100 KB gzipped. Built
+  // The Trust Index as a star map for atlas.fizzl.eu (free, public data): ~2 MB of JSON, ~0.15 MB gzipped. Built
   // once per scan and kept only gzipped.
   // Each seller also carries the settled calls the CDP Bazaar counted for it over 30 days (quality.l30DaysTotalCalls;
   // 0 when unlisted or unknown) and, when the Bazaar gives lastCalledAt, the part of those on routes still paid (a
@@ -761,7 +762,9 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     const market = paid ? marketSummary(map, paid.calls, { active: paid.active, payers: paid.payers }) : null;
     for (const s of map.sellers) s.push(paid?.calls.get(s[0]) || 0, ...(paid?.active ? [paid.active.get(s[0]) || 0] : []));
     map.paid_30d = source && (paid.active ? { ...source, active_days: 3 } : source);
-    atlasCache = { key, gz: zlib.gzipSync(JSON.stringify(map)), market: market && { ...market, ...source } };
+    // The map goes out lighter (lib/atlas-slim.js: at most 1,000 dust particles per seller, exact counts beside them);
+    // the market summary above counted every endpoint.
+    atlasCache = { key, gz: zlib.gzipSync(JSON.stringify(slimAtlas(map))), market: market && { ...market, ...source } };
     return atlasCache;
   }
   app.get('/api/trust/atlas', trustLimit, (req, res) => {
