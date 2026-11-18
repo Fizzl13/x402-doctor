@@ -147,6 +147,7 @@
   <h2>Can an AI agent pay?</h2>
   <p class="headline" id="headline" aria-live="polite">Loading today's scan…</p>
   <p class="note" id="protocols" hidden></p>
+  <p class="note" id="dormantLine" hidden></p>
   <div class="share" id="share" role="img" aria-label="Share of x402 services an agent can pay"></div>
   <div class="share-legend" id="shareLegend"></div>
   <p class="note" id="sanctionsLine" hidden></p>
@@ -355,6 +356,12 @@
       const line = (name, v) => `${name}: ${fmt(v.resources)} services, ${pct(v.go + v.caution, v.go + v.caution + v.no_go + v.unreachable)} payable today`;
       $('protocols').textContent = `${line('x402', bp.x402)} · ${line('MPP (Stripe + Tempo)', bp.mpp)}`;
       $('protocols').hidden = false;
+    }
+    // Sellers the scan could no longer reach (lib/trust-index.js dormantSites): out of the totals, still in the index.
+    const dm = s.dormant;
+    if (dm && dm.sellers) {
+      $('dormantLine').textContent = `Not counted: ${fmt(dm.sellers)} ${dm.sellers === 1 ? 'seller' : 'sellers'} (${fmt(dm.endpoints)} endpoints) could not be reached for ${dm.quiet_days} days or more. They stay in the index (look them up below) and count again as soon as one of their endpoints can be paid.${s.resources_all ? ` The index holds ${fmt(s.resources_all)} endpoints in all.` : ''}`;
+      $('dormantLine').hidden = false;
     }
     if (s.sanctions) {
       const n = s.payto_sanctioned || 0;
