@@ -48,7 +48,7 @@ jobs:
     outputs:
       skip: ${{ steps.today.outputs.skip }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Already scanned today?
         id: today
         run: |
@@ -58,7 +58,7 @@ jobs:
             echo "skip=true" >> "$GITHUB_OUTPUT"
             echo "Today's scan is already published; nothing to do." >> "$GITHUB_STEP_SUMMARY"
           fi
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         if: steps.today.outputs.skip != 'true'
         with:
           node-version: 22
@@ -73,7 +73,7 @@ jobs:
             git show FETCH_HEAD:submitted.json > trust-data/submitted.json || rm -f trust-data/submitted.json
           fi
           node scripts/trust-scan.js --plan plan/plan.json --out trust-data --limit "${{ github.event.inputs.limit || '0' }}"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: steps.today.outputs.skip != 'true'
         with:
           name: plan
@@ -90,13 +90,13 @@ jobs:
       matrix:
         share: [1, 2, 3, 4] # SHARES
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
       - run: npm ci
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: plan
           path: plan
@@ -104,7 +104,7 @@ jobs:
         run: node scripts/trust-scan.js --shard "${{ matrix.share }}/$SHARES" --plan plan/plan.json --results "results/${{ matrix.share }}.json"
         env:
           SOLANA_RPC_URL: ${{ secrets.SOLANA_RPC_URL }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: results-${{ matrix.share }}
           path: results/${{ matrix.share }}.json
@@ -117,17 +117,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
       - run: npm ci
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: plan
           path: plan
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         continue-on-error: true
         with:
           pattern: results-*

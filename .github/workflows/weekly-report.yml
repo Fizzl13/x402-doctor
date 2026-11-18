@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       # GitHub often starts the scheduled run hours late, after the week's report was already started by hand: then
       # it stops here. A run started by hand always runs.
       - name: Already published today?
@@ -34,7 +34,7 @@ jobs:
             echo "This week's report was already published today; nothing to do." >> "$GITHUB_STEP_SUMMARY"
             echo "done=1" >> "$GITHUB_OUTPUT"
           fi
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         if: steps.today.outputs.done != '1'
         with:
           node-version: 22
