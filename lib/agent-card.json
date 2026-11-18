@@ -4,6 +4,10 @@
   "name": "x402 Doctor",
   "description": "Checks x402 and MPP paid APIs before an agent pays: a $0.001 preflight (go / caution / no_go, plus the option that will settle), a free payee check (is every payTo really the seller's, through ERC-8004 or a Concordium badge), a $0.01 full diagnosis and the fix code for $0.05. Never pays the endpoint it checks.",
   "url": "https://x402-doctor.fizzl.eu/",
+  "supportedInterfaces": [
+    { "url": "https://x402-doctor.fizzl.eu/mcp", "protocolBinding": "https://modelcontextprotocol.io/specification/2025-06-18/basic/transports#streamable-http", "protocolVersion": "1.0" },
+    { "url": "https://x402-doctor.fizzl.eu/openapi.json", "protocolBinding": "https://www.x402.org/", "protocolVersion": "1.0" }
+  ],
   "version": "1.0.0",
   "provider": { "organization": "Fizzl", "url": "https://fizzl.eu" },
   "image": "https://x402-doctor.fizzl.eu/og.jpg",

@@ -210,6 +210,9 @@ test("x402 Doctor's own Agent Card: served byte for byte, with the badge of agen
     assert.equal(badgeNetwork('Mf22oVsbu3vf4Jb1cga49'), 'mainnet');
     assert.equal(badgeNetwork('JyP9Y8gHmf4U8QPMm1TkT'), 'testnet');
     assert.ok(cardOrigins(card).has('https://x402-doctor.fizzl.eu'));
+    // A2A 1.0 (Concordium's Agent Card is an ERC-8004 registration and an A2A 1.0 card): the interfaces Doctor serves,
+    // as custom bindings named by URI (no A2A message:send endpoint).
+    assert.deepEqual(card.supportedInterfaces.map((i) => [i.url, i.protocolVersion]), [['https://x402-doctor.fizzl.eu/mcp', '1.0'], ['https://x402-doctor.fizzl.eu/openapi.json', '1.0']]);
   } finally { server.close(); }
 });
 
