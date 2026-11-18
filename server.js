@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { createPassVerifier, limitKeyOf } = require('./lib/fizzl-pass');
 const { createFacilitatorService } = require('./lib/facilitator-service');
+const { facilitatorOf, summarizeFacilitator } = require('./lib/facilitator-usage');
 const PAYEE_DELEGATIONS = require('./lib/payee-delegations.json');
 const { x402TrustTxtRoute } = require('./lib/x402-trust-txt');
 const { ALGORITHM, verifyReceipt, AUTHORITY, SERVICE } = require('./lib/receipt');
@@ -422,12 +423,22 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
       } catch (err) {
         priceFunnelSummary = { error: err.message };
       }
+      // The Solana facilitator for sellers (lib/facilitator-usage.js): settles, sellers, refusals, the fee payer's SOL.
+      let facilitatorUsage = null;
+      try {
+        const { files } = await usageReader.summarizeAll(facilitatorOf, { key: 'facilitator', from: fromIso.slice(0, 10) });
+        facilitatorUsage = summarizeFacilitator(files, { known: parseKnown(knownText), fromIso });
+      } catch (err) {
+        facilitatorUsage = { error: err.message };
+      }
+      const feePayer = await Promise.resolve().then(() => facilitatorService.feePayerBalance()).catch((err) => ({ error: err.message }));
+      facilitatorUsage = { ...facilitatorUsage, live: facilitatorService.status(), fee_payer: feePayer };
       let trust = null;
       try { trust = trustIndex.summary(); } catch { /* not loaded yet */ }
       const events = data.events || [];
       const languages = {};
       for (const e of events) if (e.agent && !languages[e.agent]) languages[e.agent] = languageOf(e.agent);
-      res.json({ ...data, payments, price_funnel: priceFunnelSummary, funnel: setupsFunnel(events), trust: trust && trust.by_protocol ? { by_protocol: trust.by_protocol } : null, languages, agent_kinds: agentKinds.kindsFor(events), agent_kinds_by_jev: agentKinds.enabled });
+      res.json({ ...data, payments, price_funnel: priceFunnelSummary, facilitator: facilitatorUsage, funnel: setupsFunnel(events), trust: trust && trust.by_protocol ? { by_protocol: trust.by_protocol } : null, languages, agent_kinds: agentKinds.kindsFor(events), agent_kinds_by_jev: agentKinds.enabled });
     } catch (err) {
       res.status(502).json({ error: err.message });
     }
