@@ -22,7 +22,7 @@ jobs:
     env:
       SERVER: ${{ inputs.server || 'x402-doctor' }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Pick the server
         run: |
           if [ "$SERVER" = "fizzl-buy" ]; then

@@ -37,9 +37,9 @@ jobs:
             --created ">=$(date -u +%F)" --status completed --json databaseId --jq length)
           echo "done=$done" >> "$GITHUB_OUTPUT"
           if [ "$done" -gt 0 ]; then echo "A scheduled health check already finished today; skipping."; fi
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         if: steps.today.outputs.done == '0' || github.event_name != 'schedule'
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         if: steps.today.outputs.done == '0' || github.event_name != 'schedule'
         with:
           node-version: 22
@@ -49,7 +49,7 @@ jobs:
         if: steps.today.outputs.done == '0' || github.event_name != 'schedule'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always() && (steps.today.outputs.done == '0' || github.event_name != 'schedule')
         with:
           name: health-report

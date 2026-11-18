@@ -20,17 +20,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
         with:
           repository: Fizzl13/presign-guard
           path: presign-guard
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           repository: Fizzl13/x402-examples
           path: x402-examples
           sparse-checkout: wallet-server
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       - run: npm ci --omit=dev
