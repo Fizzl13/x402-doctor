@@ -391,7 +391,7 @@ test('an own-routes-only run never buys someone else\'s endpoint, whatever its p
 });
 
 test('Forge tools from its catalog: Base at most $0.01, forge.fizzl.eu only, the example as query or JSON body, capped at the price', () => {
-  const product = (slug, extra = {}) => ({ slug, url: `https://forge.fizzl.eu/p/${slug}`, price: '$0.001', network: BASE, input_example: { text: 'hi' }, ...extra });
+  const product = (slug, extra = {}) => ({ slug, url: `https://forge.fizzl.eu/p/${slug}`, price: '$0.001', network: BASE, sale: 'for-sale', input_example: { text: 'hi' }, ...extra });
   const catalog = { products: [
     product('flat', { input_example: { country: 'DE', depth: 5, strict: true, name: 'Max Mustermann' } }),
     product('nested', { price: '$0.002', input_example: { items: [{ sku: 'a' }], opts: { x: 1 } } }),
@@ -406,6 +406,8 @@ test('Forge tools from its catalog: Base at most $0.01, forge.fizzl.eu only, the
     product('plain', { url: 'http://forge.fizzl.eu/p/plain' }),
     product('query', { url: 'https://forge.fizzl.eu/p/query?x=1' }),
     product('list', { input_example: ['a'] }),
+    product('sold', { sale: 'sold' }), // answers 410 and points to its owner's copy
+    product('unsaid', { sale: undefined }),
   ] };
   const { targets, skipped } = forgeTargets(catalog);
   assert.deepEqual(targets.map((t) => t.slug), ['flat', 'nested', 'nulls', 'none', 'edge']);
@@ -424,7 +426,7 @@ test('Forge tools from its catalog: Base at most $0.01, forge.fizzl.eu only, the
   assert.deepEqual(Object.fromEntries(skipped.map((s) => [s.slug, s.why])), {
     dear: 'price $0.011', free: 'price $0', solana: 'network solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp',
     other: 'not a forge.fizzl.eu route', away: 'not a forge.fizzl.eu route', plain: 'not a forge.fizzl.eu route', query: 'not a forge.fizzl.eu route',
-    list: 'no usable example input',
+    list: 'no usable example input', sold: 'sale sold', unsaid: 'sale missing',
   });
   assert.deepEqual(forgeTargets(null), { targets: [], skipped: [] });
 

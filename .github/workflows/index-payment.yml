@@ -8,7 +8,8 @@ name: Index payment
 # INDEX_PAYMENT.routes in lib/spot-buy.js; any other fizzl.eu URL $0.01), in USDC on Base, only to a fizzl.eu route
 # and so to our own payout wallet, with the spot-buy wallet (the secret SPOT_BUY_KEY). It publishes nothing: the
 # spot-buy results stay a sample of other sellers. "forge" (ignores stale and url) does the same for x402 Forge's tools
-# (forge.fizzl.eu/catalog.json, for sale, on Base at most $0.01 each, each with its own example input), at most "max" per run.
+# (forge.fizzl.eu/catalog.json: for sale, on Base, at most $0.01 each, each with its own example input), at most
+# "max" per run.
 on:
   workflow_dispatch:
     inputs:

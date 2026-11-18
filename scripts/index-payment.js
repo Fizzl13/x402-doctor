@@ -10,11 +10,11 @@
 // such payment; --stale pays each of our routes (INDEX_PAYMENT.routes in lib/spot-buy.js) whose last settled payment
 // in the Bazaar is --days old or more (default 21), or that the Bazaar does not list. Each payment costs at most the
 // route's own cap (its price; any other fizzl.eu URL $0.01). --forge does the same for x402 Forge's tools
-// (forge.fizzl.eu/catalog.json: those for sale on Base at most $0.01, each capped at its price, with its own example input,
-// since Forge charges only on a 2xx answer), at most --max (default 100) in one run. Every payment goes only to a
-// fizzl.eu route, with the spot-buy wallet (SPOT_BUY_KEY), and so to our own payout wallet. It takes the same steps as a spot-buy purchase (a fresh
-// preflight with the OFAC screen of the payout address, the charge measured on chain) but publishes nothing, so the
-// spot-buy results stay a sample of other sellers.
+// (forge.fizzl.eu/catalog.json: those for sale, on Base, at most $0.01, each capped at its price, with its own example
+// input, since Forge charges only on a 2xx answer), at most --max (default 100) in one run. Every payment goes only to
+// a fizzl.eu route, with the spot-buy wallet (SPOT_BUY_KEY), and so to our own payout wallet. It takes the same steps
+// as a spot-buy purchase (a fresh preflight with the OFAC screen of the payout address, the charge measured on chain)
+// but publishes nothing, so the spot-buy results stay a sample of other sellers.
 // Without the key (or with --dry) it does everything up to the payment and pays nothing.
 // A self-audit too, on our own routes only: each paid request's payment is sent once more and must get a 402 ("Five
 // Attacks on x402", attack II: one payment, two answers), and the settlement transaction must carry our Base
