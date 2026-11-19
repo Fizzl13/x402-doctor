@@ -20,7 +20,12 @@ function rpcStub(table) {
   const fetch = async (url, init) => {
     const { method, params } = JSON.parse(init.body);
     calls.push({ url, method, params });
-    return new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result: table[params[0]] ?? null }), { headers: { 'content-type': 'application/json' } });
+    const result = table[params[0]] ?? null;
+    // Like mainnet: asking for an older transaction version than the transaction's is an error (Phantom sends v1).
+    if (result && typeof result.version === 'number' && !(params[1]?.maxSupportedTransactionVersion >= result.version)) {
+      return new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, error: { code: -32015, message: `Transaction version (${result.version}) is not supported by the requesting client.` } }), { headers: { 'content-type': 'application/json' } });
+    }
+    return new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result }), { headers: { 'content-type': 'application/json' } });
   };
   return { fetch, calls };
 }
@@ -79,7 +84,7 @@ test('Base: reverted, not found, from someone else, or a broken header each say 
 
 test('Solana: USDC balance changes show who paid whom; an RPC outage is a warning, not a verdict', async () => {
   const tx = {
-    slot: 123, blockTime: 1760000000, meta: {
+    slot: 123, blockTime: 1760000000, version: 1, meta: { // a version 1 transaction, as Phantom sends
       err: null,
       preTokenBalances: [{ mint: SOL_MINT, owner: SOL_PAYER, uiTokenAmount: { amount: '50000' } }, { mint: SOL_MINT, owner: SOL_SELLER, uiTokenAmount: { amount: '0' } }],
       postTokenBalances: [{ mint: SOL_MINT, owner: SOL_PAYER, uiTokenAmount: { amount: '30000' } }, { mint: SOL_MINT, owner: SOL_SELLER, uiTokenAmount: { amount: '20000' } }],

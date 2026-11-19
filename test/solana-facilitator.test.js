@@ -18,7 +18,7 @@ const COMPUTE_BUDGET = 'ComputeBudget111111111111111111111111111111';
 const MEMO_PROGRAM = 'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr';
 const BLOCKHASH = '4sGjMW1sUnHzSxGspuhpqLDx6wiyjNtZAMdL4VZHirAn';
 
-const rpcState = { methods: [], sent: [] };
+const rpcState = { methods: [], sent: [], txVersion: 0 };
 const servers = [];
 let url;
 let feePayer;
@@ -82,6 +82,10 @@ async function rpc(body) {
     case 'getTransaction': {
       const sent = rpcState.sent.find((t) => t.signature === body.params[0]);
       if (!sent) return ok(null);
+      // Like mainnet: asking for an older version than the transaction's is an error (Phantom sends version 1).
+      if (!(body.params[1]?.maxSupportedTransactionVersion >= rpcState.txVersion)) {
+        return { jsonrpc: '2.0', id: body.id, error: { code: -32015, message: `Transaction version (${rpcState.txVersion}) is not supported by the requesting client.` } };
+      }
       const msg = kit.getCompiledTransactionMessageDecoder().decode(sent.tx.messageBytes);
       const keys = msg.staticAccounts;
       const instructions = msg.instructions.map((ix) => {
@@ -162,7 +166,7 @@ before(async () => {
 });
 
 after(() => { for (const s of servers) s.close(); });
-beforeEach(() => { rpcState.methods = []; rpcState.sent = []; });
+beforeEach(() => { rpcState.methods = []; rpcState.sent = []; rpcState.txVersion = 0; });
 
 test('supported names our fee payer for Solana mainnet', async () => {
   const sup = await (await fetch(`${url}/facilitator/supported`)).json();
@@ -186,6 +190,7 @@ test('a standard agent payment verifies and settles: fee payer co-signs, the pay
 });
 
 test('a Phantom-style payment with Lighthouse asserts, also on the fee payer, settles', async () => {
+  rpcState.txVersion = 1; // Phantom's transactions read back as version 1 on mainnet (18 Nov 2026)
   const tx = await paymentTransaction({ lighthouseAccount: feePayer, lighthouseKind: 5 });
   const out = await (await post('/facilitator/settle', settleBody(tx))).json();
   assert.equal(out.success, true, JSON.stringify(out));
