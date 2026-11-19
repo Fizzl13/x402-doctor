@@ -425,7 +425,8 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
       } catch (err) {
         priceFunnelSummary = { error: err.message };
       }
-      // The Solana facilitator for sellers (lib/facilitator-usage.js): settles, sellers, refusals, the fee payer's SOL.
+      // The facilitator for sellers (lib/facilitator-usage.js): settles per network, sellers, refusals, the fee payer's SOL,
+      // the NEAR relayer's NEAR and the NEAR Builders Activity reports.
       let facilitatorUsage = null;
       try {
         const { files } = await usageReader.summarizeAll(facilitatorOf, { key: 'facilitator', from: fromIso.slice(0, 10) });

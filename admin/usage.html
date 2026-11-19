@@ -163,10 +163,11 @@
     <p class="headline" id="facHeadline">Loading…</p>
     <p class="note" id="facSub" style="margin-top:0"></p>
     <div class="tiles pay-tiles" id="facTiles"></div>
+    <details open><summary>Per network</summary><div class="scroll"><table id="facNetworks"></table></div></details>
     <details open><summary>Sellers that settle through it</summary><div class="scroll"><table id="facSellers"></table></div></details>
     <details><summary>Recent settles</summary><div class="scroll"><table id="facRecent"></table></div></details>
     <details><summary>Refused settles, by reason</summary><div class="scroll"><table id="facReasons"></table></div></details>
-    <p class="note">Every call to <code>/facilitator</code> from the usage log, over the whole range. A settle moves USDC from a buyer to the seller's payTo; we only pay the network fee (SOL) or gas (NEAR). The first settles per payTo per day are free (Solana 20, NEAR 5), then 1 credit ($0.001) each on Solana, 2 on NEAR. Sellers whose payTo is in <code>own_wallets</code> of <code>scripts/known.json</code> are ours. "Today" comes from the running server and starts again after a restart.</p>
+    <p class="note">Every call to <code>/facilitator</code> from the usage log, over the whole range. A settle moves USDC from a buyer to the seller's payTo; we only pay the network fee (SOL) or gas (NEAR). The first settles per payTo per day are free (Solana 20, NEAR 5), then 1 credit ($0.001) each on Solana, 2 on NEAR. Sellers whose payTo is in <code>own_wallets</code> of <code>scripts/known.json</code> are ours. "Today" comes from the running server and starts again after a restart. Each NEAR settle is also reported to NEAR Builders Activity (<code>payment.settled</code> for the buyer, <code>payment.received</code> for the payTo) when <code>ACTIVITY_API_KEY</code> is set; those counts also start again after a restart.</p>
   </div>
 
   <h2>All calls</h2>
@@ -482,7 +483,7 @@
     const tile = (k, v, dd, hl) => el('div', { className: 'tile' + (hl ? ' hl' : '') }, el('div', { className: 'k', textContent: k }), el('div', { className: 'v', textContent: v }), el('div', { className: 'd', textContent: dd }));
     const td = (text, cls = '') => el('td', { className: cls, textContent: text });
     const th = (...cols) => el('thead', {}, el('tr', {}, ...cols.map(([c, num]) => el('th', { className: num ? 'num' : '', textContent: c }))));
-    const clear = () => { $('facTiles').replaceChildren(); $('facSellers').replaceChildren(); $('facRecent').replaceChildren(); $('facReasons').replaceChildren(); };
+    const clear = () => { $('facTiles').replaceChildren(); $('facSellers').replaceChildren(); $('facRecent').replaceChildren(); $('facReasons').replaceChildren(); $('facNetworks').replaceChildren(); };
     if (!f) { $('facHeadline').textContent = 'No facilitator data in this answer.'; $('facSub').textContent = ''; clear(); return; }
     const live = f.live || {};
     const fp = f.fee_payer;
@@ -493,7 +494,9 @@
     const nrText = !nr ? 'NEAR: off (NEAR_FACILITATOR_ACCOUNT / NEAR_FACILITATOR_KEY not set).'
       : typeof nr.near === 'number' ? `NEAR relayer ${nr.account} holds ${nr.near.toFixed(4)} NEAR for gas.${nr.near < 0.05 ? ' Top it up.' : ''}${live.near ? ` NEAR today: ${live.near.settled} settled, ${live.near.refused} refused, cap ${live.near.daily_max}.` : ''}`
       : `NEAR relayer balance could not be read${nr.error ? `: ${nr.error}` : ''}.`;
-    $('facSub').textContent = `${fpText} Today (since the last restart): ${live.settled || 0} settled, ${live.refused || 0} refused, cap ${live.daily_max ?? '–'} a day, ${live.free_per_day ?? '–'} free per payTo. ${nrText}`;
+    const act = live.activity;
+    const actText = !act ? '' : !act.enabled ? ' NEAR Builders Activity: off (ACTIVITY_API_KEY not set).' : ` NEAR Builders Activity: ${act.sent} event${act.sent === 1 ? '' : 's'} reported${act.failed ? `, ${act.failed} failed (see the server log)` : ''} since the last restart.`;
+    $('facSub').textContent = `${fpText} Today (since the last restart): ${live.settled || 0} settled, ${live.refused || 0} refused, cap ${live.daily_max ?? '–'} a day, ${live.free_per_day ?? '–'} free per payTo. ${nrText}${actText}`;
     if (f.error) { $('facHeadline').textContent = 'Could not be counted'; clear(); $('facTiles').replaceChildren(el('p', { className: 'note', textContent: f.error })); return; }
     const st = f.settles;
     const range = state.days === 1 ? 'last 24 h' : `last ${state.days} days`;
@@ -509,11 +512,16 @@
       tile('Verify', `${f.verifies.ok} / ${f.verifies.ok + f.verifies.invalid}`, 'valid / asked'),
       tile('Looked at it', ((calls.info || 0) + (calls.supported || 0)).toLocaleString(), `${calls.supported || 0} /supported · ${calls.info || 0} info`),
     );
-    $('facSellers').replaceChildren(th(['Seller (payTo)'], ['Whose'], ['Settled', 1], ['Refused', 1], ['USDC', 1], ['Free', 1], ['Credits', 1], ['Buyers', 1], ['Last']),
-      el('tbody', {}, ...f.sellers.map((s) => el('tr', {}, td(shortAddr(s.pay_to), 'mono nowrap'), td(s.own ? 'ours' : 'outside'), td(s.settled.toLocaleString(), 'num'), td(s.refused.toLocaleString(), 'num'), td(usd(s.usd), 'num'), td(String(s.free), 'num'), td(String(s.credits), 'num'), td(String(s.payers), 'num'), td(s.last ? ago(s.last) : '–', 'nowrap')))));
-    $('facRecent').replaceChildren(th(['When'], ['Seller'], ['Buyer'], ['USDC', 1], ['Paid by'], ['Result'], ['Transaction']),
+    const nets = f.by_network || [];
+    $('facNetworks').replaceChildren(th(['Network'], ['Settled', 1], ['Refused', 1], ['USDC', 1], ['Free', 1], ['Credits', 1], ['Buyers', 1], ['Sellers', 1], ['Outside', 1], ['Verify', 1]),
+      el('tbody', {}, ...nets.map((n) => el('tr', {}, td(n.label), td(n.ok.toLocaleString(), 'num'), td(n.refused.toLocaleString(), 'num'), td(usd(n.usd), 'num'), td(String(n.free), 'num'), td(String(n.credits), 'num'), td(String(n.payers), 'num'), td(String(n.sellers), 'num'), td(n.outside_sellers ? `${n.outside_sellers} (${n.outside_settled} settled)` : '0', 'num'), td(`${n.verify_ok} / ${n.verify_ok + n.verify_invalid}`, 'num')))));
+    const netLabel = (id) => (nets.find((n) => n.network === id) || {}).label || id || '–';
+    $('facSellers').replaceChildren(th(['Seller (payTo)'], ['Network'], ['Whose'], ['Settled', 1], ['Refused', 1], ['USDC', 1], ['Free', 1], ['Credits', 1], ['Buyers', 1], ['Last']),
+      el('tbody', {}, ...f.sellers.map((s) => el('tr', {}, td(shortAddr(s.pay_to), 'mono nowrap'), td(netLabel(s.network)), td(s.own ? 'ours' : 'outside'), td(s.settled.toLocaleString(), 'num'), td(s.refused.toLocaleString(), 'num'), td(usd(s.usd), 'num'), td(String(s.free), 'num'), td(String(s.credits), 'num'), td(String(s.payers), 'num'), td(s.last ? ago(s.last) : '–', 'nowrap')))));
+    $('facRecent').replaceChildren(th(['When'], ['Network'], ['Seller'], ['Buyer'], ['USDC', 1], ['Paid by'], ['Result'], ['Transaction']),
       el('tbody', {}, ...f.recent.map((r) => el('tr', {},
         td(r.t ? ago(r.t) : '–', 'nowrap'),
+        td(netLabel(r.network)),
         td(`${shortAddr(r.pay_to || '?')}${r.own ? ' (ours)' : ''}`, 'mono nowrap'),
         td(r.payer ? shortAddr(r.payer) : '–', 'mono nowrap'),
         td(r.amount ? usd(Number(r.amount) / 1e6) : '–', 'num'),
