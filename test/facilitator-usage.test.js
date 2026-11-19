@@ -1,4 +1,4 @@
-// The Solana facilitator on the owner's usage page: lib/facilitator-usage.js counts settles, sellers and refusals
+// The facilitator on the owner's usage page: lib/facilitator-usage.js counts settles (per network), sellers and refusals
 // from the usage log, and the facilitator service reads its fee payer's SOL.
 'use strict';
 
@@ -71,4 +71,33 @@ test('fee payer balance: SOL and settles left from getBalance; null when the fac
   assert.equal(asked.url, 'https://rpc.test');
   assert.deepEqual(asked.body.params[0], 'FeePayer1');
   assert.equal(await createFacilitatorService({ env: {}, sanctions: {} }).feePayerBalance(), null);
+});
+
+test('per network: Solana and NEAR apart (both listed at zero), a seller per network, verifies counted per network', () => {
+  const NEAR = 'near:mainnet';
+  const nearSettle = (t, o = {}) => { const e = settle(t, { payTo: 'shop.near', payer: 'buyer.near', ...o }); e.input.network = NEAR; return e; };
+  const empty = summarizeFacilitator([], {});
+  assert.deepEqual(empty.by_network.map((n) => [n.label, n.ok, n.refused]), [['Solana', 0, 0], ['NEAR', 0, 0]]);
+  const files = [{ summary: facilitatorOf([
+    settle('2026-11-18T09:00:00Z'),
+    nearSettle('2026-11-18T09:01:00Z', { amount: '50000' }),
+    nearSettle('2026-11-18T09:02:00Z', { via: 'credits', payer: 'other.near' }),
+    nearSettle('2026-11-18T09:03:00Z', { ok: false, reason: 'facilitator_relayer_low' }),
+    { t: '2026-11-18T09:04:00Z', route: 'facilitator verify', via: 'api', status: 200, input: { network: NEAR, pay_to: 'shop.near' }, result: { ok: false } },
+    { t: '2026-11-18T09:05:00Z', route: 'facilitator settle', via: 'api', status: 400, input: { network: 'eip155:8453', pay_to: '0xabc' }, result: { ok: false, reason: 'unsupported_network' } },
+  ]) }];
+  const f = summarizeFacilitator(files, {});
+  const net = Object.fromEntries(f.by_network.map((n) => [n.label, n]));
+  assert.deepEqual([net.Solana.ok, net.Solana.usd, net.Solana.sellers], [1, 0.01, 1]);
+  assert.deepEqual([net.NEAR.ok, net.NEAR.refused, net.NEAR.usd, net.NEAR.free, net.NEAR.credits, net.NEAR.payers], [2, 1, 0.06, 1, 1, 2]);
+  assert.deepEqual([net.NEAR.sellers, net.NEAR.outside_sellers, net.NEAR.outside_settled, net.NEAR.verify_ok, net.NEAR.verify_invalid], [1, 1, 2, 0, 1]);
+  assert.equal(net['eip155:8453'].refused, 1, 'a network we do not serve gets its own row');
+  assert.equal(f.sellers.find((s) => s.pay_to === 'shop.near').network, NEAR);
+});
+
+test('the live status carries the NEAR Builders Activity counts (null without a reporter that counts)', () => {
+  const activity = { stats: () => ({ enabled: true, sent: 4, failed: 1 }), nearPaymentSettled: async () => [] };
+  assert.deepEqual(createFacilitatorService({ env: {}, sanctions: {}, activity }).status().activity, { enabled: true, sent: 4, failed: 1 });
+  assert.equal(createFacilitatorService({ env: {}, sanctions: {} }).status().activity.enabled, false);
+  assert.equal(createFacilitatorService({ env: {}, sanctions: {}, activity: {} }).status().activity, null);
 });
