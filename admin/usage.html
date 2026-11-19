@@ -158,7 +158,7 @@
     <p class="note">Every caller that got a 402 in the range, per visitor (a keyed hash of the IP, so one agent on two machines counts twice). <b>Checkers</b> are indexers, directories, monitors and testers (the <code>monitor_agents</code> and <code>test_agents</code> lists in <code>scripts/known.json</code>): they read every price and almost never buy. <b>Browsers</b> are people opening a paid URL. <b>Clients</b> are the rest: code that could be a buying agent, though plain user agents such as <code>node</code> or <code>undici</code> are often scanners too. Our own workflows are left out. Counted over the whole range; the filters don't apply.</p>
   </div>
 
-  <h2>Solana facilitator for sellers</h2>
+  <h2>Facilitator for sellers (Solana, NEAR)</h2>
   <div class="panel" id="facilitatorPanel">
     <p class="headline" id="facHeadline">Loading…</p>
     <p class="note" id="facSub" style="margin-top:0"></p>
@@ -166,7 +166,7 @@
     <details open><summary>Sellers that settle through it</summary><div class="scroll"><table id="facSellers"></table></div></details>
     <details><summary>Recent settles</summary><div class="scroll"><table id="facRecent"></table></div></details>
     <details><summary>Refused settles, by reason</summary><div class="scroll"><table id="facReasons"></table></div></details>
-    <p class="note">Every call to <code>/facilitator</code> from the usage log, over the whole range. A settle moves USDC from a buyer to the seller's payTo; we only pay the network fee. The first settles per payTo per day are free, then 1 credit ($0.001) each. Sellers whose payTo is in <code>own_wallets</code> of <code>scripts/known.json</code> are ours. "Today" comes from the running server and starts again after a restart.</p>
+    <p class="note">Every call to <code>/facilitator</code> from the usage log, over the whole range. A settle moves USDC from a buyer to the seller's payTo; we only pay the network fee (SOL) or gas (NEAR). The first settles per payTo per day are free (Solana 20, NEAR 5), then 1 credit ($0.001) each on Solana, 2 on NEAR. Sellers whose payTo is in <code>own_wallets</code> of <code>scripts/known.json</code> are ours. "Today" comes from the running server and starts again after a restart.</p>
   </div>
 
   <h2>All calls</h2>
@@ -489,7 +489,11 @@
     const fpText = !live.enabled ? 'Off: SOLANA_FACILITATOR_KEY is not set.'
       : fp && !fp.error ? `Fee payer ${shortAddr(fp.address)} holds ${fp.sol.toFixed(4)} SOL, enough for about ${fp.settles_left.toLocaleString()} settles.${fp.sol < 0.001 ? ' Top it up.' : ''}`
       : `Fee payer balance could not be read${fp && fp.error ? `: ${fp.error}` : ''}.`;
-    $('facSub').textContent = `${fpText} Today (since the last restart): ${live.settled || 0} settled, ${live.refused || 0} refused, cap ${live.daily_max ?? '–'} a day, ${live.free_per_day ?? '–'} free per payTo.`;
+    const nr = f.near_relayer;
+    const nrText = !nr ? 'NEAR: off (NEAR_FACILITATOR_ACCOUNT / NEAR_FACILITATOR_KEY not set).'
+      : typeof nr.near === 'number' ? `NEAR relayer ${nr.account} holds ${nr.near.toFixed(4)} NEAR for gas.${nr.near < 0.05 ? ' Top it up.' : ''}${live.near ? ` NEAR today: ${live.near.settled} settled, ${live.near.refused} refused, cap ${live.near.daily_max}.` : ''}`
+      : `NEAR relayer balance could not be read${nr.error ? `: ${nr.error}` : ''}.`;
+    $('facSub').textContent = `${fpText} Today (since the last restart): ${live.settled || 0} settled, ${live.refused || 0} refused, cap ${live.daily_max ?? '–'} a day, ${live.free_per_day ?? '–'} free per payTo. ${nrText}`;
     if (f.error) { $('facHeadline').textContent = 'Could not be counted'; clear(); $('facTiles').replaceChildren(el('p', { className: 'note', textContent: f.error })); return; }
     const st = f.settles;
     const range = state.days === 1 ? 'last 24 h' : `last ${state.days} days`;
@@ -515,7 +519,7 @@
         td(r.amount ? usd(Number(r.amount) / 1e6) : '–', 'num'),
         td(r.via || '–'),
         td(r.ok ? 'settled' : (r.reason || `status ${r.status}`), r.ok ? '' : 'mono'),
-        r.tx ? el('td', { className: 'mono nowrap' }, el('a', { href: `https://solscan.io/tx/${r.tx}`, target: '_blank', rel: 'noopener', textContent: `${r.tx.slice(0, 8)}…${r.tx.slice(-4)}` })) : td('–')))));
+        r.tx ? el('td', { className: 'mono nowrap' }, el('a', { href: r.network === 'near:mainnet' ? `https://nearblocks.io/txns/${r.tx}` : `https://solscan.io/tx/${r.tx}`, target: '_blank', rel: 'noopener', textContent: `${r.tx.slice(0, 8)}…${r.tx.slice(-4)}` })) : td('–')))));
     $('facReasons').replaceChildren(th(['Reason'], ['Settles', 1]),
       el('tbody', {}, ...st.refused_reasons.map((x) => el('tr', {}, td(x.reason, 'mono'), td(x.n.toLocaleString(), 'num')))));
   }

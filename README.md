@@ -301,10 +301,10 @@ Solana fee payer, EIP-712 domain, http resource URL behind a proxy, resource URL
 example, Solana payout token account, Phantom on PayAI, testnet paywall on mainnet, and openapi.json. Anything
 without a recipe is returned under `unfixed` with the diagnosis hint.
 
-### A Solana facilitator for sellers: `/facilitator`
+### A facilitator for sellers on Solana and NEAR: `/facilitator`
 
-Doctor is also an x402 facilitator for Solana mainnet (USDC, scheme `exact`), open to any seller. Point your x402
-resource server at it and nothing else changes:
+Doctor is also an x402 facilitator for USDC on Solana mainnet and on NEAR mainnet (scheme `exact`), open to any
+seller. Point your x402 resource server at it and nothing else changes:
 
 ```js
 const facilitator = new HTTPFacilitatorClient({
@@ -319,22 +319,32 @@ What it does that the free facilitators don't:
   facilitators refuse that layout. Doctor simulates such a transaction and checks the USDC really reaches your payTo
   (the x402 reference "smart wallet" path), and lets Phantom's read-only Lighthouse asserts on the fee payer through.
   Everything else is the reference facilitator's checks.
+- **USDC on NEAR settles, and our relayer pays the gas.** The buyer signs a NEP-366 delegate for one `ft_transfer`
+  of USDC (`17208628…a1`) to your payTo with the official `@x402/near` client; Doctor's relayer submits it, so
+  neither the buyer nor you needs NEAR. Register `ExactNearScheme` from `@x402/near/exact/server` for `near:mainnet`
+  in your resource server. Your payTo must be registered on the USDC contract (`storage_deposit`, about 0.00125
+  NEAR, once), or the settle is refused before anything is sent. Each signed payment settles once.
 - **Every settle is screened against the OFAC SDN list first**, payer and payTo. A listed address is refused
   (`sanctioned_address`), and so is every settle while the list can't be read (`sanctions_screen_unavailable`).
 
 | | Price |
 |---|---|
 | `GET /facilitator/supported`, `POST /facilitator/verify` | free (verify: 60 a minute per IP) |
-| `POST /facilitator/settle` | the first 20 a day per payTo free, then 1 credit ($0.001) each |
+| `POST /facilitator/settle` on Solana | the first 20 a day per payTo free, then 1 credit ($0.001) each |
+| `POST /facilitator/settle` on NEAR | the first 5 a day per payTo free, then 2 credits ($0.002) each (NEAR gas costs more) |
 
 Credits are the same prepaid packs as the paid checks (`GET /api/v1/credits/1000`: 1000 credits for $0.80), sent as
 `x-credit-key` or `Authorization: Bearer <key>`. A settle that fails gives its credit back. Without credits past the
 free settles, settle answers 402 with `facilitator_payment_required`. `GET /facilitator` describes it all, with the fee
-payer address; `GET /facilitator/health` has today's counts.
+payer address and the NEAR relayer; `GET /facilitator/health` has today's counts.
 
 The fee payer only pays Solana's network fee (about 0.000005 SOL a payment) and never holds the money: the buyer's
 USDC goes straight to your payTo. Self-hosting: set `SOLANA_FACILITATOR_KEY` (a fresh keypair with a little SOL),
 optionally `SOLANA_FACILITATOR_RPC_URL`, `FACILITATOR_FREE_PER_DAY` and `FACILITATOR_DAILY_MAX` (default 1000 settles a day).
+The NEAR relayer pays the gas of each NEAR settle (well under 0.001 NEAR) and never holds the money either. Set
+`NEAR_FACILITATOR_ACCOUNT` and `NEAR_FACILITATOR_KEY` (`ed25519:…`, a full-access key of a dedicated account with a
+little NEAR, used by no other service at the same time), optionally `NEAR_FACILITATOR_RPC_URL` (FastNEAR by default),
+`NEAR_FACILITATOR_FREE_PER_DAY` and `NEAR_FACILITATOR_DAILY_MAX` (default 200). Below 0.02 NEAR the relayer stops settling.
 
 ### Learning from outcomes: `POST /api/v1/outcome`
 

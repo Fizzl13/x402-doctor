@@ -369,7 +369,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   // MCP calls (lib/mcp.js) carry a payment in _meta, and verify_receipt a whole signed answer: 256 kB like /api/v1/verify.
   // /mcp/free is the same server with only the free tools (for Claude's connectors directory).
   app.post(['/mcp', '/mcp/free'], express.json({ limit: '256kb' }));
-  // The Solana facilitator (lib/facilitator-service.js) takes x402 v2 bodies with a signed transaction: 64 kB.
+  // The facilitator (lib/facilitator-service.js) takes x402 v2 bodies with a signed transaction or delegate: 64 kB.
   app.post(['/facilitator/verify', '/facilitator/settle'], express.json({ limit: '64kb' }));
   app.use(express.json({ limit: '4kb' }));
   app.use(usageLog.middleware((req, res, body) => {
@@ -434,7 +434,8 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
         facilitatorUsage = { error: err.message };
       }
       const feePayer = await Promise.resolve().then(() => facilitatorService.feePayerBalance()).catch((err) => ({ error: err.message }));
-      facilitatorUsage = { ...facilitatorUsage, live: facilitatorService.status(), fee_payer: feePayer };
+      const nearRelayer = await Promise.resolve().then(() => facilitatorService.relayerBalance?.()).catch((err) => ({ error: err.message }));
+      facilitatorUsage = { ...facilitatorUsage, live: facilitatorService.status(), fee_payer: feePayer, near_relayer: nearRelayer ?? null };
       let trust = null;
       try { trust = trustIndex.summary(); } catch { /* not loaded yet */ }
       const events = data.events || [];
@@ -460,7 +461,8 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
 
   // Paid agent API (x402). The web page below stays free and rate-limited.
   app.use(paidApi);
-  // The Solana facilitator, open to any seller (lib/facilitator-service.js). Off without SOLANA_FACILITATOR_KEY.
+  // The facilitator for Solana and NEAR, open to any seller (lib/facilitator-service.js). Each network is off
+  // without its key (SOLANA_FACILITATOR_KEY; NEAR_FACILITATOR_ACCOUNT + NEAR_FACILITATOR_KEY).
   app.use(facilitatorService.router(express));
   // Instructions an AI agent can read and follow ("Connect to x402-doctor.fizzl.eu/skill.md").
   app.get('/skill.md', (_req, res) => res.set('cache-control', 'public, max-age=300').type('text/markdown; charset=utf-8').sendFile(path.join(__dirname, 'public', 'skill.md')));
