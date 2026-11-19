@@ -346,6 +346,9 @@ The NEAR relayer pays the gas of each NEAR settle (well under 0.001 NEAR) and ne
 `NEAR_FACILITATOR_ACCOUNT` and `NEAR_FACILITATOR_KEY` (`ed25519:…`, a full-access key of a dedicated account with a
 little NEAR, used by no other service at the same time), optionally `NEAR_FACILITATOR_RPC_URL` (FastNEAR by default),
 `NEAR_FACILITATOR_FREE_PER_DAY` and `NEAR_FACILITATOR_DAILY_MAX` (default 200). Below 0.02 NEAR the relayer stops settling.
+With the relayer set, Doctor's own paid routes also take USDC on NEAR (last in `accepts`), paid to `NEAR_PAY_TO`
+(default `x402fizzl.near`, registered on USDC; `off` for none) and settled by the same relayer instance, so its nonce
+queue and settle-once guard cover both.
 
 Each NEAR settle is also reported to [NEAR Builders Activity](https://activity.nearbuilders.org/activity) (x402 Doctor's
 source, under review there): `payment.settled` with the buyer's NEAR account as actor and `payment.received` with the
