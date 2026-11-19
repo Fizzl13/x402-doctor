@@ -5,6 +5,7 @@ const path = require('path');
 const { buildFixes } = require('./lib/recipes');
 const { createPassVerifier, limitKeyOf } = require('./lib/fizzl-pass');
 const { createFacilitatorService } = require('./lib/facilitator-service');
+const { createNearFacilitator, nearConfig } = require('./lib/near-facilitator');
 const { facilitatorOf, summarizeFacilitator } = require('./lib/facilitator-usage');
 const PAYEE_DELEGATIONS = require('./lib/payee-delegations.json');
 const { x402TrustTxtRoute } = require('./lib/x402-trust-txt');
@@ -283,8 +284,17 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     submit: (url) => submitToTrust(url, { via: 'mcp' }),
     howToList: "Not in the x402 Trust Index yet. Its daily scan checks every resource listed in the CDP Bazaar, Circle's Agent Marketplace, GoPlausible's discovery list, the XRPL AI Hub, nohumans.directory, PayAPI Market, HIVE402 or the MPP directory; your own endpoint can be added with x402_trust_add.",
   };
-  paidApi = createPaidApi({ facilitators: facilitatorBoard, pass: passVerifier, safeFetch, env, trustIndex, feedback, bazaarIndex: bazaar, cdpValidate, outcomes, checkPaymentProof, creditStore, priceCheck, spotResults, deliveryElsewhere, onchainPayments, deliveryStore, ...(deliveryResults ? { deliveryResults } : {}), trust: trustTools, ...(vaultStore !== undefined ? { vaultStore } : {}), ...(passSale ? { passSale } : {}) });
-  const facilitatorService = facilitatorOverride || createFacilitatorService({ env, sanctions: paidApi.sanctions, creditStore: paidApi.creditsStore, publicUrl: env.PUBLIC_URL || 'https://x402-doctor.fizzl.eu' });
+  // Doctor's NEAR relayer (lib/near-facilitator.js), one instance for /facilitator and for Doctor's own paid routes, so
+  // both share one nonce queue and one settle-once guard. A malformed account or key leaves NEAR off with a log line.
+  let nearCore = null;
+  if (!facilitatorOverride) {
+    try {
+      const cfg = nearConfig(env);
+      if (cfg) nearCore = createNearFacilitator(cfg);
+    } catch (err) { console.error(`[facilitator] NEAR facilitator off: ${err.message}`); }
+  }
+  paidApi = createPaidApi({ near: nearCore, facilitators: facilitatorBoard, pass: passVerifier, safeFetch, env, trustIndex, feedback, bazaarIndex: bazaar, cdpValidate, outcomes, checkPaymentProof, creditStore, priceCheck, spotResults, deliveryElsewhere, onchainPayments, deliveryStore, ...(deliveryResults ? { deliveryResults } : {}), trust: trustTools, ...(vaultStore !== undefined ? { vaultStore } : {}), ...(passSale ? { passSale } : {}) });
+  const facilitatorService = facilitatorOverride || createFacilitatorService({ env, nearCore, sanctions: paidApi.sanctions, creditStore: paidApi.creditsStore, publicUrl: env.PUBLIC_URL || 'https://x402-doctor.fizzl.eu' });
   app.facilitator = facilitatorService;
 
   // Doctor's requests reach the app through three proxies (the caller, then two
