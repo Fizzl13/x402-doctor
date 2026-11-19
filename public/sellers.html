@@ -103,13 +103,20 @@
     <p style="margin:0"><a href="https://wallet.fizzl.eu/#/account">Watch my endpoint →</a> <span style="color:var(--text-soft);font-size:13px">(sign in with your wallet, no e-mail)</span></p>
   </div>
 
-  <h2 id="facilitator">A facilitator for Solana that takes Phantom</h2>
+  <h2 id="facilitator">A facilitator for Solana that takes Phantom, and for NEAR</h2>
   <div class="tool" id="solana-facilitator">
     <p>Sell on Solana? Phantom adds Lighthouse safety instructions to every payment it signs, and some facilitators refuse that layout, so those buyers can't pay you. Doctor's facilitator settles them: it simulates the transaction and checks the USDC really reaches your payTo. Before every settle it also screens the payer and your payTo against the OFAC SDN list, so no sanctioned money reaches you through it.</p>
     <ul>
       <li><b>Use it:</b> <code>new HTTPFacilitatorClient({ url: "https://x402-doctor.fizzl.eu/facilitator" })</code> in your x402 resource server. Your Solana option then names our fee payer; the buyer's USDC goes straight to you.</li>
       <li><b>Price:</b> verify is free; settle is free for 20 payments a day per payTo, then $0.001 each from prepaid credits (<a href="/api/v1/credits">1000 for $0.80</a>), sent as <code>x-credit-key</code>. A failed settle costs nothing.</li>
       <li><b>Details</b> and the fee payer's address: <a href="/facilitator">/facilitator</a>.</li>
+    </ul>
+  </div>
+  <div class="tool" id="near-facilitator">
+    <p>Sell for USDC on NEAR? The same URL settles <code>near:mainnet</code> payments. The buyer signs one USDC transfer to your account with the official <code>@x402/near</code> client, and our relayer sends it and pays the NEAR gas, so neither of you needs NEAR. Same OFAC screen before every settle, and each signed payment settles once.</p>
+    <ul>
+      <li><b>Use it:</b> register <code>ExactNearScheme</code> from <code>@x402/near/exact/server</code> for <code>near:mainnet</code> and point <code>HTTPFacilitatorClient</code> at <code>https://x402-doctor.fizzl.eu/facilitator</code>. Your account must be registered on the USDC contract once (<code>storage_deposit</code>, about 0.00125 NEAR).</li>
+      <li><b>Price:</b> settle is free for 5 payments a day per payTo, then $0.002 each (2 credits) from the same prepaid credits. A failed settle costs nothing.</li>
     </ul>
   </div>
 
