@@ -347,6 +347,12 @@ The NEAR relayer pays the gas of each NEAR settle (well under 0.001 NEAR) and ne
 little NEAR, used by no other service at the same time), optionally `NEAR_FACILITATOR_RPC_URL` (FastNEAR by default),
 `NEAR_FACILITATOR_FREE_PER_DAY` and `NEAR_FACILITATOR_DAILY_MAX` (default 200). Below 0.02 NEAR the relayer stops settling.
 
+Each NEAR settle is also reported to [NEAR Builders Activity](https://activity.nearbuilders.org/activity) (x402 Doctor's
+source, under review there): `payment.settled` with the buyer's NEAR account as actor and `payment.received` with the
+payTo's, the transaction and amount as payload (all already public on chain), keyed on the transaction so a retry never
+counts twice (`lib/activity.js`). Off unless `ACTIVITY_API_KEY` (the Source API Key) is set; a report never delays or
+breaks the settle.
+
 ### Learning from outcomes: `POST /api/v1/outcome`
 
 After a paid preflight, a buyer can report (free) what happened when it then paid the endpoint: `paid_ok`, `paid_failed` (402 again) or `paid_error`. [x402-safe-fetch](https://www.npmjs.com/package/x402-safe-fetch) does it with `shareOutcomes: true`.

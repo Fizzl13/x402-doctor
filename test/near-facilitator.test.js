@@ -212,3 +212,17 @@ test('NEAR alone: Solana and other assets are refused; with both, /supported lis
     assert.match(info.fee_payer, /^FeePayer/);
   } finally { both.close(); }
 });
+
+test('a NEAR settle is reported to NEAR Builders Activity after the answer; a refused one is not', async () => {
+  const sent = [];
+  const activity = { nearPaymentSettled: async (e) => { sent.push(e); throw new Error('Activity down'); } };
+  const t = await setup({ activity });
+  try {
+    const pay = await signedPayment(t.rpcUrl);
+    const out = await (await t.s.post('/facilitator/settle', pay)).json();
+    assert.equal(out.success, true, 'a failing report does not break the settle');
+    assert.deepEqual(sent, [{ payer: 'buyer.near', payTo: SELLER, transaction: 'NearTx1', amount: '10000', asset: NEAR_USDC, network: NEAR_MAINNET }]);
+    await (await t.s.post('/facilitator/settle', pay)).json(); // duplicate: refused
+    assert.equal(sent.length, 1);
+  } finally { t.close(); }
+});
