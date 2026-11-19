@@ -3,7 +3,7 @@
 // lib/facilitators.js: the live facilitator status, with a fake fetch (no network).
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createFacilitatorStatus, readSupported } = require('../lib/facilitators');
+const { createFacilitatorStatus, readSupported, FACILITATORS } = require('../lib/facilitators');
 const { createApp } = require('../server.js');
 
 const FACS = [
@@ -87,3 +87,10 @@ test('GET /api/v1/facilitators and /facilitators', async (t) => {
   assert.match(page, /\/api\/v1\/facilitators/);
 });
 
+
+test('NEAR: the v1 names map to near:mainnet / near:testnet, and the board lists the public NEAR facilitators', () => {
+  const s = readSupported({ kinds: [{ x402Version: 1, scheme: 'exact', network: 'near' }, { x402Version: 2, scheme: 'exact', network: 'near:mainnet' }, { x402Version: 1, scheme: 'exact', network: 'near-testnet' }] });
+  assert.deepEqual(s.networks.map((n) => [n.id, n.name, n.testnet]), [['near:mainnet', 'NEAR', false], ['near:testnet', 'NEAR testnet', true]]);
+  const ids = FACILITATORS.map((f) => f.id);
+  for (const id of ['fizzl', 'ultravioleta', 'fastnear']) assert.ok(ids.includes(id), id);
+});
