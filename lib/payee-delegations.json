@@ -98,5 +98,25 @@
    },
    "signature": "0xf09ee91e8d91a159189eaae9418656b09632c0e29e8ade6d1762122579369b4247279b2c1b7307a90529b6150ee92df78ca8887db239968c7b0930b63deba61f1b"
   }
+ },
+ {
+  "network": "near:mainnet",
+  "payTo": "x402fizzl.near",
+  "delegation": {
+   "message": {
+    "chainId": "8453",
+    "registry": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+    "agentId": "97519",
+    "agentWallet": "0x6b0f4651ed42893ab58139938175e4a69f175f25",
+    "network": "near:mainnet",
+    "payTo": "x402fizzl.near",
+    "asset": "17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+    "origin": "https://x402-doctor.fizzl.eu",
+    "validAfter": "1795094001",
+    "validUntil": "1826629941",
+    "nonce": "0x344f8875d9de29718e346b8aaa2d8f5b3c179e4917b8631b618120b16ff36ae4"
+   },
+   "signature": "0xfc5c3a8e0f4fbb7a7e94c7d58ada1a805770f2729799b7a87ed8fa1713e9f2056bff0e7ab4b9092bc903239c86a267c37618522dec45bbd6db21fce036a3adb51b"
+  }
  }
 ]
