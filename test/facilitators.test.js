@@ -90,7 +90,7 @@ test('GET /api/v1/facilitators and /facilitators', async (t) => {
 
 test('NEAR: the v1 names map to near:mainnet / near:testnet, and the board lists the public NEAR facilitators', () => {
   const s = readSupported({ kinds: [{ x402Version: 1, scheme: 'exact', network: 'near' }, { x402Version: 2, scheme: 'exact', network: 'near:mainnet' }, { x402Version: 1, scheme: 'exact', network: 'near-testnet' }] });
-  assert.deepEqual(s.networks.map((n) => [n.id, n.name, n.testnet]), [['near:mainnet', 'NEAR', false], ['near:testnet', 'NEAR testnet', true]]);
+  assert.deepEqual(s.networks.map((n) => [n.id, n.name, n.testnet]), [['near:mainnet', 'NEAR', false], ['near:testnet', 'NEAR Testnet', true]]);
   const ids = FACILITATORS.map((f) => f.id);
   for (const id of ['fizzl', 'ultravioleta', 'fastnear']) assert.ok(ids.includes(id), id);
 });
