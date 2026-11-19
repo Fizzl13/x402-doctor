@@ -196,3 +196,21 @@ test('server.js: /facilitator is mounted, big bodies pass, /api/health reports i
     assert.equal(entry.input.pay_to, PAY_TO);
   } finally { server.close(); }
 });
+
+test('GET /facilitator: a browser gets a readable page, agents and curl keep the JSON', async () => {
+  const svc = createFacilitatorService({ env: {}, sanctions: sanctions() });
+  const s = await serve(svc);
+  try {
+    const html = await fetch(`${s.url}/facilitator`, { headers: { accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' } });
+    assert.match(html.headers.get('content-type'), /text\/html/);
+    const page = await html.text();
+    assert.match(page, /<h1>An x402 facilitator for USDC on Solana and NEAR<\/h1>/);
+    assert.match(page, /switched off here/, 'the page says when it is off');
+    assert.doesNotMatch(page, /<script/, 'no script on the page');
+    for (const accept of ['*/*', 'application/json', '']) {
+      const r = await fetch(`${s.url}/facilitator`, { headers: accept ? { accept } : {} });
+      assert.match(r.headers.get('content-type'), /application\/json/, `accept "${accept}"`);
+      assert.equal((await r.json()).enabled, false);
+    }
+  } finally { s.close(); }
+});
