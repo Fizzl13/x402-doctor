@@ -67,3 +67,46 @@ test('preflight: a NEAR-only seller is priced in USDC, not an unknown network or
   const codes = r.reasons.map((x) => x.code);
   for (const bad of ['unknown_network', 'unknown_asset', 'testnet_only']) assert.ok(!codes.includes(bad), JSON.stringify(r.reasons));
 });
+
+// near-payout-registered (checkNear): read-only view calls against a stand-in RPC.
+const { checkNear } = require('../lib/diagnose');
+const { buildFixes } = require('../lib/recipes');
+function nearRpc({ exists = true, registered = true, down = false } = {}) {
+  const calls = [];
+  const fetchImpl = async (_url, { body }) => {
+    const { params } = JSON.parse(body);
+    calls.push(params.request_type);
+    if (down) throw new Error('offline');
+    if (params.request_type === 'view_account') {
+      return { ok: true, json: async () => (exists ? { result: { amount: '1' } } : { error: { cause: { name: 'UNKNOWN_ACCOUNT' }, message: 'Server error' } }) };
+    }
+    return { ok: true, json: async () => ({ result: { result: [...Buffer.from(JSON.stringify(registered ? { total: '1250000000000000000000', available: '0' } : null))] } }) };
+  };
+  return { calls, fetchImpl };
+}
+const run = async (accept, rpc) => { const checks = []; await checkNear([accept], checks, { fetchImpl: rpc.fetchImpl, cache: false }); return checks.find((c) => c.id === 'near-payout-registered'); };
+
+test('near-payout-registered: registered passes, unregistered and missing accounts fail with a fix, RPC down is info', async () => {
+  assert.equal((await run(near(), nearRpc())).status, 'pass');
+  const unreg = await run(near(), nearRpc({ registered: false }));
+  assert.equal(unreg.status, 'fail');
+  assert.match(unreg.message, /not registered on USDC/);
+  const missing = await run(near(), nearRpc({ exists: false }));
+  assert.equal(missing.status, 'fail');
+  assert.match(missing.message, /does not exist/);
+  assert.equal((await run(near(), nearRpc({ down: true }))).status, 'info');
+  const fixes = buildFixes({ url: 'https://x.test/p', challenge: { accepts: [near()] }, checks: [unreg] });
+  const fix = fixes.fixes.find((f) => f.recipe === 'near-registered');
+  assert.ok(fix, JSON.stringify(fixes).slice(0, 300));
+  assert.match(JSON.stringify(fix.code), /storage_deposit/);
+});
+
+test('near-payout-registered: an implicit payTo skips the account lookup; other networks are not asked', async () => {
+  const rpc = nearRpc();
+  assert.equal((await run(near({ payTo: USDC.replace(/^1/, '2') }), rpc)).status, 'pass');
+  assert.deepEqual(rpc.calls, ['call_function']);
+  const none = nearRpc();
+  const checks = [];
+  await checkNear([{ network: 'eip155:8453', asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', payTo: '0x6B0F4651eD42893ab58139938175E4a69f175F25', amount: '10000' }], checks, { fetchImpl: none.fetchImpl, cache: false });
+  assert.equal(none.calls.length, 0);
+});
