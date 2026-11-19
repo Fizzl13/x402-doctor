@@ -1,0 +1,39 @@
+{
+  "id": "ukecdzngum",
+  "url": "https://rest.coincap.io/v3/agentFriendly/full_assets_by_slug",
+  "queued_at": "2026-11-19T15:38:37.248Z",
+  "date": "2026-11-19T15:39:51.972Z",
+  "result": "delivered",
+  "step": "paid",
+  "paid_and_delivered": true,
+  "status": 200,
+  "price_usd": 0.002,
+  "charged_usd": 0.002,
+  "request": {
+    "method": "GET",
+    "source": "example"
+  },
+  "answer": {
+    "delivered": {
+      "verdict": "yes",
+      "p": 0.91,
+      "decidedBy": "jev"
+    },
+    "injection": {
+      "flagged": false,
+      "p": 0.01,
+      "decidedBy": "jev"
+    }
+  },
+  "cache": {
+    "cache_control": "public, max-age=30",
+    "shared_cache": "yes"
+  },
+  "preflight": {
+    "verdict": "go",
+    "codes": []
+  },
+  "transaction": "0xbcfce9875b0fe9935e3a313331722717e5ff2fb12907fd8b2940937ab5d218d4",
+  "explorer": "https://basescan.org/tx/0xbcfce9875b0fe9935e3a313331722717e5ff2fb12907fd8b2940937ab5d218d4",
+  "cap_usd": 0.1
+}
