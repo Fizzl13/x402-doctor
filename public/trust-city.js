@@ -258,6 +258,61 @@
     ground.position.y = -0.001;
     scene.add(ground);
 
+    // ---------------------------------------------------------------- the Fizzl Agent Wallet gate at the edge of the city
+    // A gate where an agent enters the city to buy. Its arcs of light run only to sellers whose endpoints are all go
+    // in today's scan: a careful agent pays there after a check, and never to a red tower however close it stands.
+    // Drawn from today's verdicts only: no payments, no customers.
+    // Just outside the towers (they fill a disc of about sqrt(N/pi) cells), to the left of the opening view.
+    const GATE_R = Math.sqrt(N / Math.PI) + 3, gateAng = Math.atan2(0.46, -0.36) + 2.2, GS = 1.8;
+    const gx = Math.cos(gateAng) * GATE_R, gz = Math.sin(gateAng) * GATE_R;
+    const gate = new THREE.Group();
+    const gateMat = new THREE.MeshBasicMaterial({ color: "#61f5c3", fog: true });
+    const gateDark = new THREE.MeshBasicMaterial({ color: "#0b2a24", fog: true });
+    const part = (w, hh, d, x, y, mat) => { const mm = new THREE.Mesh(box, mat); mm.scale.set(w, hh, d); mm.position.set(x, y, 0); gate.add(mm); return mm; };
+    part(0.34, 3.2, 0.34, -1.2, 0, gateDark); part(0.34, 3.2, 0.34, 1.2, 0, gateDark);         // pillars
+    part(0.08, 3.2, 0.36, -1.0, 0, gateMat); part(0.08, 3.2, 0.36, 1.0, 0, gateMat);           // lit inner edges
+    part(2.9, 0.34, 0.4, 0, 3.2, gateDark); part(2.6, 0.07, 0.42, 0, 3.12, gateMat);           // lintel and its light
+    part(3.4, 0.06, 1.4, 0, 0, gateDark);                                                       // threshold
+    gate.position.set(gx, 0, gz);
+    gate.scale.setScalar(GS);
+    gate.lookAt(0, 0, 0);
+    scene.add(gate);
+    const gateTop = new THREE.Vector3(gx, 3.3 * GS, gz);
+    const gateGlow = points([[gx, 3.4 * GS, gz, 1.8]], "#61f5c3", 900, "0.75 + 0.25 * sin(uTime * 1.6)");
+    glows.push(gateGlow);
+
+    const allGo = order.filter((si) => sc[si * 4] > 0 && !sc[si * 4 + 1] && !sc[si * 4 + 2] && !sc[si * 4 + 3]);
+    const ARCS = Math.min(28, allGo.length);
+    const arcCurves = [];
+    const arcMat = new THREE.LineBasicMaterial({ color: "#61f5c3", transparent: true, opacity: 0.32, blending: THREE.AdditiveBlending, depthWrite: false });
+    for (const si of allGo.slice(0, ARCS)) {
+      const [x, z, h] = top.get(si);
+      const end = new THREE.Vector3(x, h + 0.08, z);
+      const mid = gateTop.clone().lerp(end, 0.5); mid.y = Math.max(gateTop.y, end.y) + 1.5 + gateTop.distanceTo(end) * 0.16;
+      const curve = new THREE.QuadraticBezierCurve3(gateTop, mid, end);
+      arcCurves.push(curve);
+      scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(curve.getPoints(40)), arcMat));
+    }
+    // A spark runs along each arc, from the gate to the tower.
+    const sparkGeo = new THREE.BufferGeometry();
+    const sparkPos = new Float32Array(Math.max(1, ARCS) * 3), sparkSize = new Float32Array(Math.max(1, ARCS)).fill(380), sparkPh = new Float32Array(Math.max(1, ARCS));
+    sparkPh.forEach((_, i) => { sparkPh[i] = rnd(); });
+    sparkGeo.setAttribute("position", new THREE.BufferAttribute(sparkPos, 3));
+    sparkGeo.setAttribute("aSize", new THREE.BufferAttribute(sparkSize, 1));
+    sparkGeo.setAttribute("aPhase", new THREE.BufferAttribute(new Float32Array(Math.max(1, ARCS)), 1));
+    const sparkMat = glowMat("1.0");
+    sparkMat.uniforms.color = { value: new THREE.Color("#b8ffe8") };
+    const sparks = new THREE.Points(sparkGeo, sparkMat);
+    sparks.frustumCulled = false;
+    if (ARCS) scene.add(sparks);
+    glows.push(sparkMat);
+    const sp = new THREE.Vector3();
+    function moveSparks(t) {
+      arcCurves.forEach((c, i) => { c.getPoint((t * 0.22 + sparkPh[i]) % 1, sp); sparkPos.set([sp.x, sp.y, sp.z], i * 3); });
+      sparkGeo.attributes.position.needsUpdate = true;
+    }
+    moveSparks(0.35);
+
     // ---------------------------------------------------------------- labels for the tallest towers and fizzl.eu
     const labelsEl = $("labels");
     const labels = [];
@@ -271,6 +326,12 @@
       labelsEl.appendChild(el);
       labels[si === HOME ? "unshift" : "push"]({ el, p: new THREE.Vector3(x, h + 0.55, z) });
     }
+    {
+      const el = Object.assign(document.createElement("button"), { type: "button", className: "label gate", textContent: "Fizzl Agent Wallet" });
+      el.addEventListener("click", () => openGate(true));
+      labelsEl.appendChild(el);
+      labels.unshift({ el, p: new THREE.Vector3(gx, 3.9 * GS, gz) });
+    }
 
     // ---------------------------------------------------------------- picking, card, search
     const ray = new THREE.Raycaster(), mouse = new THREE.Vector2(), tip = $("tip");
@@ -279,15 +340,26 @@
       const r = canvas.getBoundingClientRect();
       mouse.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
       ray.setFromCamera(mouse, camera);
+      if (ray.intersectObject(gate, true).length) return GATE;
       const hit = ray.intersectObject(towers, false)[0];
       return hit && hit.instanceId !== undefined ? segSeller[hit.instanceId] : -1;
     }
+    const GATE = -2;
     const counts = (si) => [0, 1, 2, 3].map((k) => sc[si * 4 + k]);
     canvas.addEventListener("pointermove", (ev) => {
       if (ev.pointerType !== "mouse") return;
       const si = pick(ev);
-      hoverSeller = si;
-      towerMat.uniforms.uHi.value = selected >= 0 ? selected : si;
+      hoverSeller = si < 0 ? -1 : si;
+      towerMat.uniforms.uHi.value = selected >= 0 ? selected : hoverSeller;
+      if (si === GATE) {
+        canvas.style.cursor = "pointer";
+        tip.textContent = `Fizzl Agent Wallet · its arcs go only to the ${fmt(allGo.length)} sellers that are all go today`;
+        const r = stage.getBoundingClientRect();
+        tip.style.left = Math.min(ev.clientX - r.left + 14, r.width - 280) + "px";
+        tip.style.top = ev.clientY - r.top + 14 + "px";
+        tip.hidden = false;
+        return;
+      }
       if (si < 0) { tip.hidden = true; canvas.style.cursor = ""; return; }
       canvas.style.cursor = "pointer";
       const [g, c, n] = counts(si);
@@ -303,7 +375,7 @@
     canvas.addEventListener("pointerup", (ev) => {
       if (!down || Math.hypot(ev.clientX - down[0], ev.clientY - down[1]) > 6) return;
       const si = pick(ev);
-      if (si >= 0) select(si, false); else closeCard();
+      if (si === GATE) openGate(false); else if (si >= 0) select(si, false); else closeCard();
     });
 
     const card = $("card");
@@ -317,6 +389,7 @@
       $("cMeta").textContent = `${cat ? cat.name : "Other"} · ${fmt(total(si))} endpoint${total(si) === 1 ? "" : "s"} · ${dayName}`;
       $("cGo").textContent = fmt(g); $("cCa").textContent = fmt(c); $("cNo").textContent = fmt(n); $("cUn").textContent = fmt(u);
       $("cEps").replaceChildren(); $("cNote").textContent = ""; $("cEpsBtn").hidden = false;
+      countsEl.hidden = false; $("cGate").hidden = true;
       card.hidden = false;
       controls.autoRotate = false;
       if (flyTo) {
@@ -325,6 +398,23 @@
         const dir = camera.position.clone().sub(controls.target).normalize();
         const dist = Math.max(6, h * 1.6 + 4);
         fly = { t: 0, fromT: controls.target.clone(), toT: to, fromP: camera.position.clone(), toP: to.clone().add(dir.multiplyScalar(dist)) };
+      }
+    }
+    const countsEl = card.querySelector(".counts");
+    function openGate(flyTo) {
+      selected = -1;
+      towerMat.uniforms.uHi.value = -1;
+      $("cHost").textContent = "Fizzl Agent Wallet";
+      $("cMeta").textContent = `The way in for an agent that buys · ${dayName}`;
+      countsEl.hidden = true; $("cEpsBtn").hidden = true; $("cEps").replaceChildren(); $("cNote").textContent = "";
+      $("cGateCount").textContent = fmt(allGo.length);
+      $("cGate").hidden = false;
+      card.hidden = false;
+      controls.autoRotate = false;
+      if (flyTo) {
+        const to = new THREE.Vector3(gx * 0.7, 3, gz * 0.7);
+        const dir = camera.position.clone().sub(controls.target).normalize();
+        fly = { t: 0, fromT: controls.target.clone(), toT: to, fromP: camera.position.clone(), toP: to.clone().add(dir.multiplyScalar(side * 0.42)) };
       }
     }
     function closeCard() { card.hidden = true; selected = -1; towerMat.uniforms.uHi.value = hoverSeller; }
@@ -376,7 +466,7 @@
       requestAnimationFrame(frame);
       if (!visible || document.hidden) { clock.getDelta(); return; }
       const dt = Math.min(clock.getDelta(), 0.1);
-      if (!reduced) time.value += dt;
+      if (!reduced) { time.value += dt; if (ARCS) moveSparks(time.value); }
       if (fly) {
         fly.t = Math.min(1, fly.t + dt / 1.4);
         const e = fly.t < 0.5 ? 2 * fly.t * fly.t : 1 - Math.pow(-2 * fly.t + 2, 2) / 2;
