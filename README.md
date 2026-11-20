@@ -502,6 +502,12 @@ Space waits in `hf-mcp/`. Doctor's own MCP server is `https://x402-doctor.fizzl.
   `sources`) and an `info` line (`delivered_elsewhere`) for such an endpoint, `GET /api/trust?url=…` adds
   `delivered_elsewhere`, and the web check and `/trust` show it (`lib/delivery-elsewhere.js`). It is information next
   to the read-only check, never the verdict.
+  Since 19 Nov 2026 nohumans.directory marks each failed purchase with a `failure_kind`
+  ([methodology](https://nohumans.directory/methodology#failure-kind-1119)); when a listing's latest purchase failed,
+  the plan reads that listing's record and keeps the split: `any_buyer` (paid, and nothing usable came back whatever
+  was asked) adds `failed_elsewhere`, `quality` (an answer came, but stale or not the declared shape) adds
+  `answer_off_elsewhere`, and `request_dependent` (their own request was refused or answered in a form the seller did
+  not declare, so another buyer's request may well work) adds `request_failed_elsewhere`. All three are `info`.
   A third source, OpenClawProductions' delivery grades, is read straight from their feed once `OPENCLAW_GRADES_URL` is
   set (`{ "grades": [{ "url", "date", "delivered": true|false, "reason"?, "report"? }] }`, the latest per endpoint).
   It also has failed purchases (paid, and no usable answer): those add an `info` line `failed_elsewhere` with the

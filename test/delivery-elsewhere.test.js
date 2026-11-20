@@ -39,6 +39,39 @@ test('loadNohumansCatalog: with evidence, the listings bought and delivered by k
   assert.deepEqual(await loadNohumansCatalog({ sleep: async () => {}, fetchImpl: async () => Response.json({ next_offset: null, results }) }), list);
 });
 
+test('loadNohumansCatalog: a failed latest purchase replaces the entry with its failure_kind from the listing record', async () => {
+  const results = [
+    { id: 'any-1', endpoint_url: 'https://a.example/v1/x', status: 'verified', paid_verified: true, paid_verified_at: 1791676800, latest_purchase_delivered: false, latest_purchase_at: 1794900597 },
+    { id: 'req-2', endpoint_url: 'https://b.example/v1/y', status: 'verified', paid_verified: false, latest_purchase_delivered: false, latest_purchase_at: 1794900597 },
+    { id: 'qua-3', endpoint_url: 'https://c.example/v1/z', status: 'failing', paid_verified: false, latest_purchase_delivered: false, latest_purchase_at: 1794900597 },
+    { id: 'unk-4', endpoint_url: 'https://d.example/v1/w', status: 'verified', paid_verified: true, paid_verified_at: 1791676800, latest_purchase_delivered: false, latest_purchase_at: 1794900597 },
+    { id: 'down-5', endpoint_url: 'https://e.example/v1/v', status: 'verified', paid_verified: false, latest_purchase_delivered: false, latest_purchase_at: 1794900597 },
+    { id: 'ok-6', endpoint_url: 'https://f.example/v1/u', status: 'verified', paid_verified: true, paid_verified_at: 1791676800, latest_purchase_delivered: true, latest_purchase_at: 1794900597 },
+  ];
+  const records = {
+    'any-1': { paid_verification_latest: { failure_kind: 'any_buyer', failure_reason: 'second_402' } },
+    'req-2': { paid_verification_latest: { failure_kind: 'request_dependent', failure_reason: 'missing_params' } },
+    'qua-3': { paid_verification_latest: { failure_kind: 'quality', failure_reason: 'stale_data' } },
+    'unk-4': { paid_verification_latest: { failure_kind: 'something_new' } },
+  };
+  const asked = [];
+  const evidence = new Map();
+  await loadNohumansCatalog({ evidence, sleep: async () => {}, fetchImpl: async (u) => {
+    const id = decodeURIComponent(new URL(u).pathname.split('/').pop());
+    if (id === 'listings') return Response.json({ next_offset: null, results });
+    asked.push(id);
+    return records[id] ? Response.json(records[id]) : new Response('no', { status: 500 });
+  } });
+  assert.deepEqual(asked, ['any-1', 'req-2', 'qua-3', 'unk-4', 'down-5'], 'only the listings whose latest purchase failed');
+  assert.deepEqual(Object.fromEntries(evidence), {
+    [keyOf('https://a.example/v1/x')]: ['2026-11-17', 'failed', 'any-1', 'nothing usable came back, whatever was asked: second 402'],
+    [keyOf('https://b.example/v1/y')]: ['2026-11-17', 'request_dependent', 'req-2', 'their own request was refused or answered in a form the seller did not declare: missing params'],
+    [keyOf('https://c.example/v1/z')]: ['2026-11-17', 'quality', 'qua-3', 'stale data'],
+    [keyOf('https://d.example/v1/w')]: ['2026-10-11', 'verified', 'unk-4'],
+    [keyOf('https://f.example/v1/u')]: ['2026-10-11', 'verified', 'ok-6'],
+  });
+});
+
 test('loadPayApiCatalog: with evidence, the routes it paid and got product from, as [day, verified, listing page]; the latest payment wins', async () => {
   const results = [
     { base_url: 'https://lint.example/lint/one', marketplace_url: 'https://payapi.market/api/lint', verified_routes: [{ route: '/lint/one', method: 'POST', verified_at: '2026-09-03T09:15:37+00:00', receipt_url: 'https://basescan.org/tx/0x1' }] },
@@ -140,6 +173,16 @@ test('preflight: a grader paid and got no usable answer is an info line next to 
   const seen = await preflight(url, { safeFetch, delivery: { forUrl: async () => ({ ...failed, sources: [failed, payapi] }) } });
   assert.equal(seen.verdict, 'go');
   assert.equal(seen.reasons.find((r) => r.code === 'failed_elsewhere').message, 'Bought with real USDC, and no usable answer came: OpenClaw on 2026-10-31 (GET returned only a usage note).');
+  // nohumans.directory's request_dependent purchase: its own line, not "no usable answer", and not "delivered" either.
+  const req = { source: 'nohumans.directory', paid_on: '2026-11-17', status: 'request_dependent', reason: 'their own request was refused or answered in a form the seller did not declare: missing params', listing: 'https://nohumans.directory/l/req-2' };
+  const own = await preflight(url, { safeFetch, delivery: { forUrl: async () => ({ ...req, sources: [req] }) } });
+  assert.equal(own.verdict, 'go');
+  assert.ok(!own.reasons.some((r) => r.code === 'failed_elsewhere' || r.code === 'delivered_elsewhere'));
+  const q = { source: 'nohumans.directory', paid_on: '2026-11-17', status: 'quality', reason: 'stale data', listing: null };
+  const stale = await preflight(url, { safeFetch, delivery: { forUrl: async () => ({ ...q, sources: [q] }) } });
+  assert.ok(!stale.reasons.some((r) => r.code === 'failed_elsewhere' || r.code === 'delivered_elsewhere'));
+  assert.equal(stale.reasons.find((r) => r.code === 'answer_off_elsewhere').message, 'Bought with real USDC, and an answer came, but not as promised: nohumans.directory on 2026-11-17 (stale data).');
+  assert.equal(own.reasons.find((r) => r.code === 'request_failed_elsewhere').message, "Bought with real USDC, and that buyer's own request failed: nohumans.directory on 2026-11-17 (their own request was refused or answered in a form the seller did not declare: missing params). A request in the shape the seller declares may well work.");
   assert.equal(seen.reasons.find((r) => r.code === 'delivered_elsewhere').message, 'Bought with real USDC, and the answer came: PayAPI Market on 2026-10-20.');
   const onlyFailed = await preflight(url, { safeFetch, delivery: { forUrl: async () => ({ ...failed, sources: [failed] }) } });
   assert.ok(!onlyFailed.reasons.some((r) => r.code === 'delivered_elsewhere'));
