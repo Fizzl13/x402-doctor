@@ -661,6 +661,8 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   };
   const scanCount = onceper('count', () => countFill(trustIndex.summary()));
   app.get('/trust', page('trust.html', '/trust', liveTrust, onceper('trust', () => { const summary = trustIndex.summary(); return [...trustFill(summary), ...countFill(summary)]; })));
+  // The Trust Index as a 3D city, built in the browser from /api/trust/atlas (public/trust-city.js).
+  app.get(['/trust/city', '/city'], page('trust-city.html', '/trust/city'));
   const llmsFile = path.join(__dirname, 'public', 'llms.txt');
   let llmsText = null;
   pagesWithCount.home = page('index.html', '/', undefined, scanCount);
