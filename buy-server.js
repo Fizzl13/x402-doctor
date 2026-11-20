@@ -546,6 +546,8 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
       { url: `${publicUrl}/openapi.json`, protocolBinding: 'https://www.x402.org/', protocolVersion: '1.0' },
     ],
   }));
+  // The 3D cart for the page hero (rendered in Blender).
+  app.get('/hero.webp', (_req, res) => res.set('cache-control', 'public, max-age=604800').sendFile(path.join(__dirname, 'public-buy', 'hero.webp')));
   // Fizzl Buy's icon (a shopping cart, in the style of the other Fizzl agents; source scripts/buy-icon.html).
   app.get('/icon.png', (_req, res) => res.set('cache-control', 'public, max-age=86400').sendFile(path.join(__dirname, 'public-buy', 'icon.png')));
   app.get('/favicon.ico', (_req, res) => res.set('cache-control', 'public, max-age=86400').type('image/png').sendFile(path.join(__dirname, 'public-buy', 'favicon.png')));
