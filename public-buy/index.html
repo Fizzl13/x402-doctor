@@ -25,6 +25,8 @@
   body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.55 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
   main { max-width: 760px; margin: 0 auto; padding: 32px 16px 56px; }
   h1 { font-size: 30px; line-height: 1.2; margin: 0 0 12px; }
+  .hero-icon { float: right; width: 128px; height: 128px; margin: -10px -10px 6px 16px; filter: drop-shadow(0 14px 24px rgba(97, 245, 195, .16)); }
+  @media (max-width: 640px) { .hero-icon { width: 84px; height: 84px; margin: -4px -4px 2px 10px; } }
   h2 { font-size: 19px; margin: 32px 0 10px; }
   p, li { color: var(--muted); }
   b, strong { color: var(--text); }
@@ -40,6 +42,7 @@
 <body>
 <main>
   <p class="toplink"><a href="https://forge.fizzl.eu/" title="x402 Forge: ready-made x402 tools for AI agents, or one built to order">x402 Forge ↗</a></p>
+  <img class="hero-icon" src="/hero.webp" width="128" height="128" alt="" decoding="async" fetchpriority="low">
   <h1>Fizzl Buy: one call buys the right paid API for your agent</h1>
   <p>Say what your agent needs. Fizzl picks the paid x402 API that <a href="https://x402-doctor.fizzl.eu/trust">x402 Doctor</a> has seen paying out day after day at a fair price, fills in its input, buys it and returns the answer, checked by TypeSafe Jev, with a signed receipt.</p>
   <div class="card"><b>Price:</b> <span class="price">$0.02</span> a purchase over x402 ({{networks}}), for services up to $0.01. <b>Nothing is charged when no service delivers.</b></div>
