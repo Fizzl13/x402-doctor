@@ -22,7 +22,7 @@
 const fs = require('fs');
 const path = require('path');
 const { createSafeFetch } = require('../lib/safe-fetch');
-const { loadCatalog, loadMppCatalog, loadGoPlausibleCatalog, loadCircleCatalog, loadNohumansCatalog, loadPayApiCatalog, loadHive402Catalog, loadXrplHub, loadSubmissions, submittedResources, scan, mergeIndex, outageOf, summarize, shareOf, hostOf } = require('../lib/trust-scan');
+const { loadCatalog, loadMppCatalog, loadGoPlausibleCatalog, loadCircleCatalog, loadNohumansCatalog, loadPayApiCatalog, loadHive402Catalog, loadXrplHub, loadSubmissions, submittedResources, scan, mergeIndex, outageOf, summarize, shareOf, hostOf, withoutRetired } = require('../lib/trust-scan');
 const { mergePayTos } = require('../lib/onchain-payments');
 const { mergeSolanaPayTos } = require('../lib/onchain-payments-solana');
 const { mergeXrplPayTos } = require('../lib/onchain-payments-xrpl');
@@ -96,11 +96,14 @@ async function plan({ out, limit }) {
   const hiveOnly = hive.filter((r) => !had.has(r.key));
   console.log(`HIVE402: ${hive.length} endpoints, ${hiveOnly.length} new`);
   resources = [...resources, ...hiveOnly];
+  const listedAll = resources.length;
+  resources = withoutRetired(resources);
+  if (resources.length < listedAll) console.log(`left out: ${listedAll - resources.length} endpoints of our own retired services`);
   if (limit > 0) resources = resources.slice(0, limit);
   // Added by their sellers: yesterday's plus the new submissions, without what a registry lists by now.
   const submissions = await loadSubmissions({ ...(process.env.TRUST_SUBMISSIONS_URL ? { url: process.env.TRUST_SUBMISSIONS_URL } : {}) })
     .catch((err) => (console.warn(`submissions: ${err.message}`), []));
-  const added = submittedResources(previousSubmitted, submissions, new Set(resources.map((r) => r.key)));
+  const added = withoutRetired(submittedResources(previousSubmitted, submissions, new Set(resources.map((r) => r.key))));
   console.log(`added by sellers: ${submissions.length} submissions, ${added.length} to scan`);
   return { date: new Date().toISOString().slice(0, 10), resources, added, hub_merchants: hub.merchants, hub_names: hub.names || {}, delivery_nohumans: Object.fromEntries(evidence), delivery_payapi: Object.fromEntries(paidOnce) };
 }
