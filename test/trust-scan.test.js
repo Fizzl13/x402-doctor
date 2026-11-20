@@ -862,3 +862,14 @@ test('trust index: falls back to index.ndjson, then index.json, while the parts 
   await ti.refresh();
   assert.equal(asked[0], 'index.json', 'within 6 hours: straight to index.json');
 });
+
+test('our own retired services are left out of the scan', () => {
+  const { withoutRetired } = require('../lib/trust-scan');
+  const rows = [
+    { key: 'a', url: 'https://plaintext.fizzl.eu/api/explain' },
+    { key: 'b', url: 'https://PLAINTEXT.fizzl.eu/api/check-wallet' },
+    { key: 'c', url: 'https://x402-doctor.fizzl.eu/api/v1/preflight' },
+    { key: 'd', url: 'https://other.example/api', probe: 'https://other.example/api?x=1' },
+  ];
+  assert.deepEqual(withoutRetired(rows).map((r) => r.key), ['c', 'd']);
+});
