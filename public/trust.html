@@ -66,6 +66,11 @@
   a { color: var(--accent); }
   .snippet { display: block; margin-top: 6px; padding: 8px 10px; border-radius: 6px; background: var(--bg); border: 1px solid var(--line); font-size: 12px; overflow-wrap: anywhere; user-select: all; }
   footer { margin-top: 40px; color: var(--text-soft); font-size: 12.5px; }
+  .city-link { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 14px; align-items: center; margin: 14px 0 4px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--text); text-decoration: none; }
+  .city-link img { width: 100%; height: auto; border-radius: 6px; display: block; }
+  .city-link b { display: block; color: var(--accent); }
+  .city-link span { font-size: 13.5px; color: var(--text-soft); }
+  @media (max-width: 520px) { .city-link { grid-template-columns: 1fr; } }
 </style>
 <style>.by-fizzl{margin:28px 0 0;font-size:12.5px;line-height:1}.by-fizzl a{display:inline-flex;align-items:center;gap:6px;color:inherit;opacity:.75;text-decoration:none}.by-fizzl a:hover,.by-fizzl a:focus-visible{opacity:1}.by-fizzl svg{height:20px;width:auto;display:block}.by-fizzl .b{fill:#61f5c3}@media (prefers-color-scheme: light){.by-fizzl .b{fill:#0b7a57}}  .cats { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 0; padding: 0; list-style: none; }
   .cats li { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; font-size: 13px; }
@@ -143,6 +148,7 @@
   <h1>x402 Trust Index</h1>
   <p class="sub">Once a day, x402 Doctor checks every resource listed in the CDP Bazaar, Circle's Agent Marketplace, GoPlausible's discovery list, the XRPL AI Hub and <a href="https://nohumans.directory">nohumans.directory</a>'s catalogue (CC BY 4.0) <a href="https://payapi.market">PayAPI Market</a> and <a href="https://hive402.scriptmasterlabs.com">HIVE402</a> (x402) and in the MPP directory (Stripe + Tempo) the way a paying agent would, and stops at the 402 challenge. Would a payment settle today, and how often did it over the last 30 days?</p>
   <p class="note">What the numbers show: <a href="https://fizzl.eu/research/x402-health-october-2026/">x402 health report, October 2026</a> (payable share, seller concentration, networks, prices and the most common seller mistakes). Other ways to check an endpoint: <a href="https://fizzl.eu/guides/x402-endpoint-checkers/">x402 endpoint checkers compared</a>. The whole index as an open dataset: <a href="https://huggingface.co/datasets/x402Fizzl/x402-trust-index">x402 Trust Index on Hugging Face</a> (CC BY 4.0, updated daily).</p>
+  <a class="city-link" href="/trust/city"><img src="/media/trust-city-card.webp" width="720" height="405" alt="The Trust Index as a night city: towers lit green, amber and red" loading="lazy" decoding="async"><div><b>See today's scan as a 3D city →</b><span>One tower per seller, as tall as its number of paid endpoints, lit by today's verdicts. Turn it, zoom in, click a tower.</span></div></a>
 
   <h2>Can an AI agent pay?</h2>
   <p class="headline" id="headline" aria-live="polite">Loading today's scan…</p>

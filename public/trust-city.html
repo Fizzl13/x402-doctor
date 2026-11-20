@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>x402 Trust City</title>
+<link rel="canonical" href="https://x402-doctor.fizzl.eu/trust/city">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'%3E%3Crect width='128' height='128' rx='28' fill='%23020708'/%3E%3Cpath d='M30 104V64h14v40M52 104V40h14v64M74 104V54h14v50M96 104V28h14v76' fill='%2361f5c3'/%3E%3C/svg%3E">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="The x402 Trust Index as a 3D city: one tower per seller of paid APIs for AI agents, as tall as its number of paid endpoints, lit by today's verdicts. Red is what a careful agent won't pay.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="fizzl">
+<meta property="og:url" content="https://x402-doctor.fizzl.eu/trust/city">
+<meta property="og:title" content="x402 Trust City">
+<meta property="og:description" content="Every seller of paid APIs for AI agents as a tower, lit by today's x402 Doctor verdicts. Red is what a careful agent won't pay.">
+<meta property="og:image" content="https://x402-doctor.fizzl.eu/media/trust-city-og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="x402 Trust City">
+<meta name="twitter:description" content="Every seller of paid APIs for AI agents as a tower, lit by today's x402 Doctor verdicts.">
+<meta name="twitter:image" content="https://x402-doctor.fizzl.eu/media/trust-city-og.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700&family=Unbounded:wght@500;600;700&display=swap">
+<style>
+  /* A night scene: one dark look on purpose, in light mode too. */
+  :root { --bg: #020708; --panel: rgba(4,18,18,.86); --line: rgba(97,245,195,.18); --text: #f4f8f7; --soft: #a8b5b2;
+    --go: #19c08f; --caution: #ffb627; --nogo: #ff3b30; --none: #5d6f6b; --accent: #61f5c3; --on-accent: #02100c; color-scheme: dark; }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Lexend', system-ui, sans-serif; line-height: 1.55; }
+  a { color: var(--accent); }
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    padding: 14px max(16px, env(safe-area-inset-right, 0px)) 10px max(16px, env(safe-area-inset-left, 0px)); }
+  .top h1 { font-family: 'Unbounded', 'Lexend', sans-serif; font-size: clamp(1.05rem, 3.4vw, 1.45rem); margin: 0; letter-spacing: -.01em; }
+  .top h1 span { color: var(--accent); }
+  .top nav { display: flex; gap: 14px; font-size: 14px; flex-wrap: wrap; }
+  .stage { position: relative; height: min(78vh, 860px); min-height: 440px; overflow: hidden;
+    background: radial-gradient(120% 90% at 50% 100%, #0b3a31 0%, #04191a 38%, #020708 75%); }
+  #city { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  .hud { position: absolute; left: max(12px, env(safe-area-inset-left, 0px)); top: 12px; right: 12px; display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-start; pointer-events: none; }
+  .hud > * { pointer-events: auto; }
+  .stats { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; font-size: 13px; color: var(--soft); max-width: 520px; backdrop-filter: blur(6px); }
+  .stats b { color: var(--text); font-variant-numeric: tabular-nums; font-weight: 600; }
+  .stats .red { color: #ff7a6e; }
+  form.find { display: flex; gap: 6px; margin-left: auto; }
+  form.find input { width: 210px; max-width: 46vw; font: inherit; font-size: 14px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+  form.find button, .btn { font: inherit; font-weight: 600; font-size: 13.5px; background: var(--accent); color: var(--on-accent); border: none; border-radius: 8px; padding: 8px 12px; cursor: pointer; }
+  .legend { position: absolute; left: max(12px, env(safe-area-inset-left, 0px)); bottom: 12px; display: flex; gap: 10px; flex-wrap: wrap; font-size: 12.5px; color: var(--soft);
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; pointer-events: none; max-width: calc(100% - 24px); }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+  .help { position: absolute; right: 12px; bottom: 12px; font-size: 12px; color: var(--soft); pointer-events: none; text-align: right; }
+  .msg { position: absolute; inset: 0; display: grid; place-items: center; color: var(--soft); font-size: 15px; padding: 16px; text-align: center; }
+  .label { position: absolute; left: 0; top: 0; transform: translate(-50%, -100%); font-size: 11.5px; font-weight: 600; color: var(--text); background: rgba(2,7,8,.72);
+    border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; white-space: nowrap; pointer-events: auto; cursor: pointer; }
+  .label.home { color: var(--on-accent); background: var(--accent); }
+  #tip { position: absolute; z-index: 5; pointer-events: none; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 9px; font-size: 12.5px; white-space: nowrap; }
+  .card { position: absolute; right: max(12px, env(safe-area-inset-right, 0px)); top: 64px; width: min(340px, calc(100% - 24px)); max-height: calc(100% - 120px); overflow: auto;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; backdrop-filter: blur(8px); font-size: 13.5px; }
+  .card h2 { font-size: 15px; margin: 0 26px 2px 0; overflow-wrap: anywhere; }
+  .card .meta { color: var(--soft); font-size: 12.5px; margin: 0 0 10px; }
+  .card .x { position: absolute; right: 8px; top: 6px; background: none; border: 0; color: var(--soft); font-size: 20px; cursor: pointer; padding: 2px 6px; }
+  .counts { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 6px; margin-bottom: 10px; }
+  .counts div { border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
+  .counts b { display: block; font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+  .counts span { font-size: 11.5px; color: var(--soft); }
+  .card ul { list-style: none; padding: 0; margin: 8px 0 0; }
+  .card li { display: flex; gap: 8px; align-items: baseline; margin: 4px 0; min-width: 0; }
+  .card li a { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; font-size: 12.5px; }
+  .card li i { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .v-go { background: var(--go); } .v-caution { background: var(--caution); } .v-no_go { background: var(--nogo); } .v-unreachable, .v-not_scanned { background: var(--none); }
+  .card .note { color: var(--soft); font-size: 12px; margin: 8px 0 0; }
+  main { max-width: 760px; margin: 0 auto; padding: 28px max(16px, env(safe-area-inset-right, 0px)) 64px max(16px, env(safe-area-inset-left, 0px)); }
+  main h2 { font-size: .8rem; letter-spacing: .06em; text-transform: uppercase; color: var(--soft); margin: 28px 0 8px; }
+  main p, main li { color: #d6e0dd; }
+  footer { margin-top: 36px; color: var(--soft); font-size: 12.5px; }
+  @media (max-width: 640px) {
+    .stage { height: 72vh; }
+    form.find { margin-left: 0; width: 100%; } form.find input { flex: 1; width: auto; max-width: none; }
+    .card { top: auto; bottom: 52px; max-height: 52%; }
+    .help { display: none; }
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>x402 Trust <span>City</span></h1>
+  <nav><a href="/trust">Trust Index</a><a href="https://atlas.fizzl.eu">Atlas</a><a href="/">Check an endpoint</a></nav>
+</header>
+<section class="stage" id="stage" aria-label="3D city of x402 sellers">
+  <canvas id="city" aria-hidden="true"></canvas>
+  <div id="labels" aria-hidden="true"></div>
+  <div id="tip" hidden></div>
+  <div class="msg" id="msg">Building the city from today's scan…</div>
+  <div class="hud">
+    <div class="stats" id="stats" aria-live="polite">Loading today's scan…</div>
+    <form class="find" id="find" role="search">
+      <input id="q" type="search" placeholder="Find a seller, e.g. fizzl.eu" aria-label="Find a seller by domain" autocomplete="off">
+      <button type="submit">Find</button>
+    </form>
+  </div>
+  <div class="legend" aria-hidden="true"><span><i style="background:var(--go)"></i>go</span><span><i style="background:var(--caution)"></i>caution</span><span><i style="background:var(--nogo)"></i>don't pay</span><span><i style="background:var(--none)"></i>unreachable</span></div>
+  <div class="help">Drag to turn · scroll or pinch to zoom · click a tower</div>
+  <div class="card" id="card" hidden>
+    <button class="x" id="cardClose" type="button" aria-label="Close">×</button>
+    <h2 id="cHost"></h2>
+    <p class="meta" id="cMeta"></p>
+    <div class="counts">
+      <div><b id="cGo"></b><span>go</span></div><div><b id="cCa"></b><span>caution</span></div>
+      <div><b id="cNo"></b><span>don't pay</span></div><div><b id="cUn"></b><span>unreachable</span></div>
+    </div>
+    <button class="btn" id="cEpsBtn" type="button">Show its endpoints</button>
+    <ul id="cEps"></ul>
+    <p class="note" id="cNote"></p>
+  </div>
+</section>
+
+<main>
+  <h2>How to read the city</h2>
+  <p>Every tower is one seller of paid APIs for AI agents: the site behind its x402 endpoints. A tower is as tall as its number of paid endpoints (on a log scale, so the largest don't hide the rest), and its floors are coloured by today's verdicts from the <a href="/trust">x402 Trust Index</a>: green where a payment would settle as described, amber where it would but something is off, red where a careful agent should not pay, grey where the endpoint didn't answer. A red light on a roof marks a seller with at least one endpoint not to pay. The biggest sellers stand in the middle.</p>
+  <p>The city is built in your browser from the same data as the Trust Index and <a href="https://atlas.fizzl.eu">atlas.fizzl.eu</a>, and it changes every day after the scan. Click a tower to see its counts and endpoints; each endpoint opens x402 Doctor's free check, never the endpoint itself.</p>
+  <h2>Before your agent pays</h2>
+  <p>The scan reads each 402 once a day. Your agent can ask before every payment: <a href="/">x402 Doctor</a> checks one endpoint the way a paying agent would (free in the browser, $0.001 as a preflight for agents), and <a href="https://presign-guard.fizzl.eu">presign-guard</a> checks the transaction or signature before it is signed.</p>
+  <footer>Made by <a href="https://fizzl.eu">fizzl</a>. Rendered with three.js. Data: x402 Doctor's daily scan of the CDP Bazaar and other x402 catalogues.</footer>
+</main>
+
+<script src="/vendor/three.min.js" defer></script>
+<script src="/vendor/OrbitControls.js" defer></script>
+<script src="/trust-city.js?v=1" defer></script>
+</body>
+</html>
