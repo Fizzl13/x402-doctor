@@ -22,6 +22,8 @@
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
+// Every async route handler's rejection goes to next(err), so one failing request can't stop the server.
+require('./lib/async-routes').catchAsyncRoutes(express);
 // Every payTo with the payee delegation the agent wallet of agent #988891 (0x2c7c…128b) signed on 30 Oct 2026 for a
 // year (draft ERC "x402 Payee Verification for ERC-8004 Agents", ethereum/ERCs#2132).
 const { createPassVerifier, limitKeyOf } = require('./lib/fizzl-pass');

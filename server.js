@@ -1,4 +1,7 @@
 const express = require('express');
+// Every async route handler's rejection goes to next(err), so one failing request can't stop the server.
+const { catchAsyncRoutes } = require('./lib/async-routes');
+catchAsyncRoutes(express);
 const zlib = require('node:zlib');
 const fs = require('fs');
 const path = require('path');
