@@ -575,8 +575,13 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   // endpoint, so 10 an hour per IP.
   const submitLimit = rateLimit({ windowMs: 60 * 60 * 1000, max: 10 }, passVerifier);
   app.post('/api/trust/submit', submitLimit, async (req, res) => {
-    const out = await submitToTrust(req.body && req.body.url, { via: 'web', agent: agentOf(req.headers['user-agent']), visitor: visitorOf(req.ip, env.USAGE_LOG_SALT || env.USAGE_LOG_TOKEN) });
-    res.status(out.status).json(out.body);
+    try {
+      const out = await submitToTrust(req.body && req.body.url, { via: 'web', agent: agentOf(req.headers['user-agent']), visitor: visitorOf(req.ip, env.USAGE_LOG_SALT || env.USAGE_LOG_TOKEN) });
+      res.status(out.status).json(out.body);
+    } catch (err) {
+      // Never let one submission take the server down (Express 4 leaves async errors unhandled).
+      res.status(err && err.statusCode >= 400 && err.statusCode < 500 ? err.statusCode : 500).json({ error: (err && err.message) || 'submission failed' });
+    }
   });
   app.get('/api/trust/submitted', trustLimit, async (_req, res) => {
     res.json({ submissions: await trustSubmissions.list() });

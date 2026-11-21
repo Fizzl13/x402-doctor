@@ -199,3 +199,15 @@ test('submit: a site root that has no 402 names the paid routes from its /.well-
   const failing = await subs.submit('https://down.example/', { check, trustIndex: noIndex, discover: async () => { throw new Error('boom'); } });
   assert.equal(failing.status, 422);
 });
+
+test('submit: a check that throws (local address) is a refusal, not a crash', async () => {
+  const subs = createTrustSubmissions({ usageLog: fakeLog() });
+  const blocked = Object.assign(new Error('Cannot diagnose a local/internal address.'), { code: 'EBLOCKED', statusCode: 400 });
+  const out = await subs.submit('https://127.0.0.1/paid', { check: async () => { throw blocked; }, trustIndex: noIndex });
+  assert.equal(out.status, 400);
+  assert.match(out.body.error, /^Not added: Cannot diagnose a local\/internal address/);
+  assert.equal(await subs.find('https://127.0.0.1/paid'), null);
+  const other = await subs.submit('https://seller.example/x', { check: async () => { throw new Error('getaddrinfo ENOTFOUND'); }, trustIndex: noIndex });
+  assert.equal(other.status, 422);
+  assert.match(other.body.error, /ENOTFOUND/);
+});
