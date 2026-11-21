@@ -154,7 +154,7 @@ function routesFor(env) {
   return {
     [`POST ${BUY_ROUTE}`]: {
       accepts,
-      description: 'Buy the right paid API for your agent in one call: say what you need ("weather forecast Amsterdam tomorrow", "BTC price", "search the web for x402"). Fizzl picks the x402 service x402 Doctor has seen paying out day after day at a fair price, fills in its input, buys it (up to $0.01) and returns the answer, checked by TypeSafe Jev, with a signed receipt. Nothing is charged when no service delivers.',
+      description: 'Find and buy the best paid API for your agent in one call: say what you need ("weather forecast Amsterdam tomorrow", "BTC price", "search the web for x402"). Fizzl picks the x402 service x402 Doctor has seen paying out day after day at a fair price, fills in its input, buys it (up to $0.01) and returns the answer, checked by TypeSafe Jev, with a signed receipt. Nothing is charged when no service delivers.',
       mimeType: 'application/json',
       serviceName: 'Fizzl Buy',
       tags: ['agents', 'x402', 'marketplace', 'buyer', 'trust'],
