@@ -1,0 +1,64 @@
+name: Catalog feed
+
+# A marketplace's daily x402 catalogue feed (scripts/catalog-feed.js, lib/catalog-feed.js): after the daily Trust
+# Index scan, the report and one event per changed listing go to the marketplace's webhook, signed with a shared
+# secret. First for the PayAPI Market pilot (one month, free, from 22 Nov 2026).
+#
+# Off until Frits sets the repository secrets CATALOG_WEBHOOK_URL (the marketplace's https URL) and
+# CATALOG_WEBHOOK_SECRET (the shared secret): without them it is a dry run that only writes the job summary.
+# Read-only otherwise: public catalogue and index, nothing paid. The state (yesterday's broken set, and the day already
+# sent) lives in the Actions cache, so a scan that runs again the same day sends nothing twice.
+on:
+  workflow_run:
+    workflows: ["Trust Index scan"]
+    types: [completed]
+  schedule:
+    - cron: "37 6 * * *" # fallback when the scan's run event doesn't arrive
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Write the report only, send nothing"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: catalog-feed
+  cancel-in-progress: false
+
+jobs:
+  feed:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 50 # up to three retries per payload (1, 5 and 30 minutes)
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Latest Trust Index
+        run: |
+          git fetch --depth 1 origin trust-data
+          bash scripts/trust-index-get.sh FETCH_HEAD trust-data
+      - name: Yesterday's state
+        uses: actions/cache/restore@v4
+        with:
+          path: feed-state
+          key: catalog-feed-payapi-${{ github.run_id }}
+          restore-keys: catalog-feed-payapi-
+      - name: PayAPI Market
+        run: |
+          dry=""
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.dry_run }}" = "true" ]; then dry="--dry"; fi
+          node scripts/catalog-feed.js --catalogue payapi --index trust-data/index.json --state feed-state/payapi.json --out feed $dry
+        env:
+          CATALOG_WEBHOOK_URL: ${{ secrets.CATALOG_WEBHOOK_URL }}
+          CATALOG_WEBHOOK_SECRET: ${{ secrets.CATALOG_WEBHOOK_SECRET }}
+      - name: Save today's state
+        if: always() && hashFiles('feed-state/payapi.json') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: feed-state
+          key: catalog-feed-payapi-${{ github.run_id }}
