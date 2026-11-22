@@ -94,3 +94,12 @@ test('NEAR: the v1 names map to near:mainnet / near:testnet, and the board lists
   const ids = FACILITATORS.map((f) => f.id);
   for (const id of ['fizzl', 'ultravioleta', 'fastnear']) assert.ok(ids.includes(id), id);
 });
+
+test('Tempo: listed, and its /supported (Base in, payout on Tempo) reads as Base exact v1 + v2', () => {
+  assert.ok(FACILITATORS.some((f) => f.id === 'tempo' && f.url === 'https://api.tempo.xyz/v1/x402' && !f.keyRequired));
+  const s = readSupported({ kinds: [
+    { x402Version: 2, scheme: 'exact', network: 'eip155:8453', extra: { payTo: '0xB2da9082b7f98E189Fc6Ad3bF137C8F22F44f309', settlementKey: 'tempoSettlement' } },
+    { x402Version: 1, scheme: 'exact', network: 'base', extra: { payTo: '0xB2da9082b7f98E189Fc6Ad3bF137C8F22F44f309', settlementKey: 'tempoSettlement' } },
+  ] });
+  assert.deepEqual(s.networks.map((n) => n.id), ['eip155:8453']);
+});
