@@ -4,7 +4,7 @@ const http = require('node:http');
 const express = require('express');
 const { keccak256, stringToHex, getAddress } = require('viem');
 const { privateKeyToAccount } = require('viem/accounts');
-const { createMppPay, unlessMppPaid, atomicUsdc, BASE_USDC } = require('../lib/mpp-pay');
+const { createMppPay, unlessMppPaid, atomicUsdc, BASE_USDC, RpcRefused } = require('../lib/mpp-pay');
 const { parseChallenges } = require('../lib/mpp');
 
 const PAY_TO = '0x6B0F4651eD42893ab58139938175E4a69f175F25';
@@ -194,13 +194,13 @@ const transferLog = ({ from = agent.address, to = TEMPO_PAY_TO, amount = 10000n,
   address: token.toLowerCase(), topics: [TOPIC, pad(from), pad(to), memo], data: `0x${amount.toString(16).padStart(64, '0')}`,
 });
 
-function serveTempo({ status = 200, rpcDown = false } = {}) {
+function serveTempo({ status = 200, rpcDown = false, sendRaw = null } = {}) {
   const receipts = new Map();
   const calls = { x402: 0, handler: 0 };
   const mpp = createMppPay({
     secret: 'test-secret', realm: 'doctor.test', recipient: PAY_TO, routes: { 'GET /paid': '$0.01' },
     facilitator: { async verify() { return { isValid: true }; }, async settle() { return { success: true, transaction: '0xabc' }; } },
-    tempo: { recipient: TEMPO_PAY_TO, getReceipt: async (hash) => { if (rpcDown) throw new Error('down'); return receipts.get(hash) || null; } },
+    tempo: { recipient: TEMPO_PAY_TO, getReceipt: async (hash) => { if (rpcDown) throw new Error('down'); return receipts.get(hash) || null; }, ...(sendRaw ? { sendRaw: (raw) => sendRaw(raw, receipts), waitMs: 0 } : {}) },
     log: quiet,
   });
   const app = express();
@@ -219,18 +219,19 @@ async function tempoChallenge(base) {
   const t = all.find((c) => c.params.method === 'tempo');
   return { ...t.params, request: t.request, requestRaw: t.params.request, all };
 }
-const tempoCredential = (c, hash, { source = `did:pkh:eip155:4217:${agent.address}`, type = 'hash' } = {}) => {
+const tempoCredential = (c, hash, { source = `did:pkh:eip155:4217:${agent.address}`, type = 'hash', signature } = {}) => {
   const { request, requestRaw, all, ...rest } = c;
-  return `Payment ${Buffer.from(JSON.stringify({ challenge: { ...rest, request: requestRaw }, payload: { hash, type }, ...(source ? { source } : {}) })).toString('base64url')}`;
+  const payload = type === 'transaction' ? { signature, type } : { hash, type };
+  return `Payment ${Buffer.from(JSON.stringify({ challenge: { ...rest, request: requestRaw }, payload, ...(source ? { source } : {}) })).toString('base64url')}`;
 };
 const HASH = `0x${'ab'.repeat(32)}`;
 
-test('the 402 offers tempo (push only, USDC.e on chain 4217) next to evm', async (t) => {
+test('the 402 offers tempo (push and pull, USDC.e on chain 4217) next to evm', async (t) => {
   const s = await serveTempo();
   t.after(s.close);
   const c = await tempoChallenge(s.base);
   assert.deepEqual(c.all.map((x) => x.params.method), ['evm', 'tempo']);
-  assert.deepEqual(c.request, { amount: '10000', currency: TEMPO_USDC, methodDetails: { chainId: 4217, supportedModes: ['push'] }, recipient: TEMPO_PAY_TO });
+  assert.deepEqual(c.request, { amount: '10000', currency: TEMPO_USDC, methodDetails: { chainId: 4217, supportedModes: ['push', 'pull'] }, recipient: TEMPO_PAY_TO });
   assert.equal(s.mpp.tempo.network, 'Tempo');
 });
 
@@ -289,7 +290,7 @@ test('refuses Tempo payments that pay the wrong amount, recipient, token, payer 
   s.receipts.set(reverted, { status: '0x0', from: agent.address, logs: [transferLog({ memo })] });
   assert.match((await (await fetch(`${s.base}/paid`, { headers: { authorization: tempoCredential(c, reverted) } })).json()).detail, /failed on Tempo/);
   assert.match((await (await fetch(`${s.base}/paid`, { headers: { authorization: tempoCredential(c, `0x${'ee'.repeat(32)}`) } })).json()).detail, /isn't on Tempo/);
-  assert.match((await (await fetch(`${s.base}/paid`, { headers: { authorization: tempoCredential(c, HASH, { type: 'transaction' }) } })).json()).detail, /push mode/);
+  assert.match((await (await fetch(`${s.base}/paid`, { headers: { authorization: tempoCredential(c, HASH, { type: 'transaction' }) } })).json()).detail, /signed Tempo transaction/);
   assert.match((await (await fetch(`${s.base}/paid`, { headers: { authorization: tempoCredential(c, HASH, { source: `did:pkh:eip155:8453:${agent.address}` }) } })).json()).detail, /source must be/);
   assert.equal(s.calls.handler, 0);
 });
@@ -325,4 +326,90 @@ test('offers list tempo next to evm when it is on', () => {
   const info = spec.paths['/paid'].get['x-payment-info'];
   assert.deepEqual(info.offers.map((o) => [o.method, o.currency, o.amount]), [['evm', BASE_USDC, '10000'], ['tempo', TEMPO_USDC, '10000']]);
   assert.deepEqual(info.protocols.map((p) => Object.keys(p)[0]), ['x402', 'mpp', 'mpp']);
+});
+
+// Tempo pull mode: the agent signs the transfer (paying its own fee) and we broadcast it.
+const { Transaction: TempoTransaction, Abis: TempoAbis } = require('viem/tempo');
+const { encodeFunctionData, parseSignature } = require('viem');
+async function signedTempoTx({ to = TEMPO_PAY_TO, amount = 10000n, memo, token = TEMPO_USDC, chainId = 4217, extraCall = false, signer = agent } = {}) {
+  const data = encodeFunctionData({ abi: TempoAbis.tip20, functionName: 'transferWithMemo', args: [to, amount, memo] });
+  const calls = [{ to: token, data }, ...(extraCall ? [{ to: token, data }] : [])];
+  const tx = { chainId, calls, gas: 100000n, maxFeePerGas: 1n, maxPriorityFeePerGas: 1n, nonce: 0n, nonceKey: 0n, type: 'tempo' };
+  const unsigned = await TempoTransaction.serialize(tx);
+  return TempoTransaction.serialize(tx, parseSignature(await signer.sign({ hash: keccak256(unsigned) })));
+}
+// A fake node: a sent transaction lands at once, with the transfer log its one call makes.
+function fakeNode(sent) {
+  return async (raw, receipts) => {
+    sent.push(raw);
+    const tx = TempoTransaction.deserialize(raw);
+    const { decodeFunctionData } = require('viem');
+    const { args } = decodeFunctionData({ abi: TempoAbis.tip20, data: tx.calls[0].data });
+    receipts.set(keccak256(raw).toLowerCase(), { status: '0x1', from: tx.from, logs: [transferLog({ from: getAddress(tx.from), to: getAddress(args[0]), amount: args[1], memo: args[2], token: getAddress(tx.calls[0].to) })] });
+    return keccak256(raw);
+  };
+}
+
+test('pull mode: a signed Tempo transfer is checked, broadcast by us and served once, with a receipt', async (t) => {
+  const sent = [];
+  const s = await serveTempo({ sendRaw: fakeNode(sent) });
+  t.after(s.close);
+  const c = await tempoChallenge(s.base);
+  const raw = await signedTempoTx({ memo: memoFor('doctor.test', c.id) });
+  const auth = tempoCredential(c, null, { type: 'transaction', signature: raw });
+  const res = await fetch(`${s.base}/paid`, { headers: { authorization: auth } });
+  assert.equal(res.status, 200);
+  await res.json();
+  assert.deepEqual(sent, [raw]);
+  const hash = keccak256(raw).toLowerCase();
+  assert.deepEqual(s.calls.locals, { usd: 0.01, network: 'Tempo', payer: agent.address, tx: hash, protocol: 'mpp' });
+  assert.equal(JSON.parse(Buffer.from(res.headers.get('payment-receipt'), 'base64url').toString()).reference, hash);
+  const again = await fetch(`${s.base}/paid`, { headers: { authorization: auth } });
+  assert.equal(again.status, 402);
+  assert.match((await again.json()).detail, /already paid/);
+  assert.equal(sent.length, 1);
+});
+
+test('pull mode: nothing that pays the wrong recipient, amount, token, chain or challenge is broadcast', async (t) => {
+  const sent = [];
+  const s = await serveTempo({ sendRaw: fakeNode(sent) });
+  t.after(s.close);
+  const c = await tempoChallenge(s.base);
+  const memo = memoFor('doctor.test', c.id);
+  const other = privateKeyToAccount(`0x${'22'.repeat(32)}`);
+  const cases = {
+    recipient: [await signedTempoTx({ memo, to: PAY_TO }), /one call/],
+    amount: [await signedTempoTx({ memo, amount: 9999n }), /one call/],
+    token: [await signedTempoTx({ memo, token: '0x20c0000000000000000000000000000000000000' }), /one call/],
+    challenge: [await signedTempoTx({ memo: memoFor('doctor.test', 'another-id') }), /one call/],
+    twoCalls: [await signedTempoTx({ memo, extraCall: true }), /one call/],
+    chain: [await signedTempoTx({ memo, chainId: 42431 }), /chain 42431/],
+    sender: [await signedTempoTx({ memo, signer: other }), /source isn't the transaction's sender/],
+    garbage: ['0x76deadbeef', /can't be read/],
+    notTempo: ['0x02f8', /signed Tempo transaction/],
+  };
+  for (const [name, [raw, why]] of Object.entries(cases)) {
+    const res = await fetch(`${s.base}/paid`, { headers: { authorization: tempoCredential(c, null, { type: 'transaction', signature: raw }) } });
+    assert.equal(res.status, 402, name);
+    assert.match((await res.json()).detail, why, name);
+  }
+  assert.equal(sent.length, 0);
+  assert.equal(s.calls.handler, 0);
+});
+
+test('pull mode: a refused broadcast is a payment error, unless the transaction is already on chain', async (t) => {
+  let onChain = false;
+  const s = await serveTempo({ sendRaw: async (raw, receipts) => {
+    if (onChain) { receipts.set(keccak256(raw).toLowerCase(), { status: '0x1', from: agent.address, logs: [transferLog({ memo: memoFor('doctor.test', s.cid) })] }); }
+    throw new RpcRefused(onChain ? 'already known' : 'insufficient funds for fee');
+  } });
+  t.after(s.close);
+  const c = await tempoChallenge(s.base);
+  s.cid = c.id;
+  const auth = tempoCredential(c, null, { type: 'transaction', signature: await signedTempoTx({ memo: memoFor('doctor.test', c.id) }) });
+  const res = await fetch(`${s.base}/paid`, { headers: { authorization: auth } });
+  assert.equal(res.status, 402);
+  assert.match((await res.json()).detail, /Tempo refused the transaction: insufficient funds/);
+  onChain = true;
+  assert.equal((await fetch(`${s.base}/paid`, { headers: { authorization: auth } })).status, 200);
 });
