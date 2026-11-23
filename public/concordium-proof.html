@@ -78,13 +78,16 @@
   <div class="step">
     <h2>3. Prove it with your Concordium wallet</h2>
     <div id="web-way">
-    <p><b>On a computer</b>: the Concordium Wallet for Web (Chrome or Brave). Make <span id="which">the payTo account</span> the active account in the wallet first: the wallet proves with the active account.</p>
+    <p><b>On a computer</b>: the <a href="https://chromewebstore.google.com/detail/concordium-wallet/mnnkpffndmickbiakofclnpoiajlegmg" target="_blank" rel="noopener">Concordium Wallet for Web</a> (Chrome or Brave), with an identity in it. Make <span id="which">the payTo account</span> the active account in the wallet first: the wallet proves with the active account.</p>
     <button id="prove">Connect and prove</button>
     </div>
     <div id="phone-way" hidden>
     <p style="margin-top:12px"><b>On your phone</b>: the Concordium wallet app (iPhone or Android). Scan the code with the app, or open this page on the phone itself; choose <span id="which-app">the payTo account</span> when the app asks which account to connect.</p>
     <button id="prove-app" class="alt">Prove with the Concordium app</button>
     <div id="wc"></div>
+    <div id="no-app">
+    <p style="margin-top:12px"><b>No Concordium app yet?</b> Install the Concordium Wallet (<a href="https://apps.apple.com/us/app/concordium-wallet/id1593386457" target="_blank" rel="noopener">App Store</a>, <a href="https://play.google.com/store/apps/details?id=com.pioneeringtechventures.wallet" target="_blank" rel="noopener">Google Play</a>) and create an identity in it: an identity provider checks your ID document and a selfie, usually within minutes. Then come back here. On a computer you can use the <a href="https://chromewebstore.google.com/detail/concordium-wallet/mnnkpffndmickbiakofclnpoiajlegmg" target="_blank" rel="noopener">Concordium Wallet for Web</a> instead.</p>
+    </div>
     </div>
     <p style="margin-top:10px">The proof is then checked with Concordium's verifier.</p>
     <div id="log"></div>
@@ -212,7 +215,8 @@ function phoneWallet(network, projectId) {
       const { uri, approval } = await within(20000, client.connect({ optionalNamespaces: { ccd: { chains: [chainId], methods: ['request_verifiable_presentation'], events: [] } } }), away);
       show(`<p>Scan this with the Concordium wallet app${network === 'testnet' ? ' (testnet)' : ''}: use Scan QR in the app, not the phone's camera. Or, on this phone:</p><a class="btn" href="${esc(appConnect(uri))}">Open the Concordium app</a><img class="qr" src="${esc(window.WalletConnectQr(uri))}" alt="QR code to scan with the Concordium wallet app" width="180" height="180">`);
       log('Connect an account in the Concordium app…');
-      session = await approval();
+      // No answer in two minutes: most likely there is no Concordium app on the phone (the link opened nothing).
+      session = await within(120000, approval(), 'The Concordium app didn\'t answer. If you don\'t have it yet, install it and create an identity first (see above), then try again.');
       show('');
       return String(session.namespaces?.ccd?.accounts?.[0] ?? '').split(':').pop();
     },
@@ -312,6 +316,7 @@ async function prove(phone) {
     log(buyer || other ? 'Done: the proof is valid. Give it to your agent (step 4).' : 'Done: the proof is valid. Publish it (step 4).', 'ok');
   } catch (err) {
     const said = err?.message || String(err);
+    if (phone) $('no-app').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     log(err instanceof Stop || !phone ? said : /reject|denied|cancel|closed|expired/i.test(said) ? 'You didn\'t approve it in the app. Nothing was shared.' : `The app said: ${said}`, 'bad');
   } finally {
     wallet?.close();
