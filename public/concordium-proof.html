@@ -46,15 +46,19 @@
   <div class="step">
     <h2>1. Who proves</h2>
     <label for="role">Prove it for</label>
-    <select id="role"><option value="seller">My x402 seller (the account buyers pay)</option><option value="buyer">My paying agent (the account it pays from)</option></select>
+    <select id="role"><option value="seller">My x402 seller (the account buyers pay)</option><option value="buyer">My paying agent (the account it pays from)</option><option value="other">My paying agent on another network (Base, Solana, …)</option></select>
     <p id="role-note"></p>
     <div id="seller-only">
-    <label for="url">The paid endpoint (its site is what the proof is tied to)</label>
+    <label for="url" id="url-label">The paid endpoint (its site is what the proof is tied to)</label>
     <input id="url" autocomplete="off" spellcheck="false" placeholder="https://your-site.example/paid">
     </div>
     <label for="payTo" id="account-label">payTo: the Concordium account buyers pay (the proof must come from this account)</label>
     <input id="payTo" autocomplete="off" spellcheck="false">
-    <label for="network">Network</label>
+    <div id="other-only" hidden>
+    <label for="payerNetwork">The network your agent pays on</label>
+    <select id="payerNetwork"><option value="eip155:8453">Base</option><option value="eip155:84532">Base Sepolia (test)</option><option value="eip155:1">Ethereum</option><option value="eip155:137">Polygon</option><option value="eip155:42161">Arbitrum</option><option value="solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp">Solana</option><option value="solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1">Solana devnet (test)</option></select>
+    </div>
+    <label for="network" id="network-label">Network</label>
     <select id="network"><option value="testnet">Concordium testnet</option><option value="mainnet">Concordium mainnet</option></select>
   </div>
 
@@ -78,6 +82,7 @@
   <div class="step" id="out" hidden>
     <h2 id="out-title">4. Publish it on your site</h2>
     <p id="out-seller">Serve this file at <code id="where"></code>. Concordium x402 facilitators that check sellers (<a href="https://concordium-facilitator.onrender.com" target="_blank" rel="noopener">this one</a>) read it before they sponsor a payment to your payTo. It is public: it holds the proof and the facts proved, nothing else.</p>
+    <p id="out-other" hidden>Give this file to your agent. It sends it with its payments to this seller, as <code>extensions["concordium-buyer-proof"]</code> in the x402 payment payload; the seller checks it before it serves (in its own code, or with <a href="https://concordium-facilitator.onrender.com" target="_blank" rel="noopener">this facilitator</a>'s <code>POST /buyer-proof/check</code>). It is worthless to another seller and from another address. What it shows: that the holder of a Concordium identity with these facts vouched for this address. It reveals the facts, not who you are, but sellers comparing files can tell two files come from the same person.</p>
     <p id="out-buyer" hidden>Give this file to your agent. It sends it with a payment, as <code>extensions["concordium-buyer-proof"]</code> in the x402 payment payload, to sellers that ask for it (their 402 names the facts in <code>extra.buyerProof</code>). <a href="https://concordium-facilitator.onrender.com" target="_blank" rel="noopener">This facilitator</a> checks it before it sponsors the payment: it must come from the account that pays. It is not a secret: it holds the proof and the facts proved, nothing else, and is worthless from any other account.</p>
     <button id="download">Download <span id="file-name">concordium-proof.json</span></button>
     <button id="copy">Copy</button>
@@ -97,26 +102,35 @@ const q = new URLSearchParams(location.search);
 $('url').value = q.get('url') || '';
 $('payTo').value = q.get('payTo') || q.get('account') || '';
 if (q.get('network') === 'mainnet') $('network').value = 'mainnet';
-if (q.get('role') === 'buyer') $('role').value = 'buyer';
+if (q.get('role') === 'buyer') $('role').value = q.get('pay') === 'other' ? 'other' : 'buyer';
+// From a seller's 402 (buyer-requirements, binding origin+payer): its site, the network and the address the agent pays from.
+if (q.get('origin')) $('url').value = q.get('origin');
+if (q.get('payerNetwork')) { const o = [...$('payerNetwork').options].find((x) => x.value === q.get('payerNetwork')); if (o) $('payerNetwork').value = o.value; else $('payerNetwork').add(new Option(q.get('payerNetwork'), q.get('payerNetwork'), true, true)); }
+if (q.get('address')) $('payTo').value = q.get('address');
 // Seller: the proof is tied to one site and one payTo, served at /.well-known/concordium-proof.json. Buyer: tied to the
 // account the agent pays from, sent along with its payments.
 const ROLE = {
   seller: { title: 'Prove who stands behind your seller', note: 'The proof is tied to your seller\'s payTo and site, so it can\'t be copied to another one.', label: 'payTo: the Concordium account buyers pay (the proof must come from this account)', which: 'the payTo account', name: 'concordium-proof.json' },
+  other: { title: 'Prove who stands behind your paying agent', note: 'For an agent that pays on another network: the proof is tied to one seller and to the address your agent pays from there, so it is worthless to other sellers and from other addresses. You prove with any account in your Concordium wallet.', label: 'The address your agent pays from on that network', which: 'any of your accounts', name: 'concordium-buyer-proof.json', url: 'The seller (its site is what the proof is tied to)' },
   buyer: { title: 'Prove who stands behind your paying agent', note: 'For sellers that only sell to, say, adults or EU residents: the proof is tied to the account your agent pays from, so it is worthless from any other account.', label: 'The Concordium account your agent pays from (the proof must come from this account)', which: 'that account', name: 'concordium-buyer-proof.json' },
 };
 function showRole() {
   const r = ROLE[$('role').value];
-  const buyer = $('role').value === 'buyer';
+  const role = $('role').value, buyer = role !== 'seller';
   $('title').textContent = r.title;
   document.title = r.title;
   $('role-note').textContent = r.note;
   $('account-label').textContent = r.label;
   $('which').textContent = r.which;
   $('file-name').textContent = r.name;
-  $('seller-only').hidden = buyer;
+  $('seller-only').hidden = role === 'buyer';
+  $('url-label').textContent = r.url || 'The paid endpoint (its site is what the proof is tied to)';
+  $('other-only').hidden = role !== 'other';
+  $('network-label').textContent = role === 'other' ? 'Your Concordium identity is on' : 'Network';
   $('out-title').textContent = buyer ? '4. Give it to your agent' : '4. Publish it on your site';
   $('out-seller').hidden = buyer;
-  $('out-buyer').hidden = !buyer;
+  $('out-buyer').hidden = role !== 'buyer';
+  $('out-other').hidden = role !== 'other';
   $('out').hidden = true;
 }
 $('role').onchange = showRole;
@@ -133,6 +147,9 @@ async function sha256Hex(text) {
 // one network and the account it pays from.
 const challengeFor = (network, origin, payTo) => sha256Hex(`concordium-x402-seller-proof:v1|${network}|${origin}|${payTo}`);
 const buyerChallengeFor = (network, account) => sha256Hex(`concordium-x402-buyer-proof:v1|${network}|${account}`);
+// A buyer on another network: one seller (origin) and the address it pays from (CAIP-2 network; EVM lowercased).
+const payerOf = (payerNetwork, address) => (payerNetwork.startsWith('eip155:') ? address.toLowerCase() : address);
+const crossChallengeFor = (network, origin, payerNetwork, address) => sha256Hex(`concordium-x402-buyer-proof:v2|${network}|${origin}|${payerNetwork}|${payerOf(payerNetwork, address)}`);
 const today = () => new Date().toISOString().slice(0, 10).replace(/-/g, '');
 
 $('prove').onclick = async () => {
@@ -143,13 +160,17 @@ $('prove').onclick = async () => {
   file = null;
   try {
     const network = $('network').value;
-    const buyer = $('role').value === 'buyer';
+    const role = $('role').value, buyer = role === 'buyer', other = role === 'other';
     let origin = null;
     if (!buyer) {
-      try { const u = new URL($('url').value.trim()); if (u.protocol !== 'https:') throw new Error(); origin = u.origin.toLowerCase(); } catch { throw new Error('Give the paid endpoint as an https URL.'); }
+      try { const u = new URL($('url').value.trim()); if (u.protocol !== 'https:') throw new Error(); origin = u.origin.toLowerCase(); } catch { throw new Error(other ? 'Give the seller as an https URL.' : 'Give the paid endpoint as an https URL.'); }
     }
     const payTo = $('payTo').value.trim();
-    if (!/^[1-9A-HJ-NP-Za-km-z]{50}$/.test(payTo)) throw new Error(buyer ? 'Give the account your agent pays from (a Concordium account address).' : 'payTo must be a Concordium account address.');
+    const payerNetwork = $('payerNetwork').value;
+    if (other) {
+      const ok = payerNetwork.startsWith('eip155:') ? /^0x[0-9a-fA-F]{40}$/.test(payTo) : payerNetwork.startsWith('solana:') ? /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(payTo) : payTo.length > 0;
+      if (!ok) throw new Error('Give the address your agent pays from on that network.');
+    } else if (!/^[1-9A-HJ-NP-Za-km-z]{50}$/.test(payTo)) throw new Error(buyer ? 'Give the account your agent pays from (a Concordium account address).' : 'payTo must be a Concordium account address.');
     const proves = [['p-age', 'adult'], ['p-eu-res', 'eu-residence'], ['p-eu-nat', 'eu-nationality'], ['p-doc', 'id-document-valid']].filter(([id]) => $(id).checked).map(([, k]) => k);
     if (!proves.length) throw new Error('Pick at least one fact to prove.');
     const provider = window.concordium;
@@ -157,7 +178,7 @@ $('prove').onclick = async () => {
     const [account] = await provider.requestAccounts();
     const chain = String(await provider.getSelectedChain() || '');
     if (!chain.startsWith(GENESIS[network])) throw new Error(`Switch the wallet to ${network} and try again.`);
-    if (account !== payTo) log(`The wallet's active account is ${account}, not ${payTo}. The proof will only hold if it comes from ${payTo}: switch to it in the wallet if the proof fails.`, 'warn');
+    if (!other && account !== payTo) log(`The wallet's active account is ${account}, not ${payTo}. The proof will only hold if it comes from ${payTo}: switch to it in the wallet if the proof fails.`, 'warn');
     const sdk = await import('https://esm.sh/@concordium/web-sdk@12.0.2');
     const statements = new sdk.Web3StatementBuilder().addForIdentityCredentials(ISSUERS, (b) => {
       if (proves.includes('adult')) b.addMinimumAge(18);
@@ -165,7 +186,7 @@ $('prove').onclick = async () => {
       if (proves.includes('eu-nationality')) b.addEUNationality();
       if (proves.includes('id-document-valid')) b.addRange('idDocExpiresAt', today(), '99991231');
     }).getStatements();
-    const challenge = buyer ? await buyerChallengeFor(network, payTo) : await challengeFor(network, origin, payTo);
+    const challenge = other ? await crossChallengeFor(network, origin, payerNetwork, payTo) : buyer ? await buyerChallengeFor(network, payTo) : await challengeFor(network, origin, payTo);
     log('Confirm the proof in your wallet…');
     const vp = await provider.requestVerifiablePresentation(challenge, statements);
     const presentation = JSON.parse(typeof vp === 'string' ? vp : typeof vp?.toString === 'function' && vp.toString() !== '[object Object]' ? vp.toString() : JSON.stringify(vp));
@@ -184,23 +205,25 @@ $('prove').onclick = async () => {
     // is the named account's own, or the file would be refused everywhere.
     const credId = String(cred.split(':cred:')[1] || '').toLowerCase();
     let key = '';
-    try { key = String((await (await fetch(`${WALLET_PROXY[network]}/v0/accEncryptionKey/${payTo}`)).json())?.accountEncryptionKey || '').toLowerCase(); } catch { key = ''; }
-    if (!key) log(`Could not read account ${payTo} to check that the proof came from it.`, 'warn');
+    if (!other) try { key = String((await (await fetch(`${WALLET_PROXY[network]}/v0/accEncryptionKey/${payTo}`)).json())?.accountEncryptionKey || '').toLowerCase(); } catch { key = ''; }
+    if (other) { /* no Concordium account pays: any of the owner's credentials will do */ } else if (!key) log(`Could not read account ${payTo} to check that the proof came from it.`, 'warn');
     else if (!credId || !key.endsWith(credId)) throw new Error(`The wallet proved with another account's credential (${credId.slice(0, 12)}…), not ${payTo}'s. In the wallet, make ${payTo.slice(0, 8)}… the active account first, then try again.`);
-    file = buyer
+    file = other
+      ? { type: 'concordium-x402-buyer-proof', version: 2, network, origin, payer: { network: payerNetwork, address: payerOf(payerNetwork, payTo) }, proves, challenge, created: new Date().toISOString(), presentation }
+      : buyer
       ? { type: 'concordium-x402-buyer-proof', version: 1, network, account: payTo, proves, challenge, created: new Date().toISOString(), presentation }
       : { type: 'concordium-x402-seller-proof', version: 1, network, origin, payTo, proves, challenge, created: new Date().toISOString(), presentation };
     $('table').hidden = false;
     $('table').querySelector('tbody').innerHTML = [
       ['Proof', '<span class="ok">valid (Concordium verifier) ✓</span>'],
       ['Proves', esc(proves.join(', '))],
-      ['Tied to', buyer ? `payments from ${esc(payTo)}` : `${esc(origin)}<br>${esc(payTo)}`],
+      ['Tied to', other ? `${esc(origin)}<br>payments from ${esc(payerOf(payerNetwork, payTo))} (${esc($('payerNetwork').selectedOptions[0].text)})` : buyer ? `payments from ${esc(payTo)}` : `${esc(origin)}<br>${esc(payTo)}`],
       ['Credential', esc(cred)],
       ['Verified in block', esc(verified.block || '')],
     ].map(([k, v]) => `<tr><th>${k}</th><td>${v}</td></tr>`).join('');
-    if (!buyer) $('where').textContent = `${origin}/.well-known/concordium-proof.json`;
+    if (!buyer && !other) $('where').textContent = `${origin}/.well-known/concordium-proof.json`;
     $('out').hidden = false;
-    log(buyer ? 'Done: the proof is valid. Give it to your agent (step 4).' : 'Done: the proof is valid. Publish it (step 4).', 'ok');
+    log(buyer || other ? 'Done: the proof is valid. Give it to your agent (step 4).' : 'Done: the proof is valid. Publish it (step 4).', 'ok');
   } catch (err) {
     log(err?.message || String(err), 'bad');
   } finally {
