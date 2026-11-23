@@ -402,6 +402,9 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   // (?tx=&receipt=<base64url JSON>), POST { receipt, tx } for programs. Read-only; open CORS. Before the 4 kB parser:
   // a receipt's resource URL can be 2 kB.
   const receiptLimit = rateLimit({ windowMs: limits.windowMs, max: limits.max * 6 });
+  // /concordium-proof.html asks the Concordium wallet app on a phone over WalletConnect when a Reown project id is set
+  // (WALLETCONNECT_PROJECT_ID; the project must list this site's domain). The id is public: it is in the page's requests.
+  app.get('/api/v1/concordium/proof-page', (_req, res) => res.set('cache-control', 'no-store').json({ walletConnect: String(env.WALLETCONNECT_PROJECT_ID || '').trim() || null }));
   const receiptCors = (res) => res.set({ 'Access-Control-Allow-Origin': '*', 'cache-control': 'no-store' });
   app.options('/api/v1/concordium/receipt', (_req, res) => res.set({ 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST', 'Access-Control-Allow-Headers': 'content-type' }).status(204).end());
   app.get('/api/v1/concordium/receipt', receiptLimit, async (req, res) => {
