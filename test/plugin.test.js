@@ -32,6 +32,11 @@ test('plugin x402-doctor: the skills/ folder with its own manifest, every skill 
   assert.ok(fs.existsSync(path.join(root, manifest.icon)), 'the icon file exists');
   const skills = fs.readdirSync(root).filter((d) => fs.existsSync(path.join(root, d, 'SKILL.md')));
   assert.deepEqual(skills.sort(), ['x402-preflight', 'x402-seller-check']);
+  for (const skill of skills) {
+    // The Claude directory refuses allowed-tools beyond Read, Grep, Glob and LS from organizations that aren't Verified.
+    const front = fs.readFileSync(path.join(root, skill, 'SKILL.md'), 'utf8').split('---')[1];
+    assert.doesNotMatch(front, /allowed-?tools/i, `${skill}: no allowed-tools`);
+  }
   assert.ok(!fs.existsSync(path.join(root, 'bin')), 'no bin/ in the plugin root');
   const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8').replace(/```[\s\S]*?```/g, '');
   assert.ok(readme.split(/\s+/).filter(Boolean).length >= 40, 'the directory asks a README of at least 40 words in the plugin folder');

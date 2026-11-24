@@ -2,7 +2,6 @@
 name: x402-preflight
 description: "Check an x402 or MPP paid API before paying it. Use before any payment to an HTTP 402 endpoint, whether through awal x402 pay, x402-fetch, wrapFetchWithPayment, Privy's x402 client, mppx or any other client. Also use when the user asks whether a paid API is safe, works, actually delivers, or is worth its price. First a free 30-day track record, then a $0.001 go / caution / no_go verdict with the reasons and the payment option that will settle."
 license: MIT
-allowed-tools: ["Bash(curl *)"]
 ---
 
 # Check before you pay (x402 Doctor)

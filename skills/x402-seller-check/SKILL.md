@@ -2,7 +2,6 @@
 name: x402-seller-check
 description: "Check your own x402 or MPP paid endpoint the way a paying agent and the registries see it, and get it fixed. Use after building or changing a paid API (x402 with @x402/express, @x402/next, @x402/hono or another server library, Circle Gateway nanopayments with @circle-fin/x402-batching (Circle's accept-agent-payments skill), Cloudflare's Monetization Gateway, Stripe's x402 support, or MPP), before listing it in the CDP Bazaar or another directory, or when agents don't pay, payments fail, or the endpoint isn't found. Free check with a fix hint per problem; $0.05 for the concrete code fix."
 license: MIT
-allowed-tools: ["Bash(curl *)"]
 ---
 
 # Check your paid endpoint (x402 Doctor)
