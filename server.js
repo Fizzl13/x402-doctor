@@ -418,6 +418,15 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     const out = await payerKey(req.body || {});
     res.set('cache-control', 'no-store').status(out.status).json(out.body);
   });
+  // An Algorand or Stellar payTo bound to a Concordium account with CIS-8 (lib/concordium-ed25519-key.js, the page
+  // /concordium-payto.html): POST { network, account, payNetwork, payTo } gives the canonical bytes to sign on the
+  // owner's computer (/concordium/cis8-sign.mjs); with { signature } it checks that signature and builds the
+  // registerExternalKey transaction for the owner's Concordium wallet. Read-only: nothing is signed or sent by us.
+  app.post('/api/v1/concordium/payto-key', receiptLimit, express.json({ limit: '4kb' }), async (req, res) => {
+    const { bindStep } = require('./lib/concordium-ed25519-key');
+    const out = await bindStep(req.body || {});
+    res.set('cache-control', 'no-store').status(out.status).json(out.body);
+  });
   const receiptCors = (res) => res.set({ 'Access-Control-Allow-Origin': '*', 'cache-control': 'no-store' });
   app.options('/api/v1/concordium/receipt', (_req, res) => res.set({ 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST', 'Access-Control-Allow-Headers': 'content-type' }).status(204).end());
   app.get('/api/v1/concordium/receipt', receiptLimit, async (req, res) => {

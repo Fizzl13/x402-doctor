@@ -143,7 +143,8 @@ test('verified-external-key: an EVM payTo is the address of the secp256k1 key bo
   const account = privateKeyToAccount(`0x${'11'.repeat(32)}`);
   const key = { namespace: 'eip155', key_type: 'secp256k1-uncompressed', public_key_hex: account.publicKey.slice(2) };
   const text = card();
-  const tools = (holder) => ({ agent_by_token_address: agent(text, { external_reference: { contract_address: { index: 12801, subindex: 0 }, kind: 'Cis8', key } }), owner_of_key: holder });
+  // The registry binds only the EVM key here (a Solana payTo's own key is asked too, and is not bound).
+  const tools = (holder) => ({ agent_by_token_address: agent(text, { external_reference: { contract_address: { index: 12801, subindex: 0 }, kind: 'Cis8', key } }), owner_of_key: (a) => (a.external_key.key_type === 'ed25519' ? null : holder) });
   const accepts = [{ network: 'eip155:8453', payTo: account.address }, { network: 'eip155:8453', payTo: '0x000000000000000000000000000000000000dEaD' }];
   const solana = { network: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp', payTo: 'ATWJ82T8nRdQwZnaysB68N5EpaSvLRsQP4h6eWmaJBH9' };
   const bound = await verifyConcordiumPayees([...accepts, solana, { network: 'xrpl:0', payTo: 'r9xmBsRr8Ao7jRgjjxreMiAwGiCK2FGwqw' }], { url: SELLER, safeFetch: pages({ [CARD_URL]: text }), fetchImpl: registry(tools({ owner_account: OWNER })).fetchImpl });
