@@ -83,3 +83,13 @@ test('facts come from the verified statements only, as of now', () => {
   assert.deepEqual(factsOf([{ type: 'AttributeInSet', attributeTag: 'countryOfResidence', set: ['NL', 'US'] }], NOW), []);
   assert.deepEqual(factsOf([{ type: 'AttributeInSet', attributeTag: 'nationality', set: ['NL'] }], NOW), ['eu-nationality']);
 });
+
+test('outside-embargo: both nationality and residence proven outside Cuba, Iran and North Korea', () => {
+  const notIn = (attributeTag, set) => ({ type: 'AttributeNotInSet', attributeTag, set });
+  const S = ['CU', 'IR', 'KP'];
+  assert.deepEqual(factsOf([notIn('nationality', S), notIn('countryOfResidence', S)], NOW), ['outside-embargo']);
+  assert.deepEqual(factsOf([notIn('nationality', [...S, 'RU', 'BY']), notIn('countryOfResidence', ['kp', 'ir', 'cu'])], NOW), ['outside-embargo'], 'a longer list, any case');
+  assert.deepEqual(factsOf([notIn('nationality', S)], NOW), [], 'nationality alone is not enough');
+  assert.deepEqual(factsOf([notIn('nationality', ['CU', 'IR']), notIn('countryOfResidence', S)], NOW), [], 'a set that leaves one out');
+  assert.deepEqual(factsOf([{ type: 'AttributeInSet', attributeTag: 'nationality', set: S }, notIn('countryOfResidence', S)], NOW), [], 'in-set is the opposite');
+});

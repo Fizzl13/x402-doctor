@@ -74,6 +74,7 @@
     <label class="check"><input type="checkbox" id="p-eu-res"> Lives in the EU</label>
     <label class="check"><input type="checkbox" id="p-eu-nat"> Is an EU national</label>
     <label class="check"><input type="checkbox" id="p-doc"> Their identity document is still valid</label>
+    <label class="check"><input type="checkbox" id="p-embargo"> Not a national or resident of Cuba, Iran or North Korea (countries under a comprehensive US embargo)</label>
   </div>
 
   <div class="step">
@@ -113,6 +114,7 @@ const VERIFIER = { testnet: 'https://web3id-verifier.testnet.concordium.com/v0/v
 const WALLET_PROXY = { testnet: 'https://wallet-proxy.testnet.concordium.com', mainnet: 'https://wallet-proxy.mainnet.concordium.software' };
 // Any identity provider on the network: the proof says which one issued the identity.
 const ISSUERS = Array.from({ length: 16 }, (_, i) => i);
+const EMBARGOED = ['CU', 'IR', 'KP']; // the same list as lib/concordium-proof.js (outside-embargo)
 const $ = (id) => document.getElementById(id);
 const q = new URLSearchParams(location.search);
 $('url').value = q.get('url') || '';
@@ -264,7 +266,7 @@ async function prove(phone) {
       const ok = payerNetwork.startsWith('eip155:') ? /^0x[0-9a-fA-F]{40}$/.test(payTo) : payerNetwork.startsWith('solana:') ? /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(payTo) : payerNetwork.startsWith('algorand:') ? /^[A-Z2-7]{58}$/.test(payTo) : payerNetwork.startsWith('stellar:') ? /^G[A-Z2-7]{55}$/.test(payTo) : payTo.length > 0;
       if (!ok) throw new Stop('Give the address your agent pays from on that network.');
     } else if (!/^[1-9A-HJ-NP-Za-km-z]{50}$/.test(payTo)) throw new Stop(buyer ? 'Give the account your agent pays from (a Concordium account address).' : 'payTo must be a Concordium account address.');
-    const proves = [['p-age', 'adult'], ['p-eu-res', 'eu-residence'], ['p-eu-nat', 'eu-nationality'], ['p-doc', 'id-document-valid']].filter(([id]) => $(id).checked).map(([, k]) => k);
+    const proves = [['p-age', 'adult'], ['p-eu-res', 'eu-residence'], ['p-eu-nat', 'eu-nationality'], ['p-doc', 'id-document-valid'], ['p-embargo', 'outside-embargo']].filter(([id]) => $(id).checked).map(([, k]) => k);
     if (!proves.length) throw new Stop('Pick at least one fact to prove.');
     wallet = phone ? phoneWallet(network, walletConnectId) : browserWallet(network);
     log(`Connecting to ${wallet.where}…`);
@@ -277,6 +279,7 @@ async function prove(phone) {
       if (proves.includes('eu-residence')) b.addEUResidency();
       if (proves.includes('eu-nationality')) b.addEUNationality();
       if (proves.includes('id-document-valid')) b.addRange('idDocExpiresAt', today(), '99991231');
+      if (proves.includes('outside-embargo')) { b.addNonMembership('nationality', EMBARGOED); b.addNonMembership('countryOfResidence', EMBARGOED); }
     }).getStatements();
     const challenge = other ? await crossChallengeFor(network, origin, payerNetwork, payTo) : buyer ? await buyerChallengeFor(network, payTo) : await challengeFor(network, origin, payTo);
     log(`Confirm the proof in ${wallet.where}…`);
