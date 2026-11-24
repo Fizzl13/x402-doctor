@@ -121,6 +121,9 @@ function assertAnnotated(tools) {
   for (const t of tools) {
     assert.ok(t.title, `${t.name} has a title`);
     const a = t.annotations || {};
+    assert.equal(a.title, t.title, `${t.name}: annotations.title`);
+    // A read-only tool that takes GET or POST is a "catch-all API tool" to the directory.
+    if (a.readOnlyHint) assert.ok(!(t.inputSchema.properties || {}).method, `${t.name}: no method on a reading tool`);
     assert.ok(a.readOnlyHint === true || typeof a.destructiveHint === 'boolean', `${t.name}: readOnlyHint or destructiveHint`);
   }
 }
@@ -247,8 +250,6 @@ test('mcp: a paid tool without payment answers with a challenge on Base and Sola
   const notJson = await client.callTool({ name: 'x402_preflight', arguments: { url: targetUrl, body: 'not json' } });
   assert.ok(notJson.isError);
   assert.match(notJson.content[0].text, /body must be JSON/);
-  const withGet = await client.callTool({ name: 'x402_diagnose', arguments: { url: targetUrl, method: 'GET', body: '{"a":1}' } });
-  assert.match(withGet.content[0].text, /body goes with POST/);
   const good = await client.callTool({ name: 'x402_diagnose', arguments: { url: targetUrl, body: '{"a":1}' } });
   assert.ok((good.structuredContent || JSON.parse(good.content[0].text)).accepts, 'a valid body gets the payment challenge');
   assert.equal(state.verify, 0);
@@ -299,7 +300,7 @@ test('mcp: the delivery check as a paid tool and its free status, when there is 
   const { tools } = await client.listTools();
   const paidTool = tools.find((t) => t.name === 'x402_delivery_check');
   assert.match(paidTool.description, /\$0\.25/);
-  assert.deepEqual(paidTool.annotations, { readOnlyHint: false, destructiveHint: false, openWorldHint: true }, 'a purchase, not a reading');
+  assert.deepEqual({ ...paidTool.annotations, title: undefined }, { title: undefined, readOnlyHint: false, destructiveHint: false, openWorldHint: true }, 'a purchase, not a reading');
   assertAnnotated(tools);
   assert.ok(tools.find((t) => t.name === 'x402_delivery_status'), 'the free status tool');
   // Refused before payment: not https (the same check as the HTTP route), nothing verified.
