@@ -1,0 +1,32 @@
+{
+  "name": "x402-doctor",
+  "displayName": "x402 Doctor",
+  "version": "1.0.0",
+  "description": "Before paying an x402 or MPP API: a free 30-day track record, then a $0.001 go / caution / no_go verdict. For your own paid endpoint: a free check with a fix hint per problem. Two skills plus Doctor's MCP server.",
+  "author": {
+    "name": "Fizzl",
+    "url": "https://fizzl.eu"
+  },
+  "homepage": "https://x402-doctor.fizzl.eu",
+  "repository": "https://github.com/Fizzl13/x402-doctor",
+  "license": "AGPL-3.0",
+  "privacyPolicyUrl": "https://fizzl.eu/privacy/",
+  "icon": ".claude-plugin/icon.png",
+  "keywords": [
+    "x402",
+    "mpp",
+    "payments",
+    "agents",
+    "preflight",
+    "trust"
+  ],
+  "mcpServers": {
+    "x402-doctor": {
+      "type": "http",
+      "url": "https://x402-doctor.fizzl.eu/mcp"
+    }
+  },
+  "skills": [
+    "./"
+  ]
+}
