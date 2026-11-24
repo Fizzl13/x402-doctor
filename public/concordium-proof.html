@@ -61,6 +61,7 @@
     <div id="other-only" hidden>
     <label for="payerNetwork">The network your agent pays on</label>
     <select id="payerNetwork"><option value="eip155:8453">Base</option><option value="eip155:84532">Base Sepolia (test)</option><option value="eip155:1">Ethereum</option><option value="eip155:137">Polygon</option><option value="eip155:42161">Arbitrum</option><option value="solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp">Solana</option><option value="solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1">Solana devnet (test)</option></select>
+    <label class="check"><input type="checkbox" id="control"> Also show that I control this address: its key is bound to my Concordium account in the CIS-8 registry (on Base and other EVM chains, the paying wallet signs a message, which moves no funds)</label>
     </div>
     <label for="network" id="network-label">Network</label>
     <select id="network"><option value="testnet">Concordium testnet</option><option value="mainnet">Concordium mainnet</option></select>
@@ -96,9 +97,9 @@
 
   <div class="step" id="out" hidden>
     <h2 id="out-title">4. Publish it on your site</h2>
-    <p id="out-seller">Serve this file at <code id="where"></code>. Concordium x402 facilitators that check sellers (<a href="https://concordium-facilitator.onrender.com" target="_blank" rel="noopener">this one</a>) read it before they sponsor a payment to your payTo. It is public: it holds the proof and the facts proved, nothing else.</p>
-    <p id="out-other" hidden>Give this file to your agent. It sends it with its payments to this seller, as <code>extensions["concordium-buyer-proof"]</code> in the x402 payment payload; the seller checks it before it serves (in its own code, or with <a href="https://concordium-facilitator.onrender.com" target="_blank" rel="noopener">this facilitator</a>'s <code>POST /buyer-proof/check</code>). It is worthless to another seller and from another address. What it shows: that the holder of a Concordium identity with these facts vouched for this address. It reveals the facts, not who you are, but sellers comparing files can tell two files come from the same person.</p>
-    <p id="out-buyer" hidden>Give this file to your agent. It sends it with a payment, as <code>extensions["concordium-buyer-proof"]</code> in the x402 payment payload, to sellers that ask for it (their 402 names the facts in <code>extra.buyerProof</code>). <a href="https://concordium-facilitator.onrender.com" target="_blank" rel="noopener">This facilitator</a> checks it before it sponsors the payment: it must come from the account that pays. It is not a secret: it holds the proof and the facts proved, nothing else, and is worthless from any other account.</p>
+    <p id="out-seller">Serve this file at <code id="where"></code>. Concordium x402 facilitators that check sellers (<a href="https://ccd-facilitator.fizzl.eu" target="_blank" rel="noopener">this one</a>) read it before they sponsor a payment to your payTo. It is public: it holds the proof and the facts proved, nothing else.</p>
+    <p id="out-other" hidden>Give this file to your agent. It sends it with its payments to this seller, as <code>extensions["concordium-buyer-proof"]</code> in the x402 payment payload; the seller checks it before it serves (in its own code, or with <a href="https://ccd-facilitator.fizzl.eu" target="_blank" rel="noopener">this facilitator</a>'s <code>POST /buyer-proof/check</code>). It is worthless to another seller and from another address. What it shows: that the holder of a Concordium identity with these facts vouched for this address, and, with the CIS-8 key binding, that they control it. It reveals the facts, not who you are, but sellers comparing files can tell two files come from the same person.</p>
+    <p id="out-buyer" hidden>Give this file to your agent. It sends it with a payment, as <code>extensions["concordium-buyer-proof"]</code> in the x402 payment payload, to sellers that ask for it (their 402 names the facts in <code>extra.buyerProof</code>). <a href="https://ccd-facilitator.fizzl.eu" target="_blank" rel="noopener">This facilitator</a> checks it before it sponsors the payment: it must come from the account that pays. It is not a secret: it holds the proof and the facts proved, nothing else, and is worthless from any other account.</p>
     <button id="download">Download <span id="file-name">concordium-proof.json</span></button>
     <button id="copy">Copy</button>
   </div>
@@ -298,8 +299,9 @@ async function prove(phone) {
     if (!other) try { key = String((await (await fetch(`${WALLET_PROXY[network]}/v0/accEncryptionKey/${payTo}`)).json())?.accountEncryptionKey || '').toLowerCase(); } catch { key = ''; }
     if (other) { /* no Concordium account pays: any of the owner's credentials will do */ } else if (!key) log(`Could not read account ${payTo} to check that the proof came from it.`, 'warn');
     else if (!credId || !key.endsWith(credId)) throw new Stop(`The wallet proved with another account's credential (${credId.slice(0, 12)}…), not ${payTo}'s. In the wallet, make ${payTo.slice(0, 8)}… the active account first, then try again.`);
+    const payerKey = other && $('control').checked ? await payerKeyFor(network, payerNetwork, payerOf(payerNetwork, payTo)) : null;
     file = other
-      ? { type: 'concordium-x402-buyer-proof', version: 2, network, origin, payer: { network: payerNetwork, address: payerOf(payerNetwork, payTo) }, proves, challenge, created: new Date().toISOString(), presentation }
+      ? { type: 'concordium-x402-buyer-proof', version: 2, network, origin, payer: { network: payerNetwork, address: payerOf(payerNetwork, payTo), ...(payerKey ? { key: payerKey.key } : {}) }, proves, challenge, created: new Date().toISOString(), presentation }
       : buyer
       ? { type: 'concordium-x402-buyer-proof', version: 1, network, account: payTo, proves, challenge, created: new Date().toISOString(), presentation }
       : { type: 'concordium-x402-seller-proof', version: 1, network, origin, payTo, proves, challenge, created: new Date().toISOString(), presentation };
@@ -308,6 +310,7 @@ async function prove(phone) {
       ['Proof', '<span class="ok">valid (Concordium verifier) ✓</span>'],
       ['Proves', esc(proves.join(', '))],
       ['Tied to', other ? `${esc(origin)}<br>payments from ${esc(payerOf(payerNetwork, payTo))} (${esc($('payerNetwork').selectedOptions[0].text)})` : buyer ? `payments from ${esc(payTo)}` : `${esc(origin)}<br>${esc(payTo)}`],
+      ...(payerKey ? [['Control', `<span class="ok">the address's key is bound to ${esc(payerKey.account)} with CIS-8 ✓</span>`]] : []),
       ['Credential', esc(cred)],
       ['Verified in block', esc(verified.block || '')],
     ].map(([k, v]) => `<tr><th>${k}</th><td>${v}</td></tr>`).join('');
@@ -322,6 +325,32 @@ async function prove(phone) {
     wallet?.close();
     $('prove').disabled = false;
     $('prove-app').disabled = false;
+  }
+}
+// The paying address's key, when CIS-8 binds it to a Concordium account (x402 Doctor's /api/v1/concordium/payer-key).
+// Solana: the address is the key. EVM: the paying wallet in this browser signs a message the key is recovered from.
+// The facilitator then sees control (binding payer-key), if the account that bound the key also made the proof.
+// Anything short of a binding leaves the file as it is (a vouch for the address), with the reason in the log.
+async function payerKeyFor(network, payerNetwork, address) {
+  let signature;
+  try {
+    if (payerNetwork.startsWith('eip155:')) {
+      if (!window.ethereum) { log('Control not added: no EVM wallet in this browser to sign with (MetaMask, Coinbase Wallet…). The file still works as a vouch for the address.', 'warn'); return null; }
+      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+      if (!accounts.some((a) => a.toLowerCase() === address.toLowerCase())) { log(`Control not added: the EVM wallet here holds ${accounts[0] || 'no account'}, not ${address}. Switch to it and try again.`, 'warn'); return null; }
+      const { message } = await (await fetch(`/api/v1/concordium/payer-key?payerNetwork=${encodeURIComponent(payerNetwork)}&address=${encodeURIComponent(address)}`)).json();
+      log('Sign the key check in your EVM wallet (it moves no funds)…');
+      signature = await window.ethereum.request({ method: 'personal_sign', params: [`0x${Array.from(new TextEncoder().encode(message), (b) => b.toString(16).padStart(2, '0')).join('')}`, address] });
+    }
+    const res = await fetch('/api/v1/concordium/payer-key', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ network, payerNetwork, address, ...(signature ? { signature } : {}) }) });
+    const out = await res.json();
+    if (!res.ok) { log(`Control not added: ${out.error || res.status}`, 'warn'); return null; }
+    if (out.bound !== true) { log(`Control not added: ${out.reason || 'no binding'}. The file still works as a vouch for the address.`, 'warn'); return null; }
+    log(`The address's key is bound to ${out.account} in the CIS-8 registry. The facilitator checks that this account also made the proof.`, 'ok');
+    return out;
+  } catch (err) {
+    log(`Control not added: ${String(err?.message || err).slice(0, 120)}. The file still works as a vouch for the address.`, 'warn');
+    return null;
   }
 }
 $('download').onclick = () => {

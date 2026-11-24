@@ -405,6 +405,19 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   // /concordium-proof.html asks the Concordium wallet app on a phone over WalletConnect when a Reown project id is set
   // (WALLETCONNECT_PROJECT_ID; the project must list this site's domain). The id is public: it is in the page's requests.
   app.get('/api/v1/concordium/proof-page', (_req, res) => res.set('cache-control', 'no-store').json({ walletConnect: String(env.WALLETCONNECT_PROJECT_ID || '').trim() || null }));
+  // The payer's key for a cross-network buyer proof (lib/concordium-payer-key.js): GET gives the message the paying EVM
+  // wallet signs, POST { network, payerNetwork, address, signature? } the key and whether CIS-8 binds it. Read-only.
+  app.get('/api/v1/concordium/payer-key', receiptLimit, (req, res) => {
+    const { keyMessage } = require('./lib/concordium-payer-key');
+    const payerNetwork = String(req.query.payerNetwork || ''), address = String(req.query.address || '');
+    if (!payerNetwork || !address) return res.status(400).json({ error: 'give payerNetwork and address' });
+    res.set('cache-control', 'no-store').json({ message: keyMessage(payerNetwork, address) });
+  });
+  app.post('/api/v1/concordium/payer-key', receiptLimit, express.json({ limit: '4kb' }), async (req, res) => {
+    const { payerKey } = require('./lib/concordium-payer-key');
+    const out = await payerKey(req.body || {});
+    res.set('cache-control', 'no-store').status(out.status).json(out.body);
+  });
   const receiptCors = (res) => res.set({ 'Access-Control-Allow-Origin': '*', 'cache-control': 'no-store' });
   app.options('/api/v1/concordium/receipt', (_req, res) => res.set({ 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST', 'Access-Control-Allow-Headers': 'content-type' }).status(204).end());
   app.get('/api/v1/concordium/receipt', receiptLimit, async (req, res) => {
