@@ -1,0 +1,18 @@
+# Claude Approvals policy (Claude Ship, beta): https://code.claude.com/docs/en/approvals-policy
+# Observe mode: the "Claude Approvals" check only shows what these rules would decide; nothing is approved or
+# blocked. Frits (24 Nov 2026): "Doe maar test". Merging stays Frits's ("Merge").
+version: 1
+mode: observe
+rules:
+  - purpose: "Code, pages, config and workflows: Frits approves."
+    paths: ["**", "!test/**", "!**/*.md"]
+    verdict: { claude: comments, seats: [{ count: 1, from: Fizzl13 }] }
+  - purpose: "Only tests or Markdown: Claude may approve once its Code Review passes; otherwise Frits."
+    paths: ["test/**", "**/*.md"]
+    verdict: { claude: comments, seats: [{ count: 1, from: Fizzl13 }] }
+    override:
+      - { if: "claude/code_review = pass", verdict: { claude: approves, seats: 0 } }
+  - purpose: "Claude's own settings, hooks and this policy: always Frits."
+    paths: ["**/.claude/**"]
+    nested: inherit
+    verdict: { claude: comments, seats: [{ count: 1, from: Fizzl13 }] }
