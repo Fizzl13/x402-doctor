@@ -33,6 +33,8 @@ test('plugin x402-doctor: the skills/ folder with its own manifest, every skill 
   const skills = fs.readdirSync(root).filter((d) => fs.existsSync(path.join(root, d, 'SKILL.md')));
   assert.deepEqual(skills.sort(), ['x402-preflight', 'x402-seller-check']);
   assert.ok(!fs.existsSync(path.join(root, 'bin')), 'no bin/ in the plugin root');
+  const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8').replace(/```[\s\S]*?```/g, '');
+  assert.ok(readme.split(/\s+/).filter(Boolean).length >= 40, 'the directory asks a README of at least 40 words in the plugin folder');
   assert.deepEqual(manifest.mcpServers, { 'x402-doctor': { type: 'http', url: serverJson.remotes[0].url } });
 });
 
