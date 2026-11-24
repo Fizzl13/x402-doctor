@@ -18,6 +18,19 @@ diagnosing a broken endpoint, the pre-payment check for agents, and the daily Tr
 ▶ **New: [the paid fix in 70 seconds](https://x402-doctor.fizzl.eu/media/fix.mp4)**: for $0.05 the Doctor hands you
 the medicine, the exact code that fixes each problem for your stack, in the browser or as JSON for agents.
 
+## Start here
+
+| You are | Use | Cost |
+|---|---|---|
+| A developer with a paid endpoint | Paste its URL at **[x402-doctor.fizzl.eu](https://x402-doctor.fizzl.eu)**, or run `npx github:Fizzl13/x402-doctor <url>` ([CLI](#cli)) | free |
+| An agent about to pay an endpoint it hasn't used | `GET /api/v1/preflight?url=<endpoint>`: go, caution or no_go before it pays ([details](#pre-payment-check-for-buyers-get-apiv1preflight)) | $0.001 |
+| An agent in Claude, Cursor or another MCP client | Add `https://x402-doctor.fizzl.eu/mcp` ([tools](#mcp-server)); `/mcp/free` has only the free tools | free and paid tools |
+| A team shipping x402 endpoints | Check them on every push with the [GitHub Action](#github-action) | free |
+| Someone who wants the fix as code | `GET /api/v1/fix?url=<endpoint>`: the code per problem for your stack ([details](#the-fix-as-code-get-apiv1fix)) | $0.05 |
+
+Paid calls need no account or API key: the agent pays per call over x402, in USDC or another dollar token on eleven networks. Every day the
+[x402 Trust Index](#x402-trust-index) checks every x402 resource it can find and publishes the result.
+
 ## What it checks
 
 | Group | Check | Catches |
