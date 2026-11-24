@@ -24,7 +24,8 @@ test('Solana: the address is the key; other chains are not offered yet', async (
   const k = await keyOf({ payerNetwork: SOL, address: '11111111111111111111111111111111' });
   assert.deepEqual(k.key, { namespace: SOL, key_type: 'ed25519', public_key_hex: '00'.repeat(32) });
   assert.match((await keyOf({ payerNetwork: SOL, address: 'nope' })).error, /Solana address/);
-  assert.match((await keyOf({ payerNetwork: 'algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k', address: 'X' })).error, /only EVM/);
+  assert.match((await keyOf({ payerNetwork: 'algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k', address: 'X' })).error, /an Algorand address/);
+  assert.match((await keyOf({ payerNetwork: 'xrpl:0', address: 'r9xmBsRr8Ao7jRgjjxreMiAwGiCK2FGwqw' })).error, /only EVM/);
 });
 
 test('bound: the registry\'s owner, trying the paying network and then the EVM family\'s usual namespaces', async () => {
@@ -61,4 +62,22 @@ test('the routes: GET gives the message to sign, POST checks it', async () => {
     const bad = await fetch(base, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ network: 'testnet', payerNetwork: BASE, address: wallet.address, signature: '0x' + '00'.repeat(65) }) });
     assert.equal(bad.status, 400);
   } finally { server.close(); }
+});
+
+test('Algorand and Stellar: the address is the key, asked under Concordium\'s own namespace first', async () => {
+  const { addressOfEd25519 } = require('../lib/concordium-ed25519-key');
+  const hex = 'b02544164c154537d90c672d519d3b71c6b3f65476f385996b7435c46aa28ad3'; // the Stellar demo key bound on mainnet, 24 Nov
+  const ALGO = 'algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=';
+  const xlm = addressOfEd25519('stellar:pubnet', hex), algo = addressOfEd25519(ALGO, hex);
+  assert.equal(xlm, 'GCYCKRAWJQKUKN6ZBRTS2UM5HNY4NM7WKR3PHBMZNN2DLRDKUKFNGDVJ');
+  assert.deepEqual((await keyOf({ payerNetwork: 'stellar:pubnet', address: xlm })).key, { namespace: 'stellar:pubnet', key_type: 'ed25519', public_key_hex: hex });
+  assert.deepEqual((await keyOf({ payerNetwork: ALGO, address: algo })).key, { namespace: 'algorand:mainnet', key_type: 'ed25519', public_key_hex: hex });
+  assert.match((await keyOf({ payerNetwork: 'stellar:pubnet', address: algo })).error, /Stellar account/);
+  const asked = [];
+  const call = async (_tool, args) => { asked.push(args.external_key.namespace); return args.external_key.namespace === 'algorand:mainnet' ? { owner_account: OWNER, status: 'Active' } : null; };
+  const out = await payerKey({ network: 'mainnet', payerNetwork: ALGO, address: algo }, { call });
+  assert.deepEqual([out.body.bound, out.body.account], [true, OWNER]);
+  assert.deepEqual(asked, ['algorand:mainnet']);
+  const none = await payerKey({ network: 'mainnet', payerNetwork: 'stellar:pubnet', address: xlm }, { call: async () => null });
+  assert.equal(none.body.bound, false);
 });
