@@ -11,106 +11,75 @@
       "name": "x402-doctor",
       "displayName": "x402 Doctor",
       "description": "Before paying an x402 or MPP API: a free 30-day track record, then a $0.001 go / caution / no_go verdict. For your own paid endpoint: a free check with a fix hint per problem. Two skills plus Doctor's MCP server.",
-      "source": "./skills",
-      "skills": ["./"],
-      "mcpServers": {
-        "x402-doctor": {
-          "type": "http",
-          "url": "https://x402-doctor.fizzl.eu/mcp"
-        }
+      "author": {
+        "name": "Fizzl",
+        "url": "https://fizzl.eu"
       },
-      "author": { "name": "Fizzl", "url": "https://fizzl.eu" },
       "homepage": "https://x402-doctor.fizzl.eu",
       "repository": "https://github.com/Fizzl13/x402-doctor",
-      "license": "MIT",
-      "keywords": ["x402", "mpp", "payments", "agents", "preflight", "trust"],
-      "category": "payments"
+      "license": "AGPL-3.0",
+      "keywords": [
+        "x402",
+        "mpp",
+        "payments",
+        "agents",
+        "preflight",
+        "trust"
+      ],
+      "category": "payments",
+      "source": "./skills"
     },
     {
       "name": "presign-guard",
       "displayName": "presign-guard",
-      "description": "Before an agent signs a transaction, approval, Permit or x402 payment, buys a token or sends funds: green / orange / red with reason codes, OFAC sanctions screening included. EVM, Solana, XRP Ledger and Algorand. One skill plus presign-guard's MCP server.",
+      "description": "Before an agent signs a transaction, approval, Permit or x402 payment, buys a token or sends funds: green / orange / red with reason codes, OFAC sanctions screening included. EVM, Solana, XRP Ledger, Algorand, Stellar and NEAR. One skill plus presign-guard's MCP server.",
+      "author": {
+        "name": "Fizzl",
+        "url": "https://fizzl.eu"
+      },
+      "homepage": "https://presign-guard.fizzl.eu",
+      "repository": "https://github.com/Fizzl13/presign-guard",
+      "license": "AGPL-3.0",
+      "keywords": [
+        "wallet",
+        "signing",
+        "security",
+        "sanctions",
+        "solana",
+        "evm"
+      ],
+      "category": "security",
       "source": {
         "source": "git-subdir",
         "url": "https://github.com/Fizzl13/presign-guard.git",
         "path": "skills"
-      },
-      "skills": ["./"],
-      "mcpServers": {
-        "presign-guard": {
-          "type": "http",
-          "url": "https://presign-guard.fizzl.eu/mcp"
-        }
-      },
-      "author": { "name": "Fizzl", "url": "https://fizzl.eu" },
-      "homepage": "https://presign-guard.fizzl.eu",
-      "repository": "https://github.com/Fizzl13/presign-guard",
-      "license": "MIT",
-      "keywords": ["wallet", "signing", "security", "sanctions", "solana", "evm"],
-      "category": "security"
+      }
     },
     {
-      "name": "fizzl-agent-wallet",
-      "displayName": "Fizzl Agent Wallet",
-      "description": "Give your agent a wallet with spending limits: it pays x402 and MPP APIs and sends USDC within your rules, asks on your phone above them, and every signature is checked by presign-guard first. One skill that walks the owner through setup (the wallet's MCP server needs the owner's own keys, so it is installed separately).",
+      "name": "fizzl",
+      "displayName": "Fizzl",
+      "description": "The Agent Wallet (spending limits, approval on your phone), Ichimoku Signal (crypto trend signals and a 148-coin scan), Fizzl Buy (live data bought in one call) and x402 Forge (ready-made x402 tools): four skills plus the Ichimoku Signal and Fizzl Buy MCP servers.",
       "source": {
-        "source": "git-subdir",
-        "url": "https://github.com/Fizzl13/fizzl-skills.git",
-        "path": "skills"
+        "source": "github",
+        "repo": "Fizzl13/fizzl-skills"
       },
-      "skills": ["./agent-wallet-limits"],
-      "author": { "name": "Fizzl", "url": "https://fizzl.eu" },
-      "homepage": "https://wallet.fizzl.eu",
+      "author": {
+        "name": "Fizzl",
+        "url": "https://fizzl.eu"
+      },
+      "homepage": "https://fizzl.eu",
       "repository": "https://github.com/Fizzl13/fizzl-skills",
       "license": "MIT",
-      "keywords": ["wallet", "spending-limits", "x402", "mpp", "agents", "usdc"],
+      "keywords": [
+        "x402",
+        "agents",
+        "wallet",
+        "spending-limits",
+        "crypto",
+        "signals",
+        "data"
+      ],
       "category": "payments"
-    },
-    {
-      "name": "ichimoku-signal",
-      "displayName": "Ichimoku Signal",
-      "description": "Crypto trend signals for trading and research agents: Ichimoku on any timeframe, a six-indicator confluence, levels with a trade plan, a 148-coin scan and ranked setups, with a news-risk flag. Free daily trend; paid calls over x402 or MPP. One skill plus Ichimoku Signal's MCP server.",
-      "source": {
-        "source": "git-subdir",
-        "url": "https://github.com/Fizzl13/fizzl-skills.git",
-        "path": "skills"
-      },
-      "skills": ["./crypto-trend-signal"],
-      "mcpServers": {
-        "ichimoku-signal": {
-          "type": "http",
-          "url": "https://ichimoku-signal.fizzl.eu/mcp"
-        }
-      },
-      "author": { "name": "Fizzl", "url": "https://fizzl.eu" },
-      "homepage": "https://ichimoku-signal.fizzl.eu",
-      "repository": "https://github.com/Fizzl13/fizzl-skills",
-      "license": "MIT",
-      "keywords": ["crypto", "trading", "signals", "ichimoku", "x402"],
-      "category": "finance"
-    },
-    {
-      "name": "fizzl-buy",
-      "displayName": "Fizzl Buy",
-      "description": "Live data your agent can't get itself (weather, prices, exchange rates, search, news) bought in one call: Fizzl picks the x402 seller x402 Doctor has seen paying out day after day at a fair price, pays it and returns the answer, checked for hidden instructions. $0.02 per purchase over x402, nothing charged when no seller delivers; a free preview of the pick. One skill plus Fizzl Buy's MCP server.",
-      "source": {
-        "source": "git-subdir",
-        "url": "https://github.com/Fizzl13/fizzl-skills.git",
-        "path": "skills"
-      },
-      "skills": ["./buy-live-data"],
-      "mcpServers": {
-        "fizzl-buy": {
-          "type": "http",
-          "url": "https://buy.fizzl.eu/mcp"
-        }
-      },
-      "author": { "name": "Fizzl", "url": "https://fizzl.eu" },
-      "homepage": "https://buy.fizzl.eu",
-      "repository": "https://github.com/Fizzl13/fizzl-skills",
-      "license": "MIT",
-      "keywords": ["x402", "agents", "payments", "data", "weather", "prices", "search"],
-      "category": "productivity"
     }
   ]
 }
