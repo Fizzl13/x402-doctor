@@ -78,5 +78,5 @@ test('usage log: a USD₮0 payment on X Layer is named "xlayer" and counted in d
 test('Fizzl Buy names USD₮0 on X Layer in its payment text', () => {
   const { networksText } = require('../buy-server');
   const accepts = routesFor({ AGENT_PAYOUT_WALLET: PAY_TO_BASE, XRPL_PAY_TO: 'r9xmBsRr8Ao7jRgjjxreMiAwGiCK2FGwqw', XLAYER_PAY_TO: OTHER })['POST /v1/buy'].accepts;
-  assert.equal(networksText(accepts), 'USDC on Base, or RLUSD on the XRP Ledger, or USD₮0 on X Layer');
+  assert.equal(networksText(accepts), 'USDC on Base, or RLUSD or XRP on the XRP Ledger, or USD₮0 on X Layer');
 });

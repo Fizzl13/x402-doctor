@@ -273,10 +273,16 @@ test('routes: $0.02 on Base, and on Solana with a Solana payout address; five mi
   assert.equal(routesFor({ AGENT_PAYOUT_WALLET: PAY_TO })['POST /v1/buy'].accepts.length, 1);
   // The other networks the Fizzl services take, each with its payout address (as on x402 Doctor).
   const all = routesFor({ AGENT_PAYOUT_WALLET: PAY_TO, AGENT_PAYOUT_WALLET_SOLANA: 'ATWJ82T8nRdQwZnaysB68N5EpaSvLRsQP4h6eWmaJBH9', XRPL_PAY_TO: 'r9xmBsRr8Ao7jRgjjxreMiAwGiCK2FGwqw', ALGORAND_PAY_TO: 'LOYVFSQ6ZTS2YWUW4GQ5L6VPP2TPIOXWYDACK53CPOHQQHLDMEMKJDXAX4', STELLAR_FACILITATOR_URL: 'https://stellar.example' })['POST /v1/buy'].accepts;
-  assert.deepEqual(all.map((a) => a.network), ['eip155:8453', 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp', 'xrpl:0', 'algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k', 'stellar:pubnet']);
+  // xrpl:0 twice: RLUSD, then native XRP (a price function: drops at the XRP/RLUSD pool's rate, lib/xrp-rate.js).
+  assert.deepEqual(all.map((a) => a.network), ['eip155:8453', 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp', 'xrpl:0', 'xrpl:0', 'algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k', 'stellar:pubnet']);
   assert.equal(all[2].extra.invoiceId, 'buy.fizzl.eu');
-  assert.ok(all.every((a) => a.price === '$0.02' && a.maxTimeoutSeconds === 300));
-  assert.equal(networksText(all), 'USDC on Base, Solana, Algorand or Stellar, or RLUSD on the XRP Ledger');
+  assert.equal(all[3].extra.invoiceId, 'buy.fizzl.eu');
+  assert.equal(typeof all[3].price, 'function');
+  assert.ok(all.every((a, i) => (i === 3 || a.price === '$0.02') && a.maxTimeoutSeconds === 300));
+  assert.equal(networksText(all), 'USDC on Base, Solana, Algorand or Stellar, or RLUSD or XRP on the XRP Ledger');
+  const noXrp = routesFor({ AGENT_PAYOUT_WALLET: PAY_TO, XRPL_PAY_TO: 'r9xmBsRr8Ao7jRgjjxreMiAwGiCK2FGwqw', XRPL_XRP: 'off' })['POST /v1/buy'].accepts;
+  assert.equal(noXrp.filter((a) => a.network === 'xrpl:0').length, 1, 'XRPL_XRP=off: RLUSD only');
+  assert.equal(networksText(noXrp), 'USDC on Base, or RLUSD on the XRP Ledger');
   assert.equal(networksText(r.accepts), 'USDC on Base or Solana');
   assert.equal(routesFor({ AGENT_PAYOUT_WALLET: PAY_TO, CDP_API_KEY_ID: 'k', CDP_API_KEY_SECRET: 's' })['POST /v1/buy'].accepts.some((a) => a.network === 'xrpl:0'), true, 'XRPL by default in production, as on Doctor');
   assert.equal(r.extensions.bazaar.info.input.body.need, 'weather forecast for Amsterdam tomorrow');
