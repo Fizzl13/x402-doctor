@@ -118,7 +118,10 @@ async function mcpClient(path = '/mcp') {
 
 // Claude's connectors directory wants a title and readOnlyHint or destructiveHint on every tool.
 function assertAnnotated(tools) {
+  const names = tools.map((t) => t.name);
   for (const t of tools) {
+    // The directory asks that tool descriptions hold no instructions about other tools.
+    for (const other of names.filter((n) => n !== t.name)) assert.ok(!new RegExp(`\\b${other}\\b`).test(t.description), `${t.name}: its description names ${other}`);
     assert.ok(t.title, `${t.name} has a title`);
     const a = t.annotations || {};
     assert.equal(a.title, t.title, `${t.name}: annotations.title`);
