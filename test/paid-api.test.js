@@ -667,3 +667,17 @@ test('the 402 header carries the Bazaar output schemas without descriptions; ope
   const openapi = await (await fetch(`${api}/openapi.json`)).json();
   assert.ok(descriptions(openapi.paths['/api/v1/preflight/deep']) > 0, 'openapi.json keeps the descriptions');
 });
+
+test('search-word paths (lib/bazaar-aliases.js): /api/v1/x402-preflight and /api/v1/seller-check are the paid preflight, under their own resource URL', async () => {
+  const q = `?url=${encodeURIComponent(targetUrl)}`;
+  const decode = (res) => JSON.parse(Buffer.from(res.headers.get('payment-required'), 'base64').toString());
+  const plain = decode(await fetch(`${api}/api/v1/preflight${q}`));
+  for (const path of ['/api/v1/x402-preflight', '/api/v1/seller-check']) {
+    const res = await fetch(`${api}${path}${q}`);
+    assert.equal(res.status, 402, path);
+    const c = decode(res);
+    assert.deepEqual(c.accepts.map((a) => [a.network, a.amount]), plain.accepts.map((a) => [a.network, a.amount]), path);
+    assert.equal(new URL(c.resource.url).pathname, path, 'the Bazaar lists the alias by its own URL');
+  }
+  assert.equal(state.verify, 0);
+});

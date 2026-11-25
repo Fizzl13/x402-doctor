@@ -20,6 +20,7 @@
 'use strict';
 
 const fs = require('fs');
+const { bazaarAliases } = require('./lib/bazaar-aliases');
 const path = require('path');
 const express = require('express');
 // Every async route handler's rejection goes to next(err), so one failing request can't stop the server.
@@ -273,6 +274,8 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
   };
 
   const app = express();
+  // Search-word path for the Bazaar (lib/bazaar-aliases.js): the same purchase under the words buyers search.
+  app.use(bazaarAliases({ '/v1/find-and-buy-api': BUY_ROUTE }));
   app.set('trust proxy', Number(env.TRUST_PROXY_HOPS) || 1);
   app.disable('x-powered-by');
   app.get('/health', (_req, res) => res.json({ ok: true, wallet: wallet ? wallet.address : null, filler: filler.enabled, answer_check: Boolean(answerCheck?.enabled), spent_today_usd: budget.spent(), memory: memoryOf(), uptime_s: Math.round(process.uptime()) }));
