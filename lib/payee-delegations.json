@@ -40,6 +40,26 @@
   }
  },
  {
+  "network": "xrpl:0",
+  "payTo": "r9xmBsRr8Ao7jRgjjxreMiAwGiCK2FGwqw",
+  "delegation": {
+   "message": {
+    "chainId": "8453",
+    "registry": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+    "agentId": "97519",
+    "agentWallet": "0x6b0f4651ed42893ab58139938175e4a69f175f25",
+    "network": "xrpl:0",
+    "payTo": "r9xmBsRr8Ao7jRgjjxreMiAwGiCK2FGwqw",
+    "asset": "XRP",
+    "origin": "https://x402-doctor.fizzl.eu",
+    "validAfter": "1795584865",
+    "validUntil": "1827120805",
+    "nonce": "0x053594c7a463dcc961ffe7d50f482a260b45f767a40f970a0c64f24a96a01593"
+   },
+   "signature": "0x5e38b5a3ae7aae4181cddba31ea740ed9197360e587f3c032c582263c16299660b724df763ce3a6cd9508f41949cad24e161cc33228904a458380532ba2038dd1c"
+  }
+ },
+ {
   "network": "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k",
   "payTo": "LOYVFSQ6ZTS2YWUW4GQ5L6VPP2TPIOXWYDACK53CPOHQQHLDMEMKJDXAX4",
   "delegation": {
