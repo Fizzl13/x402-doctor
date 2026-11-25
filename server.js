@@ -1,4 +1,7 @@
 const express = require('express');
+const { bazaarAliases } = require('./lib/bazaar-aliases');
+// Search-word paths for the Bazaar: each answers exactly as the route it names (lib/bazaar-aliases.js).
+const DOCTOR_ALIASES = { '/api/v1/x402-preflight': '/api/v1/preflight', '/api/v1/seller-check': '/api/v1/preflight' };
 // Every async route handler's rejection goes to next(err), so one failing request can't stop the server.
 const { catchAsyncRoutes } = require('./lib/async-routes');
 catchAsyncRoutes(express);
@@ -307,6 +310,8 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   app.set('trust proxy', trustProxyHops(env));
   // The Render address sends every request to x402-doctor.fizzl.eu (lib/canonical-host.js), the health check aside.
   app.use(canonicalHost(env.PUBLIC_URL || 'https://x402-doctor.fizzl.eu'));
+  // Search-word paths for the Bazaar (lib/bazaar-aliases.js): the same paid preflight under the words buyers search.
+  app.use(bazaarAliases(DOCTOR_ALIASES));
   app.disable('x-powered-by');
   app.use(securityHeaders);
   // Every HEAD is handled as a GET, so paid routes give their 402 instead of running for free (lib/head-guard.js).

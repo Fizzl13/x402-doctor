@@ -187,6 +187,7 @@ test('server: free pick with its limit, the purchase, bad input, no wallet, disc
   assert.equal(bought.status, 200);
   assert.deepEqual((await bought.json()).answer, { temp_c: 11 });
   assert.equal((await fetch(`${base}/v1/buy`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })).status, 400);
+  assert.equal((await fetch(`${base}/v1/find-and-buy-api`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })).status, 400, 'the search-word path is /v1/buy');
   const mcp = await (await fetch(`${base}/mcp`, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} }) })).json();
   assert.deepEqual(mcp.result.tools.map((t) => t.name), ['x402_pick', 'feedback']);
   assert.equal((await fetch(`${base}/v1/pick?need=weather%20amsterdam`)).status, 200);
