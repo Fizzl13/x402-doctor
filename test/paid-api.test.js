@@ -314,7 +314,9 @@ test('Bazaar curation metadata: serviceName, category, iconUrl and tags in /.wel
     const res = await fetch(`${api}${route}`);
     assert.equal(res.status, 402, route);
     const challenge = JSON.parse(Buffer.from(res.headers.get('payment-required'), 'base64').toString('utf8'));
-    assert.equal(challenge.resource.serviceName, 'x402 Doctor', route);
+    // The preflight's name and tags carry the search words "preflight" and "seller check" (lib/paid-api.js).
+    assert.equal(challenge.resource.serviceName, route === '/api/v1/preflight' ? 'x402 Doctor Preflight' : 'x402 Doctor', route);
+    if (route === '/api/v1/preflight') assert.ok(['preflight', 'x402 preflight', 'seller check'].every((t) => challenge.resource.tags.includes(t)));
     assert.equal(challenge.resource.iconUrl, 'https://x402-doctor.fizzl.eu/icon.png', route);
     assert.ok(challenge.resource.tags.length > 0, route);
     // Strict x402 clients parse the challenge with @x402/core's schema (at most 5 tags, among others).

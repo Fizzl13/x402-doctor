@@ -160,8 +160,9 @@ function routesFor(env) {
       accepts,
       description: 'Find and buy the best paid API for your agent in one call: say what you need ("weather forecast Amsterdam tomorrow", "BTC price", "search the web for x402"). Fizzl picks the x402 service x402 Doctor has seen paying out day after day at a fair price, fills in its input, buys it (up to $0.01) and returns the answer, checked by TypeSafe Jev, with a signed receipt. Nothing is charged when no service delivers.',
       mimeType: 'application/json',
-      serviceName: 'Fizzl Buy',
-      tags: ['agents', 'x402', 'marketplace', 'buyer', 'trust'],
+      // The Bazaar's search matches serviceName and tags first: the words buyers search for (lib/paid-api.js).
+      serviceName: 'Fizzl Buy: Find and Buy API',
+      tags: ['find api', 'buy api', 'api marketplace', 'x402', 'agents'],
       iconUrl: `${env.PUBLIC_URL || 'https://buy.fizzl.eu'}/icon.png`,
       // Who sells it, and the Base Builder Code once BUILDER_CODE is set, as on the other fizzl.eu services.
       extensions: {
