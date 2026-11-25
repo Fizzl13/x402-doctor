@@ -3,7 +3,7 @@
 // x402 Doctor has seen paying out day after day at a fair price, fills in its input, buys it with its own wallet and
 // returns the answer, checked by TypeSafe Jev, with a signed receipt (lib/buy/*).
 //
-//   POST /v1/buy { need }  $0.02 (x402: USDC on Base, Solana, Monad, Polygon, Arbitrum, Avalanche, Algorand or Stellar, RLUSD on the XRP Ledger): buys a
+//   POST /v1/buy { need }  $0.02 (x402: USDC on Base, Solana, Monad, Polygon, Arbitrum, Avalanche, Algorand or Stellar, RLUSD or XRP on the XRP Ledger): buys a
 //                          service of at most $0.01 (the inkoper itself pays on Base). Nothing is charged
 //                          when no service delivers (the paywall settles only a 2xx answer).
 //   GET  /v1/pick?need=…   free (10 an hour per caller): which service the inkoper would buy, and why.
@@ -28,6 +28,7 @@ require('./lib/async-routes').catchAsyncRoutes(express);
 // year (draft ERC "x402 Payee Verification for ERC-8004 Agents", ethereum/ERCs#2132).
 const { createPassVerifier, limitKeyOf } = require('./lib/fizzl-pass');
 const { createVault, redisVault, usdOf } = require('./lib/fizzl-vault');
+const { sharedXrpRate } = require('./lib/xrp-rate');
 const { createRefusalSender, createRefusalRoutes, refusalExtension, PATH: REFUSAL_PATH } = require('./lib/refusal');
 const { createRefusalLog } = require('./lib/refusal-log');
 const { createErrorReporter } = require('./lib/error-report');
@@ -123,7 +124,7 @@ function networksText(accepts) {
   const names = { [BASE]: 'Base', [SOLANA]: 'Solana', [MONAD]: 'Monad', ...EXTRA_EVM_NAMES, [ALGORAND]: 'Algorand', [STELLAR]: 'Stellar' };
   const usdc = accepts.map((a) => names[a.network]).filter(Boolean);
   const list = usdc.length > 1 ? `${usdc.slice(0, -1).join(', ')} or ${usdc.at(-1)}` : usdc[0];
-  const other = [accepts.some((a) => a.network === XRPL) && 'RLUSD on the XRP Ledger', accepts.some((a) => a.network === XLAYER) && 'USD₮0 on X Layer'].filter(Boolean);
+  const other = [accepts.some((a) => a.network === XRPL) && (accepts.filter((a) => a.network === XRPL).length > 1 ? 'RLUSD or XRP on the XRP Ledger' : 'RLUSD on the XRP Ledger'), accepts.some((a) => a.network === XLAYER) && 'USD₮0 on X Layer'].filter(Boolean);
   return `USDC on ${list}${other.map((o) => `, or ${o}`).join('')}`;
 }
 
@@ -142,6 +143,8 @@ function routesFor(env) {
     ...(env.AGENT_PAYOUT_WALLET_SOLANA ? [{ scheme: 'exact', price, network: SOLANA, payTo: env.AGENT_PAYOUT_WALLET_SOLANA, maxTimeoutSeconds: 300 }] : []),
     // RLUSD on the XRP Ledger, the same dollar price; the InvoiceID binds the payment to this service.
     ...(xrpl ? [{ scheme: 'exact', price, network: XRPL, payTo: xrpl, maxTimeoutSeconds: 300, extra: { invoiceId: 'buy.fizzl.eu', sourceTag: X402_SOURCE_TAG } }] : []),
+    // And native XRP at the XRP/RLUSD pool's rate (lib/xrp-rate.js); left out without a rate. XRPL_XRP=off: none.
+    ...(xrpl && env.XRPL_XRP !== 'off' ? [{ scheme: 'exact', price: sharedXrpRate().price(price), network: XRPL, payTo: xrpl, maxTimeoutSeconds: 300, extra: { invoiceId: 'buy.fizzl.eu', sourceTag: X402_SOURCE_TAG } }] : []),
     ...(algorand ? [{ scheme: 'exact', price, network: ALGORAND, payTo: algorand, maxTimeoutSeconds: 300 }] : []),
     ...(stellar ? [{ scheme: 'exact', price, network: STELLAR, payTo: stellar, maxTimeoutSeconds: 300 }] : []),
     // USD₮0 on X Layer (lib/paid-api.js), settled by PayAI.
