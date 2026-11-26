@@ -71,6 +71,8 @@ const { createFiller } = require('./lib/buy/fill');
 const { buy, createBudget, BuyError, MAX_TRIES } = require('./lib/buy/purchase');
 const { createOncePerPayment, createPaymentLocks, keyOf, REFUSED } = require('./lib/buy/once');
 const { PayError, targetOf, urlShape, createQuotes, quoteFor, payUrl, FEE_SHARE, FEE_MIN_USD } = require('./lib/buy/pay-url');
+const { CONCORDIUM_MAINNET, concordiumPayTo, concordiumFacilitatorClient, ExactConcordiumScheme, atomic6 } = require('./lib/concordium-pay');
+const { createCcd } = require('./lib/concordium-ccd');
 const { createStrikes } = require('./lib/buy/strikes');
 const { spentByOthers, INSTANCE } = require('./lib/buy/spent-log');
 
@@ -189,11 +191,25 @@ function routesFor(env, { quotes = null, publicUrl = env.PUBLIC_URL || 'https://
   return routes;
 }
 
+// Fizzl Pay on Concordium: USDR (CONCORDIUM_ASSET) at the quote's dollar price, and CCD after it when CCD is on.
+function concordiumPayAccepts(env, price, ccd) {
+  const payTo = concordiumPayTo(env);
+  if (!payTo) return [];
+  const min = Number(env.CONCORDIUM_MIN_USD ?? 0.05);
+  const asset = (env.CONCORDIUM_ASSET || 'USDR').trim();
+  const usdOf = (ctx) => { const p = price(ctx); const usd = p ? Number(String(p).replace(/^\$/, '')) : null; return usd && usd >= min ? usd : null; };
+  const base = { scheme: 'exact', network: CONCORDIUM_MAINNET, payTo, maxTimeoutSeconds: 120 };
+  return [
+    { ...base, price: (ctx) => { const usd = usdOf(ctx); return usd ? { amount: atomic6(usd.toFixed(6)), asset, extra: { decimals: 6 } } : null; } },
+    ...(ccd.enabled ? [{ ...base, price: async (ctx) => { const usd = usdOf(ctx); return usd ? ccd.priceFor(usd) : null; } }] : []),
+  ];
+}
+
 // Fizzl Pay's route: the price is the quote made just before (the seller's price plus the fee), asked on the agent's
 // own chain: RLUSD on the XRP Ledger, USDC on Solana, Algorand, Stellar, Monad, Polygon, Arbitrum or Avalanche (the
 // same payout addresses as /v1/buy). Also USDC on Base itself (Frits, 26 Nov 2026: "Ja"): an agent there gets the check
 // first and pays only when the endpoint delivered, and the CDP facilitator's settlement lists the route in the Bazaar.
-function payRoute(env, quotes, publicUrl) {
+function payRoute(env, quotes, publicUrl, { ccd = createCcd({ env }) } = {}) {
   const price = (ctx) => {
     try {
       const u = new URL(ctx.adapter.getUrl(), 'http://local');
@@ -218,6 +234,9 @@ function payRoute(env, quotes, publicUrl) {
     ...(stellar ? [{ scheme: 'exact', price, network: STELLAR, payTo: stellar, maxTimeoutSeconds: 300 }] : []),
     ...(monad ? [{ scheme: 'exact', price, network: MONAD, payTo: monad, maxTimeoutSeconds: 300 }] : []),
     ...extraEvmAccepts(env, price, { maxTimeoutSeconds: 300 }),
+    // Concordium: USDR, and CCD at the chain's own rate (lib/concordium-ccd.js, with CONCORDIUM_CCD=on), settled by our
+    // facilitator, which sponsors the network fee: offered from CONCORDIUM_MIN_USD ($0.05) up, as on x402 Doctor.
+    ...concordiumPayAccepts(env, price, ccd),
   ];
   return {
     accepts,
@@ -821,6 +840,8 @@ if (require.main === module) {
     ...(monadFacilitator(env) ? [monadFacilitator(env)] : []),
     new HTTPFacilitatorClient({ url: env.FACILITATOR_URL || 'https://facilitator.payai.network' }),
     ...(xrplPayTo(env) ? [createXrplFacilitator({ wsUrl: env.XRPL_WS_URL || 'wss://xrplcluster.com' })] : []),
+    // Concordium (Fizzl Pay): our facilitator, only for Concordium.
+    ...(concordiumFacilitatorClient(env) ? [onlyNetworks(concordiumFacilitatorClient(env), (network) => network === CONCORDIUM_MAINNET)] : []),
   ];
   const start = createFacilitatorStart(facilitators);
   const resourceServer = new x402ResourceServer(start.clients)
@@ -830,7 +851,8 @@ if (require.main === module) {
     .register(ALGORAND, new ExactAvmScheme())
     .register(STELLAR, new ExactStellarScheme())
     .register(XLAYER, new ExactEvmScheme())
-    .register(MONAD, new ExactEvmScheme());
+    .register(MONAD, new ExactEvmScheme())
+    .register(CONCORDIUM_MAINNET, new ExactConcordiumScheme());
   for (const network of Object.values(EXTRA_EVM)) resourceServer.register(network, new ExactEvmScheme());
   const quotes = createQuotes();
   const routes = routesFor(env, { quotes });
