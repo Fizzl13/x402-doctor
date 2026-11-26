@@ -42,5 +42,7 @@ test("hint networks are exactly the ones Fizzl Pay's 402 offers (with every netw
   };
   const accepts = routesFor(env, { quotes: createQuotes() })['POST /v1/pay'].accepts;
   const offered = new Set(accepts.map((a) => a.network));
+  assert.ok(offered.has('eip155:8453'), 'Base too (an agent there gets the check and pays only on delivery)');
+  offered.delete('eip155:8453'); // the hint never points a Base payer at Fizzl Pay: the endpoint itself takes Base
   assert.deepEqual([...offered].sort(), Object.keys(FIZZL_PAY_NETWORKS).sort());
 });

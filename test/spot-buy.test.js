@@ -344,7 +344,8 @@ test('an indexing payment goes only to one of our own routes', () => {
   assert.equal(indexCapFor(ownTarget('https://buy.fizzl.eu/v1/buy')), 0.02);
   assert.equal(indexCapFor(ownTarget('https://buy.fizzl.eu/v1/find-and-buy-api')), 0.02);
   assert.equal(indexCapFor(ownTarget('https://presign-guard.fizzl.eu/v1/sanctions-screening')), 0.01);
-  assert.equal(INDEX_PAYMENT.routes.length, 27, 'with the six search-word paths (lib/bazaar-aliases.js)');
+  assert.equal(indexCapFor(ownTarget('https://buy.fizzl.eu/v1/pay?url=https%3A%2F%2Fichimoku-signal.fizzl.eu%2Fsignal%2FBTC-USDT')), 0.012, "Fizzl Pay: the signal's $0.01 plus the fee");
+  assert.equal(INDEX_PAYMENT.routes.length, 28, 'with the six search-word paths (lib/bazaar-aliases.js) and Fizzl Pay');
   assert.ok(INDEX_PAYMENT.routes.every((r) => ownTarget(r.url) && r.capUsd > 0 && r.capUsd <= LIMITS.ownCapUsd), 'every route is ours and within the hard ceiling');
   assert.equal(LIMITS.capUsd, 0.1, 'the ceiling for other sellers is unchanged');
   assert.equal(LIMITS.ownCapUsd, 0.5);

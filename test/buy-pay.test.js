@@ -141,7 +141,7 @@ test('pay route end to end: the real paywall asks the quote on the agent\'s chai
   const send = (res, v) => { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify(v)); };
   const fac = { verify: 0, settle: 0, amounts: [] };
   const facilitator = await listen(async (req, res) => {
-    if (req.url.endsWith('/supported')) return send(res, { kinds: [{ x402Version: 2, scheme: 'exact', network: POLYGON }], extensions: [], signers: {} });
+    if (req.url.endsWith('/supported')) return send(res, { kinds: [{ x402Version: 2, scheme: 'exact', network: POLYGON }, { x402Version: 2, scheme: 'exact', network: 'eip155:8453' }], extensions: [], signers: {} });
     let raw = ''; for await (const c of req) raw += c;
     const { paymentPayload, paymentRequirements: reqs } = JSON.parse(raw);
     const { authorization, signature } = paymentPayload.payload;
@@ -156,7 +156,7 @@ test('pay route end to end: the real paywall asks the quote on the agent\'s chai
   const quotes = createQuotes();
   const env = { PUBLIC_URL: 'https://buy.test', AGENT_PAYOUT_WALLET: PAY_TO, POLYGON_PAY_TO: PAY_TO, XRPL_XRP: 'off' };
   const routes = routesFor(env, { quotes, publicUrl: 'https://buy.test' });
-  const resourceServer = new x402ResourceServer(new HTTPFacilitatorClient({ url: facilitator })).register(POLYGON, new ExactEvmServer());
+  const resourceServer = new x402ResourceServer(new HTTPFacilitatorClient({ url: facilitator })).register(POLYGON, new ExactEvmServer()).register('eip155:8453', new ExactEvmServer());
   await resourceServer.initialize();
   const paywall = paymentMiddleware({ 'POST /v1/pay': routes['POST /v1/pay'] }, resourceServer, { appName: 'Fizzl Buy', testnet: false }, undefined, false);
   const noLog = { middleware: () => (_req, _res, next) => next(), record() {} };
@@ -167,9 +167,8 @@ test('pay route end to end: the real paywall asks the quote on the agent\'s chai
     const unpaid = await fetch(url, { method: 'POST' });
     assert.equal(unpaid.status, 402);
     const challenge = JSON.parse(Buffer.from(unpaid.headers.get('payment-required'), 'base64').toString());
-    assert.equal(challenge.accepts.length, 1);
-    assert.equal(challenge.accepts[0].network, POLYGON);
-    assert.equal(challenge.accepts[0].amount, '12000', "the seller's $0.01 plus the $0.002 fee, in USDC on Polygon");
+    assert.deepEqual(challenge.accepts.map((a) => a.network), ['eip155:8453', POLYGON], 'Base itself, and the agent\'s chain');
+    assert.ok(challenge.accepts.every((a) => a.amount === '12000'), "the seller's $0.01 plus the $0.002 fee, in USDC");
     const client = new x402Client((_v, accepts) => accepts.find((a) => a.network === POLYGON));
     client.register(POLYGON, new ExactEvmScheme(privateKeyToAccount(generatePrivateKey())));
     const payFetch = wrapFetchWithPayment(fetch, client);
