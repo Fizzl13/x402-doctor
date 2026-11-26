@@ -858,3 +858,19 @@ test('pay_to: part of the cached preflight key', async () => {
   assert.equal(other.cached, false);
   assert.ok(other.reasons.some((r) => r.code === 'payto_not_shown'));
 });
+
+test('network not offered but USDC on Base: the answer points to Fizzl Pay (pay_via), only for that one objection', async () => {
+  const local = await seller({ accepts: [baseOption('10000')] });
+  const origin = new URL(local).origin;
+  const viaHttps = (u, o) => safeFetch(String(u).replace('https://seller.test', origin), o);
+  const r = await preflight('https://seller.test/paid/1', { safeFetch: viaHttps, rpcUrl, bazaarIndex: listed, network: 'xrpl:0' });
+  assert.equal(r.verdict, 'no_go');
+  assert.deepEqual(r.reasons.filter((x) => x.level === 'no_go').map((x) => x.code), ['network_not_offered']);
+  assert.equal(r.pay_via.service, 'Fizzl Pay');
+  assert.equal(r.pay_via.url, 'https://buy.fizzl.eu/v1/pay?url=https%3A%2F%2Fseller.test%2Fpaid%2F1');
+  assert.equal(r.pay_via.total_usd, 0.012);
+  assert.match(r.summary, /^Do not pay: No payable option on xrpl:0.*To pay it from this network anyway: Fizzl Pay/);
+  assert.equal((await run(local, { network: 'xrpl:0' })).pay_via, undefined, 'not for an http endpoint');
+  assert.equal((await preflight('https://seller.test/paid/1', { safeFetch: viaHttps, rpcUrl, bazaarIndex: listed, network: 'eip155:1' })).pay_via, undefined, 'not for a network Fizzl Pay does not take');
+  assert.equal((await preflight('https://seller.test/paid/1', { safeFetch: viaHttps, rpcUrl, bazaarIndex: listed })).pay_via, undefined, 'not without a network');
+});
