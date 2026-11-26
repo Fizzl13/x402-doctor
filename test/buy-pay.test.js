@@ -1,7 +1,7 @@
 // Fizzl Pay (lib/buy/pay-url.js, POST /v1/pay on Fizzl Buy): pay an x402 endpoint on Base with another chain.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { PayError, feeFor, targetOf, createQuotes, quoteFor, payUrl } = require('../lib/buy/pay-url');
+const { PayError, feeFor, urlShape, targetOf, createQuotes, quoteFor, payUrl } = require('../lib/buy/pay-url');
 const { createBudget } = require('../lib/buy/purchase');
 const { createBuyApp, routesFor } = require('../buy-server');
 
@@ -32,6 +32,15 @@ test('pay: the endpoint named must be https, without credentials, GET or POST, a
   for (const [q, re] of [[{}, /url:/], [{ url: 'http://a.test/w' }, /only https/], [{ url: 'https://u:p@a.test/' }, /credentials/], [{ url: 'https://a.test', method: 'PUT' }, /GET or POST/], [{ url: 'https://buy.fizzl.eu/v1/buy' }, /does not pay itself/], [{ url: 'not a url' }, /not a valid/]]) {
     assert.throws(() => targetOf(q), (e) => e instanceof PayError && e.status === 400 && re.test(e.message));
   }
+});
+
+test('pay: forgiving where the meaning is plain (a bare host, a URL encoded twice); the log gets only the shape', () => {
+  assert.deepEqual(targetOf({ url: 'example.com/weather?place=Amsterdam' }), { url: 'https://example.com/weather?place=Amsterdam', method: 'GET' });
+  assert.deepEqual(targetOf({ url: 'https%3A%2F%2Fexample.com%2Fweather' }), { url: 'https://example.com/weather', method: 'GET' });
+  assert.throws(() => targetOf({ url: 'https://weather/now' }), (e) => e.status === 400 && /not a host name/.test(e.message));
+  assert.throws(() => targetOf({ url: ['https://a.test', 'https://b.test'] }), (e) => e.status === 400 && /one endpoint/.test(e.message));
+  assert.throws(() => targetOf({ url: 'not a url' }), (e) => e.status === 400 && /URL-encoded, e\.g\./.test(e.message));
+  assert.deepEqual(['', 'https://a.test/x', 'http://a.test', 'a.test/x', 'https%3A%2F%2Fa.test', 'ftp://a.test', 'not a url', ['a', 'b']].map(urlShape), ['missing', 'https', 'http', 'no scheme', 'encoded twice', 'other scheme', 'other', 'repeated']);
 });
 
 test('pay: quotes last ten minutes', () => {

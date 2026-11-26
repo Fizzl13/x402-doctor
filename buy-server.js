@@ -70,7 +70,7 @@ const { refusalFor } = require('./lib/buy/refuse');
 const { createFiller } = require('./lib/buy/fill');
 const { buy, createBudget, BuyError, MAX_TRIES } = require('./lib/buy/purchase');
 const { createOncePerPayment, createPaymentLocks, keyOf, REFUSED } = require('./lib/buy/once');
-const { PayError, targetOf, createQuotes, quoteFor, payUrl, FEE_SHARE, FEE_MIN_USD } = require('./lib/buy/pay-url');
+const { PayError, targetOf, urlShape, createQuotes, quoteFor, payUrl, FEE_SHARE, FEE_MIN_USD } = require('./lib/buy/pay-url');
 const { createStrikes } = require('./lib/buy/strikes');
 const { spentByOthers, INSTANCE } = require('./lib/buy/spent-log');
 
@@ -341,7 +341,7 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
     const via = res.locals.vaultPaid || req.fizzlCredits?.vault ? 'vault' : req.path === '/mcp' ? 'mcp' : 'api';
     // spent_usd: what this call paid sellers (also when the agent's own payment then failed), for the day budget.
     if (req.path === BUY_ROUTE && req.method === 'POST') return { route: 'buy', via, input: { chars: String(req.body?.need || '').length, ...(res.locals.spentUsd ? { spent_usd: res.locals.spentUsd, instance } : {}) }, result: { delivered: body?.delivered, paid_usd: body?.paid_usd, service: body?.service?.url ? new URL(body.service.url).host : undefined, tried: body?.tried, error: body?.error } };
-    if (req.path === PAY_ROUTE && req.method === 'POST') return { route: 'pay', via, input: { host: res.locals.payHost, method: res.locals.payMethod, ...(res.locals.spentUsd ? { spent_usd: res.locals.spentUsd, instance } : {}) }, result: { delivered: body?.delivered, seller_usd: body?.paid?.seller_usd ?? res.locals.payQuote?.seller_usd, fee_usd: body?.paid?.fee_usd ?? res.locals.payQuote?.fee_usd, status: body?.status, error: body?.error } };
+    if (req.path === PAY_ROUTE && req.method === 'POST') return { route: 'pay', via, input: { host: res.locals.payHost, method: res.locals.payMethod, ...(res.locals.payHost ? {} : { url_shape: urlShape(req.query?.url) }), ...(res.locals.spentUsd ? { spent_usd: res.locals.spentUsd, instance } : {}) }, result: { delivered: body?.delivered, seller_usd: body?.paid?.seller_usd ?? res.locals.payQuote?.seller_usd, fee_usd: body?.paid?.fee_usd ?? res.locals.payQuote?.fee_usd, status: body?.status, error: body?.error } };
     if (req.path === '/v1/pick') return { route: 'pick', via, input: { chars: String(req.query.need || '').length }, result: { pick: body?.pick?.url ? new URL(body.pick.url).host : null, error: body?.error } };
     // Who reads the ERC-8004 registration (agent registries and their indexers).
     if (req.method === 'GET' && req.path === '/.well-known/agent-registration.json') return { route: 'agent registration', via: 'discovery', input: {}, result: { status: res.statusCode } };
