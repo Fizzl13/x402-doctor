@@ -219,7 +219,7 @@ function payRoute(env, quotes, publicUrl) {
   ];
   return {
     accepts,
-    description: `Pay any x402 endpoint that takes USDC on Base with what your agent holds: RLUSD on the XRP Ledger, or USDC on Solana, Algorand, Stellar and other chains. Name the endpoint (?url=, ?method=); Fizzl checks it first (sanctions, track record, bait), quotes its price plus ${Math.round(FEE_SHARE * 100)}% (at least $${FEE_MIN_USD}), pays it on Base and returns its answer. Up to $${PAY_CAP_USD} a call; nothing is charged when the endpoint doesn't deliver.`,
+    description: `Pay any x402 endpoint that takes USDC on Base with the coin your agent already holds: USDC on Solana, Polygon, Arbitrum, Avalanche, Monad, Algorand or Stellar, or RLUSD or XRP on the XRP Ledger. Every coin pays every endpoint. Name the endpoint (?url=, ?method=); Fizzl checks it first (sanctions, track record, bait), quotes its price plus ${Math.round(FEE_SHARE * 100)}% (at least $${FEE_MIN_USD}), pays it on Base and returns its answer. Up to $${PAY_CAP_USD} a call; nothing is charged when the endpoint doesn't deliver.`,
     mimeType: 'application/json',
     serviceName: 'Fizzl Pay',
     tags: ['x402', 'payments', 'cross-chain', 'rlusd', 'xrpl', 'agents'],
@@ -560,7 +560,7 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
   // Discovery: openapi, /.well-known/x402, llms.txt and the homepage.
   const routes = routesFor(env);
   app.get('/openapi.json', (_req, res) => res.json(openApi(publicUrl)));
-  app.get('/.well-known/x402', (_req, res) => res.json({ version: 1, x402Version: 2, name: 'Fizzl Buy', serviceName: 'Fizzl Buy', description: routes[`POST ${BUY_ROUTE}`].description, resources: [{ url: `${publicUrl}${BUY_ROUTE}`, method: 'POST', name: 'Buy for your agent', description: 'One call: the right paid API, bought and checked.' }, { url: `${publicUrl}${PAY_ROUTE}?url={endpoint}`, method: 'POST', name: 'Fizzl Pay', description: `Pay an x402 endpoint on Base with RLUSD or USDC on another chain: its price plus ${Math.round(FEE_SHARE * 100)}% (at least $${FEE_MIN_USD}), up to $${PAY_CAP_USD}.` }], openapi: `${publicUrl}/openapi.json` }));
+  app.get('/.well-known/x402', (_req, res) => res.json({ version: 1, x402Version: 2, name: 'Fizzl Buy', serviceName: 'Fizzl Buy', description: routes[`POST ${BUY_ROUTE}`].description, resources: [{ url: `${publicUrl}${BUY_ROUTE}`, method: 'POST', name: 'Buy for your agent', description: 'One call: the right paid API, bought and checked.' }, { url: `${publicUrl}${PAY_ROUTE}?url={endpoint}`, method: 'POST', name: 'Fizzl Pay: pay any Base x402 endpoint with the coin your agent holds', description: `Pay an x402 endpoint on Base with USDC on 7 other chains, or RLUSD or XRP: its price plus ${Math.round(FEE_SHARE * 100)}% (at least $${FEE_MIN_USD}), up to $${PAY_CAP_USD}.` }], openapi: `${publicUrl}/openapi.json` }));
   app.get('/llms.txt', (_req, res) => res.type('text/plain; charset=utf-8').send(llmsTxt(publicUrl, payText)));
   // Instructions an AI agent can read and follow ("Connect to buy.fizzl.eu/skill.md"), as the other Fizzl services
   // serve theirs; the Agent Wallet offers that line for every Fizzl service.
@@ -752,7 +752,7 @@ function llmsTxt(publicUrl, payText) {
 
 - POST ${publicUrl}${BUY_ROUTE} with {"need": "${EXAMPLE_NEED}"} ($${PRICE_USD})
 - GET ${publicUrl}/v1/pick?need=… (free, ${FREE_PER_HOUR} an hour): which service would be bought, and why
-- Fizzl Pay: POST ${publicUrl}${PAY_ROUTE}?url=<x402 endpoint>&method=GET|POST (a POST body is passed on): pays an endpoint that takes USDC on Base with RLUSD on the XRP Ledger or USDC on Solana, Algorand, Stellar and other chains. The 402 asks its price plus ${Math.round(FEE_SHARE * 100)}% (at least $${FEE_MIN_USD}), up to $${PAY_CAP_USD}; the endpoint is checked first, and nothing is charged when it doesn't deliver
+- Fizzl Pay: POST ${publicUrl}${PAY_ROUTE}?url=<x402 endpoint>&method=GET|POST (a POST body is passed on): pays an endpoint that takes USDC on Base with the coin your agent already holds: USDC on Solana, Polygon, Arbitrum, Avalanche, Monad, Algorand or Stellar, or RLUSD or XRP on the XRP Ledger. The 402 asks its price plus ${Math.round(FEE_SHARE * 100)}% (at least $${FEE_MIN_USD}), up to $${PAY_CAP_USD}; the endpoint is checked first, and nothing is charged when it doesn't deliver
 - MCP: ${publicUrl}/mcp (tools x402_pick, free, x402_buy, $${PRICE_USD} paid inside the call over x402, and feedback, free)
 - Feedback: POST ${publicUrl}/feedback {"message", "type"?, "payment"?: {"tx", "network"}} (free): tell Fizzl what is missing or broken; name the payment if a paid buy went wrong
 - Who gets paid: ERC-8004 agent #988891; every payTo is covered by a payee delegation its agent wallet signed (ERC-8478)
