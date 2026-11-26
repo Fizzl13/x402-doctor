@@ -181,3 +181,13 @@ test('pay route end to end: the real paywall asks the quote on the agent\'s chai
     closers.forEach((s) => s.close());
   }
 });
+
+test('pay: the server start gives the paywall and the app the same quotes (a 402 without options otherwise)', () => {
+  // 26 Nov 2026: live, the 402 came back with no accepts, because the app quoted into its own store while the
+  // paywall's price function read another. The start must pass one store to both.
+  const src = require('node:fs').readFileSync(require.resolve('../buy-server'), 'utf8');
+  const main = src.slice(src.indexOf('if (require.main === module)'));
+  assert.match(main, /const quotes = createQuotes\(\);/);
+  assert.match(main, /routesFor\(env, \{ quotes \}\)/);
+  assert.match(main, /createBuyApp\(\{[^}]*deps: \{ quotes \}/);
+});
