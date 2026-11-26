@@ -191,7 +191,8 @@ function routesFor(env, { quotes = null, publicUrl = env.PUBLIC_URL || 'https://
 
 // Fizzl Pay's route: the price is the quote made just before (the seller's price plus the fee), asked on the agent's
 // own chain: RLUSD on the XRP Ledger, USDC on Solana, Algorand, Stellar, Monad, Polygon, Arbitrum or Avalanche (the
-// same payout addresses as /v1/buy). Not on Base: an agent with USDC on Base pays the endpoint itself.
+// same payout addresses as /v1/buy). Also USDC on Base itself (Frits, 26 Nov 2026: "Ja"): an agent there gets the check
+// first and pays only when the endpoint delivered, and the CDP facilitator's settlement lists the route in the Bazaar.
 function payRoute(env, quotes, publicUrl) {
   const price = (ctx) => {
     try {
@@ -208,6 +209,7 @@ function payRoute(env, quotes, publicUrl) {
   const stellar = stellarPayTo(env);
   const monad = monadPayTo(env);
   const accepts = [
+    ...(env.AGENT_PAYOUT_WALLET ? [{ scheme: 'exact', price, network: BASE, payTo: env.AGENT_PAYOUT_WALLET, maxTimeoutSeconds: 300 }] : []),
     ...(env.AGENT_PAYOUT_WALLET_SOLANA ? [{ scheme: 'exact', price, network: SOLANA, payTo: env.AGENT_PAYOUT_WALLET_SOLANA, maxTimeoutSeconds: 300 }] : []),
     ...(xrpl ? [{ scheme: 'exact', price, network: XRPL, payTo: xrpl, maxTimeoutSeconds: 300, extra: { invoiceId: 'buy.fizzl.eu/pay', sourceTag: X402_SOURCE_TAG } }] : []),
     // XRP itself, at the XRP/RLUSD pool's rate (lib/xrp-rate.js); left out while there is no rate or no quote.
@@ -219,7 +221,7 @@ function payRoute(env, quotes, publicUrl) {
   ];
   return {
     accepts,
-    description: `Pay any x402 endpoint that takes USDC on Base with the coin your agent already holds: USDC on Solana, Polygon, Arbitrum, Avalanche, Monad, Algorand or Stellar, or RLUSD or XRP on the XRP Ledger. Every coin pays every endpoint. Name the endpoint (?url=, ?method=); Fizzl checks it first (sanctions, track record, bait), quotes its price plus ${Math.round(FEE_SHARE * 100)}% (at least $${FEE_MIN_USD}), pays it on Base and returns its answer. Up to $${PAY_CAP_USD} a call; nothing is charged when the endpoint doesn't deliver.`,
+    description: `Pay any x402 endpoint that takes USDC on Base with the coin your agent already holds: USDC on Solana, Polygon, Arbitrum, Avalanche, Monad, Algorand or Stellar, RLUSD or XRP on the XRP Ledger, or USDC on Base itself. Every coin pays every endpoint. Name the endpoint (?url=, ?method=); Fizzl checks it first (sanctions, track record, bait), quotes its price plus ${Math.round(FEE_SHARE * 100)}% (at least $${FEE_MIN_USD}), pays it on Base and returns its answer. Up to $${PAY_CAP_USD} a call; nothing is charged when the endpoint doesn't deliver.`,
     mimeType: 'application/json',
     serviceName: 'Fizzl Pay',
     tags: ['x402', 'payments', 'cross-chain', 'rlusd', 'xrpl', 'agents'],
@@ -752,7 +754,7 @@ function llmsTxt(publicUrl, payText) {
 
 - POST ${publicUrl}${BUY_ROUTE} with {"need": "${EXAMPLE_NEED}"} ($${PRICE_USD})
 - GET ${publicUrl}/v1/pick?need=… (free, ${FREE_PER_HOUR} an hour): which service would be bought, and why
-- Fizzl Pay: POST ${publicUrl}${PAY_ROUTE}?url=<x402 endpoint>&method=GET|POST (a POST body is passed on): pays an endpoint that takes USDC on Base with the coin your agent already holds: USDC on Solana, Polygon, Arbitrum, Avalanche, Monad, Algorand or Stellar, or RLUSD or XRP on the XRP Ledger. The 402 asks its price plus ${Math.round(FEE_SHARE * 100)}% (at least $${FEE_MIN_USD}), up to $${PAY_CAP_USD}; the endpoint is checked first, and nothing is charged when it doesn't deliver
+- Fizzl Pay: POST ${publicUrl}${PAY_ROUTE}?url=<x402 endpoint>&method=GET|POST (a POST body is passed on): pays an endpoint that takes USDC on Base with the coin your agent already holds: USDC on Solana, Polygon, Arbitrum, Avalanche, Monad, Algorand or Stellar, RLUSD or XRP on the XRP Ledger, or USDC on Base itself. The 402 asks its price plus ${Math.round(FEE_SHARE * 100)}% (at least $${FEE_MIN_USD}), up to $${PAY_CAP_USD}; the endpoint is checked first, and nothing is charged when it doesn't deliver
 - MCP: ${publicUrl}/mcp (tools x402_pick, free, x402_buy, $${PRICE_USD} paid inside the call over x402, and feedback, free)
 - Feedback: POST ${publicUrl}/feedback {"message", "type"?, "payment"?: {"tx", "network"}} (free): tell Fizzl what is missing or broken; name the payment if a paid buy went wrong
 - Who gets paid: ERC-8004 agent #988891; every payTo is covered by a payee delegation its agent wallet signed (ERC-8478)
