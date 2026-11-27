@@ -3,6 +3,8 @@
 // Every paid route must answer 402 with a PAYMENT-REQUIRED challenge that
 // passes the x402 schema, asks the expected price on the expected networks and
 // has at most 5 tags. Free routes must answer. Nothing is ever paid.
+// Every paid 402 must also carry the Bazaar entry (extensions.bazaar with info and schema): without it the CDP
+// facilitator settles a payment but never lists the route (Forge on 19 Nov, Fizzl Pay on 26 Nov 2026).
 // Coinbase's own validator (CDP's validate API) must accept every paid route
 // for the CDP Bazaar; a route CDP doesn't answer for is not counted.
 //
@@ -16,12 +18,14 @@ import fs from 'fs';
 const require = createRequire(import.meta.url);
 const { parsePaymentRequired } = require('@x402/core/schemas');
 const { createCdpValidator, cdpFindings } = require('../lib/cdp-validate');
+const { feeFor } = require('../lib/buy/pay-url');
 
 const BASE = 'eip155:8453';
 const SOLANA = 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp';
 const ICHI = 'https://ichimoku-signal.fizzl.eu';
 const DOCTOR = 'https://x402-doctor.fizzl.eu';
 const GUARD = 'https://presign-guard.fizzl.eu';
+const BUY = 'https://buy.fizzl.eu';
 const PG1_HEALTH = 'https://pg1-ai-agent.vercel.app/api/health';
 const USDC_BASE = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 const PERMIT2 = '0x000000000022D473030F116dDEE9F6B43aC78BA3';
@@ -38,6 +42,12 @@ async function ichimokuSignalAmount() {
   const amount = Math.round(Number(m[1]) * 1e6);
   if (amount < 1000 || amount > 50000) throw new Error(`declared price ${price} is outside $0.001-$0.05`);
   return String(amount);
+}
+
+// Fizzl Pay's quote for Ichimoku's plain signal: the signal's price plus Fizzl Pay's fee (lib/buy/pay-url.js).
+async function payQuoteAmount() {
+  const seller = Number(await ichimokuSignalAmount()) / 1e6;
+  return String(Math.round((seller + feeFor(seller)) * 1e6));
 }
 
 // amount in USDC atomic units (6 decimals): 20000 = $0.02.
@@ -59,6 +69,10 @@ const PAID = [
   { service: 'presign-guard', name: 'GET /v1/token', url: `${GUARD}/v1/token?chain=base&address=${USDC_BASE}`, amount: '10000', networks: [BASE, SOLANA] },
   { service: 'presign-guard', name: 'GET /v1/approvals', url: `${GUARD}/v1/approvals?chain=base&address=${PERMIT2}`, amount: '20000', networks: [BASE, SOLANA] },
   { service: 'presign-guard', name: 'GET /v1/screen', url: `${GUARD}/v1/screen?address=${PERMIT2}`, amount: '10000', networks: [BASE, SOLANA] },
+  // Fizzl Buy and Fizzl Pay: the 402 comes before any purchase, so nothing is bought. Fizzl Pay quotes Ichimoku's
+  // plain signal ($0.01 + the $0.002 fee by default) before its 402.
+  { service: 'Fizzl Buy', name: 'POST /v1/buy', url: `${BUY}/v1/buy`, amount: '20000', networks: [BASE, SOLANA], body: { need: 'bitcoin price in usd' } },
+  { service: 'Fizzl Buy', name: 'POST /v1/pay', url: `${BUY}/v1/pay?url=${encodeURIComponent(`${ICHI}/signal/BTC-USDT`)}`, amount: '12000', declared: payQuoteAmount, networks: [BASE, SOLANA], body: {} },
 ];
 
 async function request(url, { method = 'GET', body, headers = {} } = {}) {
@@ -114,7 +128,9 @@ async function checkPaid(route) {
     }
     const tags = (challenge.resource && challenge.resource.tags) || [];
     if (tags.length > 5) problems.push(`${tags.length} tags (x402 allows 5)`);
-    const price = `$${(Number(route.amount) / 1e6).toFixed(route.amount.length > 4 ? 2 : 3)}`;
+    const bazaar = challenge.extensions && challenge.extensions.bazaar;
+    if (!bazaar || !bazaar.info || !bazaar.schema) problems.push('no Bazaar entry (extensions.bazaar): CDP settles it but never lists it');
+    const price = `$${(Number(route.amount) / 1e6).toFixed(Number(route.amount) % 10000 ? 3 : 2)}`;
     record(route.service, route.name, problems.length === 0, problems.length ? problems.join('; ') : `402 ${price} on ${route.networks.map((n) => (n === BASE ? 'Base' : 'Solana')).join(' + ')}`);
   } catch (err) {
     record(route.service, route.name, false, `request failed: ${err.message}`);
@@ -152,7 +168,7 @@ async function checkFree(service, name, fn) {
 }
 
 async function main() {
-  const origins = [[ICHI, 'Ichimoku Signal'], [DOCTOR, 'x402 Doctor'], [GUARD, 'presign-guard']];
+  const origins = [[ICHI, 'Ichimoku Signal'], [DOCTOR, 'x402 Doctor'], [GUARD, 'presign-guard'], [BUY, 'Fizzl Buy']];
   const awake = await Promise.all(origins.map(([o]) => wake(o)));
   origins.forEach(([o, service], i) => record(service, 'site answers', awake[i], awake[i] ? o : `${o} did not answer within ~2 minutes`));
 
@@ -211,7 +227,7 @@ async function main() {
       const items = (await res.json()).items || [];
       for (const it of items) {
         const r = String(it.resource || '');
-        if ([ICHI, DOCTOR, GUARD].some((o) => r.startsWith(o))) listed.push(r.replace(/^https:\/\//, ''));
+        if ([ICHI, DOCTOR, GUARD, BUY].some((o) => r.startsWith(o))) listed.push(r.replace(/^https:\/\//, ''));
       }
       if (items.length < 500) break;
     }
