@@ -224,7 +224,8 @@ function payRoute(env, quotes, publicUrl) {
     description: `Pay any x402 endpoint that takes USDC on Base with the coin your agent already holds: USDC on Solana, Polygon, Arbitrum, Avalanche, Monad, Algorand or Stellar, RLUSD or XRP on the XRP Ledger, or USDC on Base itself. Every coin pays every endpoint. Name the endpoint (?url=, ?method=); Fizzl checks it first (sanctions, track record, bait), quotes its price plus ${Math.round(FEE_SHARE * 100)}% (at least $${FEE_MIN_USD}), pays it on Base and returns its answer. Up to $${PAY_CAP_USD} a call; nothing is charged when the endpoint doesn't deliver.`,
     mimeType: 'application/json',
     serviceName: 'Fizzl Pay',
-    tags: ['x402', 'payments', 'cross-chain', 'rlusd', 'xrpl', 'agents'],
+    // At most 5: the x402 schema refuses a sixth tag (the 26 Nov route had 6, and the Bazaar did not list it).
+    tags: ['payments', 'cross-chain', 'rlusd', 'xrpl', 'agents'],
     iconUrl: `${publicUrl}/icon.png`,
     extensions: {
       ...payDiscoveryExtension(),

@@ -122,6 +122,7 @@ test('pay route: quoted before the 402; the price function asks the quote; the p
     assert.equal(bazaar.info.input.method, 'POST');
     assert.match(bazaar.info.input.queryParams.url, /^https:\/\//);
     assert.deepEqual(bazaar.schema.properties.input.properties.queryParams.required, ['url']);
+    assert.ok(route.tags.length <= 5, `x402 allows 5 tags, the pay route has ${route.tags.length}`);
     // Refused before any 402: http, over the cap.
     assert.equal((await fetch(`${base}/v1/pay?url=${encodeURIComponent('http://seller.test/w')}`, { method: 'POST' })).status, 400);
     state.amount = 5_000_000;
