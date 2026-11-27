@@ -27,24 +27,32 @@ function chain({ wallet = agent.address, code = '0x', fail = null } = {}) {
   };
 }
 const DOC = { type: 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1', name: 'Seller', services: [{ name: 'web', endpoint: 'https://seller.example/' }] };
+// The same file with the Solana payee listed (ERC-8478 section 6: a delegation binds only a listed payee).
+const DOC_P = { ...DOC, services: [...DOC.services, { name: 'x402', endpoint: 'https://seller.example/api/thing', payees: [{ network: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp', payTo: SOL_PAYTO }] }] };
+// The agent wallet was set in block 200 (the registry is at block 256): the MetadataSet event's data.
+const SET_AT = 200;
+const hex64 = (n) => BigInt(n).toString(16).padStart(64, '0');
+const eventData = (wallet) => `0x${hex64(64)}${hex64(128)}${hex64(11)}${Buffer.from('agentWallet').toString('hex').padEnd(64, '0')}${hex64(20)}${wallet.slice(2).toLowerCase().padEnd(64, '0')}`;
+const walletSet = (at = SET_AT, wallet = agent.address) => async (identity, from) => (at >= from && at <= identity.block ? { block: at, data: eventData(wallet) } : null);
 const file = (doc = DOC, agentId = '7') => [{ chainId: 8453, registry: REGISTRY, agentId, doc }];
 const opt = (over) => ({ scheme: 'exact', network: 'eip155:8453', asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', amount: '10000', payTo: agent.address, ...over });
 const solOpt = (over) => opt({ network: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp', asset: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', payTo: SOL_PAYTO, ...over });
 
-async function delegation(over = {}, signer = agent) {
+async function delegation(over = {}, signer = agent, version = '2') {
   const message = {
-    chainId: '8453', registry: REGISTRY, agentId: '7', agentWallet: agent.address, network: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp',
+    chainId: '8453', registry: REGISTRY, agentId: '7', agentWallet: agent.address, walletSetAt: String(SET_AT), network: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp',
     payTo: SOL_PAYTO, asset: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', origin: 'https://seller.example',
     validAfter: String(NOW / 1000 - 60), validUntil: String(NOW / 1000 + 86400 * 30), nonce: `0x${'ab'.repeat(32)}`, ...over,
   };
+  if (version === '1') delete message.walletSetAt; // a version 1 delegation has no walletSetAt
   const signature = await signer.signTypedData({
-    domain: { name: 'x402 Payee Delegation', version: '1', chainId: 8453, verifyingContract: REGISTRY },
-    types: DELEGATION_TYPES, primaryType: 'PayeeDelegation',
-    message: { ...message, chainId: BigInt(message.chainId), agentId: BigInt(message.agentId), validAfter: BigInt(message.validAfter), validUntil: BigInt(message.validUntil) },
+    domain: { name: 'x402 Payee Delegation', version, chainId: 8453, verifyingContract: REGISTRY },
+    types: version === '1' ? { PayeeDelegation: DELEGATION_TYPES.PayeeDelegation.filter((f) => f.name !== 'walletSetAt') } : DELEGATION_TYPES, primaryType: 'PayeeDelegation',
+    message: { ...message, chainId: BigInt(message.chainId), agentId: BigInt(message.agentId), validAfter: BigInt(message.validAfter), validUntil: BigInt(message.validUntil), ...(version === '1' ? {} : { walletSetAt: BigInt(message.walletSetAt) }) },
   });
   return { message, signature };
 }
-const run = (accepts, opts = {}) => verifyPayees(accepts, { url: URL_, fileIdentities: file(), rpc: chain(), fetchDoc: async () => DOC, now: NOW, ...opts });
+const run = (accepts, opts = {}) => verifyPayees(accepts, { url: URL_, fileIdentities: file(), rpc: chain(), fetchDoc: async () => DOC, walletEvent: walletSet(), now: NOW, ...opts });
 
 test('payee verification: the agent wallet as payTo, on the registry chain and (for a key-held wallet) on other EVM chains', async () => {
   const [base, xlayer] = await run([opt(), opt({ network: 'eip155:196' })]);
@@ -59,8 +67,11 @@ test('payee verification: the agent wallet as payTo, on the registry chain and (
 
 test('payee verification: a payee delegation signed by the agent wallet, in extra.erc8004 or in the registration file', async () => {
   const d = await delegation();
-  const [inExtra] = await run([solOpt({ extra: { erc8004: { registry: `eip155:8453:${REGISTRY}`, agentId: '7', delegation: d } } })]);
+  const [inExtra] = await run([solOpt({ extra: { erc8004: { registry: `eip155:8453:${REGISTRY}`, agentId: '7', delegation: d } } })], { fileIdentities: file(DOC_P) });
   assert.equal(inExtra.outcome, 'verified-delegation');
+  const [unlisted] = await run([solOpt({ extra: { erc8004: { registry: `eip155:8453:${REGISTRY}`, agentId: '7', delegation: d } } })]);
+  assert.equal(unlisted.outcome, 'invalid-delegation', 'a payee missing from the payees list is not bound');
+  assert.equal(unlisted.delegationRule, 'not-declared');
   const doc = { ...DOC, services: [...DOC.services, { name: 'x402', endpoint: URL_, payees: [{ network: d.message.network, payTo: SOL_PAYTO, delegation: d }] }] };
   const [inFile] = await run([solOpt()], { fileIdentities: file(doc) });
   assert.equal(inFile.outcome, 'verified-delegation');
@@ -84,20 +95,26 @@ test('payee verification: one payTo with two assets uses the delegation for each
 });
 
 test('payee verification: an invalid delegation says which rule it fails', async () => {
-  const reason = async (d) => {
-    const [r] = await run([solOpt({ extra: { erc8004: { registry: `eip155:8453:${REGISTRY}`, agentId: '7', delegation: d } } })]);
+  const reason = async (d, opts = {}) => {
+    const [r] = await run([solOpt({ extra: { erc8004: { registry: `eip155:8453:${REGISTRY}`, agentId: '7', delegation: d } } })], { fileIdentities: file(DOC_P), ...opts });
     assert.equal(r.outcome, 'invalid-delegation');
-    return r.reason;
+    return `${r.delegationRule}: ${r.reason}`;
   };
-  assert.equal(await reason(await delegation({ validUntil: String(NOW / 1000 - 1) })), 'expired');
-  assert.equal(await reason(await delegation({ payTo: 'SomeOtherSolanaAddress1111111111111111111111' })), 'it names another payTo');
-  assert.equal(await reason(await delegation({ origin: 'https://other.example' })), 'it is for origin https://other.example');
-  assert.equal(await reason(await delegation({ validUntil: String(NOW / 1000 + 400 * 86400) })), 'valid for more than 365 days');
-  assert.equal(await reason(await delegation({}, privateKeyToAccount(generatePrivateKey()))), "the signature is not the agent wallet's");
+  assert.equal(await reason(await delegation({ validUntil: String(NOW / 1000 - 1) })), 'window: expired');
+  assert.equal(await reason(await delegation({ payTo: 'SomeOtherSolanaAddress1111111111111111111111' })), 'pay-to: it names another payTo');
+  assert.equal(await reason(await delegation({ origin: 'https://other.example' })), 'origin: it is for origin https://other.example');
+  assert.equal(await reason(await delegation({ validUntil: String(NOW / 1000 + 100 * 86400) })), 'window: valid for more than 90 days');
+  assert.match(await reason(await delegation({}, agent, '1')), /^wallet-set-at: a version 1 delegation/, 'version 1 is no longer accepted');
+  assert.match(await reason(await delegation(), { walletEvent: walletSet(240) }), /^wallet-set-at: .*set again in block 240/, 'the wallet was set again after the delegation');
+  assert.match(await reason(await delegation(), { walletEvent: walletSet(150) }), /^wallet-set-at: no agent wallet setting in block 200/);
+  const [unread] = await run([solOpt({ extra: { erc8004: { registry: `eip155:8453:${REGISTRY}`, agentId: '7', delegation: await delegation() } } })], { fileIdentities: file(DOC_P), walletEvent: async () => { throw new Error('logs down'); } });
+  assert.equal(unread.outcome, 'not-read');
+  assert.equal(unread.notRead, 'wallet-event');
+  assert.equal(await reason(await delegation({}, privateKeyToAccount(generatePrivateKey()))), "signature: the signature is not the agent wallet's");
   const tampered = await delegation();
   tampered.message.asset = '*'; // widened after signing
-  assert.equal(await reason(tampered), "the signature is not the agent wallet's");
-  assert.equal(await reason(await delegation({ agentWallet: '0x1111111111111111111111111111111111111111' })), 'it was signed for another agent wallet (rotated since?)');
+  assert.equal(await reason(tampered), "signature: the signature is not the agent wallet's");
+  assert.equal(await reason(await delegation({ agentWallet: '0x1111111111111111111111111111111111111111' })), 'agent-wallet: it was signed for another agent wallet (rotated since?)');
 });
 
 test('payee verification: endpoint-unlisted, no-agent-wallet, not-read and no-identity', async () => {
