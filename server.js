@@ -717,6 +717,35 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   app.get('/sellers', page('sellers.html', '/sellers'));
   // Which x402 facilitators answer right now, and which networks they settle (lib/facilitators.js). Free, read-only.
   app.get('/facilitators', page('facilitators.html', '/facilitators'));
+  // ERC-8478 walletSetAt for a payee delegation: the block in which an ERC-8004 agent's current agent wallet was set
+  // (lib/wallet-events.js). Used by agent-wallet.html before it asks the agent wallet to sign. Free, read-only.
+  app.get('/api/v1/agent-wallet-set-at', async (req, res) => {
+    const agentId = String(req.query.agentId || '');
+    const registry = String(req.query.registry || 'eip155:8453:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432');
+    const m = /^eip155:(\d{1,12}):(0x[0-9a-fA-F]{40})$/.exec(registry);
+    if (!/^\d{1,30}$/.test(agentId) || !m) return res.status(400).json({ error: 'agentId (a number) and registry (eip155:<chain>:<address>) are needed' });
+    const network = `eip155:${m[1]}`;
+    const rpcUrl = NETWORKS[network]?.rpc;
+    if (!rpcUrl) return res.status(400).json({ error: `no node for ${network}` });
+    const rpc = async (method, params) => {
+      const r = await fetch(rpcUrl, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }), signal: AbortSignal.timeout(15000) });
+      const body = await r.json();
+      if (body.error) throw new Error(body.error.message || 'rpc error');
+      return body.result;
+    };
+    try {
+      const block = parseInt(await rpc('eth_blockNumber', []), 16);
+      const word = await rpc('eth_call', [{ to: m[2], data: `0x00339509${BigInt(agentId).toString(16).padStart(64, '0')}` }, `0x${block.toString(16)}`]);
+      const agentWallet = `0x${String(word).slice(-40)}`;
+      if (/^0x0{40}$/.test(agentWallet)) return res.status(404).json({ error: `agent #${agentId} has no agent wallet` });
+      const identity = { network, chainId: Number(m[1]), registry: m[2], agentId, agentWallet, block };
+      const walletSetAt = await diagnoseLib.walletEvents.walletSetAt(identity);
+      res.set('Cache-Control', 'no-store').json({ registry, agentId, agentWallet, walletSetAt: String(walletSetAt), block: String(block) });
+    } catch (err) {
+      const pending = /still reading/.test(String(err?.message));
+      res.status(pending ? 202 : 502).json({ error: pending ? 'reading the agent wallet\'s history; try again in a few minutes' : `could not read the registry: ${String(err?.message || err).slice(0, 120)}` });
+    }
+  });
   app.get('/api/v1/facilitators', async (req, res) => {
     const network = req.query.network === undefined ? null : String(req.query.network).trim();
     if (network !== null && !/^[a-z0-9-]{2,32}(:[-_a-zA-Z0-9/+=]{1,64})?$/.test(network)) return res.status(400).json({ error: 'network must be a CAIP-2 id (e.g. eip155:8453) or an x402 v1 name (e.g. base)' });

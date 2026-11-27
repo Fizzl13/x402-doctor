@@ -67,11 +67,11 @@
 
   <div class="step">
     <h2>4. Payee delegations (other networks)</h2>
-    <p>A payTo that isn't the agent wallet (Solana, the XRP Ledger, Algorand, Stellar, a treasury) is bound by a delegation the agent wallet signs (draft ERC "x402 Payee Verification", EIP-712). Paste one of your paid routes; the check lists its payees that aren't bound yet. Sign them with the agent wallet, then publish the result under <code>payees</code> in your registration file or in each option's <code>extra.erc8004.delegation</code>.</p>
+    <p>A payTo that isn't the agent wallet (Solana, the XRP Ledger, Algorand, Stellar, a treasury) is bound by a payee delegation the agent wallet signs (ERC-8478, EIP-712, version 2: it names the block the agent wallet was set, <code>walletSetAt</code>, and is valid for at most 90 days, so sign again before it runs out). List each delegated network and payTo under <code>payees</code> in your registration file too: a delegation binds only a listed payee. Paste one of your paid routes; the check lists its payees that are not bound yet, or whose delegation is invalid or version 1.</p>
     <label for="route">A paid route</label>
     <input id="route" placeholder="https://your-api.example/paid" autocomplete="off">
-    <label for="days">Valid for (days, at most 365)</label>
-    <input id="days" type="number" min="1" max="365" value="365">
+    <label for="days">Valid for (days, at most 90)</label>
+    <input id="days" type="number" min="1" max="90" value="80">
     <button class="ghost" id="findPayees">Find payees</button>
     <button class="ghost" id="pickAgentWallet">Choose account</button>
     <button id="signDelegations" disabled>Sign delegations</button>
@@ -189,7 +189,7 @@
     } catch (e) { log(e.message || String(e), 'bad'); }
   };
 
-  // ---- payee delegations (draft ERC "x402 Payee Verification for ERC-8004 Agents")
+  // ---- payee delegations (ERC-8478, version 2)
   $('route').value = q.get('route') || '';
   let plan = null;
   $('pickAgentWallet').onclick = () => pick().then((a) => log(`Account: ${short(a)}`)).catch((e) => log(e.message || String(e), 'bad'));
@@ -224,20 +224,27 @@
       const me = await account(), id = plan.id;
       if (!me || me.toLowerCase() !== id.agentWallet.toLowerCase()) { log(`Switch to the agent wallet ${short(id.agentWallet)} first (Choose account). Now: ${short(me)}.`, 'bad'); return; }
       const [, chain, registry] = id.registry.split(':');
-      const days = Math.min(365, Math.max(1, Number($('days').value) || 365));
+      // walletSetAt: the block in which this agent wallet was set (ERC-8478 version 2), read by x402 Doctor.
+      const at = await fetch(`/api/v1/agent-wallet-set-at?agentId=${encodeURIComponent(id.agentId)}&registry=${encodeURIComponent(id.registry)}`);
+      const atBody = await at.json().catch(() => ({}));
+      if (at.status !== 200 || !/^\d+$/.test(String(atBody.walletSetAt))) { log(atBody.error || 'Could not read the block the agent wallet was set. Try again in a few minutes.', at.status === 202 ? 'warn' : 'bad'); return; }
+      if (String(atBody.agentWallet).toLowerCase() !== id.agentWallet.toLowerCase()) { log(`The agent wallet changed since the check (${short(atBody.agentWallet)}): Find payees again.`, 'bad'); return; }
+      const walletSetAt = String(atBody.walletSetAt);
+      log(`Agent wallet ${short(id.agentWallet)} was set in block ${walletSetAt}.`);
+      const days = Math.min(90, Math.max(1, Number($('days').value) || 80));
       const validAfter = Math.floor(Date.now() / 1000) - 60;
-      const validUntil = validAfter + Math.min(days * 86400, 31536000 - 60);
+      const validUntil = validAfter + Math.min(days * 86400, 7776000);
       const signed = [];
       for (const p of plan.todo) {
         const nonce = `0x${[...crypto.getRandomValues(new Uint8Array(32))].map((b) => b.toString(16).padStart(2, '0')).join('')}`;
-        const message = { chainId: chain, registry, agentId: String(id.agentId), agentWallet: id.agentWallet, network: p.network, payTo: p.payTo, asset: p.asset ?? '*', origin: plan.origin, validAfter: String(validAfter), validUntil: String(validUntil), nonce };
+        const message = { chainId: chain, registry, agentId: String(id.agentId), agentWallet: id.agentWallet, walletSetAt, network: p.network, payTo: p.payTo, asset: p.asset ?? '*', origin: plan.origin, validAfter: String(validAfter), validUntil: String(validUntil), nonce };
         const typed = {
           types: {
             EIP712Domain: [{ name: 'name', type: 'string' }, { name: 'version', type: 'string' }, { name: 'chainId', type: 'uint256' }, { name: 'verifyingContract', type: 'address' }],
-            PayeeDelegation: [{ name: 'chainId', type: 'uint256' }, { name: 'registry', type: 'address' }, { name: 'agentId', type: 'uint256' }, { name: 'agentWallet', type: 'address' }, { name: 'network', type: 'string' }, { name: 'payTo', type: 'string' }, { name: 'asset', type: 'string' }, { name: 'origin', type: 'string' }, { name: 'validAfter', type: 'uint64' }, { name: 'validUntil', type: 'uint64' }, { name: 'nonce', type: 'bytes32' }],
+            PayeeDelegation: [{ name: 'chainId', type: 'uint256' }, { name: 'registry', type: 'address' }, { name: 'agentId', type: 'uint256' }, { name: 'agentWallet', type: 'address' }, { name: 'walletSetAt', type: 'uint64' }, { name: 'network', type: 'string' }, { name: 'payTo', type: 'string' }, { name: 'asset', type: 'string' }, { name: 'origin', type: 'string' }, { name: 'validAfter', type: 'uint64' }, { name: 'validUntil', type: 'uint64' }, { name: 'nonce', type: 'bytes32' }],
           },
           primaryType: 'PayeeDelegation',
-          domain: { name: 'x402 Payee Delegation', version: '1', chainId: Number(chain), verifyingContract: registry },
+          domain: { name: 'x402 Payee Delegation', version: '2', chainId: Number(chain), verifyingContract: registry },
           message,
         };
         const signature = await eth().request({ method: 'eth_signTypedData_v4', params: [me, JSON.stringify(typed)] });
