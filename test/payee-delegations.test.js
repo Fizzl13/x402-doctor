@@ -15,6 +15,8 @@ for (const [name, payees, agentId, origin] of [['x402 Doctor', PAYEES, '97519', 
     const m = p.delegation.message;
     assert.deepEqual([m.network, m.payTo, m.agentId, m.origin], [p.network, p.payTo, agentId, origin]);
     const v2 = m.walletSetAt !== undefined;
+    assert.ok(v2, `${p.network}: version 2 (walletSetAt), since the 27 Nov 2026 re-signing`);
+    assert.equal(m.walletSetAt, { 97519: '53301024', 988891: '52983479' }[agentId], 'the block the agent wallet was last set');
     assert.ok(BigInt(m.validUntil) - BigInt(m.validAfter) <= (v2 ? 7776000n : 31536000n));
     const signer = await recoverTypedDataAddress({
       domain: { name: 'x402 Payee Delegation', version: v2 ? '2' : '1', chainId: Number(m.chainId), verifyingContract: m.registry },
