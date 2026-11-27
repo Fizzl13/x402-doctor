@@ -115,6 +115,13 @@ test('pay route: quoted before the 402; the price function asks the quote; the p
     assert.equal(priceOf('https://seller.test/w?place=Amsterdam'), '$0.012');
     assert.equal(priceOf('https://never.test/x'), null);
     assert.equal(routesFor(env)['POST /v1/pay'], undefined, 'no pay route without the quotes');
+    // The Bazaar entry: without it CDP settles /v1/pay but never lists it. The endpoint goes in the query.
+    const { validateDiscoveryExtension } = require('@x402/extensions/bazaar');
+    const bazaar = route.extensions.bazaar;
+    assert.deepEqual(validateDiscoveryExtension(bazaar), { valid: true });
+    assert.equal(bazaar.info.input.method, 'POST');
+    assert.match(bazaar.info.input.queryParams.url, /^https:\/\//);
+    assert.deepEqual(bazaar.schema.properties.input.properties.queryParams.required, ['url']);
     // Refused before any 402: http, over the cap.
     assert.equal((await fetch(`${base}/v1/pay?url=${encodeURIComponent('http://seller.test/w')}`, { method: 'POST' })).status, 400);
     state.amount = 5_000_000;
@@ -168,6 +175,7 @@ test('pay route end to end: the real paywall asks the quote on the agent\'s chai
     assert.equal(unpaid.status, 402);
     const challenge = JSON.parse(Buffer.from(unpaid.headers.get('payment-required'), 'base64').toString());
     assert.deepEqual(challenge.accepts.map((a) => a.network), ['eip155:8453', POLYGON], 'Base itself, and the agent\'s chain');
+    assert.equal(challenge.extensions?.bazaar?.info?.input?.queryParams?.method, 'GET', 'the 402 carries the Bazaar entry');
     assert.ok(challenge.accepts.every((a) => a.amount === '12000'), "the seller's $0.01 plus the $0.002 fee, in USDC");
     const client = new x402Client((_v, accepts) => accepts.find((a) => a.network === POLYGON));
     client.register(POLYGON, new ExactEvmScheme(privateKeyToAccount(generatePrivateKey())));

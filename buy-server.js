@@ -227,11 +227,46 @@ function payRoute(env, quotes, publicUrl) {
     tags: ['x402', 'payments', 'cross-chain', 'rlusd', 'xrpl', 'agents'],
     iconUrl: `${publicUrl}/icon.png`,
     extensions: {
+      ...payDiscoveryExtension(),
       ...merchantExtension,
       ...builderCodeExtension(env.BUILDER_CODE),
       ...paymentIdentifierExtension,
     },
   };
+}
+
+// The Bazaar entry for Fizzl Pay. Without it the CDP facilitator settles a /v1/pay payment but never lists the route
+// (the index payment of 26 Nov 2026 paid and delivered, and the Bazaar still had no /v1/pay the next morning). The
+// endpoint to pay goes in the query (?url=, ?method=), which declareDiscoveryExtension has no field for, so it is added
+// to the declared input and to its schema here; the body is only passed on when method=POST.
+const PAY_EXAMPLE_URL = 'https://ichimoku-signal.fizzl.eu/signal/BTC-USDT';
+function payDiscoveryExtension() {
+  const ext = declareDiscoveryExtension({
+    method: 'POST',
+    bodyType: 'json',
+    input: {},
+    inputSchema: { properties: {}, description: 'Optional: the JSON body passed on to the endpoint when method=POST.' },
+    output: {
+      example: {
+        delivered: true,
+        endpoint: { url: PAY_EXAMPLE_URL, method: 'GET' },
+        status: 200,
+        content_type: 'application/json',
+        answer: { pair: 'BTC-USDT', signal: 'bullish' },
+        paid: { seller_usd: 0.01, fee_usd: 0.002, total_usd: 0.012, seller_network: BASE },
+      },
+    },
+  });
+  ext.bazaar.info.input.queryParams = { url: PAY_EXAMPLE_URL, method: 'GET' };
+  ext.bazaar.schema.properties.input.properties.queryParams = {
+    type: 'object',
+    properties: {
+      url: { type: 'string', description: 'The x402 endpoint to pay, URL-encoded: one that takes USDC on Base.' },
+      method: { type: 'string', enum: ['GET', 'POST'], description: 'Its HTTP method (GET when left out).' },
+    },
+    required: ['url'],
+  };
+  return ext;
 }
 
 // accepts[] for the paid MCP tool from the kinds the HTTP paywall fetched at start; only when those aren't there yet
