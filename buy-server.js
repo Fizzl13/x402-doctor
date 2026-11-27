@@ -197,7 +197,7 @@ function payRoute(env, quotes, publicUrl) {
   const price = (ctx) => {
     try {
       const u = new URL(ctx.adapter.getUrl(), 'http://local');
-      const t = targetOf(Object.fromEntries(u.searchParams), publicUrl);
+      const t = targetOf(payQuery(Object.fromEntries(u.searchParams)), publicUrl);
       const q = quotes.get(t.method, t.url);
       return q ? `$${q.total_usd}` : null;
     } catch {
@@ -241,6 +241,13 @@ function payRoute(env, quotes, publicUrl) {
 // endpoint to pay goes in the query (?url=, ?method=), which declareDiscoveryExtension has no field for, so it is added
 // to the declared input and to its schema here; the body is only passed on when method=POST.
 const PAY_EXAMPLE_URL = 'https://ichimoku-signal.fizzl.eu/signal/BTC-USDT';
+
+// A bare POST /v1/pay (no ?url= at all) is answered with the 402 for the example endpoint. The CDP Bazaar stores and
+// re-checks a route without its query string, and a bare call answered 400, so /v1/pay never got listed (27 Nov
+// 2026: CDP's validate API rejected https://buy.fizzl.eu/v1/pay with "HTTP 400 instead of 402"). Paying it is still
+// refused: a bare call that carries a payment gets the 400 before the paywall, so nothing is settled.
+const payQuery = (query) => (query && query.url !== undefined ? query : { ...query, url: PAY_EXAMPLE_URL });
+const carriesPayment = (req) => Boolean(req.get('payment-signature') || req.get('x-payment'));
 function payDiscoveryExtension() {
   const ext = declareDiscoveryExtension({
     method: 'POST',
@@ -674,7 +681,8 @@ function createBuyApp({ env = process.env, deps = {}, paywall = null, resourceSe
   // Base within the cap). The 402 asks that quote; nothing is asked for an endpoint Fizzl won't pay.
   app.post(PAY_ROUTE, async (req, res, next) => {
     try {
-      const t = targetOf(req.query, publicUrl);
+      if (req.query.url === undefined && carriesPayment(req)) throw new PayError(400, 'url: name the x402 endpoint to pay, e.g. ?url=https%3A%2F%2Fexample.com%2Fweather%3Fplace%3DAmsterdam. Nothing was charged.');
+      const t = targetOf(payQuery(req.query), publicUrl);
       res.locals.payHost = new URL(t.url).host;
       res.locals.payMethod = t.method;
       if (!payWallet) throw new PayError(503, 'Fizzl Pay has no wallet on this server (BUY_WALLET_KEY). Nothing was charged.');

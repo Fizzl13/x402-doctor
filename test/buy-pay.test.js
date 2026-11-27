@@ -8,12 +8,16 @@ const { createBuyApp, routesFor } = require('../buy-server');
 const USDC = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 const SELLER = '0x2222222222222222222222222222222222222222';
 const PAY_TO = '0x1111111111111111111111111111111111111111';
+const ICHIMOKU_PAY_TO = '0x6B0F4651eD42893ab58139938175E4a69f175F25';
 
 // A seller that answers 402 with USDC on Base at `amount` (6 decimals), as a fetch for the preflight.
 function sellerFetch(state) {
   return async (url) => {
     state.asked = (state.asked || 0) + 1;
-    const accepts = [{ scheme: 'exact', network: state.network || 'eip155:8453', amount: String(state.amount), asset: USDC, payTo: SELLER, maxTimeoutSeconds: 60, extra: { name: 'USD Coin', version: '2' } }];
+    // Ichimoku (the bare /v1/pay's example endpoint) answers with its real payout, as live: Doctor's payee history
+    // knows it, and a mock address there reads as payto_changed.
+    const payTo = String(url).startsWith('https://ichimoku-signal.fizzl.eu/') ? ICHIMOKU_PAY_TO : SELLER;
+    const accepts = [{ scheme: 'exact', network: state.network || 'eip155:8453', amount: String(state.amount), asset: USDC, payTo, maxTimeoutSeconds: 60, extra: { name: 'USD Coin', version: '2' } }];
     const challenge = { x402Version: 2, resource: { url: String(url), description: 'weather', mimeType: 'application/json' }, accepts };
     return new Response(JSON.stringify(challenge), { status: 402, headers: { 'content-type': 'application/json', 'PAYMENT-REQUIRED': Buffer.from(JSON.stringify(challenge)).toString('base64') } });
   };
@@ -178,6 +182,18 @@ test('pay route end to end: the real paywall asks the quote on the agent\'s chai
     assert.deepEqual(challenge.accepts.map((a) => a.network), ['eip155:8453', POLYGON], 'Base itself, and the agent\'s chain');
     assert.equal(challenge.extensions?.bazaar?.info?.input?.queryParams?.method, 'GET', 'the 402 carries the Bazaar entry');
     assert.ok(challenge.accepts.every((a) => a.amount === '12000'), "the seller's $0.01 plus the $0.002 fee, in USDC");
+    // A bare /v1/pay (how the CDP Bazaar re-checks it, query stripped) gets the 402 for the example endpoint...
+    const bare = await fetch(`${api}/v1/pay`, { method: 'POST' });
+    assert.equal(bare.status, 402, 'a bare /v1/pay answers 402, not 400');
+    const bareChallenge = JSON.parse(Buffer.from(bare.headers.get('payment-required'), 'base64').toString());
+    assert.ok(bareChallenge.accepts.length > 0 && bareChallenge.accepts.every((a) => a.amount === '12000'));
+    // ...but a bare call that carries a payment is refused before the paywall: nothing verified, nothing settled.
+    const bareClient = new x402Client((_v, accepts) => accepts.find((a) => a.network === POLYGON));
+    bareClient.register(POLYGON, new ExactEvmScheme(privateKeyToAccount(generatePrivateKey())));
+    const barePaid = await wrapFetchWithPayment(fetch, bareClient)(`${api}/v1/pay`, { method: 'POST' });
+    assert.equal(barePaid.status, 400);
+    assert.match((await barePaid.json()).error, /name the x402 endpoint.*Nothing was charged/);
+    assert.deepEqual([fac.verify, fac.settle], [0, 0], 'a bare payment is never verified or settled');
     const client = new x402Client((_v, accepts) => accepts.find((a) => a.network === POLYGON));
     client.register(POLYGON, new ExactEvmScheme(privateKeyToAccount(generatePrivateKey())));
     const payFetch = wrapFetchWithPayment(fetch, client);
