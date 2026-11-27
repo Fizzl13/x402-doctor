@@ -8,15 +8,16 @@
     "registry": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
     "agentId": "97519",
     "agentWallet": "0x6b0f4651ed42893ab58139938175e4a69f175f25",
+    "walletSetAt": "53301024",
     "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
     "payTo": "ATWJ82T8nRdQwZnaysB68N5EpaSvLRsQP4h6eWmaJBH9",
     "asset": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
     "origin": "https://x402-doctor.fizzl.eu",
-    "validAfter": "1793394560",
-    "validUntil": "1824930500",
-    "nonce": "0x32e188cf5576aef48a7b0f27738173b77c3d0a48db746fbb8e0899d341e11fdb"
+    "validAfter": "1795783684",
+    "validUntil": "1802695684",
+    "nonce": "0x774260924a1db71022f80cbc6d8f703cbf7029f26586b824ed32b96afb96d577"
    },
-   "signature": "0xbe109fecfc49aba044ad0a3f871dbba6e43ed73386205c8d33e748e17e63f7797e5c96887c9bf0f3c31f3056c0116900ab4de5ae9a1100201f7a136f843139751b"
+   "signature": "0xbc2cccf9484b195f9667d9c74dfa226476e4d0f75e75a21017bfefcac59fa40b715a840b02ebe768a784ebce0f68ad5068eba34fde552d7fd4780c534f8a67921c"
   }
  },
  {
@@ -28,15 +29,16 @@
     "registry": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
     "agentId": "97519",
     "agentWallet": "0x6b0f4651ed42893ab58139938175e4a69f175f25",
+    "walletSetAt": "53301024",
     "network": "xrpl:0",
     "payTo": "r9xmBsRr8Ao7jRgjjxreMiAwGiCK2FGwqw",
     "asset": "524C555344000000000000000000000000000000",
     "origin": "https://x402-doctor.fizzl.eu",
-    "validAfter": "1793394560",
-    "validUntil": "1824930500",
-    "nonce": "0x883614126d3ad54faed3fd34fd3c1df7cfa230e11416abf6bcaa5e086ea96b35"
+    "validAfter": "1795783684",
+    "validUntil": "1802695684",
+    "nonce": "0x0757e9f58f4fa233590c88dedfcee6a0125f8bbfde3ec554e60dea2f3261f081"
    },
-   "signature": "0x2a3c7eac1eb837b48974c91222a18fc971aa3afe3ce57590a2b5fcbf1357ebf16134c5e27d5a0e05b4d22d9f3a3353b1752ab829ca61dfd657aa6f279e23bab61c"
+   "signature": "0xb8ac4acad4de34212f29dfddda85acef48e076fd7524f36ff703af4393f67a965694554bf57958e8682e608f2df122a3335f4316e777d975bb59220cb7b4e54a1c"
   }
  },
  {
@@ -48,15 +50,16 @@
     "registry": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
     "agentId": "97519",
     "agentWallet": "0x6b0f4651ed42893ab58139938175e4a69f175f25",
+    "walletSetAt": "53301024",
     "network": "xrpl:0",
     "payTo": "r9xmBsRr8Ao7jRgjjxreMiAwGiCK2FGwqw",
     "asset": "XRP",
     "origin": "https://x402-doctor.fizzl.eu",
-    "validAfter": "1795584865",
-    "validUntil": "1827120805",
-    "nonce": "0x053594c7a463dcc961ffe7d50f482a260b45f767a40f970a0c64f24a96a01593"
+    "validAfter": "1795783684",
+    "validUntil": "1802695684",
+    "nonce": "0xa5b24306c1d0e34189cd253777b85c831e43edb6426b3607b3418ffb14879c43"
    },
-   "signature": "0x5e38b5a3ae7aae4181cddba31ea740ed9197360e587f3c032c582263c16299660b724df763ce3a6cd9508f41949cad24e161cc33228904a458380532ba2038dd1c"
+   "signature": "0x84663f0a0cf3d224cacbe2df9215772d92c3c7a30f4b59d3fdc878c1c6d4f61e671063af50f5c71b0c451c2c2affc97998ed0615ce825658ebec5112103a3f131c"
   }
  },
  {
@@ -68,15 +71,16 @@
     "registry": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
     "agentId": "97519",
     "agentWallet": "0x6b0f4651ed42893ab58139938175e4a69f175f25",
+    "walletSetAt": "53301024",
     "network": "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k",
     "payTo": "LOYVFSQ6ZTS2YWUW4GQ5L6VPP2TPIOXWYDACK53CPOHQQHLDMEMKJDXAX4",
     "asset": "31566704",
     "origin": "https://x402-doctor.fizzl.eu",
-    "validAfter": "1793394560",
-    "validUntil": "1824930500",
-    "nonce": "0x9714813c27c76d1c17ffef9e9cb7cb6cdeeda2c29b887426f25ab7d6f4aa7c04"
+    "validAfter": "1795783684",
+    "validUntil": "1802695684",
+    "nonce": "0x10b6fbf7ce043ca940382a8e63a4de3cb6bd6ce0661d1f2c130bec5d447571ed"
    },
-   "signature": "0xa41520667c870e5db7e1fe10224ce19739891482043b94e09a5a90aa30988f05002139d02577581348bc94adfa14c7590d15fa154f159062f5eb5943530018651c"
+   "signature": "0xf2d9cfbb1204ca748625fedb49f0b5389939b307f983482cd39f4b8b64511e340680cec9f3514f48cfaff3b40d96a539d1895d38dc46e688d99bd7e0e418c3ee1b"
   }
  },
  {
@@ -88,35 +92,16 @@
     "registry": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
     "agentId": "97519",
     "agentWallet": "0x6b0f4651ed42893ab58139938175e4a69f175f25",
+    "walletSetAt": "53301024",
     "network": "stellar:pubnet",
     "payTo": "GCH2J5UAY24YNKA65MPAATVKWRCZZRZNF3JZKYYS5MIBZPG6U7WJ6CDQ",
     "asset": "CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75",
     "origin": "https://x402-doctor.fizzl.eu",
-    "validAfter": "1793394560",
-    "validUntil": "1824930500",
-    "nonce": "0xc55947a5baedf3c5dd73173f7bf91128daaf85d28fd46d35c0d238d6e059052f"
+    "validAfter": "1795783684",
+    "validUntil": "1802695684",
+    "nonce": "0x6ce6b365f9508d23880e15d68a5b13d33d3a9b0161b0297a09a031712de9e641"
    },
-   "signature": "0x0057682d32c970055d40b071905e081ff410f0b9a88f0eb7745a111a11e2a55e30cb691974cd6397ae28e9b8fb566bca58eb51fb706552b469a0a0fccae023b51c"
-  }
- },
- {
-  "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
-  "payTo": "ATWJ82T8nRdQwZnaysB68N5EpaSvLRsQP4h6eWmaJBH9",
-  "delegation": {
-   "message": {
-    "chainId": "8453",
-    "registry": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
-    "agentId": "97519",
-    "agentWallet": "0x6b0f4651ed42893ab58139938175e4a69f175f25",
-    "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
-    "payTo": "ATWJ82T8nRdQwZnaysB68N5EpaSvLRsQP4h6eWmaJBH9",
-    "asset": "8Qj1i5Q8DJ1HJW2rEpdzED47jNi2f5XvaqwykqQQpump",
-    "origin": "https://x402-doctor.fizzl.eu",
-    "validAfter": "1794087007",
-    "validUntil": "1825622947",
-    "nonce": "0x4255d7b49ba660ab1e470aa857e50c9b0250cc10e51156da94a4d518c5708abb"
-   },
-   "signature": "0xf09ee91e8d91a159189eaae9418656b09632c0e29e8ade6d1762122579369b4247279b2c1b7307a90529b6150ee92df78ca8887db239968c7b0930b63deba61f1b"
+   "signature": "0x8e00f51bed223ff6244bd4c3e043dfca367081301de7fc501218e547d8e1ab2a44978623b3719143683f0bf3c334c38dc29237549952ee888705d074757e873d1b"
   }
  },
  {
@@ -128,15 +113,16 @@
     "registry": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
     "agentId": "97519",
     "agentWallet": "0x6b0f4651ed42893ab58139938175e4a69f175f25",
+    "walletSetAt": "53301024",
     "network": "near:mainnet",
     "payTo": "x402fizzl.near",
     "asset": "17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
     "origin": "https://x402-doctor.fizzl.eu",
-    "validAfter": "1795094001",
-    "validUntil": "1826629941",
-    "nonce": "0x344f8875d9de29718e346b8aaa2d8f5b3c179e4917b8631b618120b16ff36ae4"
+    "validAfter": "1795783684",
+    "validUntil": "1802695684",
+    "nonce": "0xc915d33c226bc15858eab4abd1f176d6ce352565adb561269194fe36c40fccc7"
    },
-   "signature": "0xfc5c3a8e0f4fbb7a7e94c7d58ada1a805770f2729799b7a87ed8fa1713e9f2056bff0e7ab4b9092bc903239c86a267c37618522dec45bbd6db21fce036a3adb51b"
+   "signature": "0xbb55bfa0cb3a6cf43b88c31f626bde02c1075bffee1d3606a4f4db9939522b3e1861080f508b55d766d05065efc65c5641b98e6ac03ea61d1f397bc60b002bc81b"
   }
  }
 ]

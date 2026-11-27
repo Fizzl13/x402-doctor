@@ -217,7 +217,13 @@
       log(todo.length ? `${todo.length} payee(s) to delegate. Choose the agent wallet ${short(id.agentWallet)}, then Sign delegations.` : 'Nothing to delegate: every payee is bound, or the identity has no agent wallet yet (steps 1 to 3).', todo.length ? undefined : 'ok');
     } catch (e) { log(e.message || String(e), 'bad'); }
   };
+  // One signing round at a time: a second tap while the wallet still shows a request leaves requests pending in the
+  // wallet app (MetaMask mobile: "already pending"), so the buttons wait until this round is done.
+  let signing = false;
   $('signDelegations').onclick = async () => {
+    if (signing) { log('Still signing: confirm the requests in your wallet one by one.', 'warn'); return; }
+    signing = true;
+    for (const el of ['signDelegations', 'findPayees', 'pickAgentWallet']) $(el).disabled = true;
     try {
       if (!eth()) { log('No wallet found. Open this page in your wallet app\'s browser.', 'bad'); return; }
       await eth().request({ method: 'eth_requestAccounts' });
@@ -254,6 +260,10 @@
       $('out').value = JSON.stringify({ agentId: String(id.agentId), registry: id.registry, origin: plan.origin, payees: signed }, null, 1);
       for (const el of ['out', 'outLabel', 'copyOut']) $(el).hidden = false;
     } catch (e) { log(e.message || String(e), 'bad'); }
+    finally {
+      signing = false;
+      for (const el of ['signDelegations', 'findPayees', 'pickAgentWallet']) $(el).disabled = false;
+    }
   };
   $('copyOut').onclick = () => navigator.clipboard.writeText($('out').value).then(() => log('Copied.', 'ok')).catch(() => { $('out').select(); log('Select the text and copy it.'); });
 })();
