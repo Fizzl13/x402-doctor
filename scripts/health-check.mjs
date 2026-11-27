@@ -221,15 +221,16 @@ async function main() {
   // Informational: which routes the CDP Bazaar lists (never a failure).
   const listed = [];
   try {
-    for (let offset = 0; offset < 40000; offset += 500) {
-      const res = await request(`https://api.cdp.coinbase.com/platform/v2/x402/discovery/resources?type=http&limit=500&offset=${offset}`);
+    // The whole list (about 89,000 entries on 27 Nov 2026; the old 40,000 cap missed Fizzl Pay's /v1/pay), 1,000 a page.
+    for (let offset = 0; offset < 250000; offset += 1000) {
+      const res = await request(`https://api.cdp.coinbase.com/platform/v2/x402/discovery/resources?type=http&limit=1000&offset=${offset}`);
       if (!res.ok) break;
       const items = (await res.json()).items || [];
       for (const it of items) {
         const r = String(it.resource || '');
         if ([ICHI, DOCTOR, GUARD, BUY].some((o) => r.startsWith(o))) listed.push(r.replace(/^https:\/\//, ''));
       }
-      if (items.length < 500) break;
+      if (items.length < 1000) break;
     }
   } catch { /* Bazaar unreachable: skip */ }
 
