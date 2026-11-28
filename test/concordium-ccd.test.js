@@ -8,7 +8,7 @@ const assert = require('node:assert/strict');
 const http = require('node:http');
 const { createApp } = require('../server');
 const { paymentConfig } = require('../lib/paid-api');
-const { CONCORDIUM_MAINNET } = require('../lib/concordium-pay');
+const { CONCORDIUM_MAINNET, withoutOffTokens } = require('../lib/concordium-pay');
 const { microCcdPerEuro, ccdAmount, createCcd } = require('../lib/concordium-ccd');
 const { diagnose } = require('../lib/diagnose');
 const { usdOf } = require('../lib/usage-log');
@@ -125,4 +125,16 @@ test('the MCP tools keep their fixed accepts[] (no CCD); a stale rate is dropped
   t = 25 * 60 * 60_000;
   assert.equal(await ccd.priceFor(0.05), null, 'older than a day: no CCD price');
   assert.equal(ccd.usdPerCcd(), null);
+});
+
+test('CONCORDIUM_TOKEN=off: CCD in the token\'s place on the 402; no Concordium option for the MCP tools; with CCD off, none at all', async () => {
+  const off = await challengeOf(await fetch(`${await start(await setup({ CONCORDIUM_TOKEN: 'off' }))}${FIX}`));
+  assert.deepEqual(off.accepts.filter((a) => a.network === CONCORDIUM_MAINNET).map((a) => [a.asset, a.amount]), [['CCD', '16000000']]);
+  assert.equal(off.accepts[0].network, BASE, 'Base stays first');
+  const none = await challengeOf(await fetch(`${await start(await setup({ CONCORDIUM_TOKEN: 'off', CONCORDIUM_CCD: undefined }))}${FIX}`));
+  assert.equal(none.accepts.some((a) => a.network === CONCORDIUM_MAINNET), false);
+  assert.ok(none.accepts.some((a) => a.network === BASE));
+  const env = await setup({ CONCORDIUM_TOKEN: 'off' });
+  assert.equal(withoutOffTokens(paymentConfig(env).fixAccepts).some((a) => a.network === CONCORDIUM_MAINNET), false);
+  assert.equal(withoutOffTokens(paymentConfig(await setup()).fixAccepts).some((a) => a.network === CONCORDIUM_MAINNET), true, 'unset: the token stays');
 });

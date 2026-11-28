@@ -71,7 +71,7 @@ const { createFiller } = require('./lib/buy/fill');
 const { buy, createBudget, BuyError, MAX_TRIES } = require('./lib/buy/purchase');
 const { createOncePerPayment, createPaymentLocks, keyOf, REFUSED } = require('./lib/buy/once');
 const { PayError, targetOf, urlShape, createQuotes, quoteFor, payUrl, FEE_SHARE, FEE_MIN_USD } = require('./lib/buy/pay-url');
-const { CONCORDIUM_MAINNET, concordiumPayTo, concordiumFacilitatorClient, ExactConcordiumScheme, atomic6 } = require('./lib/concordium-pay');
+const { CONCORDIUM_MAINNET, concordiumPayTo, concordiumFacilitatorClient, ExactConcordiumScheme, atomic6, tokenOff } = require('./lib/concordium-pay');
 const { createCcd } = require('./lib/concordium-ccd');
 const { createStrikes } = require('./lib/buy/strikes');
 const { spentByOthers, INSTANCE } = require('./lib/buy/spent-log');
@@ -191,7 +191,8 @@ function routesFor(env, { quotes = null, publicUrl = env.PUBLIC_URL || 'https://
   return routes;
 }
 
-// Fizzl Pay on Concordium: USDR (CONCORDIUM_ASSET) at the quote's dollar price, and CCD after it when CCD is on.
+// Fizzl Pay on Concordium: USDR (CONCORDIUM_ASSET) at the quote's dollar price, and CCD after it when CCD is on; with
+// CONCORDIUM_TOKEN=off, CCD only.
 function concordiumPayAccepts(env, price, ccd) {
   const payTo = concordiumPayTo(env);
   if (!payTo) return [];
@@ -200,7 +201,8 @@ function concordiumPayAccepts(env, price, ccd) {
   const usdOf = (ctx) => { const p = price(ctx); const usd = p ? Number(String(p).replace(/^\$/, '')) : null; return usd && usd >= min ? usd : null; };
   const base = { scheme: 'exact', network: CONCORDIUM_MAINNET, payTo, maxTimeoutSeconds: 120 };
   return [
-    { ...base, price: (ctx) => { const usd = usdOf(ctx); return usd ? { amount: atomic6(usd.toFixed(6)), asset, extra: { decimals: 6 } } : null; } },
+    // CONCORDIUM_TOKEN=off (lib/concordium-pay.js): CCD only.
+    ...(tokenOff(env) ? [] : [{ ...base, price: (ctx) => { const usd = usdOf(ctx); return usd ? { amount: atomic6(usd.toFixed(6)), asset, extra: { decimals: 6 } } : null; } }]),
     ...(ccd.enabled ? [{ ...base, price: async (ctx) => { const usd = usdOf(ctx); return usd ? ccd.priceFor(usd) : null; } }] : []),
   ];
 }

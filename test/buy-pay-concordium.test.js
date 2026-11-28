@@ -28,6 +28,9 @@ test('pay on Concordium: USDR at the quote, CCD after it at the chain rate, only
     assert.equal(ccdOpts[0].price(ctx('https://never.test/x')), null);
     assert.equal(routesFor({ ...env, CONCORDIUM_CCD: 'off' }, { quotes })['POST /v1/pay'].accepts.filter((a) => a.network === CONCORDIUM_MAINNET).length, 1, 'USDR only');
     assert.equal(routesFor({ ...env, CONCORDIUM_PAY_TO: '' }, { quotes })['POST /v1/pay'].accepts.filter((a) => a.network === CONCORDIUM_MAINNET).length, 0);
+    const tokenOff = routesFor({ ...env, CONCORDIUM_TOKEN: 'off' }, { quotes })['POST /v1/pay'].accepts.filter((a) => a.network === CONCORDIUM_MAINNET);
+    assert.equal(tokenOff.length, 1, 'CONCORDIUM_TOKEN=off: CCD only');
+    assert.equal((await tokenOff[0].price(ctx('https://seller.test/a'))).asset, 'CCD');
   } finally {
     proxy.close();
   }
