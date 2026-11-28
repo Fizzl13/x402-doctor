@@ -1,0 +1,14 @@
+{
+  "private": true,
+  "description": "Builds public/vendor/concordium-wc.js (WalletConnect's sign client and a QR code drawer, so /concordium-proof.html can ask the Concordium wallet app on a phone for a proof) as one self-hosted file: npm ci && npm run build. The same build as the Fizzl Agent Wallet's (x402-examples wallet-server/vendor/concordium-wc).",
+  "scripts": {
+    "build": "esbuild entry.js --bundle --minify --format=iife --platform=browser --target=es2020 --define:global=window --legal-comments=eof --outfile=../../public/vendor/concordium-wc.js"
+  },
+  "dependencies": {
+    "@walletconnect/sign-client": "2.26.0",
+    "qrcode-generator": "1.5.2"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}

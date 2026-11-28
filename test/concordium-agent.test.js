@@ -121,6 +121,10 @@ test('revoked, unknown badge, foreign contract and an unreadable registry', asyn
   const revoked = await verifyConcordiumPayees([{ network: TESTNET, payTo: WALLET }], { url: SELLER, safeFetch: pages({ [CARD_URL]: text }), fetchImpl: registry({ agent_by_token_address: agent(text, { status: 'Revoked' }) }).fetchImpl });
   assert.equal(revoked.results[0].outcome, 'revoked');
   clearConcordiumCache();
+  const unpinned = await verifyConcordiumPayees([{ network: TESTNET, payTo: WALLET }], { url: SELLER, safeFetch: pages({ [CARD_URL]: text }), fetchImpl: registry({ agent_by_token_address: agent(text, { metadata_hash_hex: '' }) }).fetchImpl });
+  assert.equal(unpinned.results[0].outcome, 'not-read');
+  assert.match(unpinned.results[0].reason, /never pinned/);
+  clearConcordiumCache();
   const missing = await verifyConcordiumPayees([{ network: TESTNET, payTo: WALLET }], { url: SELLER, safeFetch: pages({ [CARD_URL]: text }), fetchImpl: registry({}).fetchImpl });
   assert.equal(missing.results[0].outcome, 'not-read');
   const foreignCard = JSON.stringify({ url: SELLER, capabilities: { extensions: [{ uri: 'https://docs.concordium.com/a2a-extensions/concordium-badge/v1', params: { tokenAddress: tokenAddress(999) } }] } });
@@ -139,7 +143,8 @@ test('verified-external-key: an EVM payTo is the address of the secp256k1 key bo
   const account = privateKeyToAccount(`0x${'11'.repeat(32)}`);
   const key = { namespace: 'eip155', key_type: 'secp256k1-uncompressed', public_key_hex: account.publicKey.slice(2) };
   const text = card();
-  const tools = (holder) => ({ agent_by_token_address: agent(text, { external_reference: { contract_address: { index: 12801, subindex: 0 }, kind: 'Cis8', key } }), owner_of_key: holder });
+  // The registry binds only the EVM key here (a Solana payTo's own key is asked too, and is not bound).
+  const tools = (holder) => ({ agent_by_token_address: agent(text, { external_reference: { contract_address: { index: 12801, subindex: 0 }, kind: 'Cis8', key } }), owner_of_key: (a) => (a.external_key.key_type === 'ed25519' ? null : holder) });
   const accepts = [{ network: 'eip155:8453', payTo: account.address }, { network: 'eip155:8453', payTo: '0x000000000000000000000000000000000000dEaD' }];
   const solana = { network: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp', payTo: 'ATWJ82T8nRdQwZnaysB68N5EpaSvLRsQP4h6eWmaJBH9' };
   const bound = await verifyConcordiumPayees([...accepts, solana, { network: 'xrpl:0', payTo: 'r9xmBsRr8Ao7jRgjjxreMiAwGiCK2FGwqw' }], { url: SELLER, safeFetch: pages({ [CARD_URL]: text }), fetchImpl: registry(tools({ owner_account: OWNER })).fetchImpl });
@@ -282,6 +287,13 @@ test('lookupBadge: a badge on its own, from its short form or the registry app\'
   const revoked = await lookupBadge(BADGE, { fetchImpl: registry({ agent_by_token_address: agent(text, { status: 'Revoked' }) }).fetchImpl, safeFetch: pages({ [CARD_URL]: text }) });
   assert.match(revoked.issues.join(' '), /Revoked/);
 
+  // No hash on chain: said as such, not as a card that could not be read (as Concordium's check_badge says it).
+  clearConcordiumCache();
+  const unpinned = await lookupBadge(BADGE, { fetchImpl: registry({ agent_by_token_address: agent(text, { metadata_hash_hex: null }) }).fetchImpl, safeFetch: pages({ [CARD_URL]: text }) });
+  assert.equal(unpinned.valid, false);
+  assert.match(unpinned.issues.join(' '), /no card hash on chain/);
+  assert.doesNotMatch(unpinned.issues.join(' '), /could not be read/);
+
   assert.deepEqual((await lookupBadge('nonsense!')).valid, false);
   assert.match((await lookupBadge(tokenAddress(999))).issues[0], /not a token of the official/);
   clearConcordiumCache();
@@ -303,4 +315,123 @@ test('externalKeyAddress: a compressed secp256k1 key gives the same EVM address 
   assert.equal(externalKeyAddress({ key_type: 'secp256k1-compressed', public_key_hex: '03772c30dde9ad7a9a5a23e1db44ef772f0b10a9275417b147c1fab380dc9db4cb' }), '0x23d9a42da5536038481849ac06233ebd6fba775b');
   assert.equal(externalKeyAddress({ key_type: 'secp256k1-compressed', public_key_hex: `02${'ff'.repeat(32)}` }), null, 'x beyond the field');
   assert.equal(externalKeyAddress({ key_type: 'secp256k1-compressed', public_key_hex: `04${'11'.repeat(32)}` }), null, 'wrong prefix');
+});
+
+test('lookupBadge with exam: the Agent Safety Index for a site the anchored card lists, verified results only', async () => {
+  const { lookupBadge, examFor, clearConcordiumCache: clear } = require('../lib/concordium-agent');
+  const host = new URL(SELLER).hostname;
+  const asked = [];
+  const entry = (over) => ({ agent: { name: 'Seller bot' }, score: 92, admitted: true, current: true, traps_avoided: '14/14', valid_until: '2026-12-08T00:00:00Z', agent_page: 'https://exam.fizzl.eu/a/k', result: 'https://exam.fizzl.eu/v1/results/r', verified: true, finished_at: '2026-11-08T00:00:00Z', ...over });
+  const examFetch = (agents) => async (url) => { asked.push(url); return { ok: true, json: async () => ({ site: host, agents }) }; };
+
+  const text = card();
+  clear();
+  const r = registry({ agent_by_token_address: agent(text) });
+  const ok = await lookupBadge(BADGE, { fetchImpl: r.fetchImpl, safeFetch: pages({ [CARD_URL]: text }), exam: true, examFetch: examFetch([entry({ score: 60, admitted: false, current: false, finished_at: '2026-11-09T00:00:00Z' }), entry()]) });
+  assert.equal(ok.valid, true);
+  assert.equal(asked[0], `https://exam.fizzl.eu/v1/lookup?site=${encodeURIComponent(host)}`);
+  assert.deepEqual([ok.exam.site, ok.exam.admitted, ok.exam.current, ok.exam.score], [host, true, true, 92], 'a current admission wins over a later failed sitting');
+
+  // A result the site does not vouch for (not verified) is not shown; the index being down is not an issue.
+  assert.equal(await examFor([SELLER], { fetchImpl: examFetch([entry({ verified: false })]) }), null);
+  assert.equal(await examFor([SELLER], { fetchImpl: async () => { throw new Error('down'); } }), null);
+  clear();
+  const down = await lookupBadge(BADGE, { fetchImpl: registry({ agent_by_token_address: agent(text) }).fetchImpl, safeFetch: pages({ [CARD_URL]: text }), exam: true, examFetch: async () => ({ ok: false }) });
+  assert.equal(down.valid, true);
+  assert.equal(down.exam, null);
+
+  // Without exam: true nothing is asked and there is no exam field.
+  clear();
+  const n = asked.length;
+  const plain = await lookupBadge(BADGE, { fetchImpl: registry({ agent_by_token_address: agent(text) }).fetchImpl, safeFetch: pages({ [CARD_URL]: text }), examFetch: examFetch([entry()]) });
+  assert.equal('exam' in plain, false);
+  assert.equal(asked.length, n);
+});
+
+test('lookupBadge: the owner\'s spending rules from the anchored card, and a mandate held against them', async () => {
+  const { lookupBadge, checkMandate } = require('../lib/concordium-agent');
+  const jcs = (v) => (Array.isArray(v) ? `[${v.map(jcs).join(',')}]` : v && typeof v === 'object' ? `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${jcs(v[k])}`).join(',')}}` : JSON.stringify(v));
+  const keyPair = (seed) => {
+    const priv = crypto.createPrivateKey({ key: Buffer.concat([Buffer.from('302e020100300506032b657004220420', 'hex'), Buffer.alloc(32, seed)]), format: 'der', type: 'pkcs8' });
+    return { x: crypto.createPublicKey(priv).export({ format: 'jwk' }).x, sign: (s) => crypto.sign(null, Buffer.from(s, 'utf8'), priv).toString('base64url') };
+  };
+  const owner = keyPair(7);
+  const envelopeOf = (k, over = {}) => {
+    const mandate = { v: 'x402-mandate/1', issuer: k.x, subject: '0x2222222222222222222222222222222222222222', asset: 'eip155:8453/erc20:0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', cap: '3000000', perPayment: '1500000', recipients: ['*'], accountant: k.x, purpose: 'market data', notAfter: '2026-12-01T00:00:00Z', nonce: 'fw-abc', ...over };
+    return { mandate, alg: 'Ed25519', sig: k.sign(`x402-mandate/1\n${jcs(mandate)}`) };
+  };
+  const rulesExt = { uri: 'https://fizzl.eu/a2a/spending-rules/v1', params: { v: '1', issuer: owner.x, limits: { tokens: { USDC: { perTx: '2', perDay: '10' } } }, mandate: { cap: '3', perPayment: '1.5', notAfter: '2026-12-01T00:00:00Z', purpose: 'market data', nonce: 'fw-abc' } } };
+  const text = card({ capabilities: { extensions: [{ uri: 'https://docs.concordium.com/a2a-extensions/concordium-badge/v1', params: { tokenAddress: `${TESTNET}/cis-2:${BADGE}` } }, rulesExt] } });
+  const look = (t, mandate) => lookupBadge(BADGE, { fetchImpl: registry({ agent_by_token_address: agent(t) }).fetchImpl, safeFetch: pages({ [CARD_URL]: t }), mandate });
+
+  const ok = await look(text, envelopeOf(owner));
+  assert.equal(ok.valid, true, JSON.stringify(ok.issues));
+  assert.equal(ok.spending_rules.pinned_by, OWNER);
+  assert.equal(ok.spending_rules.issuer, owner.x);
+  assert.deepEqual(ok.spending_rules.limits.tokens.USDC, { perTx: '2', perDay: '10' });
+  assert.deepEqual(ok.mandate_check, { match: true, signature_valid: true });
+
+  clearConcordiumCache();
+  const plain = await look(text, null);
+  assert.equal(plain.mandate_check, undefined, 'no mandate asked: no check');
+
+  // Another key, a broken signature, another nonce, other terms: never a match.
+  const rules = ok.spending_rules;
+  assert.match(checkMandate(envelopeOf(keyPair(9)), rules).reason, /another key/);
+  const forged = envelopeOf(owner); forged.mandate.cap = '9000000';
+  assert.deepEqual([checkMandate(forged, rules).match, checkMandate(forged, rules).signature_valid], [false, false]);
+  assert.match(checkMandate(envelopeOf(owner, { nonce: 'fw-new' }), rules).reason, /another nonce/);
+  assert.match(checkMandate(envelopeOf(owner, { perPayment: '2500000' }), rules).reason, /terms differ/);
+  assert.match(checkMandate({ nope: 1 }, rules).reason, /not an x402-mandate/);
+
+  // A card that no longer matches its hash: no rules are read from it.
+  clearConcordiumCache();
+  const swapped = await lookupBadge(BADGE, { fetchImpl: registry({ agent_by_token_address: agent(text) }).fetchImpl, safeFetch: pages({ [CARD_URL]: text.replace('market data', 'anything') }), mandate: envelopeOf(owner) });
+  assert.equal(swapped.spending_rules, null);
+  assert.equal(swapped.mandate_check.match, false);
+  assert.match(swapped.mandate_check.reason, /no spending rules/);
+});
+
+test('tokenIdOf: the token id inside a registry token address', () => {
+  const { tokenIdOf } = require('../lib/concordium-agent');
+  assert.equal(tokenIdOf('JyP9UhTu6PeHXpm6LAhSy'), '43');
+  assert.equal(tokenIdOf(BADGE), '0');
+  assert.equal(tokenIdOf('not-base58!'), null);
+});
+
+test('registry MCP down: the indexer answers when it is in sync, and never when it lags', async () => {
+  const text = card();
+  const row = agent(text);
+  const indexer = (lag) => async (url) => {
+    if (String(url).includes('agent-registry-mcp')) return { ok: false, status: 503, text: async () => '' };
+    if (String(url).endsWith('/status')) return { ok: true, status: 200, text: async () => JSON.stringify({ networks: { testnet: { lag_blocks: lag } } }) };
+    if (/\/agents\/0\?network=testnet$/.test(String(url))) return { ok: true, status: 200, text: async () => JSON.stringify({ network: 'testnet', agent: row }) };
+    return { ok: false, status: 404, text: async () => '' };
+  };
+  const ok = await verifyConcordiumPayees([{ network: TESTNET, payTo: WALLET }], { url: SELLER, safeFetch: pages({ [CARD_URL]: text }), fetchImpl: indexer(0) });
+  assert.equal(ok.results[0].outcome, 'verified-wallet', 'the same verdict as through the MCP service');
+  clearConcordiumCache();
+  const behind = await verifyConcordiumPayees([{ network: TESTNET, payTo: WALLET }], { url: SELLER, safeFetch: pages({ [CARD_URL]: text }), fetchImpl: indexer(500) });
+  assert.match(behind.results[0].reason, /registry HTTP 503/, 'a lagging indexer is not used: the original error stands');
+});
+
+test('Concordium check five: the owner the anchored card names must be the owner on chain', async () => {
+  const { lookupBadge, clearConcordiumCache, cardBadgeOwner } = require('../lib/concordium-agent');
+  assert.equal(cardBadgeOwner(JSON.parse(card())), null);
+  const named = (owner) => card({ capabilities: { extensions: [{ uri: 'https://docs.concordium.com/a2a-extensions/concordium-badge/v1', params: { tokenAddress: `${TESTNET}/cis-2:${BADGE}`, owner: { account: `${TESTNET}:${owner}` } } }] } });
+  const right = named(OWNER);
+  const okPay = await verifyConcordiumPayees([{ network: TESTNET, payTo: WALLET }], { url: SELLER, safeFetch: pages({ [CARD_URL]: right }), fetchImpl: registry({ agent_by_token_address: agent(right) }).fetchImpl });
+  assert.equal(okPay.results[0].outcome, 'verified-wallet');
+  clearConcordiumCache();
+  assert.equal((await lookupBadge(BADGE, { fetchImpl: registry({ agent_by_token_address: agent(right) }).fetchImpl, safeFetch: pages({ [CARD_URL]: right }) })).valid, true);
+  assert.equal(cardBadgeOwner(JSON.parse(right)), OWNER);
+  clearConcordiumCache();
+  const wrong = named(WALLET); // pinned on chain, but it names someone else as owner
+  const badPay = await verifyConcordiumPayees([{ network: TESTNET, payTo: WALLET }], { url: SELLER, safeFetch: pages({ [CARD_URL]: wrong }), fetchImpl: registry({ agent_by_token_address: agent(wrong) }).fetchImpl });
+  assert.equal(badPay.results[0].outcome, 'card-mismatch');
+  assert.match(badPay.results[0].reason, /another owner/);
+  clearConcordiumCache();
+  const bad = await lookupBadge(BADGE, { fetchImpl: registry({ agent_by_token_address: agent(wrong) }).fetchImpl, safeFetch: pages({ [CARD_URL]: wrong }) });
+  assert.equal(bad.valid, false);
+  assert.ok(bad.issues.some((i) => /another owner/.test(i)));
 });

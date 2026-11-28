@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Bind your Algorand or Stellar payTo</title>
+<link rel="canonical" href="https://x402-doctor.fizzl.eu/concordium-payto.html">
+<link rel="icon" href="/favicon.ico">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Bind an Algorand or Stellar payTo to your Concordium account with CIS-8, so x402 Doctor counts it as your agent's: sign the canonical bytes on your own computer, then send the binding from your Concordium wallet.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700&family=Unbounded:wght@600;700&display=swap">
+<style>
+  :root { --bg: #020708; --panel: #041212; --line: rgba(97,245,195,.16); --text: #f4f8f7; --text-soft: #a8b5b2; --go: #3fb950; --nogo: #f85149; --caution: #d29922; --accent: #61f5c3; --on-accent: #021010; }
+  @media (prefers-color-scheme: light) {
+    :root { --bg: #f6f8fa; --panel: #ffffff; --line: #d0d7de; --text: #1f2328; --text-soft: #57606a; --go: #1a7f37; --nogo: #cf222e; --caution: #9a6700; --accent: #0a7a5c; --on-accent: #ffffff; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Lexend', system-ui, sans-serif; line-height: 1.55; }
+  .wrap { max-width: 680px; margin: 0 auto; padding: 40px 16px 80px; }
+  h1 { font-family: 'Unbounded', 'Lexend', sans-serif; font-size: 1.45rem; margin: 0 0 8px; }
+  .sub { color: var(--text-soft); margin: 0 0 24px; }
+  .step { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin: 0 0 14px; }
+  .step h2 { font-size: 1rem; margin: 0 0 6px; }
+  .step p { margin: 0 0 10px; color: var(--text-soft); font-size: .93rem; }
+  label { display: block; font-size: .85rem; color: var(--text-soft); margin: 8px 0 4px; }
+  input { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; font-size: .9rem; }
+  button { background: var(--accent); color: var(--on-accent); border: 0; border-radius: 8px; padding: 10px 16px; font: inherit; font-weight: 600; cursor: pointer; margin: 6px 6px 0 0; }
+  button:disabled { opacity: .45; cursor: default; }
+  table { width: 100%; border-collapse: collapse; font-size: .85rem; margin-top: 8px; }
+  td, th { text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--line); word-break: break-all; vertical-align: top; }
+  th { width: 34%; color: var(--text-soft); font-weight: 500; }
+  .ok { color: var(--go); } .bad { color: var(--nogo); } .warn { color: var(--caution); }
+  #log, #log2 { font-size: .85rem; white-space: pre-wrap; word-break: break-all; color: var(--text-soft); margin-top: 8px; }
+  a { color: var(--accent); }
+  textarea { width: 100%; min-height: 84px; padding: 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font: .78rem ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all; }
+  select { padding: 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; }
+  pre { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px; font-size: .78rem; white-space: pre-wrap; word-break: break-all; margin: 6px 0 0; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: end; }
+  .row > div { flex: 1 1 180px; min-width: 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Bind your Algorand or Stellar payTo</h1>
+  <p class="sub">x402 Doctor counts a payTo as your agent's when its key is bound with CIS-8 (Concordium's External Key Registry) to the account that owns your agent. On Algorand and Stellar the address is the key, so once it is bound there is nothing more to set: the payee check finds it. x402 Doctor never sees a secret key.</p>
+
+  <div class="step">
+    <h2>1. Your Concordium account</h2>
+    <p>The account that owns your agent in Concordium's Agent Registry. Connect the Concordium Wallet for Web (Chrome or Brave), on the network of your agent.</p>
+    <button id="connect">Connect</button>
+    <table id="who" hidden><tbody></tbody></table>
+  </div>
+
+  <div class="step">
+    <h2>2. Your payTo and the bytes to sign</h2>
+    <div class="row">
+      <div><label for="chain">Chain</label><select id="chain"><option value="algorand">Algorand</option><option value="stellar">Stellar</option></select></div>
+      <div style="flex-basis: 100%"><label for="payTo">payTo (the address your x402 endpoint is paid to)</label><input id="payTo" autocomplete="off" spellcheck="false"></div>
+    </div>
+    <button id="bytes" disabled>Get the bytes</button>
+    <div id="log"></div>
+    <div id="toSign" hidden>
+      <p>Concordium lists Algorand and Stellar as tier 2: the CIS-8 contract checks a plain ed25519 signature over these bytes. Pera, Defly, Freighter and other wallets only sign a message with a prefix or hash around it (so a signature can never be a transaction), which the contract does not accept yet. So you sign on your own computer with <a href="/concordium/cis8-sign.mjs" download>cis8-sign.mjs</a>: a short script with no dependencies that never goes online. Read it first. It asks for your Stellar secret key or Algorand mnemonic without showing it, stops unless the key is this payTo's, and signs only CIS-8 bytes. A key on a hardware wallet (Ledger) can't be bound this way.</p>
+      <label for="canon">Canonical bytes (they name your Concordium account, the CIS-8 contract, the network and this key)</label>
+      <textarea id="canon" readonly></textarea>
+      <label>Run (Node 18 or newer), in the folder where you saved the script</label>
+      <pre id="cmd"></pre>
+      <button id="copyCmd" type="button">Copy the command</button>
+    </div>
+  </div>
+
+  <div class="step">
+    <h2>3. Paste the signature and send the binding</h2>
+    <p>The signature is checked here first. Then your Concordium wallet signs <code>registerExternalKey</code> on the CIS-8 contract (a normal transaction fee in CCD).</p>
+    <label for="sig">Signature (the hex line cis8-sign.mjs printed)</label>
+    <input id="sig" autocomplete="off" spellcheck="false">
+    <button id="send" disabled>Check and send</button>
+    <div id="log2"></div>
+  </div>
+
+  <p class="sub">Next: <a href="/concordium-agent.html">pin your Agent Card</a> with your badge, so buyers and x402 Doctor find your agent from your endpoint.</p>
+</div>
+
+<script type="module">
+const GENESIS = { testnet: '4221332d34e1694168c2a0c0b3fd0f27', mainnet: '9dd9ca4d19e9393877d2c44b70f89acb' };
+const PAY_NETWORK = {
+  algorand: { mainnet: 'algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=', testnet: 'algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=' },
+  stellar: { mainnet: 'stellar:pubnet', testnet: 'stellar:testnet' },
+};
+const SCHEMA_URL = '/concordium/cis8-schema.b64'; // CIS-8's module schema, from Concordium's registry app (testnet and mainnet)
+const EXPLORER = { testnet: 'https://testnet.ccdscan.io', mainnet: 'https://ccdscan.io' };
+const $ = (id) => document.getElementById(id);
+const logTo = (el) => (m, cls) => { const d = document.createElement('div'); if (cls) d.className = cls; d.textContent = m; $(el).appendChild(d); };
+const log = logTo('log');
+const log2 = logTo('log2');
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+let me = null; // { account, network }
+let pending = null; // { payNetwork, payTo }
+
+const ask = async (body) => {
+  const res = await fetch('/api/v1/concordium/payto-key', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  const out = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+  if (!res.ok) throw new Error(out.error || `HTTP ${res.status}`);
+  return out;
+};
+
+$('connect').onclick = async () => {
+  try {
+    const provider = window.concordium;
+    if (!provider) throw new Error('No Concordium Wallet for Web found in this browser.');
+    const [account] = await provider.requestAccounts();
+    const chain = String(await provider.getSelectedChain() || '');
+    const network = Object.keys(GENESIS).find((n) => chain.startsWith(GENESIS[n]));
+    if (!network) throw new Error('Switch the wallet to Concordium mainnet or testnet and try again.');
+    me = { account, network };
+    $('who').hidden = false;
+    $('who').querySelector('tbody').innerHTML = `<tr><th>Account</th><td>${esc(account)}</td></tr><tr><th>Network</th><td>${esc(network)}</td></tr>`;
+    $('bytes').disabled = false;
+  } catch (err) {
+    $('who').hidden = false;
+    $('who').querySelector('tbody').innerHTML = `<tr><th>Problem</th><td class="bad">${esc(err.message || err)}</td></tr>`;
+  }
+};
+
+$('bytes').onclick = async () => {
+  if (!me) return;
+  $('log').textContent = '';
+  $('toSign').hidden = true;
+  $('send').disabled = true;
+  try {
+    const payNetwork = PAY_NETWORK[$('chain').value][me.network];
+    const payTo = $('payTo').value.trim();
+    const out = await ask({ network: me.network, account: me.account, payNetwork, payTo });
+    if (out.bound) {
+      log(out.done ? `Already bound to your account ${out.account}: nothing to do.` : `This payTo's key is bound to another Concordium account (${out.account}). Only that account can revoke it.`, out.done ? 'ok' : 'bad');
+      return;
+    }
+    pending = { payNetwork, payTo };
+    $('canon').value = out.bytes_hex;
+    $('cmd').textContent = out.sign;
+    $('toSign').hidden = false;
+    $('send').disabled = false;
+  } catch (err) {
+    log(err.message || String(err), 'bad');
+  }
+};
+
+$('copyCmd').onclick = async () => {
+  try { await navigator.clipboard.writeText($('cmd').textContent); $('copyCmd').textContent = 'Copied'; } catch { getSelection().selectAllChildren($('cmd')); }
+};
+
+$('send').onclick = async () => {
+  if (!me || !pending) return;
+  $('send').disabled = true;
+  $('log2').textContent = '';
+  try {
+    const out = await ask({ network: me.network, account: me.account, ...pending, signature: $('sig').value.trim() });
+    log2('The signature is this payTo\'s over these bytes.', 'ok');
+    const built = out.tx;
+    if (built?.receive_name !== 'CIS-8.registerExternalKey' || !built.parameter_json) throw new Error('The registry service did not build the transaction.');
+    const provider = window.concordium;
+    const [account] = await provider.requestAccounts();
+    if (account !== me.account) throw new Error(`Select ${me.account} in the wallet (now ${account}).`);
+    const schema = (await (await fetch(SCHEMA_URL)).text()).trim();
+    const sdk = await import('https://esm.sh/@concordium/web-sdk@12.0.2');
+    log2('Confirm the transaction in your Concordium wallet…');
+    const tx = await provider.sendTransaction(
+      account,
+      sdk.AccountTransactionType.Update,
+      {
+        amount: sdk.CcdAmount.zero(),
+        address: sdk.ContractAddress.create(built.contract_address.index, built.contract_address.subindex),
+        receiveName: sdk.ReceiveName.fromString(built.receive_name),
+        maxContractExecutionEnergy: sdk.Energy.create(built.suggested_energy || 30000),
+      },
+      built.parameter_json,
+      { type: 'module', value: schema },
+    );
+    log2(`Sent: ${tx}`, 'ok');
+    const a = document.createElement('a');
+    a.href = `${EXPLORER[me.network]}/?dcount=1&dentity=transaction&dhash=${tx}`;
+    a.textContent = 'View the transaction';
+    a.target = '_blank';
+    a.rel = 'noopener';
+    $('log2').appendChild(a);
+    for (let i = 0; i < 30; i += 1) {
+      await new Promise((r) => setTimeout(r, 4000));
+      const now = await ask({ network: me.network, account: me.account, ...pending }).catch(() => null);
+      if (now?.bound && now.done) { log2(`Bound: ${pending.payTo} is now your account's on CIS-8. x402 Doctor's payee check counts it as your agent's.`, 'ok'); return; }
+    }
+    log2('Not visible yet; press Get the bytes again in a minute to check.', 'warn');
+  } catch (err) {
+    log2(err.message || String(err), 'bad');
+    $('send').disabled = false;
+  }
+};
+</script>
+</body>
+</html>

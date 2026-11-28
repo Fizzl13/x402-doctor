@@ -381,6 +381,61 @@ After a paid preflight, a buyer can report (free) what happened when it then pai
 - Doctor counts reports per endpoint over 30 days. When most reported payments failed, from at least three different paying wallets, later preflights add `payments_fail_after_preflight` (caution); `signals.agent_outcomes` shows the counts.
 - Reports land in the usage log (endpoint, outcome, status, verdict, payer from the receipt); nothing else about the buyer.
 
+**Backed by a payment on Concordium.** A sponsor-first payment on Concordium carries a provable receipt: its memo is `"x402r:"` + the SHA-256 of the receipt (network, asset, amount, payTo, the paid resource's URL and a random ticket; see the next section), and the paying wallet keeps the receipt. A report can carry it as `payment_receipt: { receipt, tx }`, with or without a preflight:
+
+```json
+{ "outcome": "paid_error", "status": 500, "payment_receipt": { "receipt": { "kind": "x402-concordium-receipt", "v": 1, "network": "ccd:9dd9ca4d19e9393877d2c44b70f89acb", "asset": "USDR", "amount": "50000", "payTo": "…", "resource": "https://api.example.com/paid", "ticket": "…" }, "tx": "…" } }
+```
+
+- Doctor checks it against the chain: the transaction pays exactly what the receipt names, the receipt's resource is the reported endpoint, the payTo is one the endpoint's own 402 offers for that network and asset (so a reporter can't pay itself and blame someone else's route), and the payer is another account.
+- The report then counts as a real payment to that seller for that route: its payer is the paying Concordium account on chain (`ccd:<account>`, tied to an identity-verified person at the protocol level, so a crowd of fake wallets costs a crowd of verified identities), and one transaction counts once. `backed_by_receipt` in the counts says how many reports carry one.
+- A paid outcome whose preflight query names a Concordium network (`ccd:…`) counts only with its receipt.
+- A receipt that doesn't match is refused (400); when the chain or the 402 can't be read, the answer is 503 and nothing is counted.
+
+### A Concordium payment's receipt: `GET|POST /api/v1/concordium/receipt` (free)
+
+Does this transaction pay exactly what this receipt says? `POST { receipt, tx }`, or `GET ?tx=<hash>&receipt=<the receipt JSON as base64url>` (the link the Fizzl Agent Wallet puts on a Concordium purchase). Read-only, open CORS, also the free MCP tool `concordium_receipt_check`.
+
+- CCD is read from the chain through Concordium's wallet proxy (`/v0/submissionStatus`: finalized, success, one transfer to the payTo for the amount, and the memo). Tokens such as USDR are read through a Concordium x402 facilitator's `POST /receipt`, which reads its own node: Fizzl's own (`CONCORDIUM_FACILITATOR_URL`, the one Doctor's paid routes use; `CONCORDIUM_TESTNET_FACILITATOR_URL` for testnet), never the seller's. Without one, a token receipt is answered `not_read` with where else to ask.
+- `{ valid: true, payer, sponsor, paid: { network, asset, amount, payTo, resource }, summary }`, or `{ valid: false, reason }`; `not_read: true` (503) when the chain could not be read, which is not a verdict.
+- The receipt is the same canonical JSON as the facilitator's (`lib/concordium-receipt.js`, fields in order `kind, v, network, asset, amount, payTo, resource, ticket`), so anyone can recompute the memo and compare it on any Concordium node or explorer. The usage log keeps the network and the answer, never the receipt's resource (what someone bought).
+
+### Refunds when nothing was delivered: `GET|POST /api/v1/concordium/refund` (free)
+
+A paying wallet asks the seller for its money back in a payment-backed outcome report: `POST /api/v1/outcome` with `payment_receipt: { receipt, tx }` and `refund`: `payment_not_accepted`, `error_after_payment` or `not_delivered`. The Fizzl Agent Wallet does this on its own when a paid call on Concordium fails or brings back nothing. The receipt is checked against the chain and the endpoint's own 402 first, so every request is about a real payment to that seller for that route, by an identity-verified account. Whether nothing was delivered is the payer's word; what was paid is not.
+
+- A refund is a transfer back from the account that was paid to the account that paid, in the same asset, of at least the amount, best with the memo `x402refund:` + the same SHA-256 the payment's memo carries (it then names exactly this purchase). Without that memo a transfer back counts too, up to twice the price (a seller sending the buyer far more later is a top-up or another deal, not this refund); with another purchase's memo it doesn't, and one transaction refunds one purchase (`lib/concordium-refund.js`).
+- CCD refunds Doctor finds itself in the paying account's transactions (Concordium's wallet proxy, `/v3/accTransactions`, newest first back to the payment), at most once an hour per open request. Token refunds (USDR) are sent in: `POST { receipt, tx, refund_tx }`, read through Fizzl's own facilitator's `POST /refund`.
+- `GET ?tx=<payment>` → `{ asked: { reason, at }, refunded: { refund_tx, matched_by, amount, at, found_by } | null, how_to_refund }`. For a CCD payment nobody asked about here, Doctor reads it from the chain (`?network=testnet` for testnet): its memo `x402r:<fingerprint>` already names the refund (`x402refund:<the same fingerprint>`), so the answer is `{ from: "chain", asked: null, payer, pay_to, amount, refund_memo, refunded }`, and only a refund with that memo counts; 404 when the transaction is not a CCD payment with a receipt memo. Example, the first refund on mainnet: `?tx=a5b1a6170e3e1ae01f9e8413ad2760ba2daac682e6a434697b4403b33a947ecf` → `refunded.refund_tx` d402cd48…. `GET ?pay_to=<seller account>` → that seller's last 30 days, counts only: `{ asked, refunded, open, median_hours }`. The seller check (`POST /api/v1/concordium/seller`) shows the same per Concordium payTo as `refunds`, the preflight as `signals.concordium_refunds` with an info reason `concordium_refunds` (never the verdict), and the free MCP tool `concordium_refund_record` answers both questions.
+
+### Trust Index on chain: `GET /api/trust/proof?url=` (free)
+
+Every day the whole Trust Index (one record per listed resource: its 30-day history, verdict, codes, price, networks,
+payout-address fingerprints and paid-delivery evidence) goes under one Merkle root, registered on Concordium mainnet
+with RegisterData from account `3t4YnWTT…FURpp` (45 bytes: `FZTI`, version 1, the day, the root, the count). This
+answers with one endpoint's record of the latest anchored day and its path to that root, so anyone can check that the
+record is the one registered that day, without trusting us.
+
+- `GET /api/trust/proof?url=https://api.example.com/paid` → `{ found, day, key, record, leaf_json, index, count, path: [{ s: "L"|"R", h }], root, anchor: { network, account, tx, block, time, data, explorer } }`; 404 with `found: false` when the endpoint isn't in that day's index.
+- Check it yourself: leaf = sha256(0x00 ‖ utf8(`leaf_json`)); for each step, sha256(0x01 ‖ `h` ‖ node) when `s` is `L`, else sha256(0x01 ‖ node ‖ `h`); the result is `root`. Then read the transaction on chain (Concordium's wallet proxy, `/v0/submissionStatus/<tx>`, gives `registeredData`) and find that root in it.
+- Built from public data only: the trust-data branch (the records exactly as the anchor builds them) and the chain (the anchor's root). The tree is rebuilt once a day, after the new day is anchored, and kept only when its root equals the one on chain. About 22 MB in memory (the records gzipped in blocks of 256).
+
+### Lock destinations: `POST /api/v1/concordium/destinations` (free)
+
+For the sellers an agent may pay, the payout addresses Concordium vouches for, as an allow-list per network.
+Concordium's Protocol-Level Locks (announced for early 2027) ring-fence an agent's funds to pre-defined destinations;
+this says which destinations belong on that list. Until locks ship, it is the allow-list of a wallet's spend rules.
+
+- `POST { "urls": ["https://seller.example/paid", …] }` (1 to 10 sellers). Each is checked as `POST /api/v1/concordium/seller`
+  checks it: the Verified by Concordium badge in its Agent Card, its agent Active in the registry, the card the one
+  anchored on chain and listing the seller's site.
+- A `payTo` goes on the list only when it is the agent's own wallet, the key it bound with CIS-8, or a smart wallet that
+  key owns. A seller whose badge has a problem (revoked, a changed card, a `payTo` that isn't the agent's) is left off
+  entirely, with the reason.
+- `{ checked_at, destinations: [{ network, payTo, seller, how, agent }], refused: [{ seller, payTo?, reason }], allowlist: { <network>: [payTo, …] } }`.
+  Read-only; also the free MCP tool `concordium_lock_destinations`. A seller is checked as it is now: ask again before
+  relying on an old list.
+
 **Refused, and why.** An agent that checked an endpoint and then did not pay it can say why: `"outcome": "refused"` with a `reason` (a short code: the preflight or presign-guard reason that stopped it, such as `payto_changed`, `price_changed` or `payee_mismatch`) and a `source` (`doctor`, `presign-guard`, `policy` or `other`), with the same signed preflight. Any verdict counts here, `no_go` too. Refusals never count as failed payments. They are the seller's signal back: the free web check shows them (`buyer-refusals`, info), and `GET /api/v1/refusals?url=…` gives the counts per reason for the last 30 days, never who refused.
 
 **Refusal extension (draft).** A proposal for an open version of the same signal, straight from buyer to seller: [x402-foundation/x402#4087](https://github.com/x402-foundation/x402/issues/4087). Doctor implements both sides (`lib/refusal.js`). Its own 402s carry `extensions.refusal.info.url` = `https://x402-doctor.fizzl.eu/.well-known/x402-refusal`, which takes a report (`POST`, answered 204) and shows the counts per route and reason, and per day, route and reason (`GET`), for the last 30 days. The counts survive a restart: each counted report also goes to a small log of its own (route, reason, signed or not, the basis source and the report's key, nothing about the buyer), read back when Doctor starts. A report counts under the route the seller declares (Doctor: its paid routes and `/mcp`; `other` when none matches), never under the URL the buyer sent, so a query value or a caller-specific path never reaches the public counts or the record hook; an exact repost counts once. Unsigned reports are capped: at most one per sending address, UTC day, route and reason, whatever their `checkedAt`, offer, detail or URL, so one sender can't inflate a route's count; the address is kept only as a salted hash and forgotten with the 30-day window. They are capped unsigned reports, not buyers (several buyers behind one address count once). Signed reports count apart, once per exact report: a signature proves a key, not a unique customer. When a preflight's verdict is not `go` and the seller names a refusal url on its own site, the answer has `refusal: { url, send_if, signing_message, report }`: a ready report with the reason code (`price_above_limit`, `payto_changed`, `trust_low`, `terms_mismatch`, …) and the sha256 of the refused `accepts[]` entry. A `payto_changed` or `price_changed` report can say what the buyer compared with: `basis: { source: "live", at }` (its own earlier read of the 402) or `{ source: "catalog", at, listed_updated }` (a listing read at `at`; `listed_updated`, optional, is when the listing says the route was last updated), so a seller can count refusals against a week-old catalog apart from real redirects; Doctor's carry `live` and the day of its daily scan, and the endpoint's counts show them per reason and basis. Doctor never sends it; a buyer that doesn't pay can post it, fire-and-forget. A `screening_hit` must be signed (EIP-191 over `signing_message`): unsigned, anyone could flag a seller with made-up sanctions hits, so the endpoint refuses it. "Couldn't check" is not "checked and failed": a check that could not complete (a lookup that didn't answer, a list that wasn't loaded) is `check_unavailable`, with `detail` naming the check (`payto_binding`, `screening` or `trust`), so a lookup outage never reads as an untrusted payTo or a sanctions hit. `by` is optional and best left out, so buyers aren't grouped by the client or checker they use. A buyer's limits are the owner's private policy (0.4-draft): `detail` never carries limits, budgets or other amounts, the policy reasons (`price_above_limit`, `policy_blocked`, `trust_low`) leave it out unless the owner allows it, and then `price_above_limit`'s detail says which limit was hit (`per_call`, `daily`, `total`), never its value. The endpoint refuses a report that breaks this, and Doctor's ready reports carry no detail for these reasons. A signature shows which wallet sent a report, not that the owner agreed to disclose anything.
@@ -755,13 +810,16 @@ The marketplace is [`.claude-plugin/marketplace.json`](.claude-plugin/marketplac
 
 `https://x402-doctor.fizzl.eu/mcp` is an MCP server (Streamable HTTP, stateless) for Claude, Cursor and agent frameworks, listed in the official MCP registry as `io.github.Fizzl13/x402-doctor`. Directories can read its tools without connecting from the server card at `/.well-known/mcp/server-card.json` (the same list as `tools/list`).
 
-`https://x402-doctor.fizzl.eu/mcp/free` is the same server with only the free tools (`x402_quick_check`, `x402_payee_check`, `concordium_badge_check`, `check_payment_proof`, `x402_trust_record`, `x402_trust_add`, `x402_facilitator_status`), for directories whose clients don't pay, such as Claude's connectors directory. Claude calls connectors from Anthropic's outbound range (`160.79.104.0/21`), so calls from there share one pool of 300 free calls an hour instead of 10 per address, on both endpoints.
+`https://x402-doctor.fizzl.eu/mcp/free` is the same server with only the free tools (`x402_quick_check`, `x402_payee_check`, `concordium_badge_check`, `concordium_receipt_check`, `concordium_refund_record`, `check_payment_proof`, `x402_trust_record`, `x402_trust_add`, `x402_facilitator_status`), for directories whose clients don't pay, such as Claude's connectors directory. Claude calls connectors from Anthropic's outbound range (`160.79.104.0/21`), so calls from there share one pool of 300 free calls an hour instead of 10 per address, on both endpoints.
 
 | Tool | Price | Returns |
 |---|---|---|
 | `x402_quick_check` | free, 10 calls/hour | pass/warn/fail, the number of problems and the top three (fails first, then what stops a payer, then findability) |
 | `x402_payee_check` | free (same hourly limit) | Per payment option, whether its payTo is bound to the seller's ERC-8004 agent: verified-wallet, verified-delegation, mismatch, invalid-delegation, endpoint-unlisted, owner-only, no-agent-wallet or not-read (ERC-8478, draft ethereum/ERCs#2132, as of the 27 Nov 2026 editor review: version 2 delegations with `walletSetAt`, at most 90 days, bound only when the payee is listed under `payees`; each answer also has `delegationRule`, `notRead` and `notes`; `GET /api/v1/agent-wallet-set-at?agentId=` gives the `walletSetAt` to sign); with a Concordium badge on the seller's Agent Card also `concordium` (see Verified by Concordium) |
 | `concordium_badge_check` | free (same hourly limit) | A Concordium badge on its own, by its short form or the Agent ID Concordium's registry app shows: valid or not (Active, card hash on chain, the card carries this badge) with the issues, owner, agent wallet, the origins the card lists, and the CIS-8 key it binds with its address and whether the CIS-8 registry still holds it |
+| `concordium_lock_destinations` | free (same hourly limit) | For up to 10 sellers, the payout addresses Concordium vouches for, as an allow-list per network: the destinations of a Protocol-Level Lock, or a wallet's spend rules (as `POST /api/v1/concordium/destinations`) |
+| `concordium_receipt_check` | free (same hourly limit) | A Concordium payment's receipt against its transaction: valid with the paying account, or why not (as `POST /api/v1/concordium/receipt`) |
+| `concordium_refund_record` | free (same hourly limit) | A Concordium seller's refund record (`pay_to`: refunds asked, refunded on chain, still open, median hours, 30 days) or one payment's refund (`tx`), as `GET /api/v1/concordium/refund` |
 | `x402_diagnose` | $0.01 USDC via x402 | Every check with a fix hint, as `GET /api/v1/diagnose` |
 | `x402_preflight` | $0.001 USDC via x402 | go/caution/no_go before paying an endpoint, as `GET /api/v1/preflight` |
 | `x402_preflight_batch` | $0.005 USDC via x402 | The preflight for up to 10 endpoints (`urls`), as `GET /api/v1/preflight/batch` |
@@ -801,6 +859,13 @@ Then, per payment option, one outcome:
 
 Every payTo verified is a pass. A mismatch, a revoked agent, a swapped card or an unlisted endpoint is a warning with
 the fix.
+
+For a wallet, `POST /api/v1/concordium/seller` with `{ "url", "accepts"?, "networks"? }` is the same check for one
+seller, free: `badge.verdict` is `verified` (every payTo checked is the agent's), `partial` (some can't be compared) or
+`problem`, with `payees` and their outcomes. `accepts` limits it to the payTos the wallet is about to pay; `networks`
+(chain namespaces such as `["eip155", "ccd"]`) to the chains the wallet pays on. A badge can't speak for a payTo on a
+chain where the agent can't bind a key (the XRP Ledger, Algorand, Stellar), so a seller that also takes payment there
+is `partial`, unless the wallet asks only about its own chains.
 
 The paid pre-payment check (`/api/v1/preflight`, MCP `x402_preflight`) uses the same outcomes (the daily scan doesn't
 ask: one more request per endpoint). A badge that vouches for the seller adds an `info`
@@ -865,6 +930,13 @@ The same page in buyer mode ([`?role=buyer`](https://x402-doctor.fizzl.eu/concor
 the other side's proof: facts about the person behind the account a paying agent pays from, tied to that account. The
 agent sends it with its payments (`extensions["concordium-buyer-proof"]`) to sellers that ask for it
 (`extra.buyerProof` in their 402, e.g. `["adult"]`), and the facilitator checks it before it sponsors the payment.
+
+The paid preflight tells an agent both before it pays. The seller's proof is an info line (`concordium_seller_proof`:
+what the person behind the payTo proved), or caution when it doesn't hold (`concordium_seller_proof_invalid`, as a
+copied badge is). A seller that asks for a buyer proof is an info line (`concordium_buyer_proof_required`: which facts,
+where to make the proof, how to send it; without it the facilitator refuses before anything is signed); facts no
+facilitator checks are caution (`concordium_buyer_proof_unknown`). Both are in `signals.concordium_proof`. The web check
+shows the buyer-proof requirement per option (`accepts[i]-buyer-proof`).
 
 The registry on 5 Nov 2026 (every agent and every card, read through Concordium's service):
 
@@ -954,6 +1026,9 @@ Or the CLI in a plain `run:` step:
 | `AFUEL_HOLDERS` | With `AFUEL_PAYMENTS=on`, $AFUEL holders get a few paid calls a day free (`off` turns it off). The bot signs `agent-coin-api:<unix seconds>` with its Solana key and sends `X-Wallet`, `X-Wallet-Timestamp` and `X-Wallet-Signature` (base58), the same headers as api.agentfuel.eu; the AFUEL balance is read on-chain. Per wallet per day: Bronze (100k) 20, Silver (250k) 100, Gold (1M) 500, on calls priced up to `AFUEL_HOLDER_MAX_USD` (default 0.01, so not the fix); all holders together at most `AFUEL_HOLDER_DAILY_CAP` (default 2000) a day. Counted in memory. `GET /api/v1/afuel/holder` shows the tiers, and with the headers the wallet's tier and calls left; answers carry `x-afuel-holder` (free, used_up, daily_cap, below_bronze, invalid_signature, unavailable); `/api/health` shows `afuel_holders` |
 | `ALGORAND_PAY_TO` | Algorand address that receives paid-API payments in USDC (ASA 31566704), settled by GoPlausible's facilitator (`ALGORAND_FACILITATOR_URL` overrides). The account must have opted in to USDC. Unset or `off`: no Algorand option |
 | `STELLAR_FACILITATOR_KEY` | API key for OpenZeppelin's "Built on Stellar" facilitator (generate one at channels.openzeppelin.com/gen); turns on the Stellar option: paid-API payments in USDC on Stellar mainnet, fees paid by the facilitator. `STELLAR_FACILITATOR_URL` points at another facilitator (with or without the key) |
+| `CONCORDIUM_PAY_TO` | Concordium mainnet account paid in USDR (StablR USD, 6 decimals) on the routes of $0.05 and up (`CONCORDIUM_MIN_USD`), settled by our Concordium x402 facilitator at `CONCORDIUM_FACILITATOR_URL`, which sponsors the fee (its `/supported` gives `extra.feePayer`) and checks who is paid before it signs. Both unset: no Concordium option. `CONCORDIUM_ASSET` picks another token id |
+| `CONCORDIUM_TOKEN` | `off`: no token option on Concordium, CCD only (needs `CONCORDIUM_CCD=on`; on x402 Doctor, Fizzl Pay and the MCP tools). For when the token's issuer is in trouble, as StablR's USDR after the May 2026 exploit. Unset: the token of `CONCORDIUM_ASSET` (default USDR) plus CCD. |
+| `CONCORDIUM_CCD` | `on` also offers CCD on every route that takes the token on Concordium: the same dollar price in CCD, at the rate Concordium itself prices transaction fees with (the chain parameter `microGTUPerEuro`, read through the wallet proxy every hour; `CONCORDIUM_WALLET_PROXY` to use another) and `CONCORDIUM_EUR_PER_USD` (default 0.90), rounded up to two significant digits (a $0.05 route: 16 CCD on 12 Nov 2026). Without a rate younger than a day the CCD option is left out and the token stays. HTTP paywall only; the MCP tools keep the token |
 | `STELLAR_PAY_TO` | Stellar account that receives those payments; default Frits's account (it trusts USDC). The account must have a USDC trustline. `off`: no Stellar option |
 | `BUILDER_CODE` | Base Builder Code (ERC-8021, minted at base.dev) declared in every paid route's 402 as the `builder-code` extension: the buyer's x402 client echoes it and the facilitator writes it into the settlement, so Base attributes the payment. Unset or not a valid code: none |
 | `DOCTOR_PRICE` | Price per paid diagnosis (default `$0.01`) |

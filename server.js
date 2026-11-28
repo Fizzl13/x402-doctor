@@ -23,6 +23,11 @@ const { siteOf } = require('./lib/site');
 const { fizzlCors } = require('./lib/fizzl-cors');
 const { createSafeFetch, isPrivateIp } = require('./lib/safe-fetch');
 const diagnoseLib = require('./lib/diagnose');
+const { concordiumSeller, cleanAccepts, cleanNetworks } = require('./lib/concordium-seller');
+const { concordiumDestinations } = require('./lib/concordium-destinations');
+const { createTrustProof } = require('./lib/trust-proof');
+const { lookupBadge } = require('./lib/concordium-agent');
+const { receiptCheckAnswer, receiptBacksReport, decodeReceiptParam } = require('./lib/concordium-receipt');
 const { normaliseBody } = require('./lib/request-body');
 const { createBazaarIndex } = require('./lib/bazaar-index');
 const { createCdpValidator } = require('./lib/cdp-validate');
@@ -48,6 +53,7 @@ const { NETWORKS } = require('./lib/networks');
 const { languageOf, createAgentKinds, createDownloads } = require('./lib/usage-insights');
 const { createFeedback } = require('./lib/feedback');
 const { createOutcomes } = require('./lib/outcomes');
+const { createRefunds } = require('./lib/concordium-refund');
 const { createErrorReporter } = require('./lib/error-report');
 const { createRefusalRoutes, PATH: REFUSAL_PATH } = require('./lib/refusal');
 const { createRefusalLog } = require('./lib/refusal-log');
@@ -148,6 +154,19 @@ function describeDoctorCall(req, _res, body) {
   // Who reads the MCP server card (directories such as Smithery).
   if (req.method === 'GET' && req.path === '/.well-known/mcp/server-card.json') return { route: 'mcp server card', via: 'discovery', input: {}, result: { status: _res.statusCode } };
   const b = body || {};
+  if (req.method === 'POST' && req.path === '/api/v1/concordium/destinations') {
+    return { route: 'concordium destinations', via: 'api', input: { sellers: Array.isArray(req.body && req.body.urls) ? req.body.urls.length : 0 }, result: { status: _res.statusCode, destinations: Array.isArray(b.destinations) ? b.destinations.length : 0, refused: Array.isArray(b.refused) ? b.refused.length : 0 } };
+  }
+  if (req.method === 'POST' && req.path === '/api/v1/concordium/seller') {
+    return { route: 'concordium seller', via: 'api', input: { url: req.body && req.body.url, accepts: Array.isArray(req.body && req.body.accepts) ? req.body.accepts.length : 0 }, result: { status: _res.statusCode, badge: (b.badge && b.badge.verdict) || null, proof: (b.proof && b.proof.status) || null } };
+  }
+  // A receipt check: the network and asset, never the receipt's resource (what someone bought).
+  if (req.path === '/api/v1/concordium/receipt' && (req.method === 'GET' || req.method === 'POST')) {
+    return { route: 'concordium receipt', via: 'api', input: { method: req.method, network: typeof b.network === 'string' ? b.network : null }, result: { status: _res.statusCode, valid: b.valid === true, not_read: b.not_read === true } };
+  }
+  if (req.method === 'POST' && req.path === '/api/v1/concordium/badge') {
+    return { route: 'concordium badge', via: 'api', input: { badge: req.body && typeof req.body.badge === 'string' ? req.body.badge.slice(0, 80) : null }, result: { status: _res.statusCode, valid: b.valid === true, network: b.network || null } };
+  }
   if (req.method === 'POST' && req.path === '/api/diagnose') {
     return { route: 'diagnose', via: 'web', input: { url: req.body && req.body.url, method: req.body && req.body.method }, result: { overall: b.overall, protocol: protocolOf(b), mpp: mppMethods(b), networks: networksOf(b), error: b.error } };
   }
@@ -166,6 +185,9 @@ function describeDoctorCall(req, _res, body) {
   }
   if (req.method === 'GET' && req.path === DELIVERY_ROUTE) {
     return { route: 'delivery check', via: 'api', input: { url: req.query.url, method: req.query.method }, result: { status: b.status, id: b.id, error: b.error } };
+  }
+  if (req.method === 'GET' && req.path === '/api/trust/proof') {
+    return { route: 'trust proof', via: 'api', input: { url: req.query.url }, result: { status: _res.statusCode, found: b.found === true, day: typeof b.day === 'string' ? b.day : null, error: b.error } };
   }
   if (req.method === 'POST' && req.path === '/api/trust/submit') {
     return { route: 'trust submit', via: 'web', input: { url: req.body && req.body.url }, result: { status: b.status, error: b.error } };
@@ -248,7 +270,7 @@ function trustProxyHops(env) {
   return Number.isInteger(n) && n >= 0 && n <= 10 && String(env.TRUST_PROXY_HOPS).trim() !== '' ? n : 3;
 }
 
-function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, cdpValidate = env.CDP_VALIDATE === 'off' ? null : createCdpValidator(), trustIndex = createTrustReader(), spotResults = createSpotResults(), deliveryElsewhere = createDeliveryElsewhere(), onchainPayments = createOnchainPayments({ demand: createDemand({ apiKey: env.TYPESAFE_API_KEY }) }), media = createMediaCache(), usageLog = createUsageLog({ service: 'doctor', env }), usageReader = createUsageReader({ env }), publicStats = createPublicStats({ usageReader }), settlementFetch = globalThis.fetch, status = null, facilitatorStatus = null, outreachHook: outreachHookOverride = null, describe = createDescribe({ apiKey: env.TYPESAFE_API_KEY }), poison = createPoisonCheck({ apiKey: env.TYPESAFE_API_KEY }), creditStore, agentKinds = createAgentKinds({ apiKey: env.TYPESAFE_API_KEY }), downloads = createDownloads(), priceCheck = createPriceCheck({ apiKey: env.TYPESAFE_API_KEY, trustIndex }), deliveryStore, deliveryResults, trustSubmissions: trustSubmissionsOverride = null, pass: passOverride = null, vaultStore, passSale, refusalLog: refusalLogOverride = null, refusalReader = createUsageReader({ env }), facilitator: facilitatorOverride = null } = {}) {
+function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env = process.env, bazaarIndex, cdpValidate = env.CDP_VALIDATE === 'off' ? null : createCdpValidator(), trustIndex = createTrustReader(), spotResults = createSpotResults(), deliveryElsewhere = createDeliveryElsewhere(), onchainPayments = createOnchainPayments({ demand: createDemand({ apiKey: env.TYPESAFE_API_KEY }) }), media = createMediaCache(), usageLog = createUsageLog({ service: 'doctor', env }), usageReader = createUsageReader({ env }), publicStats = createPublicStats({ usageReader }), settlementFetch = globalThis.fetch, status = null, facilitatorStatus = null, outreachHook: outreachHookOverride = null, describe = createDescribe({ apiKey: env.TYPESAFE_API_KEY }), poison = createPoisonCheck({ apiKey: env.TYPESAFE_API_KEY }), creditStore, agentKinds = createAgentKinds({ apiKey: env.TYPESAFE_API_KEY }), downloads = createDownloads(), priceCheck = createPriceCheck({ apiKey: env.TYPESAFE_API_KEY, trustIndex }), deliveryStore, deliveryResults, trustSubmissions: trustSubmissionsOverride = null, pass: passOverride = null, vaultStore, passSale, refusalLog: refusalLogOverride = null, refusalReader = createUsageReader({ env }), facilitator: facilitatorOverride = null, trustProof = createTrustProof(), refunds: refundsOverride = null } = {}) {
   // Which x402 facilitators answer now (lib/facilitators.js): the /facilitators page, its API and a free MCP tool.
   const facilitatorBoard = facilitatorStatus || createFacilitatorStatus();
   const app = express();
@@ -266,11 +288,24 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
   // Outcome reports (lib/outcomes.js): what agents saw after paying an endpoint
   // following a preflight; later preflights learn from them.
   let paidApi = null;
+  // A Concordium payment's receipt backs a report (lib/concordium-receipt.js): checked against the chain, and its payTo
+  // against the one the endpoint's own 402 offers (read once, GET then POST).
+  const readAccepts = async (u) => {
+    const probe = await diagnoseLib.probe402(u, safeFetch, [], null);
+    const challenge = probe ? await diagnoseLib.checkEnvelope(probe, []) : null;
+    return Array.isArray(challenge?.accepts) ? challenge.accepts : null;
+  };
+  // Refunds of Concordium payments that delivered nothing (lib/concordium-refund.js): asked through outcome reports,
+  // found on chain (CCD) or sent in by the seller or the wallet (tokens), counted per seller account.
+  const refunds = refundsOverride || createRefunds({ usageReader, record: usageLog.record, env });
+  if (usageReader) setInterval(() => { refunds.tick().catch(() => {}); }, 60 * 60 * 1000).unref();
   const outcomes = createOutcomes({
     usageReader,
     record: usageLog.record,
     signers: () => (paidApi && paidApi.signer ? paidApi.signer.signers : []),
     authority: env.RECEIPT_AUTHORITY || AUTHORITY,
+    checkPaymentReceipt: (receipt, tx, u) => receiptBacksReport(receipt, tx, u, { readAccepts, env }),
+    refunds,
   });
   // Free payment-proof check (lib/settlement.js): the PAYMENT-RESPONSE header → the on-chain transaction.
   const rpcUrls = { ...(env.BASE_RPC_URL ? { 'eip155:8453': env.BASE_RPC_URL } : {}), ...(env.SOLANA_RPC_URL ? { 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp': env.SOLANA_RPC_URL } : {}) };
@@ -299,7 +334,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
       if (cfg) nearCore = createNearFacilitator(cfg);
     } catch (err) { console.error(`[facilitator] NEAR facilitator off: ${err.message}`); }
   }
-  paidApi = createPaidApi({ near: nearCore, facilitators: facilitatorBoard, pass: passVerifier, safeFetch, env, trustIndex, feedback, bazaarIndex: bazaar, cdpValidate, outcomes, checkPaymentProof, creditStore, priceCheck, spotResults, deliveryElsewhere, onchainPayments, deliveryStore, ...(deliveryResults ? { deliveryResults } : {}), trust: trustTools, ...(vaultStore !== undefined ? { vaultStore } : {}), ...(passSale ? { passSale } : {}) });
+  paidApi = createPaidApi({ near: nearCore, facilitators: facilitatorBoard, pass: passVerifier, safeFetch, env, trustIndex, feedback, bazaarIndex: bazaar, cdpValidate, outcomes, refunds, checkPaymentProof, creditStore, priceCheck, spotResults, deliveryElsewhere, onchainPayments, deliveryStore, ...(deliveryResults ? { deliveryResults } : {}), trust: trustTools, ...(vaultStore !== undefined ? { vaultStore } : {}), ...(passSale ? { passSale } : {}) });
   const facilitatorService = facilitatorOverride || createFacilitatorService({ env, nearCore, sanctions: paidApi.sanctions, creditStore: paidApi.creditsStore, publicUrl: env.PUBLIC_URL || 'https://x402-doctor.fizzl.eu' });
   app.facilitator = facilitatorService;
 
@@ -361,6 +396,73 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
       visitor: visitorOf(req.ip, env.USAGE_LOG_SALT || env.USAGE_LOG_TOKEN),
     });
     res.status(status).json(body);
+  });
+  // Free: does this Concordium transaction pay exactly what this receipt says (lib/concordium-receipt.js)? The receipt
+  // the Fizzl Agent Wallet keeps per purchase, whose fingerprint is the payment's memo. GET for the wallet's link
+  // (?tx=&receipt=<base64url JSON>), POST { receipt, tx } for programs. Read-only; open CORS. Before the 4 kB parser:
+  // a receipt's resource URL can be 2 kB.
+  const receiptLimit = rateLimit({ windowMs: limits.windowMs, max: limits.max * 6 });
+  // /concordium-proof.html asks the Concordium wallet app on a phone over WalletConnect when a Reown project id is set
+  // (WALLETCONNECT_PROJECT_ID; the project must list this site's domain). The id is public: it is in the page's requests.
+  app.get('/api/v1/concordium/proof-page', (_req, res) => res.set('cache-control', 'no-store').json({ walletConnect: String(env.WALLETCONNECT_PROJECT_ID || '').trim() || null }));
+  // The payer's key for a cross-network buyer proof (lib/concordium-payer-key.js): GET gives the message the paying EVM
+  // wallet signs, POST { network, payerNetwork, address, signature? } the key and whether CIS-8 binds it. Read-only.
+  app.get('/api/v1/concordium/payer-key', receiptLimit, (req, res) => {
+    const { keyMessage } = require('./lib/concordium-payer-key');
+    const payerNetwork = String(req.query.payerNetwork || ''), address = String(req.query.address || '');
+    if (!payerNetwork || !address) return res.status(400).json({ error: 'give payerNetwork and address' });
+    res.set('cache-control', 'no-store').json({ message: keyMessage(payerNetwork, address) });
+  });
+  app.post('/api/v1/concordium/payer-key', receiptLimit, express.json({ limit: '4kb' }), async (req, res) => {
+    const { payerKey } = require('./lib/concordium-payer-key');
+    const out = await payerKey(req.body || {});
+    res.set('cache-control', 'no-store').status(out.status).json(out.body);
+  });
+  // An Algorand or Stellar payTo bound to a Concordium account with CIS-8 (lib/concordium-ed25519-key.js, the page
+  // /concordium-payto.html): POST { network, account, payNetwork, payTo } gives the canonical bytes to sign on the
+  // owner's computer (/concordium/cis8-sign.mjs); with { signature } it checks that signature and builds the
+  // registerExternalKey transaction for the owner's Concordium wallet. Read-only: nothing is signed or sent by us.
+  app.post('/api/v1/concordium/payto-key', receiptLimit, express.json({ limit: '4kb' }), async (req, res) => {
+    const { bindStep } = require('./lib/concordium-ed25519-key');
+    const out = await bindStep(req.body || {});
+    res.set('cache-control', 'no-store').status(out.status).json(out.body);
+  });
+  const receiptCors = (res) => res.set({ 'Access-Control-Allow-Origin': '*', 'cache-control': 'no-store' });
+  app.options('/api/v1/concordium/receipt', (_req, res) => res.set({ 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST', 'Access-Control-Allow-Headers': 'content-type' }).status(204).end());
+  app.get('/api/v1/concordium/receipt', receiptLimit, async (req, res) => {
+    const receipt = decodeReceiptParam(String(req.query.receipt || ''));
+    if (!receipt) return receiptCors(res).status(400).json({ valid: false, reason: 'receipt and tx are required: GET /api/v1/concordium/receipt?tx=<transaction hash>&receipt=<the receipt JSON as base64url>, or POST { receipt, tx }' });
+    const { status, body } = await receiptCheckAnswer(receipt, req.query.tx, { env });
+    receiptCors(res).status(status).json(body);
+  });
+  app.post('/api/v1/concordium/receipt', receiptLimit, express.json({ limit: '16kb' }), async (req, res) => {
+    const { receipt, tx } = req.body || {};
+    const { status, body } = await receiptCheckAnswer(receipt, tx, { env });
+    receiptCors(res).status(status).json(body);
+  });
+  // Free: refunds of Concordium payments that delivered nothing (lib/concordium-refund.js). GET ?tx=<payment> says
+  // whether a refund was asked and whether it came (a CCD refund is looked for on chain right away); GET ?pay_to=<seller
+  // account> gives that seller's record over 30 days (counts only); POST { receipt, tx, refund_tx } sends in a refund
+  // (a seller's, or one the wallet saw), checked against the chain. Open CORS.
+  app.options('/api/v1/concordium/refund', (_req, res) => res.set({ 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST', 'Access-Control-Allow-Headers': 'content-type' }).status(204).end());
+  app.get('/api/v1/concordium/refund', receiptLimit, async (req, res) => {
+    receiptCors(res);
+    const tx = String(req.query.tx || '').toLowerCase();
+    const payTo = String(req.query.pay_to || '');
+    if (/^[1-9A-HJ-NP-Za-km-z]{50}$/.test(payTo)) {
+      return res.json({ pay_to: payTo, refunds: refunds.ofSeller(payTo) || { days: 30, asked: 0, refunded: 0, open: 0, median_hours: null }, how: 'Agents\' wallets ask for a refund in a payment-backed outcome report (POST /api/v1/outcome with payment_receipt and refund). A refund is a transfer back from this account to the paying account, of at least the amount, best with the memo the request names.' });
+    }
+    if (!/^[0-9a-f]{64}$/.test(tx)) return res.status(400).json({ error: 'give tx (the payment\'s transaction hash) or pay_to (a seller\'s Concordium account)' });
+    // ?network=testnet (or a ccd: id) for a testnet payment; mainnet by default.
+    const n = String(req.query.network || '');
+    const network = n === 'testnet' ? 'ccd:4221332d34e1694168c2a0c0b3fd0f27' : /^ccd:[0-9a-f]{32}$/.test(n) ? n : 'ccd:9dd9ca4d19e9393877d2c44b70f89acb';
+    const s = await refunds.status(tx, { network }).catch(() => null);
+    if (!s) return res.status(404).json({ tx, asked: null, refunded: null, reason: 'no refund was asked for this payment here, and it is not a CCD payment with a receipt memo (x402r:) on chain' });
+    res.json(s);
+  });
+  app.post('/api/v1/concordium/refund', receiptLimit, express.json({ limit: '16kb' }), async (req, res) => {
+    const { status, body } = await refunds.prove(req.body);
+    receiptCors(res).status(status).json(body);
   });
   // Free, for sellers: why agents refused to pay an endpoint in the last 30 days (refused outcome reports, counts only).
   app.get('/api/v1/refusals', outcomeLimit, (req, res) => {
@@ -825,6 +927,18 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     atlasCache = { key, gz: zlib.gzipSync(JSON.stringify(slimAtlas(map))), market: market && { ...market, ...source } };
     return atlasCache;
   }
+  // Proof that an endpoint's record in the Trust Index of a day is in the Merkle root registered on Concordium that day
+  // (lib/trust-proof.js): the record, its path to the root, and the anchor transaction, from public data only. The
+  // caller checks it without trusting us (fizzl.eu/concordium does it in the browser). Free, read-only, open CORS.
+  app.get('/api/trust/proof', trustLimit, async (req, res) => {
+    res.set('Access-Control-Allow-Origin', '*');
+    try {
+      const body = await trustProof.proof(req.query.url);
+      res.set('Cache-Control', 'public, max-age=600').status(body.found ? 200 : 404).json(body);
+    } catch (err) {
+      res.set('Cache-Control', 'no-store').status(err.status || 502).json({ error: err.status ? err.message : `could not build the proof: ${err.message}` });
+    }
+  });
   app.get('/api/trust/atlas', trustLimit, (req, res) => {
     if (!atlasState()) return res.status(503).json({ error: 'trust index loading, try again shortly' });
     res.set({ 'Cache-Control': 'public, max-age=1800', 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json; charset=utf-8', Vary: 'Accept-Encoding' });
@@ -914,6 +1028,59 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     res.json(list);
   });
 
+  // Verified by Concordium for one seller (lib/concordium-seller.js): what the Fizzl Agent Wallet shows next to a
+  // seller in its search and on a receipt, and checks right before an agent pays (with the payTo it is about to pay).
+  // Free and read-only: the seller's Agent Card, the registry and a served proof, nothing else (no 402 probe when
+  // accepts are given, no outreach draft). Six times the free check's rate, since a wallet asks per seller.
+  app.post('/api/v1/concordium/seller', rateLimit({ windowMs: limits.windowMs, max: limits.max * 6 }), async (req, res) => {
+    const { url: targetUrl } = req.body || {};
+    let accepts, networks;
+    try {
+      if (typeof targetUrl !== 'string' || !/^https?:\/\//i.test(targetUrl) || targetUrl.length > 2000) return res.status(400).json({ error: 'url (http or https) is required' });
+      new URL(targetUrl);
+      accepts = cleanAccepts(req.body.accepts);
+      networks = cleanNetworks(req.body.networks);
+    } catch (err) {
+      return res.status(err.status || 400).json({ error: err.status ? err.message : 'Not a valid URL.' });
+    }
+    try {
+      const seller = await concordiumSeller(targetUrl, { accepts, networks, safeFetch });
+      // Refunds asked of this seller's Concordium accounts, and how many came (lib/concordium-refund.js); counts only.
+      const payTos = [...new Set([...(accepts || []), ...(seller?.badge?.payees || [])].filter((a) => String(a?.network || '').startsWith('ccd:')).map((a) => a.payTo))];
+      const asked = payTos.map((payTo) => ({ payTo, ...refunds.ofSeller(payTo) })).filter((r) => r.days);
+      res.set('cache-control', 'no-store').json(asked.length ? { ...seller, refunds: asked } : seller);
+    } catch (err) {
+      res.status(502).json({ error: `could not check: ${err.message}` });
+    }
+  });
+
+  // Lock destinations (lib/concordium-destinations.js): for up to 10 sellers an agent may pay, the payout addresses
+  // Concordium vouches for, as an allow-list per network. What Protocol-Level Locks ring-fence an agent's funds to, or a
+  // wallet's spend rules allow today. Free and read-only; the base free rate, since one call checks up to 10 sellers.
+  app.post('/api/v1/concordium/destinations', rateLimit({ windowMs: limits.windowMs, max: limits.max }), async (req, res) => {
+    try {
+      res.set('cache-control', 'no-store').json(await concordiumDestinations(req.body && req.body.urls, { safeFetch }));
+    } catch (err) {
+      res.status(err.status || 502).json({ error: err.status ? err.message : `could not check: ${err.message}` });
+    }
+  });
+
+  // One Concordium badge on its own (lib/concordium-agent.js lookupBadge, the same as the free MCP tool
+  // concordium_badge_check): its agent in the registry, the owner account, the anchored card and the key it binds.
+  // The Fizzl Agent Wallet asks this before it links an agent's badge to an owner whose Concordium ID it checked: the
+  // badge counts only when the registry names that same account as the agent's owner. Free and read-only.
+  app.post('/api/v1/concordium/badge', rateLimit({ windowMs: limits.windowMs, max: limits.max * 6 }), async (req, res) => {
+    const badge = req.body && req.body.badge;
+    if (typeof badge !== 'string' || !badge.trim() || badge.length > 200) return res.status(400).json({ error: 'badge (the badge or Agent ID, a string) is required' });
+    try {
+      // An x402-mandate/1 envelope the agent showed, to hold against the spending rules its owner pinned (optional).
+      const mandate = req.body && req.body.mandate && typeof req.body.mandate === 'object' && JSON.stringify(req.body.mandate).length <= 8192 ? req.body.mandate : null;
+      res.set('cache-control', 'no-store').json(await lookupBadge(badge, { safeFetch, mandate }));
+    } catch (err) {
+      res.status(502).json({ error: `could not check: ${err.message}` });
+    }
+  });
+
   // The free check may also be called from the live demo on fizzl.eu (browser, CORS).
   app.use('/api/diagnose', fizzlCors);
   app.post('/api/diagnose', rateLimit(limits, passVerifier), async (req, res) => {
@@ -989,7 +1156,7 @@ function createApp({ allowPrivate = false, rateLimit: limits = RATE_LIMIT, env =
     const mb = (n) => Math.round(n / 1048576);
     // heap_limit_mb is where V8 stops with "heap out of memory" (exit 134), which can sit well below Render's 512 MB.
     const memory = { rss_mb: mb(rss), heap_mb: mb(heapUsed), heap_total_mb: mb(heapTotal), heap_limit_mb: mb(require('node:v8').getHeapStatistics().heap_size_limit), external_mb: mb(external) };
-    res.json({ ok: true, paid: paidApi.paymentInfo, sanctions: paidApi.sanctions?.status() ?? null, afuel: paidApi.afuel?.status() ?? null, afuel_holders: paidApi.holders?.status() ?? null, facilitator: facilitatorService.status(), memory, uptime_s: Math.round(process.uptime()) });
+    res.json({ ok: true, paid: paidApi.paymentInfo, sanctions: paidApi.sanctions?.status() ?? null, afuel: paidApi.afuel?.status() ?? null, ccd: paidApi.ccd?.status() ?? null, afuel_holders: paidApi.holders?.status() ?? null, memory, uptime_s: Math.round(process.uptime()), facilitator: facilitatorService.status() });
   });
   // Last: a 5xx is answered as JSON and reported to Sentry when SENTRY_DSN is set (lib/error-report.js).
   app.errorReporter = createErrorReporter({ dsn: env.SENTRY_DSN, service: 'x402-doctor', release: require('./package.json').version });

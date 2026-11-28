@@ -36,6 +36,10 @@
   #log { font-size: .85rem; white-space: pre-wrap; color: var(--text-soft); margin-top: 8px; }
   code { font-size: .85em; }
   a { color: var(--accent); }
+  button.alt { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+  a.btn { display: inline-block; background: var(--accent); color: var(--on-accent); border-radius: 8px; padding: 10px 16px; font-weight: 600; text-decoration: none; margin: 6px 6px 0 0; }
+  .qr { display: none; margin-top: 12px; border-radius: 12px; background: #fff; }
+  @media (min-width: 700px) and (hover: hover) { .qr { display: block; } }
 </style>
 </head>
 <body>
@@ -46,15 +50,20 @@
   <div class="step">
     <h2>1. Who proves</h2>
     <label for="role">Prove it for</label>
-    <select id="role"><option value="seller">My x402 seller (the account buyers pay)</option><option value="buyer">My paying agent (the account it pays from)</option></select>
+    <select id="role"><option value="seller">My x402 seller (the account buyers pay)</option><option value="buyer">My paying agent (the account it pays from)</option><option value="other">My paying agent on another network (Base, Solana, …)</option></select>
     <p id="role-note"></p>
     <div id="seller-only">
-    <label for="url">The paid endpoint (its site is what the proof is tied to)</label>
+    <label for="url" id="url-label">The paid endpoint (its site is what the proof is tied to)</label>
     <input id="url" autocomplete="off" spellcheck="false" placeholder="https://your-site.example/paid">
     </div>
     <label for="payTo" id="account-label">payTo: the Concordium account buyers pay (the proof must come from this account)</label>
     <input id="payTo" autocomplete="off" spellcheck="false">
-    <label for="network">Network</label>
+    <div id="other-only" hidden>
+    <label for="payerNetwork">The network your agent pays on</label>
+    <select id="payerNetwork"><option value="eip155:8453">Base</option><option value="eip155:84532">Base Sepolia (test)</option><option value="eip155:1">Ethereum</option><option value="eip155:137">Polygon</option><option value="eip155:42161">Arbitrum</option><option value="solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp">Solana</option><option value="solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1">Solana devnet (test)</option><option value="algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=">Algorand</option><option value="stellar:pubnet">Stellar</option></select>
+    <label class="check"><input type="checkbox" id="control"> Also show that I control this address: its key is bound to my Concordium account in the CIS-8 registry (on Base and other EVM chains, the paying wallet signs a message, which moves no funds)</label>
+    </div>
+    <label for="network" id="network-label">Network</label>
     <select id="network"><option value="testnet">Concordium testnet</option><option value="mainnet">Concordium mainnet</option></select>
   </div>
 
@@ -65,20 +74,33 @@
     <label class="check"><input type="checkbox" id="p-eu-res"> Lives in the EU</label>
     <label class="check"><input type="checkbox" id="p-eu-nat"> Is an EU national</label>
     <label class="check"><input type="checkbox" id="p-doc"> Their identity document is still valid</label>
+    <label class="check"><input type="checkbox" id="p-embargo"> Not a national or resident of Cuba, Iran or North Korea (countries under a comprehensive US embargo)</label>
   </div>
 
   <div class="step">
     <h2>3. Prove it with your Concordium wallet</h2>
-    <p>Uses the Concordium Wallet for Web (Chrome or Brave). Make <span id="which">the payTo account</span> the active account in the wallet first: the wallet proves with the active account. The proof is then checked with Concordium's verifier.</p>
+    <div id="web-way">
+    <p><b>On a computer</b>: the <a href="https://chromewebstore.google.com/detail/concordium-wallet/mnnkpffndmickbiakofclnpoiajlegmg" target="_blank" rel="noopener">Concordium Wallet for Web</a> (Chrome or Brave), with an identity in it. Make <span id="which">the payTo account</span> the active account in the wallet first: the wallet proves with the active account.</p>
     <button id="prove">Connect and prove</button>
+    </div>
+    <div id="phone-way" hidden>
+    <p style="margin-top:12px"><b>On your phone</b>: the Concordium wallet app (iPhone or Android). Scan the code with the app, or open this page on the phone itself; choose <span id="which-app">the payTo account</span> when the app asks which account to connect.</p>
+    <button id="prove-app" class="alt">Prove with the Concordium app</button>
+    <div id="wc"></div>
+    <div id="no-app">
+    <p style="margin-top:12px"><b>No Concordium app yet?</b> Install the Concordium Wallet (<a href="https://apps.apple.com/us/app/concordium-wallet/id1593386457" target="_blank" rel="noopener">App Store</a>, <a href="https://play.google.com/store/apps/details?id=com.pioneeringtechventures.wallet" target="_blank" rel="noopener">Google Play</a>) and create an identity in it: an identity provider checks your ID document and a selfie, usually within minutes. Then come back here. On a computer you can use the <a href="https://chromewebstore.google.com/detail/concordium-wallet/mnnkpffndmickbiakofclnpoiajlegmg" target="_blank" rel="noopener">Concordium Wallet for Web</a> instead.</p>
+    </div>
+    </div>
+    <p style="margin-top:10px">The proof is then checked with Concordium's verifier.</p>
     <div id="log"></div>
     <table id="table" hidden><tbody></tbody></table>
   </div>
 
   <div class="step" id="out" hidden>
     <h2 id="out-title">4. Publish it on your site</h2>
-    <p id="out-seller">Serve this file at <code id="where"></code>. Concordium x402 facilitators that check sellers (<a href="https://concordium-facilitator.onrender.com" target="_blank" rel="noopener">this one</a>) read it before they sponsor a payment to your payTo. It is public: it holds the proof and the facts proved, nothing else.</p>
-    <p id="out-buyer" hidden>Give this file to your agent. It sends it with a payment, as <code>extensions["concordium-buyer-proof"]</code> in the x402 payment payload, to sellers that ask for it (their 402 names the facts in <code>extra.buyerProof</code>). <a href="https://concordium-facilitator.onrender.com" target="_blank" rel="noopener">This facilitator</a> checks it before it sponsors the payment: it must come from the account that pays. It is not a secret: it holds the proof and the facts proved, nothing else, and is worthless from any other account.</p>
+    <p id="out-seller">Serve this file at <code id="where"></code>. Concordium x402 facilitators that check sellers (<a href="https://ccd-facilitator.fizzl.eu" target="_blank" rel="noopener">this one</a>) read it before they sponsor a payment to your payTo. It is public: it holds the proof and the facts proved, nothing else.</p>
+    <p id="out-other" hidden>Give this file to your agent. It sends it with its payments to this seller, as <code>extensions["concordium-buyer-proof"]</code> in the x402 payment payload; the seller checks it before it serves (in its own code, or with <a href="https://ccd-facilitator.fizzl.eu" target="_blank" rel="noopener">this facilitator</a>'s <code>POST /buyer-proof/check</code>). It is worthless to another seller and from another address. What it shows: that the holder of a Concordium identity with these facts vouched for this address, and, with the CIS-8 key binding, that they control it. It reveals the facts, not who you are, but sellers comparing files can tell two files come from the same person.</p>
+    <p id="out-buyer" hidden>Give this file to your agent. It sends it with a payment, as <code>extensions["concordium-buyer-proof"]</code> in the x402 payment payload, to sellers that ask for it (their 402 names the facts in <code>extra.buyerProof</code>). <a href="https://ccd-facilitator.fizzl.eu" target="_blank" rel="noopener">This facilitator</a> checks it before it sponsors the payment: it must come from the account that pays. It is not a secret: it holds the proof and the facts proved, nothing else, and is worthless from any other account.</p>
     <button id="download">Download <span id="file-name">concordium-proof.json</span></button>
     <button id="copy">Copy</button>
   </div>
@@ -92,31 +114,42 @@ const VERIFIER = { testnet: 'https://web3id-verifier.testnet.concordium.com/v0/v
 const WALLET_PROXY = { testnet: 'https://wallet-proxy.testnet.concordium.com', mainnet: 'https://wallet-proxy.mainnet.concordium.software' };
 // Any identity provider on the network: the proof says which one issued the identity.
 const ISSUERS = Array.from({ length: 16 }, (_, i) => i);
+const EMBARGOED = ['CU', 'IR', 'KP']; // the same list as lib/concordium-proof.js (outside-embargo)
 const $ = (id) => document.getElementById(id);
 const q = new URLSearchParams(location.search);
 $('url').value = q.get('url') || '';
 $('payTo').value = q.get('payTo') || q.get('account') || '';
 if (q.get('network') === 'mainnet') $('network').value = 'mainnet';
-if (q.get('role') === 'buyer') $('role').value = 'buyer';
+if (q.get('role') === 'buyer') $('role').value = q.get('pay') === 'other' ? 'other' : 'buyer';
+// From a seller's 402 (buyer-requirements, binding origin+payer): its site, the network and the address the agent pays from.
+if (q.get('origin')) $('url').value = q.get('origin');
+if (q.get('payerNetwork')) { const o = [...$('payerNetwork').options].find((x) => x.value === q.get('payerNetwork')); if (o) $('payerNetwork').value = o.value; else $('payerNetwork').add(new Option(q.get('payerNetwork'), q.get('payerNetwork'), true, true)); }
+if (q.get('address')) $('payTo').value = q.get('address');
 // Seller: the proof is tied to one site and one payTo, served at /.well-known/concordium-proof.json. Buyer: tied to the
 // account the agent pays from, sent along with its payments.
 const ROLE = {
   seller: { title: 'Prove who stands behind your seller', note: 'The proof is tied to your seller\'s payTo and site, so it can\'t be copied to another one.', label: 'payTo: the Concordium account buyers pay (the proof must come from this account)', which: 'the payTo account', name: 'concordium-proof.json' },
+  other: { title: 'Prove who stands behind your paying agent', note: 'For an agent that pays on another network: the proof is tied to one seller and to the address your agent pays from there, so it is worthless to other sellers and from other addresses. You prove with any account in your Concordium wallet.', label: 'The address your agent pays from on that network', which: 'any of your accounts', name: 'concordium-buyer-proof.json', url: 'The seller (its site is what the proof is tied to)' },
   buyer: { title: 'Prove who stands behind your paying agent', note: 'For sellers that only sell to, say, adults or EU residents: the proof is tied to the account your agent pays from, so it is worthless from any other account.', label: 'The Concordium account your agent pays from (the proof must come from this account)', which: 'that account', name: 'concordium-buyer-proof.json' },
 };
 function showRole() {
   const r = ROLE[$('role').value];
-  const buyer = $('role').value === 'buyer';
+  const role = $('role').value, buyer = role !== 'seller';
   $('title').textContent = r.title;
   document.title = r.title;
   $('role-note').textContent = r.note;
   $('account-label').textContent = r.label;
   $('which').textContent = r.which;
+  $('which-app').textContent = r.which;
   $('file-name').textContent = r.name;
-  $('seller-only').hidden = buyer;
+  $('seller-only').hidden = role === 'buyer';
+  $('url-label').textContent = r.url || 'The paid endpoint (its site is what the proof is tied to)';
+  $('other-only').hidden = role !== 'other';
+  $('network-label').textContent = role === 'other' ? 'Your Concordium identity is on' : 'Network';
   $('out-title').textContent = buyer ? '4. Give it to your agent' : '4. Publish it on your site';
   $('out-seller').hidden = buyer;
-  $('out-buyer').hidden = !buyer;
+  $('out-buyer').hidden = role !== 'buyer';
+  $('out-other').hidden = role !== 'other';
   $('out').hidden = true;
 }
 $('role').onchange = showRole;
@@ -133,80 +166,196 @@ async function sha256Hex(text) {
 // one network and the account it pays from.
 const challengeFor = (network, origin, payTo) => sha256Hex(`concordium-x402-seller-proof:v1|${network}|${origin}|${payTo}`);
 const buyerChallengeFor = (network, account) => sha256Hex(`concordium-x402-buyer-proof:v1|${network}|${account}`);
+// A buyer on another network: one seller (origin) and the address it pays from (CAIP-2 network; EVM lowercased).
+const payerOf = (payerNetwork, address) => (payerNetwork.startsWith('eip155:') ? address.toLowerCase() : address);
+const crossChallengeFor = (network, origin, payerNetwork, address) => sha256Hex(`concordium-x402-buyer-proof:v2|${network}|${origin}|${payerNetwork}|${payerOf(payerNetwork, address)}`);
 const today = () => new Date().toISOString().slice(0, 10).replace(/-/g, '');
 
-$('prove').onclick = async () => {
+// The Concordium Wallet for Web in this browser, or the Concordium app on a phone over WalletConnect (the same way as the
+// Fizzl Agent Wallet's Concordium ID page): connect() gives the account the wallet proves with, prove() the presentation.
+class Stop extends Error {}
+const within = (ms, promise, said) => Promise.race([promise, new Promise((_, no) => setTimeout(() => no(new Stop(said)), ms))]);
+const fromJson = (v) => (typeof v === 'string' ? JSON.parse(v) : v);
+function browserWallet(network) {
+  const w = window.concordium;
+  return {
+    where: 'your wallet',
+    async connect() {
+      if (!w) throw new Stop('No Concordium Wallet for Web found in this browser. Install it, or prove with the Concordium app on your phone.');
+      const [account] = await w.requestAccounts();
+      const chain = String(await w.getSelectedChain() || '');
+      if (!chain.startsWith(GENESIS[network])) throw new Stop(`Switch the wallet to ${network} and try again.`);
+      return account;
+    },
+    async prove(challenge, statements) {
+      const vp = await w.requestVerifiablePresentation(challenge, statements);
+      return JSON.parse(typeof vp === 'string' ? vp : typeof vp?.toString === 'function' && vp.toString() !== '[object Object]' ? vp.toString() : JSON.stringify(vp));
+    },
+    close() {},
+  };
+}
+const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+const appConnect = (uri) => `${IOS ? 'concordiumwallet' : 'cryptox-wc'}://wc?uri=${encodeURIComponent(uri)}`;
+const appOpen = (requestId) => (IOS ? 'concordiumwallet://' : requestId ? `cryptox-wc://r?requestId=${requestId}` : 'cryptox-wc://');
+const loadScript = (src, name) => (window[name] ? Promise.resolve(window[name]) : new Promise((resolve, reject) => {
+  const sc = document.createElement('script');
+  sc.src = src;
+  sc.onload = () => resolve(window[name]);
+  sc.onerror = () => reject(new Stop(`${src} didn't load`));
+  document.head.appendChild(sc);
+}));
+function phoneWallet(network, projectId) {
+  const chainId = `ccd:${network}`;
+  let client = null, session = null, requestId = null;
+  const show = (html) => { $('wc').innerHTML = html; };
+  return {
+    where: 'the Concordium app',
+    async connect() {
+      const SignClient = await loadScript('/vendor/concordium-wc.js', 'WalletConnectSignClient');
+      const away = 'WalletConnect can\'t be reached right now, so the Concordium app can\'t be asked. Try again in a minute.';
+      client = await within(20000, SignClient.init({ projectId, telemetryEnabled: false, metadata: { name: 'x402 Doctor', description: 'Prove who stands behind your seller or agent', url: location.origin, icons: [`${location.origin}/icon.png`] } }), away);
+      client.on('session_request_sent', (e) => { requestId = e?.id ?? null; });
+      const { uri, approval } = await within(20000, client.connect({ optionalNamespaces: { ccd: { chains: [chainId], methods: ['request_verifiable_presentation'], events: [] } } }), away);
+      show(`<p>Scan this with the Concordium wallet app${network === 'testnet' ? ' (testnet)' : ''}: use Scan QR in the app, not the phone's camera. Or, on this phone:</p><a class="btn" href="${esc(appConnect(uri))}">Open the Concordium app</a><img class="qr" src="${esc(window.WalletConnectQr(uri))}" alt="QR code to scan with the Concordium wallet app" width="180" height="180">`);
+      log('Connect an account in the Concordium app…');
+      // No answer in two minutes: most likely there is no Concordium app on the phone (the link opened nothing).
+      session = await within(120000, approval(), 'The Concordium app didn\'t answer. If you don\'t have it yet, install it and create an identity first (see above), then try again.');
+      show('');
+      return String(session.namespaces?.ccd?.accounts?.[0] ?? '').split(':').pop();
+    },
+    async prove(challenge, statements) {
+      requestId = null;
+      const answer = client.request({ topic: session.topic, chainId, request: { method: 'request_verifiable_presentation', params: { paramsJson: JSON.stringify({ challenge, credentialStatements: statements }) } } });
+      const t = setTimeout(() => show(`<p>On this phone:</p><a class="btn" href="${esc(appOpen(requestId))}">Open the Concordium app</a>`), 300);
+      try { return fromJson(fromJson(await answer)?.verifiablePresentationJson); } finally { clearTimeout(t); show(''); }
+    },
+    close() {
+      show('');
+      if (client && session) client.disconnect({ topic: session.topic, reason: { code: 6000, message: 'User disconnected.' } }).catch(() => {});
+    },
+  };
+}
+let walletConnectId = null;
+fetch('/api/v1/concordium/proof-page').then((r) => r.json()).then((c) => {
+  walletConnectId = c?.walletConnect || null;
+  $('phone-way').hidden = !walletConnectId;
+  // On a phone without the Wallet for Web (an iPhone has none): only the app.
+  if (walletConnectId && !window.concordium && /iPhone|iPad|iPod|Android/.test(navigator.userAgent)) $('web-way').hidden = true;
+}).catch(() => {});
+
+$('prove').onclick = () => prove(false);
+$('prove-app').onclick = () => prove(true);
+async function prove(phone) {
   $('prove').disabled = true;
+  $('prove-app').disabled = true;
+  let wallet = null;
   $('log').textContent = '';
   $('table').hidden = true;
   $('out').hidden = true;
   file = null;
   try {
     const network = $('network').value;
-    const buyer = $('role').value === 'buyer';
+    const role = $('role').value, buyer = role === 'buyer', other = role === 'other';
     let origin = null;
     if (!buyer) {
-      try { const u = new URL($('url').value.trim()); if (u.protocol !== 'https:') throw new Error(); origin = u.origin.toLowerCase(); } catch { throw new Error('Give the paid endpoint as an https URL.'); }
+      try { const u = new URL($('url').value.trim()); if (u.protocol !== 'https:') throw new Error(); origin = u.origin.toLowerCase(); } catch { throw new Error(other ? 'Give the seller as an https URL.' : 'Give the paid endpoint as an https URL.'); }
     }
     const payTo = $('payTo').value.trim();
-    if (!/^[1-9A-HJ-NP-Za-km-z]{50}$/.test(payTo)) throw new Error(buyer ? 'Give the account your agent pays from (a Concordium account address).' : 'payTo must be a Concordium account address.');
-    const proves = [['p-age', 'adult'], ['p-eu-res', 'eu-residence'], ['p-eu-nat', 'eu-nationality'], ['p-doc', 'id-document-valid']].filter(([id]) => $(id).checked).map(([, k]) => k);
-    if (!proves.length) throw new Error('Pick at least one fact to prove.');
-    const provider = window.concordium;
-    if (!provider) throw new Error('No Concordium Wallet for Web found in this browser.');
-    const [account] = await provider.requestAccounts();
-    const chain = String(await provider.getSelectedChain() || '');
-    if (!chain.startsWith(GENESIS[network])) throw new Error(`Switch the wallet to ${network} and try again.`);
-    if (account !== payTo) log(`The wallet's active account is ${account}, not ${payTo}. The proof will only hold if it comes from ${payTo}: switch to it in the wallet if the proof fails.`, 'warn');
+    const payerNetwork = $('payerNetwork').value;
+    if (other) {
+      const ok = payerNetwork.startsWith('eip155:') ? /^0x[0-9a-fA-F]{40}$/.test(payTo) : payerNetwork.startsWith('solana:') ? /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(payTo) : payerNetwork.startsWith('algorand:') ? /^[A-Z2-7]{58}$/.test(payTo) : payerNetwork.startsWith('stellar:') ? /^G[A-Z2-7]{55}$/.test(payTo) : payTo.length > 0;
+      if (!ok) throw new Stop('Give the address your agent pays from on that network.');
+    } else if (!/^[1-9A-HJ-NP-Za-km-z]{50}$/.test(payTo)) throw new Stop(buyer ? 'Give the account your agent pays from (a Concordium account address).' : 'payTo must be a Concordium account address.');
+    const proves = [['p-age', 'adult'], ['p-eu-res', 'eu-residence'], ['p-eu-nat', 'eu-nationality'], ['p-doc', 'id-document-valid'], ['p-embargo', 'outside-embargo']].filter(([id]) => $(id).checked).map(([, k]) => k);
+    if (!proves.length) throw new Stop('Pick at least one fact to prove.');
+    wallet = phone ? phoneWallet(network, walletConnectId) : browserWallet(network);
+    log(`Connecting to ${wallet.where}…`);
+    const account = await wallet.connect();
+    if (!account) throw new Stop(`${phone ? 'The app' : 'The wallet'} didn't share an account.`);
+    if (!other && account !== payTo) log(`${phone ? 'The app connected' : 'The wallet\'s active account is'} ${account}, not ${payTo}. The proof will only hold if it comes from ${payTo}: ${phone ? 'connect that account in the app' : 'switch to it in the wallet'} if the proof fails.`, 'warn');
     const sdk = await import('https://esm.sh/@concordium/web-sdk@12.0.2');
     const statements = new sdk.Web3StatementBuilder().addForIdentityCredentials(ISSUERS, (b) => {
       if (proves.includes('adult')) b.addMinimumAge(18);
       if (proves.includes('eu-residence')) b.addEUResidency();
       if (proves.includes('eu-nationality')) b.addEUNationality();
       if (proves.includes('id-document-valid')) b.addRange('idDocExpiresAt', today(), '99991231');
+      if (proves.includes('outside-embargo')) { b.addNonMembership('nationality', EMBARGOED); b.addNonMembership('countryOfResidence', EMBARGOED); }
     }).getStatements();
-    const challenge = buyer ? await buyerChallengeFor(network, payTo) : await challengeFor(network, origin, payTo);
-    log('Confirm the proof in your wallet…');
-    const vp = await provider.requestVerifiablePresentation(challenge, statements);
-    const presentation = JSON.parse(typeof vp === 'string' ? vp : typeof vp?.toString === 'function' && vp.toString() !== '[object Object]' ? vp.toString() : JSON.stringify(vp));
+    const challenge = other ? await crossChallengeFor(network, origin, payerNetwork, payTo) : buyer ? await buyerChallengeFor(network, payTo) : await challengeFor(network, origin, payTo);
+    log(`Confirm the proof in ${wallet.where}…`);
+    const presentation = await wallet.prove(challenge, statements);
     log('Checking the proof with Concordium\'s verifier…');
     const res = await fetch(VERIFIER[network], { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(presentation) });
     const text = await res.text();
-    if (res.status !== 200) throw new Error(`Concordium's verifier refused the proof (${res.status}): ${text.slice(0, 200)}`);
+    if (res.status !== 200) throw new Stop(`Concordium's verifier refused the proof (${res.status}): ${text.slice(0, 200)}`);
     const verified = JSON.parse(text);
     // The proof is bound to presentationContext (the challenge the wallet proved for). The verifier checked the proofs
     // against it; here we check it is ours, so the proof is tied to this network, site and payTo (or paying account).
-    if (String(presentation.presentationContext || '').toLowerCase() !== challenge) throw new Error(`The wallet proved for another challenge (${presentation.presentationContext}).`);
+    if (String(presentation.presentationContext || '').toLowerCase() !== challenge) throw new Stop(`The wallet proved for another challenge (${presentation.presentationContext}).`);
     const echoed = verified?.request?.challenge ?? verified?.challenge;
-    if (echoed && String(echoed).toLowerCase() !== challenge) throw new Error(`The verifier answered for another challenge (${echoed}).`);
+    if (echoed && String(echoed).toLowerCase() !== challenge) throw new Stop(`The verifier answered for another challenge (${echoed}).`);
     const cred = (presentation.verifiableCredential || [])[0]?.credentialSubject?.id || '';
     // The wallet proves with the account that is active in it, whichever one this page names: check that the credential
     // is the named account's own, or the file would be refused everywhere.
     const credId = String(cred.split(':cred:')[1] || '').toLowerCase();
     let key = '';
-    try { key = String((await (await fetch(`${WALLET_PROXY[network]}/v0/accEncryptionKey/${payTo}`)).json())?.accountEncryptionKey || '').toLowerCase(); } catch { key = ''; }
-    if (!key) log(`Could not read account ${payTo} to check that the proof came from it.`, 'warn');
-    else if (!credId || !key.endsWith(credId)) throw new Error(`The wallet proved with another account's credential (${credId.slice(0, 12)}…), not ${payTo}'s. In the wallet, make ${payTo.slice(0, 8)}… the active account first, then try again.`);
-    file = buyer
+    if (!other) try { key = String((await (await fetch(`${WALLET_PROXY[network]}/v0/accEncryptionKey/${payTo}`)).json())?.accountEncryptionKey || '').toLowerCase(); } catch { key = ''; }
+    if (other) { /* no Concordium account pays: any of the owner's credentials will do */ } else if (!key) log(`Could not read account ${payTo} to check that the proof came from it.`, 'warn');
+    else if (!credId || !key.endsWith(credId)) throw new Stop(`The wallet proved with another account's credential (${credId.slice(0, 12)}…), not ${payTo}'s. In the wallet, make ${payTo.slice(0, 8)}… the active account first, then try again.`);
+    const payerKey = other && $('control').checked ? await payerKeyFor(network, payerNetwork, payerOf(payerNetwork, payTo)) : null;
+    file = other
+      ? { type: 'concordium-x402-buyer-proof', version: 2, network, origin, payer: { network: payerNetwork, address: payerOf(payerNetwork, payTo), ...(payerKey ? { key: payerKey.key } : {}) }, proves, challenge, created: new Date().toISOString(), presentation }
+      : buyer
       ? { type: 'concordium-x402-buyer-proof', version: 1, network, account: payTo, proves, challenge, created: new Date().toISOString(), presentation }
       : { type: 'concordium-x402-seller-proof', version: 1, network, origin, payTo, proves, challenge, created: new Date().toISOString(), presentation };
     $('table').hidden = false;
     $('table').querySelector('tbody').innerHTML = [
       ['Proof', '<span class="ok">valid (Concordium verifier) ✓</span>'],
       ['Proves', esc(proves.join(', '))],
-      ['Tied to', buyer ? `payments from ${esc(payTo)}` : `${esc(origin)}<br>${esc(payTo)}`],
+      ['Tied to', other ? `${esc(origin)}<br>payments from ${esc(payerOf(payerNetwork, payTo))} (${esc($('payerNetwork').selectedOptions[0].text)})` : buyer ? `payments from ${esc(payTo)}` : `${esc(origin)}<br>${esc(payTo)}`],
+      ...(payerKey ? [['Control', `<span class="ok">the address's key is bound to ${esc(payerKey.account)} with CIS-8 ✓</span>`]] : []),
       ['Credential', esc(cred)],
       ['Verified in block', esc(verified.block || '')],
     ].map(([k, v]) => `<tr><th>${k}</th><td>${v}</td></tr>`).join('');
-    if (!buyer) $('where').textContent = `${origin}/.well-known/concordium-proof.json`;
+    if (!buyer && !other) $('where').textContent = `${origin}/.well-known/concordium-proof.json`;
     $('out').hidden = false;
-    log(buyer ? 'Done: the proof is valid. Give it to your agent (step 4).' : 'Done: the proof is valid. Publish it (step 4).', 'ok');
+    log(buyer || other ? 'Done: the proof is valid. Give it to your agent (step 4).' : 'Done: the proof is valid. Publish it (step 4).', 'ok');
   } catch (err) {
-    log(err?.message || String(err), 'bad');
+    const said = err?.message || String(err);
+    if (phone) $('no-app').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    log(err instanceof Stop || !phone ? said : /reject|denied|cancel|closed|expired/i.test(said) ? 'You didn\'t approve it in the app. Nothing was shared.' : `The app said: ${said}`, 'bad');
   } finally {
+    wallet?.close();
     $('prove').disabled = false;
+    $('prove-app').disabled = false;
   }
-};
+}
+// The paying address's key, when CIS-8 binds it to a Concordium account (x402 Doctor's /api/v1/concordium/payer-key).
+// Solana: the address is the key. EVM: the paying wallet in this browser signs a message the key is recovered from.
+// The facilitator then sees control (binding payer-key), if the account that bound the key also made the proof.
+// Anything short of a binding leaves the file as it is (a vouch for the address), with the reason in the log.
+async function payerKeyFor(network, payerNetwork, address) {
+  let signature;
+  try {
+    if (payerNetwork.startsWith('eip155:')) {
+      if (!window.ethereum) { log('Control not added: no EVM wallet in this browser to sign with (MetaMask, Coinbase Wallet…). The file still works as a vouch for the address.', 'warn'); return null; }
+      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+      if (!accounts.some((a) => a.toLowerCase() === address.toLowerCase())) { log(`Control not added: the EVM wallet here holds ${accounts[0] || 'no account'}, not ${address}. Switch to it and try again.`, 'warn'); return null; }
+      const { message } = await (await fetch(`/api/v1/concordium/payer-key?payerNetwork=${encodeURIComponent(payerNetwork)}&address=${encodeURIComponent(address)}`)).json();
+      log('Sign the key check in your EVM wallet (it moves no funds)…');
+      signature = await window.ethereum.request({ method: 'personal_sign', params: [`0x${Array.from(new TextEncoder().encode(message), (b) => b.toString(16).padStart(2, '0')).join('')}`, address] });
+    }
+    const res = await fetch('/api/v1/concordium/payer-key', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ network, payerNetwork, address, ...(signature ? { signature } : {}) }) });
+    const out = await res.json();
+    if (!res.ok) { log(`Control not added: ${out.error || res.status}`, 'warn'); return null; }
+    if (out.bound !== true) { log(`Control not added: ${out.reason || 'no binding'}. The file still works as a vouch for the address.`, 'warn'); return null; }
+    log(`The address's key is bound to ${out.account} in the CIS-8 registry. The facilitator checks that this account also made the proof.`, 'ok');
+    return out;
+  } catch (err) {
+    log(`Control not added: ${String(err?.message || err).slice(0, 120)}. The file still works as a vouch for the address.`, 'warn');
+    return null;
+  }
+}
 $('download').onclick = () => {
   if (!file) return;
   const a = document.createElement('a');

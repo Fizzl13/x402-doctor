@@ -60,6 +60,7 @@
   <div class="step">
     <h2>3. Bind your EVM payTo to the agent (optional)</h2>
     <p>A payTo on Base or another EVM chain counts as the agent's when its key is bound with CIS-8 and the agent names that key (<code>setExternalReference</code>). First link the key to your Concordium account in <a href="https://agent-registry.concordium.com" target="_blank" rel="noopener">Concordium's Agent Registry</a>: Register Agent → Cross-Chain → your chain → Connect Wallet, Prove Ownership, Link Key, and stop there (no Sign &amp; Register). Then come back here: MetaMask signs one message to show your public key (no transaction), and your Concordium wallet signs <code>setExternalReference</code>.</p>
+    <p>An Algorand or Stellar payTo: <a href="/concordium-payto.html">bind it on its own page</a> (its address is its key, so no <code>setExternalReference</code> is needed).</p>
     <button id="link" disabled>Find my key and bind it</button>
     <div id="log2"></div>
   </div>
